@@ -37,6 +37,15 @@ type Props = {
   onMonthChange?: (month: string) => void;
 };
 
+type JournalLoadState = {
+  monthKey: string;
+  loader: Props['loadReport'];
+  report: HealthReportData | null;
+  loading: boolean;
+  error: boolean;
+  accessDenied: boolean;
+};
+
 const STATUS_COLORS: Record<JournalStatus, { background: string; foreground: string; border: string }> = {
   fine: { background: '#dcfce7', foreground: '#065f46', border: '#a7f3d0' },
   tired: { background: '#fef3c7', foreground: '#92400e', border: '#fde68a' },
@@ -145,43 +154,57 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
     [typography, colors, isDark],
   );
   const [month, setMonth] = useState(() => initialMonth ? parseCalendarDate(`${initialMonth}-01`) : startOfMonth(new Date()));
-  const [report, setReport] = useState<HealthReportData | null>(null);
-  const [selectedSession, setSelectedSession] = useState<JournalSession | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [accessDenied, setAccessDenied] = useState(false);
+  const [loadState, setLoadState] = useState<JournalLoadState | null>(null);
+  const [selectedEntry, setSelectedSession] = useState<JournalSession | null>(null);
   const [retryKey, setRetryKey] = useState(0);
 
   const monthKey = toMonthKey(month);
+  const sameSource = loadState?.monthKey === monthKey && loadState.loader === loadReport;
+  const report = sameSource ? loadState.report : null;
+  const loading = !sameSource || loadState.loading;
+  const error = sameSource && loadState.error;
+  const accessDenied = sameSource && loadState.accessDenied;
+  const selectedSession = selectedEntry && report
+    ? report.sessions.find((session) => session.id === selectedEntry.id && session.date === selectedEntry.date) ?? null
+    : null;
   const currentMonth = startOfMonth(new Date());
   useEffect(() => { onMonthChange?.(monthKey); }, [monthKey, onMonthChange]);
   const canMoveNext = month.getTime() < currentMonth.getTime();
 
+  useEffect(() => { setSelectedSession(null); }, [monthKey, loadReport]);
+
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError(false);
-    setAccessDenied(false);
-    setReport(null);
-    setSelectedSession(null);
-    (loadReport ? loadReport(monthKey) : checkinApi.getReport('month', monthKey))
-      .then((result) => {
+    setLoadState((previous) => ({
+      monthKey,
+      loader: loadReport,
+      report: previous?.monthKey === monthKey && previous.loader === loadReport ? previous.report : null,
+      loading: true,
+      error: false,
+      accessDenied: false,
+    }));
+    const load = async () => {
+      try {
+        const result = await (loadReport ? loadReport(monthKey) : checkinApi.getReport('month', monthKey));
         if (active) {
-          setReport(result);
+          setLoadState({ monthKey, loader: loadReport, report: result, loading: false, error: false, accessDenied: false });
         }
-      })
-      .catch((failure) => {
+      } catch (failure) {
         if (active) {
-          setReport(null);
-          setError(true);
-          setAccessDenied(failure instanceof ApiError && (failure.statusCode === 403 || failure.statusCode === 404));
+          const denied = failure instanceof ApiError && [401, 403, 404].includes(failure.statusCode);
+          setLoadState((previous) => ({
+            monthKey,
+            loader: loadReport,
+            report: !denied && previous?.monthKey === monthKey && previous.loader === loadReport ? previous.report : null,
+            loading: false,
+            error: true,
+            accessDenied: denied,
+          }));
+          if (denied) setSelectedSession(null);
         }
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
+      }
+    };
+    void load();
     return () => {
       active = false;
     };
@@ -279,9 +302,14 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
             <Ionicons name="chevron-back" size={20} color={isDark ? '#34d399' : '#059669'} />
           </Pressable>
 
-          <Text style={styles.monthTitle}>
-            {t('journalMonthLabel', { month: month.getMonth() + 1, year: month.getFullYear() })}
-          </Text>
+          <View style={styles.monthHeading}>
+            <Text style={styles.monthTitle}>
+              {t('journalMonthLabel', { month: month.getMonth() + 1, year: month.getFullYear() })}
+            </Text>
+            <View style={styles.loadingIndicator}>
+              {loading && <ActivityIndicator size="small" color={colors.primaryDark} accessibilityLabel={t(report ? 'journalUpdating' : 'journalLoading')} />}
+            </View>
+          </View>
 
           <Pressable
             onPress={() => canMoveNext && setMonth((value) => shiftMonth(value, 1))}
@@ -305,16 +333,19 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
         </View>
 
         {/* Summary Card */}
-        {showSummary && (loading || hasMonthCheckins) ? (
+        {showSummary && (!error || report) ? (
           <View style={[styles.summaryCard, plain && styles.plain]}>
             <CalendarHeartIcon color={isDark ? '#34d399' : '#059669'} size={38} />
             <View style={[styles.summaryContent, plain && { paddingRight: 0 }]}>
-              {loading ? (
-                <ActivityIndicator color={colors.primaryDark} />
+              {loading && !report ? (
+                <View style={styles.loadingLines} accessible={false}>
+                  <View style={styles.loadingLine} />
+                  <View style={[styles.loadingLine, { width: '65%' }]} />
+                </View>
               ) : (
                 <>
                   <Text style={styles.summaryTitle}>
-                    {subjectName
+                    {!hasMonthCheckins ? t('journalNoCheckin') : subjectName
                       ? tc(attentionDays > 0 ? 'memberSummaryAttention' : 'memberSummaryFine', { name: subjectName, fine: fineDays, attention: attentionDays })
                       : attentionDays > 0
                         ? t('journalSummaryAttention', { fine: fineDays, attention: attentionDays })
@@ -329,7 +360,7 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
                         })}
                       </Text>
                     </View>
-                  ) : null}
+                  ) : <Text style={styles.summaryMeta}>{t('journalNoCheckinHint')}</Text>}
                 </>
               )}
             </View>
@@ -342,7 +373,7 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
           </View>
         ) : null}
 
-        {error ? (
+        {error && !report ? (
           <View style={styles.errorState}>
             <Ionicons name="cloud-offline-outline" size={24} color={colors.textSecondary} />
             <Text style={styles.errorText}>{accessDenied ? tc('healthAccessRequired') : t('journalLoadError')}</Text>
@@ -360,7 +391,7 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
             </View>
 
             {/* Calendar Grid */}
-            <View style={styles.calendarGrid}>
+            <View style={styles.calendarGrid} accessibilityState={{ busy: loading }}>
               {calendarSlots.map((day, index) => {
                 if (day === null) {
                   return (
@@ -370,6 +401,11 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
                   );
                 }
                 const dateKey = toDateKey(month.getFullYear(), month.getMonth(), day);
+                if (loading && !report) {
+                  return <View key={dateKey} style={styles.daySlot}>
+                    <View testID="journal-day-loading" style={[styles.dayCell, styles.loadingDay]} accessible={false} />
+                  </View>;
+                }
                 const session = sessionsByDate.get(dateKey);
                 const status = session ? normalizeStatus(session.status) : null;
                 const statusColors = status ? (isDark ? DARK_STATUS_COLORS[status] : STATUS_COLORS[status]) : null;
@@ -443,7 +479,12 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
         )}
       </View>}
 
-      {showAttention && !loading && !error && (
+      {error && report && <View style={styles.errorState}>
+        <Text style={styles.errorText}>{t('journalRefreshError')}</Text>
+        <Pressable onPress={() => setRetryKey((value) => value + 1)} style={styles.retryButton} accessibilityRole="button"><Text style={styles.retryText}>{t('journalRetry')}</Text></Pressable>
+      </View>}
+
+      {showAttention && report && !accessDenied && (
         <View style={styles.attentionSection}>
           {!attentionOnly && <Text style={styles.attentionTitle}>{t('journalAttentionDays')}</Text>}
           {attentionSessions.length > 0 ? (
@@ -494,9 +535,11 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
           )}
         </View>
       )}
-      {attentionOnly && loading && <ActivityIndicator color={colors.primaryDark} />}
-      {attentionOnly && error && <View style={styles.errorState}>
-        <Text style={styles.errorText}>{t('journalLoadError')}</Text>
+      {attentionOnly && loading && !report && <View style={styles.attentionSection} accessibilityRole="progressbar" accessibilityLabel={t('journalLoading')}>
+        {[0, 1, 2].map((index) => <View key={index} testID="journal-attention-loading" style={[styles.attentionCard, styles.loadingDay]} accessible={false} />)}
+      </View>}
+      {attentionOnly && error && !report && <View style={styles.errorState}>
+        <Text style={styles.errorText}>{accessDenied ? tc('healthAccessRequired') : t('journalLoadError')}</Text>
         <Pressable onPress={() => setRetryKey((value) => value + 1)} style={styles.retryButton}><Text style={styles.retryText}>{t('journalRetry')}</Text></Pressable>
       </View>}
 
@@ -664,6 +707,11 @@ function createStyles(
       fontSize: 22,
       fontWeight: '800',
     },
+    monthHeading: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+    loadingIndicator: { width: 20, minHeight: 20 },
+    loadingDay: { backgroundColor: isDark ? '#213b36' : '#e5f1ed', borderColor: 'transparent' },
+    loadingLines: { gap: 10 },
+    loadingLine: { height: 14, width: '90%', borderRadius: 7, backgroundColor: isDark ? '#213b36' : '#e5f1ed' },
     summaryCard: {
       backgroundColor: isDark ? '#064e3b18' : '#f0fbf7',
       borderColor: isDark ? '#064e3b' : '#d1fae5',

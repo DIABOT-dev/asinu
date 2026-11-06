@@ -15,6 +15,7 @@ export function useHealthTreeOverview() {
   const userId = useAuthStore((state) => state.profile?.id) ?? null;
   const focused = useRef(false);
   const request = useRef(0);
+  const calendarOwner = useRef<string | null>(null);
   const [state, setState] = useState<OverviewState>({
     userId: null,
     score: null,
@@ -28,6 +29,12 @@ export function useHealthTreeOverview() {
     async (refreshing = false) => {
       if (!focused.current || !userId) return;
       const requestId = ++request.current;
+      // The calendar loads itself on mount. Later visits and explicit refreshes
+      // invalidate it immediately, independently of the health-score request.
+      if (calendarOwner.current === userId) {
+        setRefreshKey((value) => value + 1);
+      }
+      calendarOwner.current = userId;
       setState((previous) => {
         const score = previous.userId === userId ? previous.score : null;
         return {
@@ -48,7 +55,6 @@ export function useHealthTreeOverview() {
             refreshing: false,
             error: false,
           });
-          setRefreshKey((value) => value + 1);
         }
       } catch {
         if (focused.current && request.current === requestId) {

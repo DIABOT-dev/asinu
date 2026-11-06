@@ -102,6 +102,12 @@ function runtime() {
         slot.cleanup = null;
       });
     },
+    focus() {
+      focused = true;
+      slots.forEach((slot) => {
+        if (slot.callback && !slot.cleanup) slot.cleanup = slot.callback();
+      });
+    },
   };
 }
 let checks = 0;
@@ -351,6 +357,7 @@ function treeHarness() {
     error: false,
     pending: null,
   };
+  const calls = { scores: 0 };
   const { useHealthTreeOverview } = evaluate(
     "src/features/tree/useHealthTreeOverview.ts",
     {
@@ -360,6 +367,7 @@ function treeHarness() {
       "../checkin/checkin.api": {
         checkinApi: {
           getHealthScore: async () => {
+            calls.scores++;
             if (server.pending) return server.pending;
             if (server.error) throw new Error("offline");
             return server.score;
@@ -372,10 +380,33 @@ function treeHarness() {
     ...r,
     server,
     auth,
+    calls,
     read: () => r.render(useHealthTreeOverview),
     settle: () => r.settle(useHealthTreeOverview),
   };
 }
+await test("initial health-score completion does not invalidate the calendar that is already loading", async () => {
+  const h = treeHarness(); let finish;
+  h.server.pending = new Promise(resolve => { finish = resolve; });
+  await h.settle(); assert.equal(h.read().refreshKey, 0);
+  finish(h.server.score); await flush();
+  assert.equal(h.read().refreshKey, 0); assert.equal(h.calls.scores, 1); h.blur();
+});
+await test("calendar refresh starts once per pull and is independent of the health-score response", async () => {
+  const h = treeHarness(); await h.settle(); let finish;
+  h.server.pending = new Promise(resolve => { finish = resolve; });
+  const pending = h.read().refresh();
+  assert.equal(h.read().refreshKey, 1); assert.equal(h.read().refreshing, true);
+  finish(h.server.score); await pending;
+  assert.equal(h.read().refreshKey, 1);
+  h.server.pending = null; h.server.error = true;
+  await h.read().refresh();
+  assert.equal(h.read().refreshKey, 2); assert.equal(h.read().error, true); h.blur();
+});
+await test("returning to Overview updates its calendar once without a second update after the score finishes", async () => {
+  const h = treeHarness(); await h.settle(); h.blur(); h.focus(); await flush();
+  assert.equal(h.calls.scores, 2); assert.equal(h.read().refreshKey, 1); h.blur();
+});
 await test("failed health refresh preserves the real status and exposes retry", async () => {
   const h = treeHarness();
   await h.settle();

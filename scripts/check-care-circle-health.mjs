@@ -112,6 +112,7 @@ function harness({ language = 'vi', loadReport, subjectName = 'Parent', multipli
   const palette = { textPrimary: '#123456', textSecondary: '#456789', primary: '#008877', primaryDark: '#006655' };
   const typography = { size: { xxs: 12, xs: 14, sm: 16, md: 18, lg: 22 }, scaledSize: { sm: 16 * multiplier } };
   const selfCalls = [];
+  const props = { loadReport, subjectName };
   const { HealthJournalCalendar } = evaluate(read('src/components/HealthJournalCalendar.tsx'), {
     react: { __esModule: true, default: hooks, ...hooks },
     'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', ScrollView: 'ScrollView', Modal: 'Modal', ActivityIndicator: 'ActivityIndicator', StyleSheet: { create: value => value, absoluteFill: {} } },
@@ -127,7 +128,7 @@ function harness({ language = 'vi', loadReport, subjectName = 'Parent', multipli
   }, FixedDate);
   const render = () => {
     cursor = 0;
-    const tree = HealthJournalCalendar({ loadReport, subjectName });
+    const tree = HealthJournalCalendar(props);
     const nodes = [];
     const visit = node => {
       if (!node || typeof node !== 'object') return;
@@ -137,12 +138,82 @@ function harness({ language = 'vi', loadReport, subjectName = 'Parent', multipli
     visit(tree);
     return nodes;
   };
-  return { render, selfCalls, t: translate('tree'), tc: translate('careCircle'),
+  return { render, props, selfCalls, t: translate('tree'), tc: translate('careCircle'),
     effects: () => { const next = pending; pending = []; next.forEach(effect => effect()); },
     unmount: () => slots.forEach(slot => slot?.cleanup?.()),
   };
 }
 const text = nodes => nodes.filter(node => node.type === 'Text').map(node => node.props.children).join(' ');
+const checkinDay = (nodes, h) => nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === h.t('journalDayAccessibility', { day: 2, status: h.t('journalStatusFine') }));
+for (const language of ['vi', 'en']) {
+  await test(`${language}: initial loading reserves the calendar grid without calling days missing or showing empty summaries`, async () => {
+    let finish;
+    const h = harness({ language, loadReport: () => new Promise(resolve => { finish = resolve; }) });
+    const first = h.render();
+    assert.equal(first.filter(node => node.props?.testID === 'journal-day-loading').length, 31);
+    assert.equal(first.some(node => node.type === 'Pressable' && node.props.accessibilityLabel?.includes(h.t('journalStatusMissing'))), false);
+    assert.equal(text(first).includes(h.t('journalNoCheckin')), false);
+    assert.equal(text(first).includes(h.t('journalNoEntries')), false);
+    h.effects(); finish(report); await flush();
+    assert.ok(checkinDay(h.render(), h)); h.unmount();
+  });
+}
+await test('background calendar refresh preserves the loaded days and the open day sheet until fresh data arrives', async () => {
+  let finish, refreshing = false;
+  const h = harness({ loadReport: () => refreshing ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(report) });
+  h.render(); h.effects(); await flush();
+  checkinDay(h.render(), h).props.onPress();
+  refreshing = true; h.props.refreshKey = 1;
+  assert.ok(checkinDay(h.render(), h)); h.effects();
+  let nodes = h.render();
+  assert.ok(checkinDay(nodes, h));
+  assert.equal(nodes.find(node => node.type === 'Modal').props.visible, true);
+  assert.equal(nodes.filter(node => node.props?.testID === 'journal-day-loading').length, 0);
+  finish({ ...report, sessions: [{ ...report.sessions[0], summary: 'Fresh fixture detail' }] });
+  await flush(); nodes = h.render();
+  assert.ok(text(nodes).includes('Fresh fixture detail'));
+  assert.equal(nodes.find(node => node.type === 'Modal').props.visible, true); h.unmount();
+});
+await test('a failed background update keeps existing entries with an honest retry notice', async () => {
+  let failure;
+  const h = harness({ loadReport: () => failure ? Promise.reject(failure) : Promise.resolve(report) });
+  h.render(); h.effects(); await flush();
+  failure = new Error('fixture offline'); h.props.refreshKey = 1;
+  h.render(); h.effects(); await flush();
+  let nodes = h.render(); assert.ok(checkinDay(nodes, h));
+  assert.ok(text(nodes).includes(h.t('journalRefreshError')));
+  assert.equal(text(nodes).includes(h.t('journalNoCheckin')), false);
+  failure = null;
+  nodes.find(node => node.type === 'Pressable' && text(flattenElements(node)).includes(h.t('journalRetry'))).props.onPress();
+  h.render(); h.effects(); await flush(); nodes = h.render();
+  assert.ok(checkinDay(nodes, h)); assert.equal(text(nodes).includes(h.t('journalRefreshError')), false); h.unmount();
+});
+for (const status of [401, 403, 404]) {
+  await test(`${status}: access loss clears cached calendar data and the open day sheet`, async () => {
+    let denied = false;
+    const h = harness({ loadReport: () => denied ? Promise.reject(new ApiError(status)) : Promise.resolve(report) });
+    h.render(); h.effects(); await flush(); checkinDay(h.render(), h).props.onPress();
+    denied = true; h.props.refreshKey = 1;
+    h.render(); h.effects(); await flush(); const nodes = h.render();
+    assert.equal(checkinDay(nodes, h), undefined);
+    assert.ok(text(nodes).includes(h.tc('healthAccessRequired')));
+    assert.equal(text(nodes).includes(h.t('journalNoCheckin')), false);
+    assert.equal(nodes.find(node => node.type === 'Modal').props.visible, false); h.unmount();
+  });
+}
+await test('changing the calendar patient hides previous data before effects and rejects a late previous-patient response', async () => {
+  let finish, refreshing = false;
+  const h = harness({ loadReport: () => refreshing ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(report) });
+  h.render(); h.effects(); await flush();
+  refreshing = true; h.props.refreshKey = 1; h.render(); h.effects();
+  h.props.loadReport = () => Promise.resolve({ ...report, checkinDays: 0, sessions: [], statusDistribution: {} });
+  let nodes = h.render();
+  assert.equal(checkinDay(nodes, h), undefined);
+  assert.equal(nodes.filter(node => node.props?.testID === 'journal-day-loading').length, 31);
+  h.effects(); await flush(); finish(report); await flush(); nodes = h.render();
+  assert.equal(checkinDay(nodes, h), undefined);
+  assert.ok(text(nodes).includes(h.t('journalNoEntries'))); h.unmount();
+});
 for (const language of ['vi', 'en']) {
   await test(`${language}: the member calendar calls only the member API and opens day details`, async () => {
     const calls = [];
