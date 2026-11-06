@@ -832,4 +832,66 @@ await test('an old modal toast timeout cannot hide a newer toast', async () => {
   assert.equal(h.modal('profile').props.message, 'new-validation');
   h.unmount('profile');
 });
+// Run the actual profile logout callback against the persistent toast host.
+const profileAst = ts.createSourceFile('profile.tsx', read('app/(tabs)/profile/index.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+let logoutCallback;
+function findLogout(node) {
+  if (ts.isVariableDeclaration(node) && node.name.getText(profileAst) === 'handleLogout') logoutCallback = node.initializer.arguments[0].getText(profileAst);
+  ts.forEachChild(node, findLogout);
+}
+findLogout(profileAst);
+assert.ok(logoutCallback);
+const { createLogoutHandler } = evaluate(`export function createLogoutHandler(deps) {
+  const { logout, setShowLogoutModal, showToast, setPendingToast, t, router } = deps;
+  return ${logoutCallback};
+}`);
+const loginAst = ts.createSourceFile('login.tsx', read('app/login/email.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+let loginMount;
+function findLoginMount(node) {
+  if (ts.isCallExpression(node) && node.expression.getText(loginAst) === 'React.useEffect' && node.arguments[0]?.getText(loginAst).includes('flushPending()')) loginMount = node.arguments[0].getText(loginAst);
+  ts.forEachChild(node, findLoginMount);
+}
+findLoginMount(loginAst);
+assert.ok(loginMount);
+const { mountLogin } = evaluate(`export function mountLogin(deps) {
+  const { flushPending, useAuthStore } = deps;
+  return (${loginMount})();
+}`);
+for (const language of ['vi', 'en']) {
+  for (const loginFirst of [true, false]) {
+    await test(`${language}: logout success remains visible when Login mounts ${loginFirst ? 'before' : 'after'} logout completes`, async () => {
+      const h = toastHarness(); const expected = JSON.parse(read(`src/i18n/locales/${language}/profile.json`)).logoutSuccess;
+      let finish; const pending = new Promise(resolve => { finish = resolve; });
+      const routes = []; const visibility = [];
+      const confirm = createLogoutHandler({
+        logout: () => pending, setShowLogoutModal: value => visibility.push(value),
+        showToast: h.showToast, setPendingToast: h.setPendingToast, t: key => { assert.equal(key, 'logoutSuccess'); return expected; },
+        router: { replace: path => routes.push(path) },
+      });
+      const enterLogin = () => mountLogin({ flushPending: h.useToastStore.getState().flushPending, useAuthStore: { setState() {} } });
+      const work = confirm();
+      assert.deepEqual(visibility, [false]); assert.equal(h.root().props.visible, false);
+      assert.equal(h.useToastStore.getState().pending, null, 'success must not be queued before logout completes');
+      if (loginFirst) enterLogin();
+      finish(); await work;
+      assert.equal(h.root().props.visible, true); assert.equal(h.root().props.message, expected);
+      assert.equal(h.root().props.type, 'success'); assert.deepEqual(routes, ['/login']);
+      if (!loginFirst) enterLogin();
+      assert.equal(h.useToastStore.getState().toastId, 1, 'navigation must not duplicate the success message');
+      assert.equal(h.useToastStore.getState().pending, null, 'logout feedback must not leak into the next login');
+    });
+  }
+}
+await test('an incomplete logout cannot show success or navigate to Login', async () => {
+  const h = toastHarness(); const routes = [];
+  const confirm = createLogoutHandler({
+    logout: async () => { throw new Error('local logout cleanup failed'); }, setShowLogoutModal() {},
+    showToast: h.showToast, setPendingToast: h.setPendingToast, t: () => 'Logged out successfully',
+    router: { replace: path => routes.push(path) },
+  });
+  await assert.rejects(confirm(), /local logout cleanup failed/);
+  assert.equal(h.root().props.visible, false); assert.equal(h.useToastStore.getState().pending, null);
+  assert.deepEqual(routes, []);
+});
+
 console.log(`Profile editing: ${checks} runtime regressions passed.`);

@@ -533,7 +533,8 @@ export default function ProfileScreen() {
   const handleLogout = useCallback(async () => {
     setShowLogoutModal(false);
     await logout();
-    setPendingToast(t("logoutSuccess"), "success");
+    // Login can already be mounted by the auth guard when logout finishes.
+    showToast(t("logoutSuccess"), "success");
     router.replace("/login");
   }, [logout, t, router]);
 
