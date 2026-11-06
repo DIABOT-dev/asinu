@@ -18,7 +18,7 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 
 export function ProfileMascotGreeting() {
   const { t } = useTranslation('profile');
-  const { colors, isDark } = useThemeColors();
+  const { colors } = useThemeColors();
   const reducedMotion = useReducedMotion();
   const lift = useSharedValue(0);
   useFocusEffect(
@@ -40,19 +40,6 @@ export function ProfileMascotGreeting() {
   }));
   return (
     <View style={styles.brand} pointerEvents="none">
-      <View
-        style={[StyleSheet.absoluteFill, styles.backdrop]}
-        accessible={false}
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-      >
-        <Image
-          source={require('../../../assets/images/profile/profile-ocean-wave-v1.webp')}
-          style={[StyleSheet.absoluteFill, { opacity: isDark ? 0.58 : 0.94 }]}
-          resizeMode="cover"
-          accessible={false}
-        />
-      </View>
       <MascotSpeechBubble text={t('mascotGreeting')} />
       <Animated.View
         style={[styles.foreground, animation]}
@@ -88,7 +75,6 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 20,
   },
-  backdrop: { zIndex: 0 },
   foreground: { zIndex: 1 },
   mascot: { width: 96, height: 96 },
   wordmark: { fontSize: 18, fontWeight: '800', letterSpacing: 2 },

@@ -46,6 +46,7 @@ import { useGuardedRouter as useRouter } from "@/hooks/useGuardedRouter";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAppUpdateStore } from "../../../src/features/app-update/app-update.store";
 import { ProfileMascotGreeting } from "../../../src/features/profile/ProfileMascotGreeting";
+import { ProfileOceanWave } from "../../../src/features/profile/ProfileOceanWave";
 import { useProfileCoins } from "../../../src/features/v21/useProfileCoins";
 import { HealthCoinIcon } from "../../../src/features/v21/HealthCoinIcon";
 import DeleteAccountModal from "../../../src/components/DeleteAccountModal";
@@ -58,7 +59,6 @@ import { ReminderSettingsEntry } from "../../../src/features/profile/ReminderSet
 
 const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
 const CHECKIN_ACCESS_ART = require("../../../assets/images/subscription/checkin_access_shield.png");
-const PROFILE_BACKGROUND = require("../../../assets/images/profile/profile-healthcare-background-v1.webp");
 
 const STORAGE_KEY_NOTIFICATIONS = "@app/notifications_enabled";
 const STORAGE_KEY_REMINDERS = "@app/reminders_enabled";
@@ -777,17 +777,15 @@ export default function ProfileScreen() {
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       >
+        <ProfileOceanWave />
         <LinearGradient
-          colors={isDark ? ["#0f172a", "#111c29", "#10242a"] : ["#f5fbfc", "#ffffff", "#eff9f5"]}
-          locations={[0, 0.55, 1]}
+          colors={isDark
+            ? ["rgba(15,23,42,0.96)", "rgba(15,23,42,0.93)", "rgba(15,23,42,0.86)", "rgba(15,23,42,0.72)"]
+            : ["rgba(250,253,252,0.96)", "rgba(250,253,252,0.90)", "rgba(250,253,252,0.78)", "rgba(250,253,252,0.45)"]}
+          locations={[0, 0.3, 0.65, 1]}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          end={{ x: 0, y: 1 }}
           style={StyleSheet.absoluteFill}
-        />
-        <Image
-          source={PROFILE_BACKGROUND}
-          style={styles.profileBackgroundImage}
-          resizeMode="cover"
         />
       </View>
       <RippleRefreshScrollView
@@ -2392,14 +2390,6 @@ function createStyles(
     },
     profileBackgroundBase: {
       backgroundColor: isDark ? "#0f172a" : "#ffffff",
-    },
-    profileBackgroundImage: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      width: "100%",
-      height: "100%",
-      opacity: isDark ? 0.035 : 0.06,
     },
     profileFooter: {
       flexGrow: 1,

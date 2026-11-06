@@ -137,6 +137,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/lib/appEnv': { isDevBuild: false, isDoctorFeaturesEnabled: doctorEnabled, isCheckinUiGalleryEnabled: false },
     '../../../src/features/app-update/app-update.store': { useAppUpdateStore: Object.assign(selector => selector({ checking: false }), { getState: () => ({ check: async () => ({ status: 'current' }) }) }) },
     '../../../src/features/profile/ProfileMascotGreeting': { ProfileMascotGreeting: 'MascotGreeting' },
+    '../../../src/features/profile/ProfileOceanWave': { ProfileOceanWave: 'OceanBackground' },
     '../../../src/features/profile/FontSizePickerModal': { FontSizePickerModal: 'FontSizePickerModal' },
     '../../../src/features/profile/LanguagePickerModal': { LanguagePickerModal: 'LanguagePickerModal' },
     '../../../src/features/profile/ProfileDevicePermissions': { ProfileDevicePermissions: 'DevicePermissions' },
@@ -245,6 +246,16 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
 let checks = 0;
 async function test(label, run) { await run(); checks++; console.log(`PASS ${label}`); }
 for (const language of ['vi', 'en']) {
+  await test(`${language}: ocean fills the screen background rather than a region behind the mascot`, () => {
+    const tree = harness({ language }).render();
+    const screen = nodes(tree).find(node => node.type === 'Screen');
+    const backdrop = screen.props.children[0];
+    assert.ok(nodes(backdrop).some(node => node.type === 'OceanBackground'));
+    assert.equal(backdrop.props.pointerEvents, 'none');
+    assert.equal(backdrop.props.accessibilityElementsHidden, true);
+    const scroll = nodes(tree).find(node => node.type === 'ScrollView');
+    assert.ok(!nodes(scroll).some(node => node.type === 'OceanBackground'));
+  });
   await test(`${language}: account deletion is under Account and its confirmation opens on the first press`, () => {
     const h = harness({ language });
     const expanded = h.toggleSection(h.t('sectionAccount'));
