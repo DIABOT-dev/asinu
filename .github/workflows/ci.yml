@@ -65,8 +65,10 @@ jobs:
       - name: Check-in API contract
         run: npm run test:checkin-contract
 
-      - name: Doctor IVR questionnaire regressions
-        run: npm run test:doctor-ivr
+      - name: Doctor IVR and expert consultation regressions
+        run: |
+          npm run test:doctor-ivr
+          npm run test:doctor-consultation
 
       - name: Check-in native readiness
         run: npm run test:checkin-native

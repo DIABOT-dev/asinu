@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { apiClient } from '../../lib/apiClient';
+import { isExpertConsultationEnabled } from '../../lib/appEnv';
 
 export type ScreeningStep = 'red_flags' | 'associated' | 'onset' | 'progression' | 'impact';
 export type ScreeningAnswer = { step: ScreeningStep; values: string[]; text: string };
@@ -48,6 +49,7 @@ export function useConsultationScreening(input: Inputs) {
   const key = fingerprint(input);
 
   const run = async (answers = current.current.answers) => {
+    if (!isExpertConsultationEnabled) {return;}
     const snapshot = current.current;
     const requestKey = fingerprint(snapshot, answers);
     if (!snapshot.ready || !snapshot.owner || !snapshot.summary.trim() || pending.current === requestKey) {return;}

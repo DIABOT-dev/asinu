@@ -123,7 +123,7 @@ function harness(language = 'vi') {
   };
   const draftHook = load('src/features/doctor-consultation/useConsultationDraft.ts', { react: runtime, '../../lib/healthStoreSession': healthModule });
   const directoryHook = load('src/features/doctor-consultation/useConsultationDirectory.ts', { react: runtime, '../../lib/apiClient': { apiClient }, '../../lib/appEnv': { isExpertConsultationEnabled: true } });
-  const screeningHook = load('src/features/doctor-consultation/useConsultationScreening.ts', { react: runtime, '../../lib/apiClient': { apiClient } });
+  const screeningHook = load('src/features/doctor-consultation/useConsultationScreening.ts', { react: runtime, '../../lib/apiClient': { apiClient }, '../../lib/appEnv': { isExpertConsultationEnabled: true } });
   const Screen = load('app/doctor-consultation.tsx', {
     react: runtime,
     'expo-linear-gradient': { LinearGradient: 'Gradient' },
@@ -415,6 +415,29 @@ for (const language of ['vi', 'en']) await test(`${language}: blocked and uncert
     assert.ok(h.get(tree, 'Intake'));
     assert.equal(h.get(tree, 'Intake').props.screening.result.suitable_for_remote_care, false);
     assert.equal(h.calls.filter(call => call.url === '/api/doctor/tasks' && call.input?.method === 'POST').length, 0);
+  }
+});
+
+await test('screening requests and draft hydration respect the consultation flag', async () => {
+  for (const enabled of [false, true]) for (const resumeDraft of [false, true]) {
+    const runtime = hooks(), calls = [];
+    const answers = resumeDraft ? [{ step: 'red_flags', values: ['none'], text: '' }] : [];
+    const { useConsultationScreening } = load('src/features/doctor-consultation/useConsultationScreening.ts', {
+      react: runtime,
+      '../../lib/appEnv': { isExpertConsultationEnabled: enabled, isDoctorFeaturesEnabled: !enabled },
+      '../../lib/apiClient': { apiClient: async (url, input) => {
+        calls.push({ url, input });
+        return { data: evaluateConsultationScreening(input.body) };
+      } },
+    });
+    const render = () => useConsultationScreening({
+      owner: 'A', ready: true, summary: 'Đau đầu', answers, locale: 'vi', onAnswersChange() {},
+    });
+    let screening = await runtime.settle(render);
+    if (!resumeDraft) { await screening.check(); screening = await runtime.settle(render); }
+    assert.equal(calls.length, enabled ? 1 : 0);
+    assert.equal(screening.result?.status ?? null, enabled ? 'question' : null);
+    runtime.unmount();
   }
 });
 

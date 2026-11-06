@@ -136,8 +136,9 @@ const native = {
   scheduleNotificationAsync: async (value) => { calls.scheduled.push(value); },
   setNotificationHandler: (value) => { calls.handler = value; },
 };
-const notifications = evaluate('src/lib/notifications.ts', {
-  './appEnv': evaluate('src/lib/appEnv.ts', {}),
+const appEnv = evaluate('src/lib/appEnv.ts', {});
+const notificationImports = {
+  './appEnv': appEnv,
   './native-permissions': { runNativePermission: async (request) => request() },
   'expo-constants': {},
   'expo-notifications': native,
@@ -146,7 +147,8 @@ const notifications = evaluate('src/lib/notifications.ts', {
   '../stores/notification.store': {},
   './notification-sounds': sounds,
   './android-checkin-call': { configureAndroidCheckinCalls: async () => {} },
-});
+};
+const notifications = evaluate('src/lib/notifications.ts', notificationImports);
 await test('Android creates every new channel without deleting user preferences', async () => {
   await notifications.refreshNotificationLocalization();
   for (const [group, config] of Object.entries(manifest.groups)) {
@@ -159,12 +161,33 @@ await test('Android creates every new channel without deleting user preferences'
   assert.equal(calls.channels.length, 15, '9 warm + 6 legacy channels');
   assert.ok(!fs.readFileSync('src/lib/notifications.ts', 'utf8').includes('deleteNotificationChannelAsync'));
 });
-await test('hiding Dr.Asinu removes its quick reply while health alert actions remain available', () => {
-  assert.equal(evaluate('src/lib/appEnv.ts', {}).isDoctorFeaturesEnabled, false);
+await test('expert quick replies remain available while legacy Dr.Asinu IVR is hidden', () => {
+  assert.equal(appEnv.isDoctorFeaturesEnabled, false);
+  assert.equal(appEnv.isExpertConsultationEnabled, true);
   assert.ok(calls.categories.includes('health_alert'));
-  assert.ok(!calls.categories.includes('doctor_message'));
-  assert.ok(calls.removedCategories.includes('doctor_message'));
+  assert.ok(calls.categories.includes('doctor_message'));
+  assert.ok(!calls.removedCategories.includes('doctor_message'));
 });
+for (const legacyEnabled of [false, true]) {
+  for (const consultationEnabled of [false, true]) {
+    await test(`quick reply follows consultation=${consultationEnabled}, independently of legacy IVR=${legacyEnabled}`, async () => {
+      const categories = [], removed = [];
+      const module = evaluate('src/lib/notifications.ts', {
+        ...notificationImports,
+        './appEnv': { ...appEnv, isDoctorFeaturesEnabled: legacyEnabled, isExpertConsultationEnabled: consultationEnabled },
+        'expo-notifications': {
+          ...native,
+          setNotificationCategoryAsync: async id => { categories.push(id); },
+          deleteNotificationCategoryAsync: async id => { removed.push(id); },
+        },
+      });
+      await module.registerNotificationCategories();
+      assert.ok(categories.includes('health_alert'));
+      assert.equal(categories.includes('doctor_message'), consultationEnabled);
+      assert.equal(removed.includes('doctor_message'), !consultationEnabled);
+    });
+  }
+}
 await test('local notification scheduling selects the matching platform sound/channel', async () => {
   for (const osName of ['ios', 'android']) {
     platform.OS = osName;
