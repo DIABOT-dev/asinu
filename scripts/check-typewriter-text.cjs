@@ -283,11 +283,16 @@ for (const language of ["vi", "en"]) {
       "../../hooks/useThemeColors": theme,
       "../../../assets/images/profile/asinu-profile-mascot-v1.webp":
         "MascotArt",
+      "../../../assets/images/profile/profile-ocean-wave-v1.webp":
+        "OceanWaveArt",
     }).ProfileMascotGreeting();
     const speechProps = nodes(speech).find((node) => node.type === MascotSpeechBubble).props;
     const profileProps = nodes(profile).find((node) => node.type === MascotSpeechBubble).props;
     assert.equal(speechProps.text, catalogs.careCircle.qrConnectFamilyNow);
     assert.equal(profileProps.text, catalogs.profile.mascotGreeting);
+    const water = nodes(profile).find(node => node.type === 'Image' && node.props.source === 'OceanWaveArt');
+    assert.ok(water, 'The real-water asset replaces the flat SVG waves');
+    assert.equal(water.props.accessible, false);
     for (isDark of [false, true]) {
       const speechTree = MascotSpeechBubble(speechProps);
       const profileTree = MascotSpeechBubble(profileProps);

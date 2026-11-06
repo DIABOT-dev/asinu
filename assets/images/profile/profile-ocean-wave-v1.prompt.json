@@ -1,0 +1,14 @@
+{
+  "tool": "image_gen.imagegen",
+  "createdAt": "2026-11-06",
+  "transparentBackground": true,
+  "prompt": "Create ONE production app background asset, a photorealistic small ocean wave, landscape 3:2 composition. Real coastal water photographed in soft diffused morning light, pale seafoam and turquoise water, realistic translucent wave face, tiny irregular capillary ripples and delicate broken white foam on a low gentle rolling crest across the LOWER THIRD. Low oblique camera angle just above the water, natural refraction, fine water texture, restrained highlights. Calm welcoming atmosphere. The upper central area must be very quiet and pale, since a separate mascot and speech bubble will be placed on top in the app. Isolate this broad shallow strip of real ocean water on a genuinely transparent background, with soft feathered transparent edges at top, left, right and bottom so it blends gently into a very light healthcare app screen. Water texture should be visible even displayed only 340px wide. Absolutely no text, no logos, no mascot, no people, no boats, no sky, no horizon, no sand, no land, no rectangular picture border. It must look like a photograph of real seawater and foam, not a vector, illustration, sine curve, ribbons, glossy plastic, cartoon pool, abstract blob or dramatic crashing surf.",
+  "asset": "profile-ocean-wave-v1.webp",
+  "optimization": {
+    "format": "WebP",
+    "width": 1152,
+    "quality": 88,
+    "alphaQuality": 100
+  },
+  "use": "Photorealistic decorative water behind the existing profile mascot; all text and mascot remain native separate layers."
+}
