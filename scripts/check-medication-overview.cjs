@@ -48,7 +48,67 @@ function harness() {
 }
 let count = 0;
 async function test(name, work) { await work(); count++; console.log('PASS ' + name); }
+function answerActions(med) {
+  const calls = [];
+  const display = { exports: {} };
+  new Function('module', 'exports', ts.transpileModule(fs.readFileSync('src/features/v21/medication-dose-display.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(display, display.exports);
+  const jsx = (type, props) => ({ type, props });
+  const adapters = {
+    react: { useState: initial => [initial, () => {}] },
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    '@expo/vector-icons': { Ionicons: 'Icon', MaterialCommunityIcons: 'Icon' },
+    'react-native': { ActivityIndicator: 'Spinner', Alert: {}, KeyboardAvoidingView: 'View', Platform: { OS: 'ios' }, useWindowDimensions: () => ({ width: 393, fontScale: 1 }), Pressable: 'Pressable', RefreshControl: 'Refresh', ScrollView: 'Scroll', StyleSheet: { create: x => x }, Switch: 'Switch', TextInput: 'Input', View: 'View' },
+    'expo-router': { Stack: {} },
+    'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
+    '../../components/QueuedModal': { QueuedModal: 'Modal' },
+    '../../components/ScaledText': { ScaledText: 'Text' },
+    '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({}) },
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {}, isDark: false }) },
+    '../../hooks/useScaledTypography': { useScaledFontSize: x => x },
+    './HealthCoinIcon': { HealthCoinIcon: 'Coin' },
+    './useMedicationOverview': { useMedicationOverview: () => med },
+    './medication-overview.styles': { medicationStyles: {} },
+    './medication-input': { validMedicationNote: () => true },
+    './MedicationPurposeTags': { MedicationPurposeTags: 'Tags' },
+    './MedicationBackground': { MedicationBackground: 'Background' },
+    './MedicationDraftEntry': { MedicationDraftEntry: 'Draft' },
+    './medication-dose-display': display.exports,
+  };
+  const module = { exports: {} };
+  const code = ts.transpileModule(fs.readFileSync('src/features/v21/MedicationOverviewScreen.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText;
+  new Function('module', 'exports', 'require', code)(module, module.exports, id => { assert.ok(id in adapters, id); return adapters[id]; });
+  const tree = module.exports.MedicationOverviewPanel({ med, tab: 'today', onAnswer: id => calls.push(id) });
+  const nodes = value => !value || typeof value !== 'object' ? [] : Array.isArray(value) ? value.flatMap(nodes) : [value, ...nodes(value.props?.children)];
+  return { calls, actions: nodes(tree).filter(node => node.type === 'Pressable' && node.props.accessibilityLabel?.startsWith('medicationAnswerAction ')) };
+}
 (async () => {
+  await test('today exposes missed-call answers only within the server two-hour window and never changes a final answer', async () => {
+    const h = harness(); h.clock.now = Date.parse('2020-01-01T00:00:00Z'); h.server.serverTime = '2026-11-06T07:00:00+07:00';
+    h.server.doses = [
+      { id: 'missed-first', state: 'SCHEDULED', scheduled_at: '2026-11-06T06:45:00+07:00', time_local: '06:45' },
+      { id: 'due-now', state: 'SCHEDULED', scheduled_at: '2026-11-06T07:00:00+07:00', time_local: '07:00' },
+      { id: 'future', state: 'SCHEDULED', scheduled_at: '2026-11-06T07:01:00+07:00', time_local: '07:01' },
+      { id: 'missed-twice', state: 'UNCONFIRMED', scheduled_at: '2026-11-06T06:30:00+07:00', time_local: '06:30' },
+      { id: 'exact-boundary', state: 'UNCONFIRMED', scheduled_at: '2026-11-06T05:00:00+07:00', time_local: '05:00' },
+      { id: 'expired', state: 'UNCONFIRMED', scheduled_at: '2026-11-06T04:59:59+07:00', time_local: '04:59' },
+      { id: 'expired-retry', state: 'SCHEDULED', scheduled_at: '2026-11-06T04:59:59+07:00', time_local: '04:59' },
+      { id: 'calling', state: 'CALLING', scheduled_at: '2026-11-06T06:59:00+07:00', time_local: '06:59' },
+      { id: 'merged-calling', state: 'CALLING', scheduled_at: '2026-11-06T07:10:00+07:00', time_local: '07:10' },
+      ...['TAKEN', 'SKIPPED', 'OUT_OF_MEDS', 'CANCELLED', 'SKIPPED_NO_DEVICE'].map(state => ({ id: state, state, scheduled_at: '2026-11-06T06:45:00+07:00', time_local: '06:45' })),
+      { id: 'invalid', state: 'UNCONFIRMED', scheduled_at: 'invalid', time_local: '06:45' },
+    ];
+    await h.settle();
+    const first = answerActions(h.read()); first.actions.forEach(action => action.props.onPress());
+    assert.deepEqual(first.calls, ['missed-first', 'due-now', 'missed-twice', 'exact-boundary', 'calling', 'merged-calling']);
+    h.server.serverTime = '2026-11-06T07:00:15+07:00';
+    await h.tick();
+    const after = answerActions(h.read()); after.actions.forEach(action => action.props.onPress());
+    assert.deepEqual(after.calls, ['missed-first', 'due-now', 'missed-twice', 'calling', 'merged-calling']);
+    assert.equal(answerActions({ ...h.read(), data: { ...h.read().data, self: false } }).actions.length, 0);
+    h.auth.token = 'other-account'; h.auth.profile.id = 2;
+    assert.equal(answerActions(h.read()).actions.length, 0); h.blur();
+  });
   await test('opening medication only loads data; schedule actions never write without a chosen action', async () => {
     const h = harness(); const view = await h.settle(); assert.equal(view.data.patientId, 1);
     view.openSchedule(h.schedule); const opened = h.read(); assert.equal(opened.mode, 'menu'); assert.equal(opened.canSave, false);

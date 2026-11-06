@@ -384,9 +384,18 @@ export function MedicationOverviewPanel({
                       : ["TAKEN", "CALLING"].includes(dose.state)
                         ? colors.primaryText
                         : colors.textSecondary;
+                    const elapsed = med.now - Date.parse(dose.scheduled_at);
+                    // A missed first call returns to SCHEDULED while waiting
+                    // for its retry. Keep the same two-hour answer window as
+                    // the detail API, using the controller's server clock.
                     const canAnswer =
                       med.data!.self &&
-                      ["CALLING", "UNCONFIRMED"].includes(dose.state);
+                      ["SCHEDULED", "CALLING", "UNCONFIRMED"].includes(
+                        dose.state,
+                      ) &&
+                      Number.isFinite(elapsed) &&
+                      elapsed <= 2 * 60 * 60 * 1000 &&
+                      (dose.state !== "SCHEDULED" || elapsed >= 0);
                     return (
                       <View key={dose.id} style={s.row}>
                         <Text style={[s.time, title]}>
