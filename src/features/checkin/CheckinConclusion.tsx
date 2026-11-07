@@ -1,21 +1,26 @@
-import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { useTranslation } from 'react-i18next';
-import { ScaledText as Text } from '../../components/ScaledText';
-import type { StructuredCheckinConclusion } from './checkin-conclusion';
+import React from "react";
+import { Pressable, StyleSheet, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { ScaledText as Text } from "../../components/ScaledText";
+import {
+  hasNarrativeCheckinConclusion,
+  hasStructuredCheckinConclusion,
+  parseCheckinNarrative,
+} from "./checkin-conclusion";
+import type { DisplayCheckinConclusion } from "./checkin-conclusion";
 
 // DoneScreen places this content inside its existing white result card in both
 // themes. Match that card's ink and border palette instead of applying dark
 // surface text to a light surface.
 const resultPalette = {
-  heading: '#0F172A',
-  body: '#334155',
-  muted: '#475569',
-  accent: '#08b8a2',
-  action: '#0F766E',
-  onAction: '#F5FFFC',
-  border: '#E2E8F0',
-  disclaimer: '#F2F5F4',
+  heading: "#0F172A",
+  body: "#334155",
+  muted: "#475569",
+  accent: "#08b8a2",
+  action: "#0F766E",
+  onAction: "#F5FFFC",
+  border: "#E2E8F0",
+  disclaimer: "#F2F5F4",
 };
 
 export function CheckinConclusion({
@@ -24,15 +29,19 @@ export function CheckinConclusion({
   expertAvailable,
   readOnly = false,
 }: {
-  result: StructuredCheckinConclusion;
+  result: DisplayCheckinConclusion;
   onConnectExpert: () => void;
   expertAvailable: boolean;
   readOnly?: boolean;
 }) {
-  const { t } = useTranslation('home');
-  if (result.severity === 'emergency') {
+  const { t } = useTranslation("home");
+  if (result.severity === "emergency") {
     return null;
   }
+  const narrative = hasNarrativeCheckinConclusion(result)
+    ? parseCheckinNarrative(result.narrative)
+    : null;
+  const structured = hasStructuredCheckinConclusion(result) ? result : null;
   const section = (title: string, content: string | string[]) => (
     <View style={styles.section}>
       <Text
@@ -64,14 +73,62 @@ export function CheckinConclusion({
       )}
     </View>
   );
-  const linkText = t('checkinConclusionExpertLink');
+  const linkText = t("checkinConclusionExpertLink");
   const linkAt = result.disclaimer.indexOf(linkText);
   return (
     <View style={styles.content} testID="checkin-structured-conclusion">
-      {section(t('checkinConclusionMessage'), result.personalMessage)}
-      {section(t('checkinConclusionExplanation'), result.explanation)}
-      {section(t('checkinConclusionTodo'), result.todo)}
-      {section(t('checkinConclusionWarning'), result.seeDoctorWhen)}
+      {narrative ? (
+        <View style={styles.narrative} testID="checkin-narrative-conclusion">
+          {narrative.map((part, index) =>
+            part.type === "bullet" ? (
+              <View key={index} style={styles.item}>
+                <Text
+                  accessible={false}
+                  style={[styles.bullet, { color: resultPalette.accent }]}
+                >
+                  •
+                </Text>
+                <Text
+                  style={[
+                    styles.body,
+                    styles.grow,
+                    { color: resultPalette.body },
+                  ]}
+                >
+                  {part.text}
+                </Text>
+              </View>
+            ) : (
+              <Text
+                key={index}
+                accessibilityRole={
+                  part.type === "heading" ? "header" : undefined
+                }
+                style={[
+                  part.type === "heading" ? styles.title : styles.body,
+                  {
+                    color:
+                      part.type === "heading"
+                        ? resultPalette.heading
+                        : resultPalette.body,
+                  },
+                ]}
+              >
+                {part.text}
+              </Text>
+            )
+          )}
+        </View>
+      ) : (
+        structured && (
+          <>
+            {section(t("checkinConclusionMessage"), structured.personalMessage)}
+            {section(t("checkinConclusionExplanation"), structured.explanation)}
+            {section(t("checkinConclusionTodo"), structured.todo)}
+            {section(t("checkinConclusionWarning"), structured.seeDoctorWhen)}
+          </>
+        )
+      )}
       <View
         style={[
           styles.disclaimer,
@@ -84,7 +141,7 @@ export function CheckinConclusion({
             <>
               {result.disclaimer.slice(0, linkAt)}
               <Text
-                accessibilityRole={expertAvailable ? 'link' : undefined}
+                accessibilityRole={expertAvailable ? "link" : undefined}
                 accessibilityState={{ disabled: readOnly || !expertAvailable }}
                 onPress={
                   readOnly || !expertAvailable ? undefined : onConnectExpert
@@ -105,12 +162,14 @@ export function CheckinConclusion({
         </Text>
       </View>
       <View style={[styles.followup, { borderColor: resultPalette.border }]}>
-        <Text
-          accessibilityRole="header"
-          style={[styles.title, { color: resultPalette.heading }]}
-        >
-          {t('checkinConclusionFollowup')}
-        </Text>
+        {!narrative && (
+          <Text
+            accessibilityRole="header"
+            style={[styles.title, { color: resultPalette.heading }]}
+          >
+            {t("checkinConclusionFollowup")}
+          </Text>
+        )}
         <Text style={[styles.body, { color: resultPalette.body }]}>
           {result.closeMessage}
         </Text>
@@ -129,13 +188,8 @@ export function CheckinConclusion({
             },
           ]}
         >
-          <Text
-            style={[
-              styles.buttonText,
-              { color: resultPalette.onAction },
-            ]}
-          >
-            {t('checkinConnectDoctor')}
+          <Text style={[styles.buttonText, { color: resultPalette.onAction }]}>
+            {t("checkinConnectDoctor")}
           </Text>
         </Pressable>
       )}
@@ -145,28 +199,29 @@ export function CheckinConclusion({
 
 const styles = StyleSheet.create({
   content: { gap: 16 },
+  narrative: { gap: 14 },
   section: { gap: 8 },
-  title: { fontSize: 20, lineHeight: 28, fontWeight: '700' },
+  title: { fontSize: 20, lineHeight: 28, fontWeight: "700" },
   body: { fontSize: 20, lineHeight: 30 },
-  item: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  item: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
   bullet: { fontSize: 22, lineHeight: 30 },
   grow: { flex: 1, flexShrink: 1 },
   disclaimer: { padding: 14, borderRadius: 14 },
   disclaimerText: { fontSize: 15, lineHeight: 23 },
-  link: { textDecorationLine: 'underline' },
+  link: { textDecorationLine: "underline" },
   followup: { borderTopWidth: 1, paddingTop: 16, gap: 8 },
   button: {
     minHeight: 56,
     borderRadius: 16,
     padding: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   buttonText: {
     color: resultPalette.onAction,
     fontSize: 18,
     lineHeight: 26,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontWeight: "700",
+    textAlign: "center",
   },
 });

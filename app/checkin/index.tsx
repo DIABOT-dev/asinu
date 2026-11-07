@@ -8,7 +8,6 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
  *   followup   → same 3-button screen with context banner
  */
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Audio } from '@/lib/audio';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -39,9 +38,10 @@ import { checkinApi, type CheckinStatus, type CheckinSession, type TriageAnswer,
 import { useCheckinCallAudio } from '../../src/features/checkin-call/useCheckinCallAudio';
 import { CHECKIN_STATUS_CHOICES, CheckinStatusChoice } from '../../src/features/checkin/CheckinStatusChoice';
 import { CheckinConclusion } from '../../src/features/checkin/CheckinConclusion';
-import { hasStructuredCheckinConclusion, structuredCheckinSpeech } from '../../src/features/checkin/checkin-conclusion';
+import { CheckinConclusionLoading } from '../../src/features/checkin/CheckinConclusionLoading';
+import { hasDisplayCheckinConclusion, checkinConclusionSpeech } from '../../src/features/checkin/checkin-conclusion';
 import { formatTriageOptionLabel, getTriageOptionIcon } from '../../src/features/checkin/triage-option-display';
-import { chatApi } from '../../src/features/chat/chat.api';
+import { LOCATION_DETAIL_GROUPS, locationDetailLabel, toggleLocationDetail, missingLocationDetails, formatLocationNotes, type BodyLocation, type LocationDetails } from '../../src/features/checkin/location-details';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { showToast } from '../../src/stores/toast.store';
@@ -133,7 +133,6 @@ const createResultPreviewSession = (question: string, symptoms: string): Checkin
 };
 
 // T2 Body Location options — match backend body-location.js BODY_LOCATIONS enum
-type BodyLocation = 'head' | 'chest' | 'abdomen' | 'limbs' | 'skin' | 'whole_body' | 'mental';
 
 // MaterialCommunityIcons vector — outline style, không có background filled.
 // Mỗi icon match ngữ nghĩa vùng cơ thể.
@@ -430,7 +429,12 @@ function CheckinScreen() {
     if (!skipLoadingStart) setLoading(true);
     try {
       const result = await checkinClient.triage(sess.id, prevAnswers);
-      if (__DEV__) console.log('[Checkin] triage completed:', { isDone: result.isDone, step: result.step });
+      if (__DEV__) console.log('[Checkin] triage completed:', {
+        isDone: result.isDone, step: result.step,
+        promptVersion: result.conclusionPromptVersion,
+        renderVersion: result.conclusionRenderVersion,
+        source: result.conclusionSource,
+      });
       if ((result as any).ok === false) {
         throw new Error((result as any).error || 'Triage API error');
       }
@@ -441,11 +445,18 @@ function CheckinScreen() {
           recommendation: result.recommendation || '',
           needsDoctor: result.needsDoctor ?? false,
           conclusionVersion: result.conclusionVersion,
+          conclusionFormat: result.conclusionFormat,
+          narrative: result.narrative,
+          speechText: result.speechText,
+          conclusionPromptVersion: result.conclusionPromptVersion,
+          conclusionRenderVersion: result.conclusionRenderVersion,
+          conclusionSource: result.conclusionSource,
           personalMessage: result.personalMessage,
           explanation: result.explanation,
           todo: result.todo,
           seeDoctorWhen: result.seeDoctorWhen,
           disclaimer: result.disclaimer,
+          aiNotice: result.aiNotice,
           closeMessage: result.closeMessage,
           followUpHours: result.followUpHours,
           familyAlertResult: result.familyAlertResult,
@@ -763,7 +774,7 @@ export function CheckinUiPreview({ id }: { id: CheckinUiPreviewId }) {
   }
   if (['checkin-multiple', 'checkin-grouped', 'checkin-single', 'checkin-text', 'checkin-loading'].includes(id)) {
     if (id === 'checkin-loading') {
-      return <ConclusionLoadingView styles={styles} />;
+      return <ConclusionLoadingView />;
     }
     const single = id === 'checkin-single';
     const textOnly = id === 'checkin-text';
@@ -917,6 +928,8 @@ function LocationScreen({
     readOnly ? new Set([BODY_LOCATION_OPTIONS[0].key]) : new Set()
   );
   const [other, setOther] = useState('');
+  const [locationDetails, setLocationDetails] = useState<LocationDetails>(readOnly ? { head: ['uncertain'] } : {});
+  const [expandedLocation, setExpandedLocation] = useState<BodyLocation | null>(null);
 
   const toggle = (key: BodyLocation) => {
     if (readOnly) return;
@@ -929,7 +942,9 @@ function LocationScreen({
   };
 
   const count = selected.size + (other.trim() ? 1 : 0);
-  const canConfirm = count > 0 && !loading;
+  const detailGroups = LOCATION_DETAIL_GROUPS.filter(group => selected.has(group.location));
+  const missingDetails = missingLocationDetails(Array.from(selected), locationDetails, other);
+  const canConfirm = count > 0 && !missingDetails.length && !loading;
   const confirmLabel = count > 0
     ? t('checkinLocationContinueCount', { count })
     : t('checkinLocationContinue');
@@ -979,6 +994,7 @@ function LocationScreen({
             <GuideTarget key={opt.key} step="checkin.location" enabled={practice && optionIndex === 0 && !loading}>
               <Pressable
                 key={opt.key}
+                testID={`checkin-location-region-${opt.key}`}
                 onPress={() => !loading && toggle(opt.key)}
                 disabled={loading || readOnly}
                 style={({ pressed }) => [
@@ -1008,6 +1024,43 @@ function LocationScreen({
           );
         })}
       </Animated.View>
+
+      {detailGroups.length > 0 && <View style={{ gap: 12 }} testID="checkin-location-details">
+        <Text allowFontScaling style={[styles.questionHeaderTitle, { fontSize: 20, lineHeight: 28 }]}>{t('checkinLocationDetailsTitle')}</Text>
+        <Text allowFontScaling style={styles.questionSubtitle}>{t('checkinLocationDetailsHint')}</Text>
+        {detailGroups.map(group => {
+          const chosen = locationDetails[group.location] || [];
+          const expanded = expandedLocation === group.location;
+          return <View key={group.location} style={{ gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#DCEBE7' }}>
+            <Pressable testID={`checkin-location-detail-${group.location}`} disabled={loading || readOnly}
+              accessibilityRole="button" accessibilityState={{ expanded, disabled: loading || readOnly }}
+              onPress={() => { if (!loading && !readOnly) setExpandedLocation(expanded ? null : group.location); }}
+              style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text allowFontScaling style={styles.triageOptionTitle}>{t('checkinLocationDetailQuestion', { region: t(group.labelKey) })}</Text>
+                <Text allowFontScaling style={[styles.questionSubtitle, { color: chosen.length ? '#0F766E' : '#526C66' }]}>
+                  {chosen.length ? chosen.map(key => t(locationDetailLabel(key))).join(', ') : t('checkinLocationDetailSelect')}
+                </Text>
+              </View>
+              <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color="#0F766E" />
+            </Pressable>
+            {expanded && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {group.positionKeys.map(key => <Pressable key={key} testID={`checkin-location-position-${group.location}-${key}`}
+                disabled={loading || readOnly} accessibilityRole="checkbox" accessibilityState={{ checked: chosen.includes(key), disabled: loading || readOnly }}
+                onPress={() => { if (!loading && !readOnly) setLocationDetails(previous => toggleLocationDetail(previous, group.location, key)); }}
+                style={{ minHeight: 44, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderRadius: 14,
+                  borderColor: chosen.includes(key) ? '#08b8a2' : '#C8DDD6', backgroundColor: chosen.includes(key) ? '#DEF5EF' : '#F5FBF8',
+                  flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                {chosen.includes(key) && <Ionicons name="checkmark" size={16} color="#0F766E" />}
+                <Text allowFontScaling style={{ color: '#173831', fontSize: 16, lineHeight: 23 }}>{t(locationDetailLabel(key))}</Text>
+              </Pressable>)}
+            </View>}
+          </View>;
+        })}
+        {missingDetails.length > 0 && <Text allowFontScaling style={styles.questionSubtitle} accessibilityLiveRegion="polite">
+          {t('checkinLocationDetailsRemaining', { regions: missingDetails.map(location => t(LOCATION_DETAIL_GROUPS.find(group => group.location === location)!.labelKey)).join(', ') })}
+        </Text>}
+      </View>}
 
       {/* Free-text "Khác" / voice input */}
       <GuideTarget step="checkin.location_other" enabled={practice && !loading}>
@@ -1044,7 +1097,8 @@ function LocationScreen({
       <GuideTarget step="checkin.location_confirm" enabled={practice && canConfirm}>
         <Animated.View entering={FadeInDown.delay(200).duration(400)}>
           <Pressable
-            onPress={() => { if (!readOnly) onConfirm(Array.from(selected), other); }}
+            testID="checkin-location-continue"
+            onPress={() => { if (!readOnly && canConfirm) onConfirm(Array.from(selected), formatLocationNotes(Array.from(selected), locationDetails, other, key => String(t(key)))); }}
             disabled={!canConfirm || readOnly}
             style={({ pressed }) => [
               styles.triagePillBtn,
@@ -1123,84 +1177,7 @@ function TriageScreen({
   );
   const scrollRef = useRef<ScrollView>(null);
 
-  // Voice recording
-  const { language } = useLanguageStore();
-  const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const recordingRef = useRef<any>(null);
-  const recordingStartRef = useRef<number>(0);
-  const maxMeteringRef = useRef<number>(-160);
-
-  useEffect(() => {
-    return () => {
-      if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync().catch(() => {});
-        recordingRef.current = null;
-      }
-    };
-  }, []);
-
-  const handleMicPress = async () => {
-    if (readOnly) return;
-    await guidanceAudio.stop();
-    if (practice) {
-      if (isRecording) {
-        setIsRecording(false);
-        setCustom(tg('guidance.practiceVoiceExample'));
-        acknowledgeGuide('checkin.voice');
-        showToast(tg('guidance.practiceVoiceNotice'), 'info');
-      } else {
-        setIsRecording(true);
-      }
-      return;
-    }
-    if (isRecording) {
-      // Stop recording
-      setIsRecording(false);
-      try {
-        await recordingRef.current?.stopAndUnloadAsync();
-        const uri = recordingRef.current?.getURI();
-        recordingRef.current = null;
-        if (!uri) return;
-        if (Date.now() - recordingStartRef.current < 1500) return;
-        if (maxMeteringRef.current < -40) return;
-        if (!(await onBeforeAi())) return;
-        setIsTranscribing(true);
-        try {
-          const text = await chatApi.transcribeAudio(uri, language);
-          if (text) setCustom((prev) => (prev ? `${prev} ${text}` : text));
-        } catch {}
-        setIsTranscribing(false);
-      } catch {
-        setIsTranscribing(false);
-      }
-    } else {
-      // Start recording
-      try {
-        if (!(await onBeforeAi())) return;
-        if (recordingRef.current) {
-          try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
-          recordingRef.current = null;
-        }
-        const { granted } = await Audio.requestPermissionsAsync();
-        if (!granted) return;
-        await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-        maxMeteringRef.current = -160;
-        const { recording } = await Audio.Recording.createAsync(
-          Audio.RecordingOptionsPresets.HIGH_QUALITY,
-          (status) => {
-            if (status.metering != null && status.metering > maxMeteringRef.current) {
-              maxMeteringRef.current = status.metering;
-            }
-          },
-          100
-        );
-        recordingRef.current = recording;
-        recordingStartRef.current = Date.now();
-        setIsRecording(true);
-      } catch {}
-    }
-  };
 
   const progress = (answers.length + 1) / MAX_TRIAGE_QUESTIONS;
 
@@ -1412,29 +1389,17 @@ function TriageScreen({
             <GuideTarget step="checkin.other" enabled={practice && !loading} withoutChoices={!hasAnswerChoices}>
               <Animated.View entering={FadeInDown.delay(180).duration(400)} style={styles.triageInputCard}>
                 <GuideTarget step="checkin.voice" enabled={practice && !loading} acknowledgeOnTouch={false}>
-                  {practice ? (
-                    <VoiceAnswerButton
-                      practice
-                      onBeforeAi={onBeforeAi}
-                      onText={text => { setCustom(text); acknowledgeGuide('checkin.voice'); }}
-                    />
-                  ) : (
-                    <Pressable
-                      onPress={handleMicPress}
-                      style={styles.triageMicBtn}
-                      disabled={isTranscribing || readOnly}
-                    >
-                      {isTranscribing ? (
-                        <ActivityIndicator size="small" color="#08b8a2" />
-                      ) : (
-                        <MaterialCommunityIcons
-                          name={isRecording ? 'stop-circle' : 'microphone'}
-                          size={22}
-                          color={isRecording ? colors.danger : '#08b8a2'}
-                        />
-                      )}
-                    </Pressable>
-                  )}
+                  <VoiceAnswerButton
+                    key={question}
+                    practice={practice}
+                    disabled={loading || readOnly}
+                    onBeforeAi={onBeforeAi}
+                    onProcessingChange={setIsTranscribing}
+                    onText={text => {
+                      setCustom(previous => `${previous} ${text}`.trim());
+                      acknowledgeGuide('checkin.voice');
+                    }}
+                  />
                 </GuideTarget>
                 <TextInput
                   allowFontScaling
@@ -1495,70 +1460,8 @@ function TriageScreen({
 
 // ─── Conclusion loading screen ──────────────────────────────────────────────
 
-function ConclusionLoadingView({ styles }: { styles: Styles }) {
-  const { t } = useTranslation('home');
-
-  return (
-    <View style={styles.loadingContainer}>
-      {/* Center Aura & Mascot */}
-      <View style={styles.loadingMascotWrap}>
-        <View style={styles.loadingAuraCircle}>
-          <Svg width={250} height={250} viewBox="0 0 250 250" fill="none" style={styles.loadingArcSvg} pointerEvents="none">
-            {/* Guide circle track */}
-            <Path
-              d="M125 15 A110 110 0 1 1 124.9 15"
-              stroke="#bce7df"
-              strokeWidth={1.8}
-              strokeDasharray="4 6"
-              fill="none"
-              opacity={0.45}
-            />
-            {/* Active circular progress arc */}
-            <Path
-              d="M125 15 A110 110 0 0 1 220 70"
-              stroke="#08b8a2"
-              strokeWidth={3}
-              strokeLinecap="round"
-              fill="none"
-            />
-            {/* Glowing dot at the end of arc */}
-            <Circle cx={220} cy={70} r={5.5} fill="#08b8a2" />
-            <Circle cx={220} cy={70} r={2.5} fill="#ffffff" />
-          </Svg>
-          <Image
-            source={asinuChatSticker}
-            style={styles.loadingMascotImage}
-            resizeMode="contain"
-          />
-        </View>
-      </View>
-
-      {/* Main Title & Subtitle */}
-      <Text style={styles.loadingTitle}>{t('checkinSynthesizingTitle')}</Text>
-      <Text style={styles.loadingSubtitle}>{t('checkinSynthesizingSubtitle')}</Text>
-
-      {/* 3 Pulsing dots */}
-      <View style={styles.loadingDotsRow}>
-        <View style={[styles.loadingDot, { opacity: 1 }]} />
-        <View style={[styles.loadingDot, { opacity: 0.65 }]} />
-        <View style={[styles.loadingDot, { opacity: 0.35 }]} />
-      </View>
-
-      {/* Footer Tagline */}
-      <View style={styles.loadingFooterRow}>
-        <Ionicons name="shield-checkmark-outline" size={16} color="#64748b" style={{ marginRight: 6 }} />
-        <Text style={styles.loadingFooterText}>{t('checkinCompanionFooter')}</Text>
-      </View>
-
-      {/* Subtle bottom decorative wave */}
-      <View style={styles.bottomWatermarkWrap} pointerEvents="none">
-        <Svg width={220} height={160} viewBox="0 0 220 160" fill="none">
-          <Path d="M0 120 C70 80 140 100 220 60 L220 160 L0 160 Z" fill="#e6faf8" opacity={0.5} />
-          <Path d="M25 140 C95 105 160 125 220 100 L220 160 L25 160 Z" fill="#d8f6f1" opacity={0.4} />
-        </Svg>
-      </View>
-    </View>
-  );
+function ConclusionLoadingView() {
+  return <CheckinConclusionLoading />;
 }
 
 // ─── Done screen ──────────────────────────────────────────────────────────────
@@ -1705,10 +1608,15 @@ function DoneScreen({
   const [practiceSeverity, setPracticeSeverity] = useState<'low' | 'medium' | 'high' | 'emergency' | null>(null);
   const conclusionSpeechPlayedRef = useRef<string | null>(null);
   const [speechReplayKey, setSpeechReplayKey] = useState(0);
-  const [audioReady, setAudioReady] = useState(practice || readOnly);
+  const [audioReadyIdentity, setAudioReadyIdentity] = useState<string | null>(null);
+  const [audioTimeoutIdentity, setAudioTimeoutIdentity] = useState<string | null>(null);
+  const activeConclusionIdentityRef = useRef<string | null>(null);
   const language = i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'vi';
   const { audio: conclusionAudio, play: playConclusionAudio, stopAudio: stopConclusionAudio } =
     useCheckinCallAudio(null, language, t, undefined, !readOnly);
+  const audioStateRef = useRef(conclusionAudio);
+  audioStateRef.current = conclusionAudio;
+  const audioBeforeSpeechRef = useRef<typeof conclusionAudio | null>(null);
   const isSpeakingConclusion = ['loading', 'playing'].includes(conclusionAudio.phase);
   const isFine = practice && practiceSeverity ? practiceSeverity === 'low'
     : session?.current_status === 'fine' || (!triageSummary && session?.initial_status === 'fine');
@@ -1719,7 +1627,7 @@ function DoneScreen({
   const isHigh = severity === 'high';
   const isMedium = severity === 'medium';
   const structuredConclusion = !isEmergency && !isFine && triageSummary?.conclusionVersion === 2
-    && hasStructuredCheckinConclusion(triageSummary) ? triageSummary : null;
+    && hasDisplayCheckinConclusion(triageSummary) ? triageSummary : null;
   const connectConclusionExpert = () => {
     if (readOnly) return;
     if (practice) { showToast(tg('guidance.practiceActionNotice'), 'info'); return; }
@@ -1798,7 +1706,12 @@ function DoneScreen({
   const cleanSummary = stripEmojis(triageSummary?.summary || '');
   const shouldReadSummary = cleanSummary && cleanSummary !== recordedSymptoms;
 
-  const conclusionSpeechText = structuredConclusion ? structuredCheckinSpeech(structuredConclusion) : [
+  const aiNotice = triageSummary?.aiNotice?.trim() || t('checkinAiNotice');
+  const aiNoticeParts = aiNotice.match(/^(Asinu là ai và có thể sai|Asinu is AI and can make mistakes)[,.]?\s*([\s\S]*)$/i);
+  const aiNoticeTitle = aiNoticeParts?.[1].replace(/\bai\b/gi, 'AI');
+  const aiNoticeDetail = aiNoticeParts?.[2] || aiNotice;
+  const aiNoticeBody = aiNoticeDetail.charAt(0).toUpperCase() + aiNoticeDetail.slice(1);
+  const conclusionSpeechText = structuredConclusion ? checkinConclusionSpeech(structuredConclusion, aiNotice) : [
     t('checkinDoneNoted'),
     pillText,
     cleanSubtitle,
@@ -1806,18 +1719,30 @@ function DoneScreen({
     `${t('checkinRecordedSymptoms')}: ${recordedSymptoms}`,
     `${t('checkinAdvice')}: ${cleanAdvice}`,
     doctorNoticeText,
+    aiNotice,
   ]
     .map((part) => stripEmojis(String(part)).replace(/[.!?]+$/g, '').trim())
     .filter(Boolean)
     .join('. ') + '.';
 
-  const conclusionSpeechIdentity = JSON.stringify([session?.id, language, conclusionSpeechText, speechReplayKey]);
+  const conclusionIdentity = JSON.stringify([session?.id, language, conclusionSpeechText]);
+  const conclusionSpeechIdentity = JSON.stringify([conclusionIdentity, speechReplayKey]);
+  const audioReady = audioReadyIdentity === conclusionIdentity && activeConclusionIdentityRef.current === conclusionIdentity;
+  const waitForAudio = !practice && !readOnly && !isEmergency;
   useEffect(() => {
     if (practice || readOnly) return; // The bundled coach recordings explain example results offline.
     if (conclusionSpeechPlayedRef.current === conclusionSpeechIdentity || !conclusionSpeechText) {
       return;
     }
     conclusionSpeechPlayedRef.current = conclusionSpeechIdentity;
+    if (activeConclusionIdentityRef.current !== conclusionIdentity) {
+      activeConclusionIdentityRef.current = conclusionIdentity;
+      setAudioReadyIdentity(null);
+      setAudioTimeoutIdentity(null);
+    }
+    // Ignore a previous result's final playback state until this request emits
+    // its own state, even if two sessions happen to have the same transcript.
+    audioBeforeSpeechRef.current = audioStateRef.current;
     void playConclusionAudio('conclusion', conclusionSpeechText);
 
     return () => {
@@ -1828,19 +1753,25 @@ function DoneScreen({
       }
       void stopConclusionAudio();
     };
-  }, [practice, readOnly, conclusionSpeechIdentity, conclusionSpeechText, playConclusionAudio, stopConclusionAudio]);
+  }, [practice, readOnly, conclusionIdentity, conclusionSpeechIdentity, conclusionSpeechText, playConclusionAudio, stopConclusionAudio]);
 
   useEffect(() => {
-    if (practice || readOnly || audioReady) return;
-    if (conclusionAudio.phase === 'playing' || conclusionAudio.phase === 'finished' || conclusionAudio.phase === 'error' || conclusionAudio.fallback) {
-      setAudioReady(true);
-      return;
-    }
+    if (!waitForAudio || audioReady || conclusionAudio === audioBeforeSpeechRef.current) return;
+    if (conclusionAudio.prompt?.text !== conclusionSpeechText || conclusionAudio.prompt.language !== language) return;
+    if (['playing', 'finished', 'error'].includes(conclusionAudio.phase)) setAudioReadyIdentity(conclusionIdentity);
+  }, [waitForAudio, audioReady, conclusionAudio, conclusionIdentity, conclusionSpeechText, language]);
+
+  useEffect(() => {
+    if (!waitForAudio || audioReady) return;
+    // The synthesis request has a 30s network deadline. Also bound metadata,
+    // file/decoder stalls; a failed narrator must never hide the health result.
     const safetyTimer = setTimeout(() => {
-      setAudioReady(true);
-    }, 4500);
+      setAudioTimeoutIdentity(conclusionIdentity);
+      setAudioReadyIdentity(conclusionIdentity);
+      void stopConclusionAudio();
+    }, 40000);
     return () => clearTimeout(safetyTimer);
-  }, [practice, readOnly, audioReady, conclusionAudio.phase]);
+  }, [waitForAudio, audioReady, conclusionIdentity, stopConclusionAudio]);
 
   const replayConclusionSpeech = () => {
     if (readOnly) return;
@@ -1849,8 +1780,8 @@ function DoneScreen({
     setSpeechReplayKey((value) => value + 1);
   };
 
-  if (forceLoading || (!structuredConclusion && !audioReady && !practice && !readOnly)) {
-    return <ConclusionLoadingView styles={styles} />;
+  if (forceLoading || (waitForAudio && !audioReady)) {
+    return <ConclusionLoadingView key={conclusionIdentity} />;
   }
 
   return (
@@ -1906,7 +1837,7 @@ function DoneScreen({
         </GuideTarget>
       </View>
 
-      {conclusionAudio.phase === 'error' && (
+      {(conclusionAudio.phase === 'error' || (audioTimeoutIdentity === conclusionIdentity && !['playing', 'finished'].includes(conclusionAudio.phase))) && (
         <Text accessibilityLiveRegion="polite" style={{ color: colors.textSecondary }}>
           {t('checkinSpeechUnavailable')}
         </Text>
@@ -2223,6 +2154,48 @@ function DoneScreen({
           </Pressable>
         </View>
       </GuideTarget>}
+      <View
+        testID="checkin-ai-notice"
+        accessible
+        accessibilityRole="text"
+        accessibilityLabel={[aiNoticeTitle, aiNoticeBody].filter(Boolean).join('. ')}
+        style={{
+          backgroundColor: '#FFF8E8',
+          borderColor: '#DBC48D',
+          borderWidth: 1,
+          borderRadius: 18,
+          padding: 18,
+          gap: 10,
+          marginTop: 4,
+        }}
+      >
+        {aiNoticeTitle && (
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+            <Ionicons
+              name="information-circle-outline"
+              size={24}
+              color="#866014"
+              accessible={false}
+              importantForAccessibility="no"
+              style={{ marginTop: 2 }}
+            />
+            <Text
+              testID="checkin-ai-notice-title"
+              allowFontScaling
+              style={{ flex: 1, fontSize: 19, lineHeight: 28, fontWeight: '700', color: '#60420B' }}
+            >
+              {aiNoticeTitle}
+            </Text>
+          </View>
+        )}
+        <Text
+          testID="checkin-ai-notice-body"
+          allowFontScaling
+          style={{ color: '#594B32', fontSize: 17, lineHeight: 27 }}
+        >
+          {aiNoticeBody}
+        </Text>
+      </View>
       <GuideTarget step="checkin.result_close" enabled={practice}>
       <Animated.View entering={FadeInDown.delay(300).duration(400)}>
         {/* Closing returns to Home; the result never presents a gift itself. */}
@@ -2847,81 +2820,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       marginTop: 20,
       marginBottom: -16,
       overflow: 'hidden',
-    },
-
-    // ── Conclusion Loading / Synthesizing Screen ──
-    loadingContainer: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 24,
-      paddingTop: 36,
-      minHeight: 520,
-    },
-    loadingMascotWrap: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 12,
-    },
-    loadingAuraCircle: {
-      width: 250,
-      height: 250,
-      borderRadius: 125,
-      backgroundColor: '#e6faf8',
-      alignItems: 'center',
-      justifyContent: 'center',
-      position: 'relative',
-    },
-    loadingArcSvg: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-    },
-    loadingMascotImage: {
-      width: 156,
-      height: 168,
-    },
-    loadingTitle: {
-      fontSize: 24,
-      fontWeight: '800',
-      color: '#0f2942',
-      textAlign: 'center',
-      marginTop: 24,
-      lineHeight: 32,
-      letterSpacing: -0.3,
-    },
-    loadingSubtitle: {
-      fontSize: 14.5,
-      fontWeight: '500',
-      color: '#64748b',
-      textAlign: 'center',
-      marginTop: 10,
-      lineHeight: 22,
-    },
-    loadingDotsRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      marginTop: 20,
-      marginBottom: 36,
-    },
-    loadingDot: {
-      width: 9,
-      height: 9,
-      borderRadius: 4.5,
-      backgroundColor: '#08b8a2',
-    },
-    loadingFooterRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: 28,
-      marginBottom: 8,
-    },
-    loadingFooterText: {
-      fontSize: 13,
-      color: '#64748b',
-      fontWeight: '500',
     },
 
     // ── Done screen ──

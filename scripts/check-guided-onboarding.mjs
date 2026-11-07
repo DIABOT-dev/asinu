@@ -123,25 +123,37 @@ function assertBrandButton(button) {
     }
   }
 }
-function controlHarness(file, imports = {}) {
-  const slots = []; let cursor = 0;
+function controlHarness(file, imports = {}, runEffects = false) {
+  const slots = [], pending = [], appListeners = new Set(); let cursor = 0, focused = true;
   const jsx = (type, props) => ({ type, props });
   const components = evaluate(file, {
-    react: { useEffect() {}, useRef: value => slots[cursor++] ??= { current: value },
+    react: { useEffect(work, deps) {
+      if (!runEffects) return;
+      const index = cursor++, old = slots[index];
+      if (!old || deps.some((value, i) => !Object.is(value, old.deps[i]))) {
+        slots[index] = { deps };
+        pending.push(() => { old?.cleanup?.(); slots[index].cleanup = work(); });
+      }
+    }, useRef: value => slots[cursor++] ??= { current: value },
       useState: initial => {
         const index = cursor++; slots[index] ??= { value: initial };
         return [slots[index].value, value => { slots[index].value = value; }];
       } },
     'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': { Pressable: 'Pressable', View: 'View', Text: 'Text', Switch: 'Switch',
-      ActivityIndicator: 'Spinner', StyleSheet: { create: value => value } },
+      ActivityIndicator: 'Spinner', StyleSheet: { create: value => value },
+      AppState: { addEventListener: (_name, fn) => { appListeners.add(fn); return { remove: () => appListeners.delete(fn) }; } } },
     '@expo/vector-icons': { Ionicons: 'Icon' },
-    'expo-router': { useIsFocused: () => true },
+    'expo-router': { useIsFocused: () => focused },
     'react-i18next': { useTranslation: () => ({ t: key => key, i18n: { language: 'vi' } }) },
     './guidance.model': model,
     ...imports,
   });
-  return { render(name, props = {}) { cursor = 0; return components[name](props); } };
+  return {
+    render(name, props = {}) { cursor = 0; const tree = components[name](props); for (const work of pending.splice(0)) work(); return tree; },
+    focus(value) { focused = value; }, appState(value) { for (const fn of appListeners) fn(value); },
+    unmount() { for (const slot of slots) slot?.cleanup?.(); },
+  };
 }
 
 await test('welcome and its narration stay hidden until authenticated profile onboarding is complete', async () => {
@@ -718,6 +730,134 @@ await test('voice Start, Stop and transcription states retain brand colors and t
   assert.deepEqual(events, ['stop-guide', 'stop-guide', 'stop']);
   button = h.render('VoiceAnswerButton', { ...props, disabled: true }); assertBrandButton(button);
   assert.equal(button.props.disabled, true); assert.equal(buttonStyle(button).opacity, 0.5);
+});
+function microphoneHarness({ transcript = async () => 'Tôi hơi mệt', permission = true } = {}) {
+  const texts = [], notices = [], uploads = [], processing = [];
+  let creates = 0, stops = 0;
+  const h = controlHarness('src/features/guidance/VoiceAnswerButton.tsx', {
+    '../../lib/audio': { Audio: {
+      requestPermissionsAsync: async () => ({ granted: await (typeof permission === 'function' ? permission() : permission) }), setAudioModeAsync: async () => {},
+      RecordingOptionsPresets: { HIGH_QUALITY: {} }, Recording: { createAsync: async () => {
+        creates++; return { recording: { stopAndUnloadAsync: async () => { stops++; }, getURI: () => 'file:///answer.m4a' } };
+      } },
+    } },
+    '../chat/chat.api': { chatApi: { transcribeAudio: (...args) => { uploads.push(args); return transcript(); } } },
+    '../../stores/toast.store': { showToast: (...args) => notices.push(args) },
+    './guidance.audio': { guidanceAudio: { stop: async () => {} } },
+  }, true);
+  const props = { onBeforeAi: async () => true, onText: value => texts.push(value), onProcessingChange: value => processing.push(value) };
+  return { ...h, texts, notices, uploads, processing, get creates() { return creates; }, get stops() { return stops; },
+    render: () => h.render('VoiceAnswerButton', props), props };
+}
+await test('live check-in microphone uploads without an arbitrary loudness/duration gate and delivers text through the check-in endpoint', async () => {
+  const h = microphoneHarness();
+  try {
+    const start = h.render(); start.props.onPress(); start.props.onPress(); await tick();
+    assert.equal(h.creates, 1, 'Rapid taps cannot start two recorders');
+    h.render().props.onPress(); await tick(); h.render();
+    assert.deepEqual(h.uploads, [['file:///answer.m4a', 'vi', 'checkin']]);
+    assert.deepEqual(h.texts, ['Tôi hơi mệt']); assert.deepEqual(h.notices, []); assert.equal(h.stops, 1);
+  } finally { h.unmount(); }
+});
+await test('empty speech or a transcription failure gives feedback and restores an actionable mic', async () => {
+  for (const transcript of [async () => '  ', async () => { throw new Error('offline'); }]) {
+    const h = microphoneHarness({ transcript });
+    try {
+      h.render().props.onPress(); await tick(); h.render().props.onPress(); await tick();
+      const button = h.render(); assert.equal(button.props.disabled, false);
+      assert.equal(button.props.accessibilityState.busy, false);
+      assert.deepEqual(h.texts, []); assert.equal(h.notices[0][0], 'guidance.voiceFailure');
+      button.props.onPress(); await tick(); assert.equal(h.creates, 2, 'Retry starts a new recording');
+    } finally { h.unmount(); }
+  }
+});
+await test('microphone denial never uploads audio and explains the missing permission', async () => {
+  const h = microphoneHarness({ permission: false });
+  try {
+    h.render().props.onPress(); await tick();
+    assert.equal(h.creates, 0); assert.deepEqual(h.uploads, []);
+    assert.deepEqual(h.notices, [['guidance.microphoneDenied', 'info']]);
+    assert.equal(h.render().props.disabled, false);
+  } finally { h.unmount(); }
+});
+await test('the iOS permission dialog does not cancel the first recording, while actual backgrounding still does', async () => {
+  for (const state of ['inactive', 'background']) {
+    const pending = deferred(), h = microphoneHarness({ permission: () => pending.promise });
+    try {
+      h.render().props.onPress(); await tick(); h.appState(state);
+      pending.resolve(true); await tick();
+      assert.equal(h.creates, state === 'inactive' ? 1 : 0);
+      if (state === 'inactive') {
+        assert.equal(h.render().props.accessibilityLabel, 'guidance.stopRecording');
+        h.render().props.onPress(); await tick(); assert.deepEqual(h.texts, ['Tôi hơi mệt']);
+      }
+    } finally { h.unmount(); }
+  }
+});
+await test('a transcript from a hidden/unmounted question cannot fill a later answer; returning re-enables the mic', async () => {
+  for (const leave of ['blur', 'unmount']) {
+    const pending = deferred(), h = microphoneHarness({ transcript: () => pending.promise });
+    h.render().props.onPress(); await tick(); h.render().props.onPress(); await tick();
+    if (leave === 'blur') { h.focus(false); h.render(); } else h.unmount();
+    pending.resolve('old question answer'); await tick(); assert.deepEqual(h.texts, []);
+    if (leave === 'blur') {
+      h.focus(true); h.render(); assert.equal(h.render().props.disabled, false);
+      h.render().props.onPress(); await tick(); assert.equal(h.creates, 2); h.unmount();
+    }
+  }
+});
+await test('backgrounding during recording stops it without submitting an answer', async () => {
+  const h = microphoneHarness();
+  try {
+    h.render().props.onPress(); await tick(); h.appState('background'); await tick();
+    assert.equal(h.stops, 1); assert.deepEqual(h.uploads, []); assert.deepEqual(h.texts, []);
+    assert.equal(h.render().props.accessibilityLabel, 'guidance.speak');
+  } finally { h.unmount(); }
+});
+await test('the actual live symptom input appends dictated text, reflects processing and keys the mic by question', () => {
+  const file = ts.createSourceFile('checkin.tsx', read('app/checkin/index.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const component = file.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'TriageScreen');
+  const states = []; let cursor = 0;
+  const jsx = (type, props, key) => ({ type, props, key });
+  const animation = { duration: () => animation, delay: () => animation };
+  const TriageScreen = evaluateSource(`${component.getText(file)}\nmodule.exports=TriageScreen;`, {
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+  }, { View:'View',Text:'Text',Image:'Image',Pressable:'Pressable',TextInput:'Input',Ionicons:'Icon',MaterialCommunityIcons:'Icon',Svg:'Svg',Path:'Path',
+    Animated:{View:'Animated'},FadeIn:animation,FadeInDown:animation,FadeInLeft:animation,GuideTarget:'Guide',VoiceAnswerButton:'Mic',
+    asinuChatSticker:'existing-art', colors:theme.lightColors, spacing:theme.spacing, MAX_TRIAGE_QUESTIONS:4,
+    ...triageOptionDisplay,useTranslation:()=>({t:key=>key}),useGuideAcknowledgement:()=>()=>{},useRef:initial=>({current:initial}),useEffect(){},
+    useState(initial){const index=cursor++;states[index]??={value:initial};return [states[index].value,value=>{states[index].value=typeof value==='function'?value(states[index].value):value;}];},
+  });
+  const props={styles:{},question:'What changed?',options:[],multiSelect:false,allowFreeText:true,answers:[],loading:false,practice:false,onBeforeAi:async()=>true,onAnswer(){}};
+  const render=()=>{cursor=0;return TriageScreen(props);};
+  let tree=render(),mic=nodes(tree).find(node=>node.type==='Mic');
+  assert.ok(mic,'Live check-in must use the same working voice control'); assert.equal(mic.key,props.question);
+  nodes(tree).find(node=>node.type==='Input').props.onChangeText('Từ sáng');
+  mic.props.onText('tôi hơi mệt'); tree=render();
+  assert.equal(nodes(tree).find(node=>node.type==='Input').props.value,'Từ sáng tôi hơi mệt');
+  nodes(tree).find(node=>node.type==='Mic').props.onProcessingChange(true); tree=render();
+  assert.equal(nodes(tree).find(node=>node.type==='Input').props.editable,false);
+  nodes(tree).find(node=>node.type==='Mic').props.onProcessingChange(false);tree=render();
+  assert.equal(nodes(tree).find(node=>node.type==='Input').props.editable,true);
+});
+await test('the real transcription client keeps chat gated separately and bounds a check-in request with authentication', async () => {
+  const requests=[],timers=new Map();let response={ok:true,status:200,text:async()=>JSON.stringify({ok:true,text:' Tôi hơi mệt '})};
+  class Form { constructor(){this.entries=[];} append(...args){this.entries.push(args);} }
+  class Failure extends Error { constructor(message,status){super(message);this.statusCode=status;} }
+  const {chatApi}=evaluate('src/features/chat/chat.api.ts',{
+    '../../observability/sentry':{monitoredFetch:async(url,options)=>{requests.push({url,options});return response;}},
+    '../../i18n':{default:{t:key=>key}},'../../lib/apiClient':{ApiError:Failure},
+    '../../lib/env':{env:{apiBaseUrl:'https://test.invalid'}},'../../lib/tokenStore':{tokenStore:{getToken:()=> 'test-token'}},
+  },{FormData:Form,setTimeout:(fn,ms)=>{assert.equal(ms,45000);timers.set(1,fn);return 1;},clearTimeout:id=>timers.delete(id)});
+  assert.equal(await chatApi.transcribeAudio('file:///voice.m4a','vi','checkin'),'Tôi hơi mệt');
+  assert.equal(requests[0].url,'https://test.invalid/api/mobile/checkin/transcribe');
+  assert.equal(requests[0].options.headers.Authorization,'Bearer test-token');
+  assert.equal(requests[0].options.headers['Accept-Language'],'vi');
+  assert.equal(requests[0].options.body.entries[0][1].uri,'file:///voice.m4a');
+  assert.ok(requests[0].options.signal);assert.equal(timers.size,0);
+  await chatApi.transcribeAudio('file:///voice.m4a','en');assert.equal(requests[1].url,'https://test.invalid/api/mobile/chat/transcribe');
+  response={ok:false,status:403,text:async()=>JSON.stringify({ok:false,error:'Consent required',code:'AI_CONSENT_REQUIRED'})};
+  await assert.rejects(chatApi.transcribeAudio('file:///voice.m4a','vi','checkin'),/Consent required/);assert.equal(timers.size,0);
 });
 await test('practice Speak and Done use example text, never recording, permission, transcription or consent APIs', async () => {
   const texts = [], notices = [];

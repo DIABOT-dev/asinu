@@ -21,6 +21,7 @@ function evaluate(source, globals = {}) {
   }, ...Object.values(globals));
   return module.exports;
 }
+const locationDetailsHelpers = evaluate(read('src/features/checkin/location-details.ts'));
 const { createCheckinPractice } = evaluate(read('src/features/guidance/checkin.practice.ts'));
 const triageOptionDisplay = evaluate(read('src/features/checkin/triage-option-display.ts'));
 const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes)
@@ -63,7 +64,7 @@ function translations(language) {
   const get = (ns, key, options = {}) => {
     const value = key.split('.').reduce((entry, part) => entry?.[part], catalogs[options.ns || ns]);
     assert.notEqual(value, undefined, `Missing ${language}/${options.ns || ns}/${key}`);
-    return value;
+    return typeof value === 'string' ? value.replace(/\{\{(\w+)\}\}/g, (match, name) => options[name] ?? match) : value;
   };
   const t = (key, options) => get('home', key, options);
   const tg = (key, options) => get('onboarding', key, options);
@@ -301,6 +302,79 @@ for (const language of ['vi', 'en']) {
 const { CHECKIN_UI_PREVIEWS } = evaluate(read('src/features/checkin/checkin-ui-gallery.ts'));
 const extractVariable = name => routeFile.statements.find(item => ts.isVariableStatement(item)
   && item.declarationList.declarations.some(declaration => declaration.name.getText(routeFile) === name)).getText(routeFile);
+
+function locationHarness(language) {
+  const runtime = hooks(), tr = translations(language), calls = [];
+  const component = evaluate(`${extractVariable('BODY_LOCATION_OPTIONS')}\n${extract('LocationScreen')}\nmodule.exports = LocationScreen;`, {
+    ...native, ...runtime, ...tr, ...locationDetailsHelpers, spacing: { xs: 4 },
+    VoiceAnswerButton: 'VoiceAnswerButton', useGuideAcknowledgement: () => () => {},
+  });
+  let props = { styles: {}, loading: false, onConfirm: (...args) => calls.push(args), onBack() {}, onBeforeAi: async () => true };
+  let tree;
+  const settle = async () => { tree = await runtime.settle(() => component(props)); return tree; };
+  const find = id => { const node = nodes(tree).find(item => item.props?.testID === id); assert.ok(node, id); return node; };
+  return { calls, tr, find, settle, async press(id) { await find(id).props.onPress(); return settle(); },
+    async note(value) { nodes(tree).find(item => item.type === 'Input').props.onChangeText(value); return settle(); },
+    async loading(value) { props = { ...props, loading: value }; return settle(); } };
+}
+
+for (const language of ['vi', 'en']) {
+  await test(`${language}: selecting head and limbs asks for both exact spots before starting check-in`, async () => {
+    const h = locationHarness(language); await h.settle();
+    await h.press('checkin-location-region-head'); await h.press('checkin-location-region-limbs');
+    assert.ok(h.find('checkin-location-detail-head'));
+    assert.ok(h.find('checkin-location-detail-limbs'));
+    assert.equal(h.find('checkin-location-continue').props.disabled, true);
+    await h.press('checkin-location-continue'); assert.equal(h.calls.length, 0);
+    await h.press('checkin-location-detail-head');
+    await h.press('checkin-location-position-head-forehead');
+    assert.equal(h.find('checkin-location-continue').props.disabled, true, 'The arm/leg area still needs an answer');
+    await h.press('checkin-location-detail-limbs');
+    await h.press('checkin-location-position-limbs-right_wrist');
+    assert.equal(h.find('checkin-location-continue').props.disabled, false);
+    await h.press('checkin-location-continue');
+    assert.deepEqual(h.calls[0][0], ['head', 'limbs']);
+    assert.ok(h.calls[0][1].includes(h.tr.t('checkinLocationDetail_forehead')));
+    assert.ok(h.calls[0][1].includes(h.tr.t('checkinLocationDetail_right_wrist')));
+    await h.press('checkin-location-region-head');
+    await h.press('checkin-location-continue');
+    assert.deepEqual(h.calls[1][0], ['limbs']);
+    assert.ok(!h.calls[1][1].includes(h.tr.t('checkinLocationDetail_forehead')), 'A removed region cannot leak a stale answer');
+  });
+  await test(`${language}: uncertain and custom positions are supported without inventing pain`, async () => {
+    const h = locationHarness(language); await h.settle(); await h.press('checkin-location-region-head');
+    await h.press('checkin-location-detail-head'); await h.press('checkin-location-position-head-uncertain');
+    assert.equal(h.find('checkin-location-continue').props.disabled, false);
+    await h.press('checkin-location-continue');
+    assert.ok(h.calls[0][1].includes(h.tr.t('checkinLocationDetail_uncertain')));
+    await h.press('checkin-location-position-head-other_detail');
+    assert.equal(h.find('checkin-location-continue').props.disabled, true);
+    await h.note(language === 'vi' ? 'Phía sau tai phải' : 'Behind the right ear');
+    assert.equal(h.find('checkin-location-continue').props.disabled, false);
+    await h.press('checkin-location-continue');
+    assert.ok(h.calls[1][1].includes(language === 'vi' ? 'Phía sau tai phải' : 'Behind the right ear'));
+    await h.loading(true); await h.press('checkin-location-continue');
+    assert.equal(h.calls.length, 2, 'A stale loading action cannot submit again');
+  });
+  await test(`${language}: whole-body and mental choices do not demand a fictitious anatomical spot`, async () => {
+    const h = locationHarness(language); await h.settle();
+    await h.press('checkin-location-region-whole_body'); await h.press('checkin-location-region-mental');
+    assert.equal(h.find('checkin-location-continue').props.disabled, false);
+    await h.press('checkin-location-continue');
+    assert.deepEqual(h.calls[0], [['whole_body','mental'], '']);
+  });
+}
+
+await test('exact position keys survive language changes and unknown choices remain exclusive', () => {
+  const { toggleLocationDetail, formatLocationNotes } = locationDetailsHelpers;
+  let selected = toggleLocationDetail({}, 'limbs', 'right_wrist');
+  selected = toggleLocationDetail(selected, 'limbs', 'uncertain');
+  assert.deepEqual(selected.limbs, ['uncertain']);
+  selected = toggleLocationDetail(selected, 'limbs', 'right_wrist');
+  assert.deepEqual(selected.limbs, ['right_wrist']);
+  for (const language of ['vi','en']) assert.ok(formatLocationNotes(['limbs'], selected, '', translations(language).t).includes(translations(language).t('checkinLocationDetail_right_wrist')));
+});
+
 for (const language of ['vi', 'en']) {
   await test(`${language}: every gallery check-in is read-only, silent and cannot navigate or request consent`, async () => {
     const deny = () => assert.fail('A UI preview attempted an action');
@@ -310,9 +384,10 @@ for (const language of ['vi', 'en']) {
     const source = [extractVariable('createResultPreviewSession'), extractVariable('BODY_LOCATION_OPTIONS'),
       ...['CheckinUiPreview', 'StatusScreen', 'LocationScreen', 'TriageScreen', 'ConclusionLoadingView', 'stripEmojis', 'extractRecordedSymptoms', 'DoneScreen'].map(extract),
       'module.exports = CheckinUiPreview;'].join('\n');
-    const preview = evaluate(source, { ...native, ...runtime, ...translations(language), ...triageOptionDisplay, isDoctorFeaturesEnabled: true, MAX_TRIAGE_QUESTIONS: 4,
+    const preview = evaluate(source, { ...native, ...runtime, ...translations(language), ...triageOptionDisplay, ...locationDetailsHelpers, isDoctorFeaturesEnabled: true, MAX_TRIAGE_QUESTIONS: 4,
       CHECKIN_STATUS_CHOICES: [{ status: 'fine' }, { status: 'tired' }, { status: 'very_tired' }],
       CheckinStatusChoice: 'StatusChoice', VoiceAnswerButton: 'VoiceAnswerButton',
+      CheckinConclusionLoading: 'ConclusionProgress',
       CheckinGiftModal: (props) => ({ type: 'Pressable', props: { disabled: true, children: null } }),
       useScaledTypography: () => ({}), createStyles: () => ({}), spacing: { xs: 4, sm: 8, md: 16, lg: 24 },
       useLanguageStore: () => ({ language }), useGuideAcknowledgement: () => deny,

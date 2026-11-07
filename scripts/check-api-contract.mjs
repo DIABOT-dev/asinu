@@ -32,54 +32,33 @@ const literal = (node) =>
     ? node.text
     : null;
 
-const renderPath = (node, bindings = new Map(), resolving = new Set()) => {
-  if (!node) {return null;}
+// Preserve each statically known branch, including native audio downloads.
+// A dynamic ID remains one path segment; it never hides an endpoint prefix.
+const renderPaths = (node, bindings = new Map(), resolving = new Set()) => {
+  if (!node) {return [];}
   const direct = literal(node);
-  if (direct !== null) {return direct;}
-  if (
-    ts.isAsExpression(node) ||
-    ts.isTypeAssertionExpression(node) ||
-    ts.isParenthesizedExpression(node)
-  ) {
-    return renderPath(node.expression, bindings, resolving);
-  }
-  if (ts.isTemplateExpression(node)) {
-    return node.head.text + node.templateSpans.map((span) => ':param' + span.literal.text).join('');
-  }
-  if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
-    const left = renderPath(node.left, bindings, resolving);
-    const right = renderPath(node.right, bindings, resolving);
-    return left !== null && right !== null ? left + right : null;
+  if (direct !== null) {return [direct];}
+  if (ts.isAsExpression(node) || ts.isTypeAssertionExpression(node) || ts.isParenthesizedExpression(node)) {
+    return renderPaths(node.expression, bindings, resolving);
   }
   if (ts.isConditionalExpression(node)) {
-    const whenTrue = renderPath(node.whenTrue, bindings, resolving);
-    const whenFalse = renderPath(node.whenFalse, bindings, resolving);
-    if (whenTrue === null || whenFalse === null) {return null;}
-    return whenTrue.split(/[?#]/, 1)[0] === whenFalse.split(/[?#]/, 1)[0]
-      ? whenTrue
-      : null;
+    return [...new Set([...renderPaths(node.whenTrue, bindings, resolving), ...renderPaths(node.whenFalse, bindings, resolving)])];
   }
-  if (
-    ts.isPropertyAccessExpression(node) &&
-    node.expression.getText() === 'env' &&
-    node.name.text === 'apiBaseUrl'
-  ) {
-    return '';
+  const join = (heads, tails) => heads.flatMap(head => tails.map(tail => head + tail));
+  if (ts.isTemplateExpression(node)) {
+    return node.templateSpans.reduce((paths, span) =>
+      join(paths, renderPaths(span.expression, bindings, resolving).map(value => value + span.literal.text)), [node.head.text]);
   }
-  if (ts.isCallExpression(node) && node.expression.getText() === 'encodeURIComponent') {
-    return ':param';
+  if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    return join(renderPaths(node.left, bindings, resolving), renderPaths(node.right, bindings, resolving));
   }
-  if (ts.isIdentifier(node)) {
-    if (bindings.has(node.text) && !resolving.has(node.text)) {
-      const nextResolving = new Set(resolving).add(node.text);
-      return renderPath(bindings.get(node.text), bindings, nextResolving);
-    }
-    return ':param';
+  if (ts.isPropertyAccessExpression(node) && node.expression.getText() === 'env' && node.name.text === 'apiBaseUrl') {
+    return [''];
   }
-  if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
-    return ':param';
+  if (ts.isIdentifier(node) && bindings.has(node.text) && !resolving.has(node.text)) {
+    return renderPaths(bindings.get(node.text), bindings, new Set(resolving).add(node.text));
   }
-  return null;
+  return [':param'];
 };
 
 const requestMethod = (options) => {
@@ -123,15 +102,17 @@ for (const file of appFiles) {
     if (ts.isCallExpression(node)) {
       const callee = node.expression.getText(source);
       const isApiClient = callee === 'apiClient';
-      const isFetch = callee === 'fetch' || callee === 'monitoredFetch';
+      const isDownload = callee === 'FileSystem.createDownloadResumable';
+      const isFetch = callee === 'fetch' || callee === 'monitoredFetch' || isDownload;
       const isHealthFeedClient = callee === 'healthFeedApi';
       const isDoctorIvrRequest = isDoctorIvrModule && callee === 'request';
       if (isApiClient || isFetch || isHealthFeedClient || isDoctorIvrRequest) {
-        let rendered = renderPath(node.arguments[0], bindings);
+        const variants = renderPaths(node.arguments[0], bindings);
+        for (let rendered of variants) {
         const sourceText = node.arguments[0]?.getText(source) || '';
         const isInternalFetch =
           isFetch &&
-          (sourceText.includes('apiBase') || rendered?.startsWith('/api/') || false);
+          (sourceText.includes('apiBase') || rendered?.includes('/api/') || false);
         const delegatedHealthFeedCall =
           isApiClient && rendered?.startsWith('/api/health-feed:param');
         const delegatedDoctorIvrCall = isDoctorIvrModule && isApiClient && rendered === '/api/doctor/ivr/:param';
@@ -143,11 +124,12 @@ for (const file of appFiles) {
             unresolvedFrontendCalls.push(location);
           } else {
             frontendRequests.push({
-              method: isDoctorIvrRequest ? (node.arguments[1] ? 'POST' : 'GET') : requestMethod(node.arguments[1]),
+              method: isDoctorIvrRequest ? (node.arguments[1] ? 'POST' : 'GET') : requestMethod(node.arguments[isDownload ? 2 : 1]),
               path: normalizePath(rendered),
               source: location,
             });
           }
+        }
         }
       }
     }

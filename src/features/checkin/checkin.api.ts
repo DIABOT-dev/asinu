@@ -21,6 +21,9 @@ export interface CheckinSession {
   flow_state: FlowState;
   triage_messages: Array<TriageAnswer & { options?: string[] }>;
   triage_summary: string | null;
+  body_location?: string | null;
+  body_locations?: string[] | null;
+  body_location_other?: string | null;
   triage_severity: TriageSeverity | null;
   triage_completed_at: string | null;
   next_checkin_at: string | null;
@@ -52,11 +55,17 @@ export interface TriageResult {
   severity?: TriageSeverity;
   recommendation?: string;
   conclusionVersion?: 2;
+  conclusionFormat?: 'structured' | 'narrative';
+  narrative?: string;
+  conclusionPromptVersion?: string;
+  conclusionRenderVersion?: number;
+  conclusionSource?: 'ai' | 'partial_fallback' | 'fallback';
   personalMessage?: string;
   explanation?: string;
   todo?: string[];
   seeDoctorWhen?: string[];
   disclaimer?: string;
+  aiNotice?: string;
   closeMessage?: string;
   followUpHours?: number;
   speechText?: string;
@@ -95,13 +104,20 @@ export type TriageSummaryView = {
   recommendation: string;
   needsDoctor: boolean;
   conclusionVersion?: 2;
+  conclusionFormat?: 'structured' | 'narrative';
+  narrative?: string;
+  conclusionPromptVersion?: string;
+  conclusionRenderVersion?: number;
+  conclusionSource?: 'ai' | 'partial_fallback' | 'fallback';
   personalMessage?: string;
   explanation?: string;
   todo?: string[];
   seeDoctorWhen?: string[];
   disclaimer?: string;
+  aiNotice?: string;
   closeMessage?: string;
   followUpHours?: number;
+  speechText?: string;
   _progress?: { text: string; templateId: string };
   familyAlertResult?: TriageResult['familyAlertResult'];
   // Pass-through of the backend FIX #4 caregiver fields so the done screen
@@ -196,8 +212,8 @@ export const checkinApi = {
   triage: (checkin_id: number, previous_answers: TriageAnswer[]) =>
     apiClient<TriageResult>('/api/mobile/checkin/triage', {
       method: 'POST',
-      body: { checkin_id, previous_answers },
-      timeoutMs: 30000,
+      body: { checkin_id, previous_answers, conclusion_format: 'narrative' },
+      timeoutMs: 90000,
     }),
 
   emergency: (location?: { lat: number; lng: number; accuracy?: number }) =>

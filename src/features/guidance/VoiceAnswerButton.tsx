@@ -10,8 +10,8 @@ import { guidanceAudio } from './guidance.audio';
 import { guideColors as c } from './guidance.model';
 
 /** Reuses the existing, consented transcription endpoint, never submits an answer. */
-export function VoiceAnswerButton({ onText, onBeforeAi, disabled = false, practice = false }: {
-  onText: (text: string) => void; onBeforeAi: () => Promise<boolean>; disabled?: boolean; practice?: boolean;
+export function VoiceAnswerButton({ onText, onBeforeAi, onProcessingChange, disabled = false, practice = false }: {
+  onText: (text: string) => void; onBeforeAi: () => Promise<boolean>; onProcessingChange?: (busy: boolean) => void; disabled?: boolean; practice?: boolean;
 }) {
   const { t, i18n } = useTranslation('onboarding');
   const focused = useIsFocused();
@@ -21,20 +21,28 @@ export function VoiceAnswerButton({ onText, onBeforeAi, disabled = false, practi
   const alive = useRef(true);
   const locked = useRef(false);
   const revision = useRef(0);
+  const permissionRequest = useRef<number | null>(null);
+  useEffect(() => { onProcessingChange?.(busy); }, [busy, onProcessingChange]);
   useEffect(() => {
     alive.current = focused;
+    if (focused) { setRecording(false); setBusy(false); }
     const cancel = () => {
       ++revision.current;
+      permissionRequest.current = null;
       const previous = recorder.current; recorder.current = null;
       void previous?.stopAndUnloadAsync().catch(() => {});
       locked.current = false;
       if (alive.current) { setRecording(false); setBusy(false); }
     };
-    const sub = AppState.addEventListener('change', state => { if (state !== 'active') cancel(); });
+    const sub = AppState.addEventListener('change', state => {
+      // iOS temporarily becomes inactive while its microphone dialog is open.
+      // A real background/blur still cancels the request and any recording.
+      if (state !== 'active' && !(state === 'inactive' && permissionRequest.current !== null)) cancel();
+    });
     return () => { alive.current = false; cancel(); sub.remove(); };
   }, [focused]);
   const press = async () => {
-    if (locked.current || disabled) return;
+    if (locked.current || disabled || !alive.current) return;
     locked.current = true;
     const version = ++revision.current;
     const current = () => alive.current && version === revision.current;
@@ -51,16 +59,23 @@ export function VoiceAnswerButton({ onText, onBeforeAi, disabled = false, practi
       }
       if (recorder.current) {
         const previous = recorder.current; recorder.current = null;
-        await previous.stopAndUnloadAsync();
-        if (!current()) return;
         setRecording(false);
+        await previous.stopAndUnloadAsync();
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true }).catch(() => {});
+        if (!current()) return;
         const uri = previous.getURI();
-        if (!uri) return;
-        const text = await chatApi.transcribeAudio(uri, i18n.language.startsWith('en') ? 'en' : 'vi');
-        if (current() && text) onText(text);
+        if (!uri) throw new Error('RECORDING_FILE_UNAVAILABLE');
+        const text = (await chatApi.transcribeAudio(uri, i18n.language.startsWith('en') ? 'en' : 'vi', 'checkin')).trim();
+        if (current()) {
+          if (text) onText(text);
+          else showToast(t('guidance.voiceFailure'), 'info');
+        }
       } else {
         if (!(await onBeforeAi()) || !current()) return;
-        const permission = await Audio.requestPermissionsAsync();
+        permissionRequest.current = version;
+        let permission;
+        try { permission = await Audio.requestPermissionsAsync(); }
+        finally { if (permissionRequest.current === version) permissionRequest.current = null; }
         if (!current()) return;
         if (!permission.granted) { showToast(t('guidance.microphoneDenied'), 'info'); return; }
         await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
@@ -73,8 +88,8 @@ export function VoiceAnswerButton({ onText, onBeforeAi, disabled = false, practi
     finally { if (current()) { locked.current = false; setBusy(false); } }
   };
   const label = t(recording ? 'guidance.stopRecording' : 'guidance.speak');
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={busy || disabled}
-    accessibilityState={{ disabled: busy || disabled, busy }}
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={busy || disabled || !focused}
+    accessibilityState={{ disabled: busy || disabled || !focused, busy }}
     onPress={() => void press()} style={({ pressed }) => ({ minHeight: 56, minWidth: 56, padding: 12, borderRadius: 14,
       alignItems: 'center', justifyContent: 'center',
       opacity: busy || disabled ? 0.5 : pressed ? 0.8 : 1 })}>

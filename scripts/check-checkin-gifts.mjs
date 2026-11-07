@@ -302,7 +302,7 @@ function resultGiftHarness({ language = 'vi', status = 'fine', severity, practic
   const catalogue = JSON.parse(read(`src/i18n/locales/${language}/home.json`));
   const t = key => catalogue[key] || key;
   let audio = { phase: 'idle', prompt: null, fallback: false };
-  const play = async (key, text) => { calls.push('read result'); audio = { phase: 'loading', prompt: { key, text }, fallback: false }; };
+  const play = async (key, text) => { calls.push('read result'); audio = { phase: 'loading', prompt: { key, text, language }, fallback: false }; };
   const stop = async () => { calls.push('stop result'); audio = { ...audio, phase: 'idle' }; };
   const animation = { duration: () => animation, delay: () => animation };
   const { DoneScreen } = evaluate('app/checkin/index.tsx', {}, {
@@ -339,10 +339,11 @@ for (const language of ['vi', 'en']) for (const status of ['fine', 'tired']) awa
   try {
     let result = await h.settle(); assert.equal(result.gift, undefined);
     result = await h.advance(4500);
-    assert.ok(nodes(result.tree).some(node => node.type === 'Text' && node.props.children === h.t('checkinDoneNoted')));
-    assert.equal(result.gift, undefined, 'The loading timeout shows the health result, never the gift');
+    assert.ok(nodes(result.tree).some(node => node.type === 'Loading'));
+    assert.equal(result.gift, undefined, 'Pending audio keeps the runner visible, never the gift');
     assert.ok(!h.calls.includes('stop result'), 'Downloading the narration must not be cancelled by the gift');
     h.phase('playing'); result = await h.settle();
+    assert.ok(nodes(result.tree).some(node => node.type === 'Text' && node.props.children === h.t('checkinDoneNoted')));
     assert.equal(result.gift, undefined); assert.ok(!h.calls.includes('stop result'));
     h.phase('finished'); result = await h.settle();
     assert.equal(result.gift, undefined); assert.equal(h.calls.filter(call => call === 'read result').length, 1);

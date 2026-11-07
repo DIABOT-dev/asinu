@@ -76,37 +76,45 @@ export const chatApi = {
     return res.feedbacks ?? {};
   },
 
-  async transcribeAudio(uri: string, lang: string = 'vi'): Promise<string> {
+  async transcribeAudio(uri: string, lang: string = 'vi', purpose: 'chat' | 'checkin' = 'chat'): Promise<string> {
     const token = tokenStore.getToken();
     const formData = new FormData();
     formData.append('audio', { uri, type: 'audio/m4a', name: 'voice.m4a' } as any);
 
-    const response = await monitoredFetch(`${env.apiBaseUrl}/api/mobile/chat/transcribe`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Accept-Language': lang,
-        Accept: 'application/json',
-      },
-      body: formData,
-    });
-    const text = await response.text();
-    let data: any;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
+    const endpoint = purpose === 'checkin' ? '/api/mobile/checkin/transcribe' : '/api/mobile/chat/transcribe';
     try {
-      data = JSON.parse(text);
-    } catch {
-      throw new ApiError(
-        i18n.t('errorServer', { ns: 'common' }),
-        response.status,
-      );
+      const response = await monitoredFetch(`${env.apiBaseUrl}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Accept-Language': lang,
+          Accept: 'application/json',
+        },
+        body: formData,
+        signal: controller.signal,
+      });
+      const text = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new ApiError(
+          i18n.t('errorServer', { ns: 'common' }),
+          response.status,
+        );
+      }
+      if (!response.ok || !data.ok) {
+        throw new ApiError(
+          data.error || i18n.t('errorServer', { ns: 'common' }),
+          response.status,
+          { code: typeof data.code === 'string' ? data.code : undefined, data },
+        );
+      }
+      return typeof data.text === 'string' ? data.text.trim() : '';
+    } finally {
+      clearTimeout(timeout);
     }
-    if (!response.ok || !data.ok) {
-      throw new ApiError(
-        data.error || i18n.t('errorServer', { ns: 'common' }),
-        response.status,
-        { code: typeof data.code === 'string' ? data.code : undefined, data },
-      );
-    }
-    return data.text as string;
   }
 };
