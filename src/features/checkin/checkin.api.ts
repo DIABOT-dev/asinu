@@ -49,6 +49,9 @@ export interface TriageResult {
   step?: string;
   options?: string[];
   optionsGrouped?: TriageOptionGroup[] | null; // T3 group theo body location
+  questionProgress?: { current: number; total: number };
+  questionGroup?: { key: string; label: string; index: number; total: number } | null;
+  exclusiveOptions?: string[];
   multiSelect?: boolean;
   // when done
   summary?: string;
@@ -212,7 +215,7 @@ export const checkinApi = {
   triage: (checkin_id: number, previous_answers: TriageAnswer[]) =>
     apiClient<TriageResult>('/api/mobile/checkin/triage', {
       method: 'POST',
-      body: { checkin_id, previous_answers, conclusion_format: 'narrative' },
+      body: { checkin_id, previous_answers, conclusion_format: 'narrative', assessment_version: 2 },
       timeoutMs: 90000,
     }),
 

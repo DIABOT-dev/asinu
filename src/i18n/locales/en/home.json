@@ -786,5 +786,9 @@
   "checkinLocationDetail_right_leg_skin": "Right leg skin",
   "checkinLocationDetail_widespread_skin": "Several skin areas",
   "checkinLocationDetail_other_detail": "Another spot, describe below",
-  "checkinLocationDetail_uncertain": "Not sure of the spot"
+  "checkinLocationDetail_uncertain": "Not sure of the spot",
+  "checkinQuestionRegion": "{{region}} · Area {{current}}/{{total}}",
+  "checkinInstantStatusTitle": "How are you feeling right now?",
+  "checkinInstantStatusHint": "Choose how you feel right now.",
+  "checkinSelectIntensityTitle": "Choose intensity"
 }

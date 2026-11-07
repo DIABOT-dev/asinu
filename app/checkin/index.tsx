@@ -23,7 +23,7 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInLeft } from 'react-native-reanimated';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { AiDataConsentModal, hasAiDataConsent } from '../../src/components/AiDataConsentModal';
@@ -148,8 +148,8 @@ const BODY_LOCATION_OPTIONS: Array<{ key: BodyLocation; icon: MciName; labelKey:
 ];
 
 export default function CheckinRoute() {
-  const params = useLocalSearchParams<{ mode?: string; checkin_id?: string; guide?: string }>();
-  return <CheckinScreen key={`${params.mode || 'daily'}:${params.checkin_id || ''}:${params.guide || ''}`} />;
+  const params = useLocalSearchParams<{ mode?: string; checkin_id?: string; guide?: string; entry?: string }>();
+  return <CheckinScreen key={`${params.mode || 'daily'}:${params.checkin_id || ''}:${params.guide || ''}:${params.entry || ''}`} />;
 }
 
 function CheckinScreen() {
@@ -171,6 +171,7 @@ function CheckinScreen() {
     preset_status?: string;
     guide?: string;
     guide_followup?: string;
+    entry?: string;
   }>();
   const isPractice = params.mode === 'guide';
   const practiceRunKey = useRef(`checkin-practice:${Date.now()}:${Math.random()}`).current;
@@ -179,6 +180,7 @@ function CheckinScreen() {
   const [practiceRevision, setPracticeRevision] = useState(0);
   const isFollowUp = isPractice ? practiceFollowup : params.mode === 'followup';
   const isRandom = params.mode === 'random';
+  const isInstantEntry = !isFollowUp && (isRandom || (isPractice && params.entry === 'instant'));
   const isResultPreview = params.mode === 'result_preview';
   const existingCheckinId = isPractice ? (practiceFollowup ? -1 : null)
     : params.checkin_id ? parseInt(params.checkin_id) : null;
@@ -261,6 +263,9 @@ function CheckinScreen() {
   );
   const [currentQ, setCurrentQ]    = useState<string>('');
   const [currentStep, setCurrentStep] = useState<string>('');
+  const [questionProgress, setQuestionProgress] = useState<{ current: number; total: number } | undefined>();
+  const [questionGroup, setQuestionGroup] = useState<{ label: string; index: number; total: number } | null>(null);
+  const [exclusiveOptions, setExclusiveOptions] = useState<string[]>([]);
   const [currentOpts, setCurrentOpts] = useState<string[]>([]);
   const [currentOptsGrouped, setCurrentOptsGrouped] = useState<TriageOptionGroup[] | null>(null);
   const [currentMultiSelect, setCurrentMultiSelect] = useState(true);
@@ -327,6 +332,7 @@ function CheckinScreen() {
   const [pendingStatus, setPendingStatus] = useState<CheckinStatus | null>(null);
 
   const handleStatusSelect = useCallback(async (status: CheckinStatus) => {
+    if (isInstantEntry && status !== 'tired' && status !== 'very_tired') return;
     // Followup: vẫn flow cũ (đã có session)
     if (isFollowUp && existingCheckinId) {
       if (
@@ -392,7 +398,7 @@ function CheckinScreen() {
     // "Hơi mệt" / "Rất mệt" keep the body-location shortcut.
     setPendingStatus(status);
     setScreen('location');
-  }, [checkinClient, isPractice, isFollowUp, existingCheckinId, requestAiConsent]);
+  }, [checkinClient, isPractice, isFollowUp, isInstantEntry, existingCheckinId, requestAiConsent]);
 
   const handleLocationsConfirm = useCallback(async (locs: BodyLocation[], other: string) => {
     if (!pendingStatus) return;
@@ -473,6 +479,9 @@ function CheckinScreen() {
         setCurrentGreeting(result._greeting || null);
         const newQ = result.question || '';
         setCurrentStep(result.step || `legacy_${prevAnswers.length + 1}`);
+        setQuestionProgress(result.questionProgress);
+        setQuestionGroup(result.questionGroup || null);
+        setExclusiveOptions(result.exclusiveOptions || []);
         // Khi câu hỏi MỚI về (khác câu trước) → reset userAtBottom=true để
         // onContentSizeChange tự scroll xuống tin mới (user thường muốn xem).
         if (newQ !== lastQuestionIdRef.current) {
@@ -656,7 +665,7 @@ function CheckinScreen() {
             : isFollowUp
               ? t('checkinHeaderFollowUp')
               : screen === 'status'
-                ? t('checkinSelectStatusTitle')
+                ? t(isInstantEntry ? 'checkinSelectIntensityTitle' : 'checkinSelectStatusTitle')
                 : t('checkinHeaderTitle')}
         </Text>}
         <Pressable
@@ -703,7 +712,7 @@ function CheckinScreen() {
           }
         }}
       >
-        {screen === 'status' && <StatusScreen styles={styles} onSelect={handleStatusSelect} isFollowUp={isFollowUp} practice={isPractice} />}
+        {screen === 'status' && <StatusScreen styles={styles} onSelect={handleStatusSelect} isFollowUp={isFollowUp} instant={isInstantEntry} practice={isPractice} />}
         {screen === 'location' && (
           <LocationScreen
             styles={styles}
@@ -720,6 +729,9 @@ function CheckinScreen() {
             question={currentQ}
             options={currentOpts}
             optionsGrouped={currentOptsGrouped}
+            questionProgress={questionProgress}
+            questionGroup={questionGroup}
+            exclusiveOptions={exclusiveOptions}
             multiSelect={currentMultiSelect}
             allowFreeText={currentAllowFreeText}
             answers={answers}
@@ -823,17 +835,20 @@ function StatusScreen({
   styles,
   onSelect,
   isFollowUp,
+  instant = false,
   practice = false,
   readOnly = false,
 }: {
   styles: Styles;
   onSelect: (s: CheckinStatus) => void;
   isFollowUp: boolean;
+  instant?: boolean;
   practice?: boolean;
   readOnly?: boolean;
 }) {
   const { t } = useTranslation('home');
   const getGreeting = () => {
+    if (instant) return t('checkinInstantStatusTitle');
     if (isFollowUp) return t('checkinGreetingFollowUp');
     const h = new Date().getHours();
     if (h < 12) return t('checkinGreetingMorning');
@@ -844,60 +859,18 @@ function StatusScreen({
 
   return (
     <View style={styles.statusSection} testID="checkin-status-screen">
-      <View style={styles.statusBackdrop} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <Svg width="100%" height="100%" viewBox="0 0 430 760" preserveAspectRatio="none">
-          <Path d="M0 0C125 125 179 133 275 89C338 60 379 5 430 16V186C326 140 280 155 210 175C121 200 54 184 0 142Z" fill={colors.primaryLight} opacity={0.65} />
-          <Path d="M0 161C103 223 143 136 238 147C322 157 373 190 430 159V205C355 162 280 167 225 190C132 229 62 198 0 211Z" fill={colors.surface} opacity={0.6} />
-          <Path d="M0 705C93 731 140 674 236 704C323 732 370 695 430 730V760H0Z" fill={colors.primaryLight} opacity={0.75} />
-          <Path d="M0 62C27 69 26 103 3 115C-3 96-2 78 0 62ZM0 120C27 111 29 130 6 142Z" fill={colors.primary} opacity={0.09} />
-          <Path d="M0 713C13 683 37 694 23 724C15 740 10 742 0 750ZM12 748C10 718 41 716 43 702C54 729 35 746 12 748ZM410 703C394 677 390 715 413 725C430 735 430 722 430 722Z" fill={colors.primary} opacity={0.1} />
-        </Svg>
-      </View>
-      <View style={styles.heroDecorativeRow}>
-        <View style={styles.heroSideWrapLeft}>
-          <Text allowFontScaling style={styles.heroSideText}>{t('checkinHeroSloganLeft')}</Text>
-        </View>
-        <View style={styles.heroCenterBadgeWrap} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <Svg width={130} height={120} viewBox="0 0 130 120" fill="none">
-            <Circle cx={65} cy={60} r={54} fill={colors.primaryLight} />
-            <Path d="M65 92C65 92 32 70 32 46C32 32 43 23 54 26C59 27 63 31 65 35C68 30 72 26 79 26C93 25 100 36 98 48C96 69 65 92 65 92Z" fill={colors.primary} />
-            <Path d="M65 35C58 19 31 23 32 46C32 59 42 72 53 82C38 60 47 37 65 35Z" fill="#b2f0e7" opacity={0.38} />
-            <Path d="M35 60H49L56 43L64 72L71 50L76 61H96" stroke="#f8fffd" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
-            <Path d="M39 108C19 104 9 91 10 76C27 78 38 90 39 108ZM87 109C87 89 107 76 127 78C122 97 108 109 87 109Z" fill={colors.primary} opacity={0.2} />
-            <Path d="M87 107C80 91 91 76 109 69C111 85 100 101 87 107Z" fill={colors.primary} opacity={0.16} />
-          </Svg>
-        </View>
-        <View style={styles.heroSideWrapRight}>
-          <Text allowFontScaling style={[styles.heroSideText, styles.heroSideTextRight]}>{t('checkinHeroSloganRight')}</Text>
-        </View>
-      </View>
-
       <View style={styles.heroHeadingWrap}>
         <Text allowFontScaling accessibilityRole="header" style={styles.heroHeading}>{getGreeting()}</Text>
-        <Text allowFontScaling style={styles.heroSubheading}>{t('checkinSubheading')}</Text>
+        <Text allowFontScaling style={styles.heroSubheading}>{t(instant ? 'checkinInstantStatusHint' : 'checkinSubheading')}</Text>
       </View>
 
       <GuideTarget step="checkin.status" style={styles.optionList} enabled={practice}>
-        {CHECKIN_STATUS_CHOICES.map(choice => (
+        {CHECKIN_STATUS_CHOICES.filter(choice => !instant || choice.status !== 'fine').map(choice => (
           <CheckinStatusChoice key={choice.status} choice={choice} onSelect={readOnly ? undefined : onSelect} />
         ))}
       </GuideTarget>
 
-      {!practice && <Text allowFontScaling style={styles.statusGiftHint}>{t('checkinGift.afterCheckin')}</Text>}
-      <View style={styles.footerBrandWrap}>
-        <View style={styles.footerBrandLeft}>
-          <Text allowFontScaling style={styles.footerBrandWord}>{t('checkinFooterBrand1')}</Text>
-          <Text allowFontScaling style={styles.footerBrandWord}>{t('checkinFooterBrand2')}</Text>
-          <Text allowFontScaling style={styles.footerBrandWord}>{t('checkinFooterBrand3')}</Text>
-        </View>
-        <View style={styles.footerBrandRight}>
-          <Svg width={110} height={36} viewBox="0 0 110 36" fill="none" accessible={false}>
-            <Path d="M26 30C15 22 10 16 10 10C10 4.5 14.5 1 20 1C23.5 1 26.5 3 28 5.5C29.5 3 32.5 1 36 1C41.5 1 46 4.5 46 10C46 16 41 22 30 30Z" stroke={colors.primaryText} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-            <Path d="M45 20H56L61 9L66 29L71 13L75 24L78 20H106" stroke={colors.primaryText} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-          <Text allowFontScaling style={styles.footerBrandTagline}>{t('checkinFooterTagline')}</Text>
-        </View>
-      </View>
+      {!practice && !instant && <Text allowFontScaling style={styles.statusGiftHint}>{t('checkinGift.afterCheckin')}</Text>}
     </View>
   );
 }
@@ -973,7 +946,7 @@ function LocationScreen({
         </View>
       </Animated.View>
 
-      {/* Question section: Pulse icon + Title + Subtitle */}
+      {/* Question section: Pulse icon + Title */}
       <Animated.View entering={FadeInLeft.duration(400)} style={styles.questionSection}>
         <View style={styles.questionHeaderRow}>
           <MaterialCommunityIcons name="pulse" size={26} color="#08b8a2" style={styles.questionPulseIcon} />
@@ -981,9 +954,6 @@ function LocationScreen({
             {t('checkinLocationTitle')}
           </Text>
         </View>
-        <Text style={styles.questionSubtitle}>
-          {t('checkinLocationDescription')}
-        </Text>
       </Animated.View>
 
       {/* Body location options */}
@@ -1014,9 +984,6 @@ function LocationScreen({
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text allowFontScaling style={[styles.triageOptionTitle, isSelected && styles.triageOptionTitleSelected]}>
                     {t(opt.labelKey)}
-                  </Text>
-                  <Text style={styles.triageOptionSubtitle}>
-                    {t(opt.descKey)}
                   </Text>
                 </View>
               </Pressable>
@@ -1140,6 +1107,9 @@ function TriageScreen({
   question,
   options,
   optionsGrouped,
+  questionProgress,
+  questionGroup,
+  exclusiveOptions = [],
   multiSelect,
   allowFreeText,
   answers,
@@ -1156,6 +1126,9 @@ function TriageScreen({
   question: string;
   options: string[];
   optionsGrouped?: TriageOptionGroup[] | null;
+  questionProgress?: { current: number; total: number };
+  questionGroup?: { label: string; index: number; total: number } | null;
+  exclusiveOptions?: string[];
   multiSelect: boolean;
   allowFreeText?: boolean;
   answers: TriageAnswer[];
@@ -1179,7 +1152,9 @@ function TriageScreen({
 
   const [isTranscribing, setIsTranscribing] = useState(false);
 
-  const progress = (answers.length + 1) / MAX_TRIAGE_QUESTIONS;
+  const progressCurrent = questionProgress?.current || Math.min(answers.length + 1, MAX_TRIAGE_QUESTIONS);
+  const progressTotal = questionProgress?.total || MAX_TRIAGE_QUESTIONS;
+  const progress = progressCurrent / progressTotal;
 
   const handleOptionTap = (opt: string) => {
     if (readOnly) return;
@@ -1188,7 +1163,8 @@ function TriageScreen({
       setSelected((prev) => {
         const next = new Set(prev);
         if (next.has(opt)) next.delete(opt);
-        else next.add(opt);
+        else if (exclusiveOptions.includes(opt)) { return new Set([opt]); }
+        else { exclusiveOptions.forEach(item => next.delete(item)); next.add(opt); }
         return next;
       });
     } else {
@@ -1235,9 +1211,13 @@ function TriageScreen({
           />
         </View>
         <Text style={styles.triageProgressText}>
-          {`${Math.min(answers.length + 1, MAX_TRIAGE_QUESTIONS)}/${MAX_TRIAGE_QUESTIONS}`}
+          {`${progressCurrent}/${progressTotal}`}
         </Text>
       </View>
+
+      {questionGroup && <Text allowFontScaling style={styles.groupHeaderText}>
+        {t('checkinQuestionRegion', { region: questionGroup.label, current: questionGroup.index, total: questionGroup.total })}
+      </Text>}
 
       {/* Answered history if any */}
       {answers.length > 0 && (

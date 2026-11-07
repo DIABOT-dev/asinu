@@ -172,7 +172,7 @@ await test('unfinished check-in guidance opens only practice routes for both rea
   h.render('InstantCheckinCard').find(node => node.type === 'Pressable').props.onPress();
   assert.deepEqual(h.pushes, [
     { pathname: '/checkin', params: { preset_status: 'fine', mode: 'guide' } },
-    { pathname: '/checkin', params: { mode: 'guide' } },
+    { pathname: '/checkin', params: { mode: 'guide', entry: 'instant' } },
   ]);
 });
 

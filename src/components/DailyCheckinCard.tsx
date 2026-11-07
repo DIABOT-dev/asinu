@@ -176,7 +176,7 @@ export const InstantCheckinCard = React.memo(function InstantCheckinCard() {
     <GuideTarget step="home.unwell">
     <Pressable
       style={({ pressed }) => [styles.card, styles.cardInstant, pressed && { opacity: 0.9 }]}
-      onPress={() => router.push({ pathname: '/checkin', params: { mode: practice ? 'guide' : 'random' } })}
+      onPress={() => router.push({ pathname: '/checkin', params: { mode: practice ? 'guide' : 'random', ...(practice ? { entry: 'instant' } : {}) } })}
       accessibilityRole="button"
       accessibilityLabel={t('checkinInstantTitle')}
     >

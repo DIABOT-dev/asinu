@@ -102,6 +102,7 @@ expectCall(health.calls, {
     checkin_id: 123,
     previous_answers: [{ step: 'progression', question: 'Mức độ?', answer: 'Nhẹ' }],
     conclusion_format: 'narrative',
+    assessment_version: 2,
   },
   timeoutMs: 90000,
 });

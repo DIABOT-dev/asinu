@@ -102,6 +102,7 @@ function routeHarness(language, params = { mode: 'guide' }, guidance = {}) {
     if (response.session) response.session = { ...response.session, id: 500, user_id: 7 };
     return response;
   }]));
+  realApi.getToday = async () => { calls.network.push(['getToday']); return { ok: true, session: null }; };
   const router = { canGoBack: () => true, back: () => calls.routes.push('back'), replace: route => calls.routes.push(route) };
   const source = `${extract('CheckinScreen')}\nmodule.exports = CheckinScreen;`;
   const CheckinScreen = evaluate(source, { ...native, ...runtime, ...tr, useLocalSearchParams: () => params,
@@ -158,9 +159,9 @@ for (const language of ['vi', 'en']) {
     assert.deepEqual(h.calls.network, []); assert.equal(h.calls.consent, 0);
   });
   await test(`${language}: normal check-in still uses its real save and first-check-in progress`, async () => {
-    const h = routeHarness(language, { mode: 'random' }); let tree = await h.settle();
+    const h = routeHarness(language, { mode: 'daily' }); let tree = await h.settle();
     await nodes(tree).find(node => node.type === 'Status').props.onSelect('fine'); tree = await h.settle();
-    assert.deepEqual(h.calls.network.map(call => call[0]), ['start']);
+    assert.deepEqual(h.calls.network.map(call => call[0]), ['getToday', 'start']);
     assert.equal(nodes(tree).find(node => node.type === 'Result').props.practice, false);
     assert.deepEqual(h.calls.progress, [{ firstCheckin: true }]);
     nodes(tree).find(node => node.type === 'Result').props.onClose(); assert.deepEqual(h.calls.finished, []);
@@ -423,4 +424,84 @@ await test('route identity remounts practice and real sessions rather than shari
   assert.match(extract('CheckinScreen'), /isPractice \? createCheckinPractice\(t\) : checkinApi/);
   assert.doesNotMatch(extract('CheckinScreen'), /checkinApi\.(start|triage|followUp)/);
 });
+for (const language of ['vi', 'en']) {
+  await test(`${language}: instant check-in only offers tired levels and neither status screen shows the removed artwork or slogans`, () => {
+    const tr = translations(language);
+    const choices = ['fine', 'tired', 'very_tired'].map(status => ({ status }));
+    const StatusScreen = evaluate(`${extract('StatusScreen')}\nmodule.exports=StatusScreen;`, {
+      ...native, ...tr, CHECKIN_STATUS_CHOICES: choices, CheckinStatusChoice: 'Choice',
+    });
+    for (const instant of [false, true]) {
+      const tree = StatusScreen({ styles: {}, instant, isFollowUp: false, onSelect() {} });
+      assert.deepEqual(nodes(tree).filter(n => n.type === 'Choice').map(n => n.props.choice.status), instant ? ['tired', 'very_tired'] : ['fine', 'tired', 'very_tired']);
+      assert.ok(!nodes(tree).some(n => ['Svg','Image'].includes(n.type)));
+      for (const key of ['checkinHeroSloganLeft','checkinHeroSloganRight','checkinFooterBrand1','checkinFooterBrand2','checkinFooterBrand3']) {
+        assert.ok(!nodes(tree).some(n => n.type === 'Text' && n.props.children === tr.t(key)));
+      }
+    }
+  });
+  for (const level of ['tired', 'very_tired']) {
+    await test(`${language}/${level}: home unwell entry asks intensity then locations and submits the chosen level`, async () => {
+      const h = routeHarness(language, { mode: 'random' }); let tree = await h.settle();
+      let screen = nodes(tree).find(n => n.type === 'Status');
+      assert.equal(screen.props.instant, true);
+      assert.ok(nodes(tree).some(n => n.type === 'Text' && n.props.children === translations(language).t('checkinSelectIntensityTitle')));
+      await screen.props.onSelect('fine'); await screen.props.onSelect('specific_concern'); tree = await h.settle();
+      assert.deepEqual(h.calls.network, [], 'Unsupported stale presets cannot save an instant check-in');
+      screen = nodes(tree).find(n => n.type === 'Status');
+      await screen.props.onSelect(level); tree = await h.settle();
+      const location = nodes(tree).find(n => n.type === 'Location'); assert.ok(location);
+      assert.deepEqual(h.calls.network, [], 'Wait for locations before saving');
+      await location.props.onConfirm(['head','limbs'], 'Đầu: Trán; Tay chân: Cổ tay phải'); tree = await h.settle();
+      assert.deepEqual(h.calls.network[0], ['start',level,['head','limbs'],'Đầu: Trán; Tay chân: Cổ tay phải',true]);
+      assert.ok(nodes(tree).some(n => n.type === 'Question'));
+    });
+  }
+  await test(`${language}: instant practice stays offline and follow-up still permits recovery`, async () => {
+    const h = routeHarness(language, { mode: 'guide', entry: 'instant' }); let tree = await h.settle();
+    const status = nodes(tree).find(n => n.type === 'Status'); assert.equal(status.props.instant, true);
+    await status.props.onSelect('tired'); tree = await h.settle();
+    await nodes(tree).find(n => n.type === 'Location').props.onConfirm(['head'], 'example'); await h.settle();
+    assert.deepEqual(h.calls.network, []);
+    const followup = routeHarness(language, { mode: 'guide', entry: 'instant', guide_followup: '1' }); tree = await followup.settle();
+    const recovery = nodes(tree).find(n => n.type === 'Status'); assert.equal(recovery.props.instant, false);
+    await recovery.props.onSelect('fine'); tree = await followup.settle();
+    assert.ok(nodes(tree).some(n => n.type === 'Result'));
+    assert.deepEqual(followup.calls.network, []);
+  });
+  await test(`${language}: detailed questions show the server progress and region, and none cannot coexist with a symptom`, async () => {
+    const runtime = hooks(), tr = translations(language), calls = [];
+    const optionDisplay = evaluate(read('src/features/checkin/triage-option-display.ts'));
+    const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+      ...native, ...runtime, ...tr, ...optionDisplay, MAX_TRIAGE_QUESTIONS: 4,
+      spacing: { sm: 8 }, VoiceAnswerButton: 'VoiceAnswerButton', useGuideAcknowledgement: () => () => {},
+    });
+    const catalog = JSON.parse(read(`../backend.asinu/src/i18n/locales/${language}.json`));
+    const nausea = catalog['checkin.detail.option.nausea'];
+    const none = catalog['checkin.detail.option.none'];
+    const unknown = catalog['checkin.detail.option.unknown'];
+    const props = { styles: {}, question: 'A supplied regional question', options: [nausea, none, unknown],
+      multiSelect: true, exclusiveOptions: [none, unknown], answers: [], loading: false,
+      onAnswer: answer => calls.push(answer), onBeforeAi: async () => true,
+      questionProgress: { current: 14, total: 26 }, questionGroup: { label: language === 'vi' ? 'Tay chân' : 'Limbs', index: 2, total: 2 } };
+    let tree;
+    const settle = async () => { tree = await runtime.settle(() => component(props)); return tree; };
+    await settle();
+    assert.ok(nodes(tree).some(n => n.type === 'Text' && n.props.children === '14/26'));
+    assert.ok(nodes(tree).some(n => n.type === 'Text' && n.props.children === tr.t('checkinQuestionRegion', { region: props.questionGroup.label, current: 2, total: 2 })));
+    const choice = label => nodes(tree).find(n => n.props?.accessibilityLabel === label && n.props.accessibilityRole === 'checkbox');
+    choice(nausea).props.onPress(); await settle();
+    assert.equal(choice(nausea).props.accessibilityState.checked, true);
+    choice(none).props.onPress(); await settle();
+    assert.equal(choice(none).props.accessibilityState.checked, true);
+    assert.equal(choice(nausea).props.accessibilityState.checked, false);
+    choice(nausea).props.onPress(); await settle();
+    assert.equal(choice(none).props.accessibilityState.checked, false);
+    choice(unknown).props.onPress(); await settle();
+    assert.equal(choice(unknown).props.accessibilityState.checked, true);
+    assert.equal(choice(nausea).props.accessibilityState.checked, false);
+    nodes(tree).find(n => n.type === 'Pressable' && n.props.onPress && !n.props.accessibilityRole).props.onPress();
+    assert.deepEqual(calls, [unknown]);
+  });
+}
 console.log(`Check-in practice: ${checks} runtime regressions passed.`);

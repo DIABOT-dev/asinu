@@ -786,5 +786,9 @@
   "checkinLocationDetail_right_leg_skin": "Da chân phải",
   "checkinLocationDetail_widespread_skin": "Nhiều vùng da",
   "checkinLocationDetail_other_detail": "Vị trí khác, ghi bên dưới",
-  "checkinLocationDetail_uncertain": "Khó xác định"
+  "checkinLocationDetail_uncertain": "Khó xác định",
+  "checkinQuestionRegion": "{{region}} · Vùng {{current}}/{{total}}",
+  "checkinInstantStatusTitle": "Bạn đang cảm thấy thế nào?",
+  "checkinInstantStatusHint": "Chọn mức độ phù hợp với bạn lúc này.",
+  "checkinSelectIntensityTitle": "Chọn mức độ"
 }
