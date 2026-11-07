@@ -77,6 +77,11 @@ class LegacyRecording {
   async startAsync() {
     await this.nativeRecorder.prepareToRecordAsync();
     this.nativeRecorder.record();
+    // Native record() may return without throwing when the audio session
+    // cannot start. Do not present an idle recorder as a live microphone.
+    if (this.nativeRecorder.isRecording === false) {
+      throw new Error('RECORDING_NOT_STARTED');
+    }
   }
 
   stopAndUnloadAsync() {

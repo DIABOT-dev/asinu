@@ -154,6 +154,18 @@ test('different entities and check-in modes are not incorrectly collapsed', () =
   }
   assert.equal(h.count('feed/[id]'), 2); assert.equal(h.count('checkin'), 2);
 });
+test('contextual check-in Help keeps the original route mounted and Back restores the exact visit', () => {
+  for (const mode of ['daily', 'random']) {
+    const h = harness(); h.ui.push({ pathname: '/checkin', params: { mode } }); h.commit(); h.advance(900);
+    const origin = h.current();
+    h.ui.push({ pathname: '/checkin', params: { mode: 'guide', guide: 'help-visit',
+      ...(mode === 'random' ? { entry: 'instant' } : {}) } }); h.commit();
+    assert.equal(h.count('checkin'), 2); assert.equal(h.current().params.mode, 'guide');
+    h.advance(900); h.ui.back(); h.commit();
+    assert.equal(h.count('checkin'), 1); assert.equal(h.current().key, origin.key);
+    assert.deepEqual(h.current().params, origin.params);
+  }
+});
 test('route groups, index aliases and internal navigator params do not create false duplicates', () => {
   const { navigationDestination, focusedNavigationDestination } = harness().guards;
   const current = focusedNavigationDestination({ index: 0, routes: [{ key: 'tabs', name: '(tabs)',

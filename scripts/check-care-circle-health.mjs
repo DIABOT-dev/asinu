@@ -282,6 +282,50 @@ function flattenElements(tree) {
 }
 const flatten = style => Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean).map(flatten)) : style ?? {};
 for (const language of ['vi', 'en']) {
+  await test(`${language}: connection shortcuts share the Home tile, open the correct action and expose the member count`, () => {
+    const catalog = JSON.parse(read(`src/i18n/locales/${language}/careCircle.json`));
+    const t = (key, values = {}) => {
+      assert.equal(typeof catalog[key], 'string', `${language}/${key}`);
+      return catalog[key].replace(/\{\{(\w+)\}\}/g, (_, name) => String(values[name] ?? ''));
+    };
+    for (const width of [320, 390, 768]) for (const isDark of [false, true]) for (const fontScale of [1, 1.5]) {
+      const clicked = [], palette = { textPrimary: '#213B35', primaryText: '#0F766E', primaryLight: '#E6FAF8', surface: '#FEFFFE', border: '#E7F0EC' };
+      const { QuickActionTile } = evaluate(read('src/components/QuickActionTile.tsx'), {
+        react: React, 'react-native': { View: 'View', Pressable: 'Pressable', StyleSheet: { create: value => value } },
+        './ScaledText': { ScaledText: 'Text' }, '../hooks/useThemeColors': { useThemeColors: () => ({ colors: palette, isDark }) },
+      });
+      const { CareCircleQuickActions } = evaluate(read('src/features/care-circle/components/CareCircleQuickActions.tsx'), {
+        react: React, 'react-native': { View: 'View', Image: 'Image', StyleSheet: { create: value => value }, useWindowDimensions: () => ({ width, fontScale }) },
+        '@expo/vector-icons': { Ionicons: 'Icon' }, 'react-i18next': { useTranslation: () => ({ t }) },
+        '../../../components/QuickActionTile': { QuickActionTile },
+        '../../../hooks/useThemeColors': { useThemeColors: () => ({ colors: palette, isDark }) },
+        '../../../stores/font-size.store': { useFontSizeStore: select => select({ multiplier: 1.25 }) },
+        '../../guidance/GuidanceProvider': { GuideTarget: 'GuideTarget' },
+      });
+      const expand = node => !node || typeof node !== 'object' ? [] : Array.isArray(node) ? node.flatMap(expand)
+        : typeof node.type === 'function' ? expand(node.type(node.props))
+          : [node, ...expand(typeof node.props?.children === 'function' ? node.props.children({ pressed: false }) : node.props?.children)];
+      const props = { count: 3, expanded: false, onInvite: () => clicked.push('invite'), onScan: () => clicked.push('scan'), onToggleMembers: () => { props.expanded = !props.expanded; clicked.push('members'); } };
+      let tree = CareCircleQuickActions(props), nodes = expand(tree);
+      const buttons = nodes.filter(node => node.type === 'Pressable');
+      assert.equal(buttons.length, 3); buttons.forEach(button => button.props.onPress());
+      assert.deepEqual(clicked, ['invite', 'scan', 'members']);
+      tree = CareCircleQuickActions(props); nodes = expand(tree);
+      const members = nodes.find(node => node.props?.testID === 'care-circle-members-action');
+      assert.equal(members.props.accessibilityLabel, t('activeConnections', { count: 3 }));
+      assert.equal(members.props.accessibilityState.expanded, true);
+      assert.ok(nodes.some(node => node.type === 'Text' && node.props.children === 3));
+      const tiles = React.Children.toArray(tree.props.children);
+      const columns = fontScale === 1 ? 3 : 2;
+      assert.ok(tiles.every(tile => flatten(tile.props.style).width >= 64));
+      assert.ok(Math.abs(flatten(tiles[1].props.style).width * columns + 12 * (columns - 1) - Math.min(width - 32, 420)) < 0.01);
+      assert.ok(nodes.some(node => node.type === 'GuideTarget' && node.props.step === 'circle.add'));
+      assert.ok(nodes.filter(node => node.type === 'Text').every(node => !node.props.numberOfLines));
+      assert.equal(nodes.some(node => node.type === 'QRCode'), false, 'The personal QR stays in its existing section');
+    }
+  });
+}
+for (const language of ['vi', 'en']) {
   await test(`${language}: connection QR is visible immediately, with a save action and retry on failure`, () => {
     const catalogs = Object.fromEntries(['careCircle', 'common'].map(ns => [ns, JSON.parse(read(`src/i18n/locales/${language}/${ns}.json`))]));
     for (const width of [320, 375, 390, 768]) {

@@ -263,6 +263,8 @@
   "myQrTitle": "My QR code",
   "myQrShortHint": "Let family scan it",
   "addManually": "Add manually",
+  "addRelative": "Add family",
+  "members": "Members",
   "scanQr": "Scan QR code",
   "scanQrShortHint": "Connect quickly",
   "myQrHeading": "Connect in person",

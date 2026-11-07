@@ -43,6 +43,104 @@ const flush = async () => {
   await Promise.resolve();
 };
 
+function featureGridHarness({ language = 'vi', width = 393, multiplier = 1, fontScale = 1,
+  medicationEnabled = true, coinsEnabled = true } = {}) {
+  const pushes = [], catalog = JSON.parse(read(`src/i18n/locales/${language}/home.json`)).quickActions;
+  let measured = 0;
+  const source = read('src/components/HomeFeatureGrid.tsx');
+  const assetAdapters = Object.fromEntries([...source.matchAll(/require\('([^']+)'\)/g)].map(match => [match[1], match[1]]));
+  const palette = { textPrimary: '#213B35', surface: '#FEFFFE', primaryText: '#0F766E', primaryLight: '#E6FAF8', border: '#E7F0EC' };
+  const { QuickActionTile } = evaluate(read('src/components/QuickActionTile.tsx'), {
+    react: {}, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
+    'react-native': { Pressable: 'Pressable', View: 'View', StyleSheet: { create: value => value } },
+    './ScaledText': { ScaledText: 'Text' }, '../hooks/useThemeColors': { useThemeColors: () => ({ colors: palette, isDark: false }) },
+  });
+  const { HomeFeatureGrid } = evaluate(source, {
+    ...assetAdapters, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
+    react: { useState: () => [measured, value => { measured = value; }] },
+    'react-native': { Image: 'Image', Pressable: 'Pressable', View: 'View', StyleSheet: { create: value => value },
+      useWindowDimensions: () => ({ width, fontScale }) },
+    '@expo/vector-icons': { Ionicons: 'Icon' }, './ScaledText': { ScaledText: 'Text' },
+    './QuickActionTile': { QuickActionTile },
+    'react-i18next': { useTranslation: () => ({ t: key => {
+      const label = catalog[key.split('.')[1]]; assert.ok(label, `${language}/${key}`); return label;
+    } }) },
+    '../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => pushes.push(route) }) },
+    '../hooks/useThemeColors': { useThemeColors: () => ({ colors: palette, isDark: false }) },
+    '../stores/font-size.store': { useFontSizeStore: select => select({ multiplier }) },
+    '../features/v21/HealthCoinIcon': { HealthCoinIcon: 'GoldCoin' },
+  });
+  const render = () => HomeFeatureGrid({ medicationEnabled, coinsEnabled });
+  const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes)
+    : typeof tree.type === 'function' ? nodes(tree.type(tree.props))
+      : [tree, ...nodes(typeof tree.props?.children === 'function' ? tree.props.children({ pressed: false }) : tree.props?.children)];
+  return { render, nodes, pushes, catalog };
+}
+
+for (const language of ['vi', 'en']) {
+  await test(`${language}: Home shortcuts expose the real destinations with labels and a gold coin`, () => {
+    const h = featureGridHarness({ language }), tree = h.render(), nodes = h.nodes(tree);
+    const buttons = nodes.filter(node => node.type === 'Pressable');
+    assert.equal(buttons.length, 8);
+    for (const button of buttons) {
+      assert.equal(button.props.accessibilityRole, 'button'); assert.ok(button.props.accessibilityLabel);
+      assert.ok(flatten(button.props.style({ pressed: false })).minHeight >= 44);
+      button.props.onPress();
+    }
+    assert.deepEqual(h.pushes, ['/medication', '/logs', '/checkin-call/settings', '/care-circle',
+      '/(tabs)/missions', '/coins', '/checkin-rewards', '/checkin-rewards/history']);
+    assert.equal(nodes.filter(node => node.type === 'GoldCoin').length, 1);
+    assert.ok(nodes.filter(node => node.type === 'Text').every(node => node.props.allowFontScaling && !node.props.numberOfLines));
+    assert.ok(nodes.filter(node => node.type === 'Image').every(node => node.props.accessible === false));
+  });
+  await test(`${language}: disabled medication and coin features have no Home shortcuts`, () => {
+    const h = featureGridHarness({ language, medicationEnabled: false, coinsEnabled: false });
+    const ids = h.nodes(h.render()).filter(node => node.type === 'Pressable').map(node => node.props.testID);
+    assert.equal(ids.length, 6); assert.ok(!ids.includes('home-feature-medication')); assert.ok(!ids.includes('home-feature-coins'));
+  });
+}
+for (const [width, multiplier, fontScale, columns] of [[393, 1, 1, 4], [430, 1, 1, 4],
+  [320, 1, 1, 3], [393, 1.25, 1, 3], [393, 1.25, 1.4, 2]]) {
+  await test(`Home shortcuts fit ${width}px with app font ${multiplier} and system font ${fontScale}`, () => {
+    const h = featureGridHarness({ width, multiplier, fontScale });
+    let tree = h.render(); tree.props.onLayout({ nativeEvent: { layout: { width: width - 32 } } }); tree = h.render();
+    const button = h.nodes(tree).find(node => node.type === 'Pressable');
+    const tile = flatten(button.props.style({ pressed: false }));
+    assert.ok(tile.width >= 64); assert.ok(Math.abs(tile.width * columns + 12 * (columns - 1) - (width - 32)) < 0.01);
+  });
+}
+
+await test('Home shortcuts reuse V2.1 access without requesting unused coin balances or showing another account flags', async () => {
+  let cursor = 0, focus, auth = { profile: { id: 7 }, token: 'session-a' };
+  const slots = [], calls = [];
+  const hooks = { useState: initial => {
+    const index = cursor++; if (!(index in slots)) slots[index] = initial;
+    return [slots[index], value => { slots[index] = value; }];
+  }, useCallback: work => work };
+  const { V21HomeCard } = evaluate(read('src/features/v21/V21HomeCard.tsx'), {
+    react: hooks, 'react/jsx-runtime': { jsx, jsxs: jsx },
+    'react-native': { Pressable: 'Pressable', View: 'View', AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) } },
+    'expo-router': { useFocusEffect: work => { focus = work; } },
+    '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({}) }, '@expo/vector-icons': {},
+    'react-i18next': { useTranslation: () => ({ t: key => key }) }, '../../components/ScaledText': {},
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
+    '../auth/auth.store': { useAuthStore: select => select(auth) }, '../../lib/health-action-events': { subscribeHealthAction: () => () => {} },
+    './v21.api': { v21Api: {
+      flags: async () => { calls.push('flags'); return { medication: true, coins: true, patients: [{ id: 7 }] }; },
+      coins: () => assert.fail('A shortcut grid must not fetch a hidden balance'),
+    } }, '../../lib/apiClient': { ApiError: Error },
+  });
+  const render = () => { cursor = 0; return V21HomeCard({ renderShortcuts: access => access }); };
+  assert.deepEqual(render(), { medicationEnabled: false, coinsEnabled: false });
+  const cleanup = focus();
+  try {
+    await flush(); assert.deepEqual(render(), { medicationEnabled: true, coinsEnabled: true });
+    assert.deepEqual(calls, ['flags']);
+    auth = { profile: { id: 8 }, token: 'session-b' };
+    assert.deepEqual(render(), { medicationEnabled: false, coinsEnabled: false });
+  } finally { cleanup(); }
+});
+
 function harness({
   language = "vi",
   isDark = false,

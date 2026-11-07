@@ -431,6 +431,17 @@
   "checkinCompanionFooter": "Asinu luôn đồng hành cùng bạn",
   "checkinClose": "Đóng",
   "healthFeedSectionTitle": "Asinu nhắc bạn",
+  "quickActions": {
+    "title": "Thao tác nhanh",
+    "medication": "Nhắc thuốc",
+    "journal": "Nhật ký",
+    "calls": "Tổng đài",
+    "family": "Người thân",
+    "missions": "Nhiệm vụ",
+    "coins": "Xu & quà",
+    "dailyGift": "Lộc hôm nay",
+    "giftHistory": "Kho lộc"
+  },
   "healthFeedSeeAll": "Xem tất cả ({{count}})",
   "healthFeedEmptyTitle": "Chưa có nhắc nhở mới",
   "healthFeedEmptyMessage": "Khi có nhắc nhở phù hợp, Asinu sẽ hiển thị tại đây để bạn xem lại bất cứ lúc nào.",

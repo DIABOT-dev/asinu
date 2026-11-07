@@ -110,16 +110,18 @@ const nativeButton = node => typeof node.type === 'function' ? nativeButton(node
 function assertBrandButton(button) {
   const style = buttonStyle(button);
   const iconOnly = !nodes(button).some(node => node.type === 'Text');
-  assert.equal(style.backgroundColor, iconOnly ? undefined : theme.lightColors.primary);
+  const voiceControl = button.props.testID === 'checkin-voice-answer';
+  assert.equal(style.backgroundColor, iconOnly || voiceControl ? undefined : theme.lightColors.primary);
   assert.ok(style.minHeight >= 56);
   for (const node of nodes(button)) {
     if (node.type === 'Text') {
       const label = flattenStyle(node.props.style);
-      assert.equal(label.color, model.guideColors.onAction); assert.ok(label.fontSize >= 22);
+      assert.equal(label.color, voiceControl ? model.guideColors.primary : model.guideColors.onAction);
+      assert.ok(label.fontSize >= (voiceControl ? 14 : 22));
       assert.equal(node.props.allowFontScaling, true);
     }
     if (node.type === 'Icon' || node.type === 'Spinner') {
-      assert.equal(node.props.color, iconOnly ? model.guideColors.primary : model.guideColors.onAction);
+      assert.equal(node.props.color, iconOnly || voiceControl ? model.guideColors.primary : model.guideColors.onAction);
     }
   }
 }
@@ -147,10 +149,11 @@ function controlHarness(file, imports = {}, runEffects = false) {
     'expo-router': { useIsFocused: () => focused },
     'react-i18next': { useTranslation: () => ({ t: key => key, i18n: { language: 'vi' } }) },
     './guidance.model': model,
+    '../../components/ScaledText': { ScaledText: 'Text' },
     ...imports,
   });
   return {
-    render(name, props = {}) { cursor = 0; const tree = components[name](props); for (const work of pending.splice(0)) work(); return tree; },
+    render(name, props = {}, ...args) { cursor = 0; const tree = components[name](props, ...args); for (const work of pending.splice(0)) work(); return tree; },
     focus(value) { focused = value; }, appState(value) { for (const fn of appListeners) fn(value); },
     unmount() { for (const slot of slots) slot?.cleanup?.(); },
   };
@@ -565,6 +568,22 @@ await test('normal check-in cannot display or narrate leftover guide targets, ev
   assert.deepEqual(h.calls.audio.at(-1), ['checkin.status', 'vi']);
   h.unmount();
 });
+await test('the intensity guide teaches the two tired levels with matching narration and never resets the account tour', async () => {
+  const h = guidanceHarness({ path: '/checkin', params: { mode: 'guide', entry: 'instant' },
+    guidance: { progress: completedWelcome() } });
+  try {
+    let tree = await h.settle(); tree.props.value.beginPractice('intensity-help');
+    tree.props.value.register('checkin.status', { node: { current: { measureInWindow: work => work(20, 180, 300, 90) } } });
+    tree = await h.settle();
+    assert.ok(nodes(tree).some(node => node.props?.children === 'guidance.steps.checkin_intensity'));
+    assert.ok(!nodes(tree).some(node => node.props?.children === 'guidance.steps.checkin_status'));
+    assert.deepEqual(h.calls.audio, [['checkin.intensity', 'vi']]);
+    nativeButton(nodes(tree).find(node => node.type?.name === 'GuideReplay')).props.onPress();
+    assert.deepEqual(h.calls.audio.at(-1), ['checkin.intensity', 'vi', true]);
+    tree.props.value.acknowledge('checkin.status'); await h.settle();
+    assert.deepEqual(h.calls.updates, []); assert.deepEqual(h.calls.routes, []);
+  } finally { h.unmount(); }
+});
 await test('practice coaches keep every acknowledgement in memory, even for an already-completed account', async () => {
   const saved = { ...completedWelcome(), completed: [...model.GUIDE_STEPS] };
   const h = guidanceHarness({ path: '/checkin', guidance: { progress: saved } });
@@ -720,6 +739,8 @@ await test('voice Start, Stop and transcription states retain brand colors and t
   button.props.onPress(); await tick();
   button = h.render('VoiceAnswerButton', props); assertBrandButton(button);
   assert.equal(button.props.accessibilityLabel, 'guidance.stopRecording');
+  assert.equal(button.props.accessibilityHint, 'guidance.voiceStopHint');
+  assert.ok(nodes(button).some(node => node.type === 'Text' && node.props.children === 'guidance.stopRecording'));
   button.props.onPress(); await tick();
   button = h.render('VoiceAnswerButton', props); assertBrandButton(button);
   assert.equal(button.props.disabled, true); assert.equal(button.props.accessibilityState.busy, true);
@@ -731,14 +752,15 @@ await test('voice Start, Stop and transcription states retain brand colors and t
   button = h.render('VoiceAnswerButton', { ...props, disabled: true }); assertBrandButton(button);
   assert.equal(button.props.disabled, true); assert.equal(buttonStyle(button).opacity, 0.5);
 });
-function microphoneHarness({ transcript = async () => 'Tôi hơi mệt', permission = true } = {}) {
+function microphoneHarness({ transcript = async () => 'Tôi hơi mệt', permission = true, startError = () => false } = {}) {
   const texts = [], notices = [], uploads = [], processing = [];
   let creates = 0, stops = 0;
   const h = controlHarness('src/features/guidance/VoiceAnswerButton.tsx', {
     '../../lib/audio': { Audio: {
       requestPermissionsAsync: async () => ({ granted: await (typeof permission === 'function' ? permission() : permission) }), setAudioModeAsync: async () => {},
       RecordingOptionsPresets: { HIGH_QUALITY: {} }, Recording: { createAsync: async () => {
-        creates++; return { recording: { stopAndUnloadAsync: async () => { stops++; }, getURI: () => 'file:///answer.m4a' } };
+        creates++; if (startError()) throw new Error('RECORDING_NOT_STARTED');
+        return { recording: { stopAndUnloadAsync: async () => { stops++; }, getURI: () => 'file:///answer.m4a' } };
       } },
     } },
     '../chat/chat.api': { chatApi: { transcribeAudio: (...args) => { uploads.push(args); return transcript(); } } },
@@ -754,19 +776,22 @@ await test('live check-in microphone uploads without an arbitrary loudness/durat
   try {
     const start = h.render(); start.props.onPress(); start.props.onPress(); await tick();
     assert.equal(h.creates, 1, 'Rapid taps cannot start two recorders');
-    h.render().props.onPress(); await tick(); h.render();
+    const recording = h.render(); assert.equal(h.processing.at(-1), true, 'Cannot leave the question during recording');
+    recording.props.onPress(); await tick(); h.render();
     assert.deepEqual(h.uploads, [['file:///answer.m4a', 'vi', 'checkin']]);
     assert.deepEqual(h.texts, ['Tôi hơi mệt']); assert.deepEqual(h.notices, []); assert.equal(h.stops, 1);
+    assert.equal(h.processing.at(-1), false, 'The answer becomes actionable after text arrives');
   } finally { h.unmount(); }
 });
 await test('empty speech or a transcription failure gives feedback and restores an actionable mic', async () => {
-  for (const transcript of [async () => '  ', async () => { throw new Error('offline'); }]) {
+  for (const [transcript, message] of [[async () => '  ', 'guidance.voiceFailure'],
+    [async () => { throw new Error('offline'); }, 'guidance.voiceTranscriptionFailure']]) {
     const h = microphoneHarness({ transcript });
     try {
       h.render().props.onPress(); await tick(); h.render().props.onPress(); await tick();
       const button = h.render(); assert.equal(button.props.disabled, false);
       assert.equal(button.props.accessibilityState.busy, false);
-      assert.deepEqual(h.texts, []); assert.equal(h.notices[0][0], 'guidance.voiceFailure');
+      assert.deepEqual(h.texts, []); assert.equal(h.notices[0][0], message);
       button.props.onPress(); await tick(); assert.equal(h.creates, 2, 'Retry starts a new recording');
     } finally { h.unmount(); }
   }
@@ -778,6 +803,20 @@ await test('microphone denial never uploads audio and explains the missing permi
     assert.equal(h.creates, 0); assert.deepEqual(h.uploads, []);
     assert.deepEqual(h.notices, [['guidance.microphoneDenied', 'info']]);
     assert.equal(h.render().props.disabled, false);
+  } finally { h.unmount(); }
+});
+await test('native recording failure is distinguished from transcription failure and permits a fresh retry', async () => {
+  let unavailable = true;
+  const h = microphoneHarness({ startError: () => unavailable });
+  try {
+    h.render().props.onPress(); await tick();
+    assert.equal(h.render().props.accessibilityLabel, 'guidance.speak');
+    assert.equal(h.render().props.disabled, false);
+    assert.deepEqual(h.notices, [['guidance.voiceRecordingFailure', 'error']]);
+    assert.deepEqual(h.uploads, []); assert.equal(h.processing.at(-1), false);
+    unavailable = false; h.render().props.onPress(); await tick();
+    h.render().props.onPress(); await tick(); h.render();
+    assert.deepEqual(h.texts, ['Tôi hơi mệt']); assert.equal(h.creates, 2);
   } finally { h.unmount(); }
 });
 await test('the iOS permission dialog does not cancel the first recording, while actual backgrounding still does', async () => {
@@ -828,7 +867,8 @@ await test('the actual live symptom input appends dictated text, reflects proces
     ...triageOptionDisplay,useTranslation:()=>({t:key=>key}),useGuideAcknowledgement:()=>()=>{},useRef:initial=>({current:initial}),useEffect(){},
     useState(initial){const index=cursor++;states[index]??={value:initial};return [states[index].value,value=>{states[index].value=typeof value==='function'?value(states[index].value):value;}];},
   });
-  const props={styles:{},question:'What changed?',options:[],multiSelect:false,allowFreeText:true,answers:[],loading:false,practice:false,onBeforeAi:async()=>true,onAnswer(){}};
+  const submitted=[];
+  const props={styles:{},question:'What changed?',options:[],multiSelect:false,allowFreeText:true,answers:[],loading:false,practice:false,onBeforeAi:async()=>true,onAnswer: value=>submitted.push(value)};
   const render=()=>{cursor=0;return TriageScreen(props);};
   let tree=render(),mic=nodes(tree).find(node=>node.type==='Mic');
   assert.ok(mic,'Live check-in must use the same working voice control'); assert.equal(mic.key,props.question);
@@ -837,8 +877,12 @@ await test('the actual live symptom input appends dictated text, reflects proces
   assert.equal(nodes(tree).find(node=>node.type==='Input').props.value,'Từ sáng tôi hơi mệt');
   nodes(tree).find(node=>node.type==='Mic').props.onProcessingChange(true); tree=render();
   assert.equal(nodes(tree).find(node=>node.type==='Input').props.editable,false);
+  const confirm=nodes(tree).find(node=>node.type==='Pressable');
+  assert.equal(confirm.props.disabled,true); confirm.props.onPress(); assert.deepEqual(submitted,[]);
   nodes(tree).find(node=>node.type==='Mic').props.onProcessingChange(false);tree=render();
   assert.equal(nodes(tree).find(node=>node.type==='Input').props.editable,true);
+  nodes(tree).find(node=>node.type==='Pressable').props.onPress();
+  assert.deepEqual(submitted,['Từ sáng tôi hơi mệt']);
 });
 await test('the real transcription client keeps chat gated separately and bounds a check-in request with authentication', async () => {
   const requests=[],timers=new Map();let response={ok:true,status:200,text:async()=>JSON.stringify({ok:true,text:' Tôi hơi mệt '})};
@@ -930,7 +974,8 @@ await test('the check-in Help button explicitly reopens a seen guide without res
     './guidance.store': { useGuidanceStore: Object.assign(() => state, { getState: () => state }) },
     '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: theme.lightColors }) },
     '../../components/ScaledText': { ScaledText: 'Text' },
-    '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ replace: route => routes.push(route) }) },
+    '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => routes.push(route),
+      replace: () => assert.fail('Help must preserve the original check-in beneath its guide') }) },
     '../../stores/toast.store': { showToast: () => assert.fail('Unexpected guide failure') },
   });
   await h.render('useReviewGuidance', 'checkin')();
@@ -938,6 +983,12 @@ await test('the check-in Help button explicitly reopens a seen guide without res
   assert.equal(routes[0].pathname, '/checkin'); assert.equal(routes[0].params.mode, 'guide');
   assert.ok(routes[0].params.guide);
   assert.equal(state.progress, saved); assert.equal(state.progress.welcomeSeen, true);
+  assert.equal(routes[0].params.entry, undefined);
+  await h.render('useReviewGuidance', 'checkin', { instant: true })();
+  assert.equal(routes[1].params.entry, 'instant');
+  await h.render('useReviewGuidance', 'checkin', { followup: true })();
+  assert.equal(routes[2].params.guide_followup, '1');
+  assert.equal(state.progress, saved);
 });
 await test('automatic read-aloud restores old disabled preferences without choosing a role or completing coach steps', async () => {
   const h = guidanceHarness({ guidance: { progress: { ...model.defaultProgress(), readAloud: false } } });
@@ -1228,7 +1279,7 @@ await test('all bundled clips match their fixed translations, voice identity and
   assert.equal(manifest.voice, nativeVoice); assert.equal(manifest.voiceLabel, 'Asinu Tuan Anh v4');
   assert.equal(manifest.engine, 'v4'); assert.ok(manifest.speed < 1 && manifest.speed >= 0.75);
   const hash = value => createHash('sha256').update(value).digest('hex');
-  const ids = ['welcome', 'practice_result', ...model.GUIDE_STEPS];
+  const ids = ['welcome', 'practice_result', 'checkin.intensity', ...model.GUIDE_STEPS];
   const recordedIds = ids.filter(id => !Object.hasOwn(guidanceAudioAliases, id));
   for (const language of ['vi', 'en']) {
     const strings = JSON.parse(read(`src/i18n/locales/${language}/onboarding.json`)).guidance;

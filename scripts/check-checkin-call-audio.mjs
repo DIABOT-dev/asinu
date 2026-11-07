@@ -414,6 +414,24 @@ await test('a finalized microphone recording keeps its URI after the native reco
   assert.equal(prepares, 1); assert.equal(stops, 1); assert.equal(removed, true);
   assert.equal(recording.getURI(), 'file:///finalized-answer.m4a');
 });
+await test('native record returning without starting cannot masquerade as a live microphone', async () => {
+  let removed = false, stopped = 0;
+  class Recorder {
+    isRecording = false;
+    async prepareToRecordAsync() {}
+    record() {}
+    async stop() { stopped++; }
+    remove() { removed = true; }
+  }
+  const { Audio } = evaluate(fs.readFileSync('src/lib/audio.ts', 'utf8'), id => {
+    if (id === './native-permissions') return {};
+    if (id === 'expo-audio') return { AudioModule: { AudioRecorder: Recorder }, RecordingPresets: { HIGH_QUALITY: {} } };
+    if (id === 'react-native') return { Platform: { OS: 'ios' } };
+    throw new Error(id);
+  });
+  await assert.rejects(Audio.Recording.createAsync({}), /RECORDING_NOT_STARTED/);
+  assert.equal(stopped, 1); assert.equal(removed, true);
+});
 await test('a recorder preparation failure releases its native object and metering subscription', async () => {
   let removed = false, unsubscribed = false;
   class Recorder {

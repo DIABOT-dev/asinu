@@ -21,7 +21,7 @@ const speed = 0.92;
 const hash = value => createHash('sha256').update(value).digest('hex');
 const steps = ['home.fine', 'home.unwell', 'checkin.choices', 'checkin.other', 'home.suggestions',
   'circle.add', 'circle.phone', 'circle.relationship', 'circle.send', 'circle.member',
-  'checkin.practice', 'checkin.status', 'checkin.location', 'checkin.voice', 'checkin.location_confirm', 'checkin.multiple', 'checkin.single',
+  'checkin.practice', 'checkin.status', 'checkin.intensity', 'checkin.location', 'checkin.voice', 'checkin.location_confirm', 'checkin.multiple', 'checkin.single',
   'checkin.confirm', 'checkin.result_status', 'checkin.result_symptoms', 'checkin.result_advice',
   'checkin.result_replay', 'checkin.result_doctor', 'checkin.result_emergency', 'checkin.result_family',
   'checkin.result_variants', 'checkin.result_close'];

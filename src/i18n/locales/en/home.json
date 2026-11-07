@@ -431,6 +431,17 @@
   "checkinCompanionFooter": "Asinu is always by your side",
   "checkinClose": "Close",
   "healthFeedSectionTitle": "Asinu reminders",
+  "quickActions": {
+    "title": "Quick actions",
+    "medication": "Medicines",
+    "journal": "Health journal",
+    "calls": "Check-in calls",
+    "family": "Family",
+    "missions": "Missions",
+    "coins": "Coins & gifts",
+    "dailyGift": "Today's gift",
+    "giftHistory": "Gift collection"
+  },
   "healthFeedSeeAll": "See all ({{count}})",
   "healthFeedEmptyTitle": "No new reminders",
   "healthFeedEmptyMessage": "When a relevant reminder is available, Asinu will keep it here so you can read it again anytime.",

@@ -5,8 +5,9 @@ import {
   Pressable,
   StyleSheet,
   View,
+  type ImageSourcePropType,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from 'expo-router';
@@ -46,50 +47,44 @@ const MISSION_ROUTES: Record<MissionKey, string> = {
 const MISSION_CONFIG: Record<
   MissionKey,
   {
-    order: number;
+    image: ImageSourcePropType;
     badgeBg: string;
-    badgeColor: string;
     defaultGoal: number;
     titleKey: string;
     descKey: string;
   }
 > = {
   daily_checkin: {
-    order: 1,
+    image: require('../../../assets/images/missions/mission_checkin_art.png'),
     badgeBg: '#dcfce7',
-    badgeColor: '#059669',
     defaultGoal: 1,
     titleKey: 'dailyCheckIn',
     descKey: 'dailyCheckInDesc',
   },
   log_bp: {
-    order: 2,
+    image: require('../../../assets/images/missions/mission_bp_art.png'),
     badgeBg: '#ffe4e6',
-    badgeColor: '#f43f5e',
     defaultGoal: 2,
     titleKey: 'measureBP',
     descKey: 'measureBPDesc',
   },
   log_glucose: {
-    order: 3,
+    image: require('../../../assets/images/missions/mission_glucose_art.png'),
     badgeBg: '#ede9fe',
-    badgeColor: '#6366f1',
     defaultGoal: 2,
     titleKey: 'measureGlucose',
     descKey: 'measureGlucoseDesc',
   },
   log_water: {
-    order: 4,
+    image: require('../../../assets/images/missions/mission_water_art.png'),
     badgeBg: '#e0f2fe',
-    badgeColor: '#0284c7',
     defaultGoal: 4,
     titleKey: 'waterIntake',
     descKey: 'waterIntakeDesc',
   },
   log_weight: {
-    order: 5,
+    image: require('../../../assets/images/missions/mission_weight_art.png'),
     badgeBg: '#fef3c7',
-    badgeColor: '#d97706',
     defaultGoal: 1,
     titleKey: 'weightMission',
     descKey: 'weightMissionDesc',
@@ -217,16 +212,16 @@ export default function MissionsScreen() {
               {status === 'success' && missions.length === 0 ? <StateEmpty /> : null}
 
               {/* Missions sit directly on the screen background. */}
-              {orderedMissions.map((item, index) => {
+              {orderedMissions.map((item) => {
                 const isCompleted = item.status === 'completed' || item.progress >= item.goal;
                 const isInProgress = item.progress > 0 && !isCompleted;
 
                 return (
-                  <Animated.View
-                    key={item.missionKey}
-                    entering={FadeInDown.delay(100 + index * 60).duration(400)}
-                  >
+                  <View key={item.missionKey}>
                     <Pressable
+                      testID={`mission-${item.missionKey}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={item.title}
                       style={({ pressed }) => [
                         styles.card,
                         pressed && { opacity: 0.88, transform: [{ scale: 0.99 }] },
@@ -238,46 +233,19 @@ export default function MissionsScreen() {
                         }
                       }}
                     >
-                      {/* Top-Right Info Button */}
-                      <Pressable
-                        style={styles.infoBtn}
-                        hitSlop={12}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          setTooltipMission(item);
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel={tc('info')}
-                      >
-                        <Ionicons
-                          name="information-circle-outline"
-                          size={22}
-                          color="#64748b"
-                        />
-                      </Pressable>
-
-                      {/* Card Content */}
+                      <View style={[styles.missionArtwork, { backgroundColor: item.config.badgeBg }]}>
+                        <Image source={item.config.image} style={styles.missionImage} resizeMode="cover"
+                          resizeMethod="resize" accessible={false} />
+                      </View>
                       <View style={styles.cardContent}>
-                        {/* Title Row */}
                         <View style={styles.cardHeaderRow}>
-                          <View
-                            style={[
-                              styles.badgeCircle,
-                              { backgroundColor: item.config.badgeBg },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.badgeNumber,
-                                { color: item.config.badgeColor },
-                              ]}
-                            >
-                              {item.config.order}
-                            </Text>
-                          </View>
-                          <View style={styles.cardTitleWrap}>
-                            <Text style={styles.cardTitle}>{item.title}</Text>
-                          </View>
+                          <Text allowFontScaling style={styles.cardTitle}>{item.title}</Text>
+                          <Pressable style={styles.infoBtn} onPress={(event) => {
+                            event.stopPropagation();
+                            setTooltipMission(item);
+                          }} accessibilityRole="button" accessibilityLabel={tc('info')}>
+                            <Ionicons name="information-circle-outline" size={20} color="#64748b" />
+                          </Pressable>
                         </View>
 
                         <MissionProgressBar
@@ -332,7 +300,7 @@ export default function MissionsScreen() {
                         </View>
                       </View>
                     </Pressable>
-                  </Animated.View>
+                  </View>
                 );
               })}
             </>
@@ -351,21 +319,16 @@ export default function MissionsScreen() {
               <View style={styles.modalHeader}>
                 <View
                   style={[
-                    styles.modalBadge,
+                    styles.modalArtwork,
                     { backgroundColor: tooltipMission?.config.badgeBg },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.modalBadgeText,
-                      { color: tooltipMission?.config.badgeColor },
-                    ]}
-                  >
-                    {tooltipMission?.config.order}
-                  </Text>
+                  {tooltipMission && <Image source={tooltipMission.config.image} style={styles.modalImage}
+                    resizeMode="cover" resizeMethod="resize" accessible={false} />}
                 </View>
                 <Text style={styles.modalTitle}>{tooltipMission?.title}</Text>
-                <Pressable onPress={() => setTooltipMission(null)} hitSlop={12}>
+                <Pressable onPress={() => setTooltipMission(null)} style={styles.infoBtn}
+                  accessibilityRole="button" accessibilityLabel={tc('close')}>
                   <Ionicons name="close" size={22} color="#64748b" />
                 </Pressable>
               </View>
@@ -396,7 +359,7 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
     },
     scrollContent: {
       paddingHorizontal: 16,
-      gap: 14,
+      gap: 0,
     },
 
     // Header
@@ -426,41 +389,40 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
     // Mission rows
     card: {
       backgroundColor: 'transparent',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
       paddingVertical: 16,
-      paddingHorizontal: 8,
-      position: 'relative',
+      borderBottomWidth: 1,
+      borderBottomColor: '#DFEBE6',
     },
     infoBtn: {
-      position: 'absolute',
-      right: 8,
-      top: 14,
-      zIndex: 6,
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     cardContent: {
-      zIndex: 2,
+      flex: 1,
+      minWidth: 0,
     },
     cardHeaderRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
-      paddingRight: 32,
+      gap: 4,
     },
-    badgeCircle: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+    missionArtwork: {
+      width: 72,
+      height: 72,
+      borderRadius: 18,
+      flexShrink: 0,
+      overflow: 'hidden',
       alignItems: 'center',
       justifyContent: 'center',
     },
-    badgeNumber: {
-      fontSize: 18,
-      fontWeight: '800',
-    },
-    cardTitleWrap: {
-      flex: 1,
-      gap: 2,
-    },
+    missionImage: { width: 72, height: 72 },
     cardTitle: {
+      flex: 1,
       fontSize: 16.5,
       fontWeight: '700',
       color: '#0f172a',
@@ -476,8 +438,10 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
     // Status Row
     statusRow: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       alignItems: 'center',
       justifyContent: 'space-between',
+      gap: 8,
       marginTop: 10,
     },
     statusPill: {
@@ -526,17 +490,15 @@ function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
       alignItems: 'center',
       gap: 10,
     },
-    modalBadge: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
+    modalArtwork: {
+      width: 48,
+      height: 48,
+      borderRadius: 12,
+      overflow: 'hidden',
       alignItems: 'center',
       justifyContent: 'center',
     },
-    modalBadgeText: {
-      fontSize: 15,
-      fontWeight: '800',
-    },
+    modalImage: { width: 48, height: 48 },
     modalTitle: {
       flex: 1,
       fontSize: 17,

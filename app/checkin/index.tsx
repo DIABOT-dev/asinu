@@ -153,7 +153,6 @@ export default function CheckinRoute() {
 }
 
 function CheckinScreen() {
-  const reviewGuidance = useReviewGuidance('checkin');
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('home');
@@ -182,6 +181,7 @@ function CheckinScreen() {
   const isRandom = params.mode === 'random';
   const isInstantEntry = !isFollowUp && (isRandom || (isPractice && params.entry === 'instant'));
   const isResultPreview = params.mode === 'result_preview';
+  const reviewGuidance = useReviewGuidance('checkin', { instant: isInstantEntry, followup: isFollowUp });
   const existingCheckinId = isPractice ? (practiceFollowup ? -1 : null)
     : params.checkin_id ? parseInt(params.checkin_id) : null;
   const presetStatus = params.preset_status as CheckinStatus | undefined;
@@ -668,7 +668,8 @@ function CheckinScreen() {
                 ? t(isInstantEntry ? 'checkinSelectIntensityTitle' : 'checkinSelectStatusTitle')
                 : t('checkinHeaderTitle')}
         </Text>}
-        <Pressable
+        {screen === 'status' && !isPractice && !isResultPreview ? <Pressable
+          testID="checkin-context-help"
           accessibilityLabel={t('checkinGuide.badge')}
           accessibilityRole="button"
           hitSlop={8}
@@ -682,7 +683,7 @@ function CheckinScreen() {
           }}
         >
           <Ionicons name="help-circle-outline" size={24} color={colors.primaryText} />
-        </Pressable>
+        </Pressable> : <View style={{ width: 44, height: 44 }} />}
       </View>
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
       <AiDataConsentModal
@@ -903,6 +904,7 @@ function LocationScreen({
   const [other, setOther] = useState('');
   const [locationDetails, setLocationDetails] = useState<LocationDetails>(readOnly ? { head: ['uncertain'] } : {});
   const [expandedLocation, setExpandedLocation] = useState<BodyLocation | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   const toggle = (key: BodyLocation) => {
     if (readOnly) return;
@@ -917,7 +919,7 @@ function LocationScreen({
   const count = selected.size + (other.trim() ? 1 : 0);
   const detailGroups = LOCATION_DETAIL_GROUPS.filter(group => selected.has(group.location));
   const missingDetails = missingLocationDetails(Array.from(selected), locationDetails, other);
-  const canConfirm = count > 0 && !missingDetails.length && !loading;
+  const canConfirm = count > 0 && !missingDetails.length && !loading && !isTranscribing;
   const confirmLabel = count > 0
     ? t('checkinLocationContinueCount', { count })
     : t('checkinLocationContinue');
@@ -976,16 +978,16 @@ function LocationScreen({
                 <View style={[styles.triageCheckbox, isSelected && styles.triageCheckboxSelected]}>
                   {isSelected && <Ionicons name="checkmark" size={13} color="#ffffff" />}
                 </View>
-                <MaterialCommunityIcons
-                  name={opt.icon}
-                  size={24}
-                  color={isSelected ? '#08b8a2' : '#64748b'}
-                />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text allowFontScaling style={[styles.triageOptionTitle, isSelected && styles.triageOptionTitleSelected]}>
-                    {t(opt.labelKey)}
-                  </Text>
+                <View style={styles.locationOptionIcon}>
+                  <MaterialCommunityIcons
+                    name={opt.icon}
+                    size={24}
+                    color={isSelected ? '#08b8a2' : '#64748b'}
+                  />
                 </View>
+                <Text allowFontScaling style={[styles.triageOptionTitle, styles.locationOptionLabel, isSelected && styles.triageOptionTitleSelected]}>
+                  {t(opt.labelKey)}
+                </Text>
               </Pressable>
             </GuideTarget>
           );
@@ -1042,6 +1044,7 @@ function LocationScreen({
               <VoiceAnswerButton
                 onText={text => { setOther(previous => `${previous} ${text}`.trim()); acknowledgeGuide('checkin.voice'); }}
                 onBeforeAi={onBeforeAi}
+                onProcessingChange={setIsTranscribing}
                 disabled={loading || readOnly}
                 practice={practice}
               />
@@ -1052,7 +1055,7 @@ function LocationScreen({
               onChangeText={readOnly ? undefined : setOther}
               placeholder={t('checkinLocationOtherPlaceholder')}
               placeholderTextColor="#94a3b8"
-              editable={!loading && !readOnly}
+              editable={!loading && !readOnly && !isTranscribing}
               maxLength={200}
               style={[styles.triageTextInput, practice && { fontSize: 20 }]}
             />
@@ -1157,7 +1160,7 @@ function TriageScreen({
   const progress = progressCurrent / progressTotal;
 
   const handleOptionTap = (opt: string) => {
-    if (readOnly) return;
+    if (readOnly || loading || isTranscribing) return;
     if (multiSelect) {
       // Multi-select: toggle selection
       setSelected((prev) => {
@@ -1176,7 +1179,7 @@ function TriageScreen({
   };
 
   const handleConfirm = () => {
-    if (readOnly) return;
+    if (readOnly || loading || isTranscribing) return;
     const parts: string[] = [...selected];
     if (custom.trim()) parts.push(custom.trim());
     if (parts.length === 0) return;
@@ -1186,7 +1189,7 @@ function TriageScreen({
     setCustom('');
   };
 
-  const hasSelection = selected.size > 0 || custom.trim().length > 0;
+  const hasSelection = !loading && !isTranscribing && (selected.size > 0 || custom.trim().length > 0);
   const firstOptionGroupIndex = optionsGrouped?.findIndex(group => group.items.length > 0) ?? -1;
   const hasAnswerChoices = firstOptionGroupIndex >= 0 || options.length > 0;
 
@@ -1296,11 +1299,11 @@ function TriageScreen({
                               isSelected && styles.triageOptionCardSelected,
                               (pressed || loading) && { opacity: 0.85 },
                             ]}
-                            disabled={readOnly}
+                            disabled={readOnly || loading || isTranscribing}
                             onPress={() => handleOptionTap(opt)}
                             accessibilityRole={multiSelect ? 'checkbox' : 'radio'}
                             accessibilityLabel={formatTriageOptionLabel(opt)}
-                            accessibilityState={{ checked: isSelected, disabled: readOnly }}
+                            accessibilityState={{ checked: isSelected, disabled: readOnly || loading || isTranscribing }}
                           >
                             {multiSelect ? (
                               <View style={[styles.triageCheckbox, isSelected && styles.triageCheckboxSelected]}>
@@ -1337,11 +1340,11 @@ function TriageScreen({
                           isSelected && styles.triageOptionCardSelected,
                           (pressed || loading) && { opacity: 0.85 },
                         ]}
-                        disabled={readOnly}
+                        disabled={readOnly || loading || isTranscribing}
                         onPress={() => handleOptionTap(opt)}
                         accessibilityRole={multiSelect ? 'checkbox' : 'radio'}
                         accessibilityLabel={formatTriageOptionLabel(opt)}
-                        accessibilityState={{ checked: isSelected, disabled: readOnly }}
+                        accessibilityState={{ checked: isSelected, disabled: readOnly || loading || isTranscribing }}
                       >
                         {multiSelect ? (
                           <View style={[styles.triageCheckbox, isSelected && styles.triageCheckboxSelected]}>
@@ -2684,6 +2687,18 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontWeight: '600',
       color: '#0f2942',
       flex: 1,
+    },
+    locationOptionIcon: {
+      width: 28,
+      height: 28,
+      flexShrink: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    locationOptionLabel: {
+      minWidth: 0,
+      includeFontPadding: false,
+      textAlignVertical: 'center',
     },
     triageOptionTitleSelected: {
       color: '#0f3e36',

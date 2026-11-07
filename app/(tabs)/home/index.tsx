@@ -16,6 +16,7 @@ import { HealthTreeStatusCard } from '../../../src/components/HealthTreeStatusCa
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
 import { V21HomeCard } from '../../../src/features/v21/V21HomeCard';
+import { HomeFeatureGrid } from '../../../src/components/HomeFeatureGrid';
 import { HomeGiftCard } from '../../../src/features/checkin-rewards/HomeGiftCard';
 import { HealthFeedThumbnail } from '../../../src/features/health-feed/HealthFeedThumbnail';
 import { apiClient } from '../../../src/lib/apiClient';
@@ -833,7 +834,6 @@ export default function HomeScreen() {
       {/* Notification Bell — chỉ hiện khi đã đăng nhập */}
       {profile && (
         <View style={[styles.headerActions, { top: insets.top + spacing.sm }]}>
-          <V21HomeCard iconOnly />
           <HomeCheckinCallControl key={profile.id} userId={String(profile.id)} iconOnly />
           <Pressable
             accessibilityRole="button"
@@ -877,6 +877,8 @@ export default function HomeScreen() {
         </Animated.View>
 
         {renderHealthFeedBlock()}
+
+        {profile && <V21HomeCard renderShortcuts={access => <HomeFeatureGrid {...access} />} />}
 
         {/* Missions section is temporarily hidden on the home screen. */}
         {SHOW_HOME_MISSIONS && (

@@ -8,6 +8,7 @@ import { chatApi } from '../chat/chat.api';
 import { showToast } from '../../stores/toast.store';
 import { guidanceAudio } from './guidance.audio';
 import { guideColors as c } from './guidance.model';
+import { ScaledText as Text } from '../../components/ScaledText';
 
 /** Reuses the existing, consented transcription endpoint, never submits an answer. */
 export function VoiceAnswerButton({ onText, onBeforeAi, onProcessingChange, disabled = false, practice = false }: {
@@ -22,7 +23,7 @@ export function VoiceAnswerButton({ onText, onBeforeAi, onProcessingChange, disa
   const locked = useRef(false);
   const revision = useRef(0);
   const permissionRequest = useRef<number | null>(null);
-  useEffect(() => { onProcessingChange?.(busy); }, [busy, onProcessingChange]);
+  useEffect(() => { onProcessingChange?.(busy || recording); }, [busy, recording, onProcessingChange]);
   useEffect(() => {
     alive.current = focused;
     if (focused) { setRecording(false); setBusy(false); }
@@ -46,6 +47,7 @@ export function VoiceAnswerButton({ onText, onBeforeAi, onProcessingChange, disa
     locked.current = true;
     const version = ++revision.current;
     const current = () => alive.current && version === revision.current;
+    let transcribing = false;
     setBusy(true);
     try {
       await guidanceAudio.stop();
@@ -65,6 +67,7 @@ export function VoiceAnswerButton({ onText, onBeforeAi, onProcessingChange, disa
         if (!current()) return;
         const uri = previous.getURI();
         if (!uri) throw new Error('RECORDING_FILE_UNAVAILABLE');
+        transcribing = true;
         const text = (await chatApi.transcribeAudio(uri, i18n.language.startsWith('en') ? 'en' : 'vi', 'checkin')).trim();
         if (current()) {
           if (text) onText(text);
@@ -84,15 +87,29 @@ export function VoiceAnswerButton({ onText, onBeforeAi, onProcessingChange, disa
         if (!current()) { await result.recording.stopAndUnloadAsync(); return; }
         recorder.current = result.recording; setRecording(true);
       }
-    } catch { if (current()) showToast(t('guidance.voiceFailure'), 'error'); }
+    } catch {
+      if (current()) {
+        const previous = recorder.current; recorder.current = null;
+        await previous?.stopAndUnloadAsync().catch(() => {});
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true }).catch(() => {});
+        if (current()) {
+          setRecording(false);
+          showToast(t(transcribing ? 'guidance.voiceTranscriptionFailure' : 'guidance.voiceRecordingFailure'), 'error');
+        }
+      }
+    }
     finally { if (current()) { locked.current = false; setBusy(false); } }
   };
   const label = t(recording ? 'guidance.stopRecording' : 'guidance.speak');
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={busy || disabled || !focused}
+  return <Pressable testID="checkin-voice-answer" accessibilityRole="button" accessibilityLabel={label} disabled={busy || disabled || !focused}
+    accessibilityHint={recording ? t('guidance.voiceStopHint') : undefined}
     accessibilityState={{ disabled: busy || disabled || !focused, busy }}
     onPress={() => void press()} style={({ pressed }) => ({ minHeight: 56, minWidth: 56, padding: 12, borderRadius: 14,
-      alignItems: 'center', justifyContent: 'center',
+      alignItems: 'center', justifyContent: 'center', gap: 4,
       opacity: busy || disabled ? 0.5 : pressed ? 0.8 : 1 })}>
     {busy ? <ActivityIndicator color={c.primary} /> : <Ionicons name={recording ? 'stop-circle-outline' : 'mic-outline'} size={28} color={c.primary} />}
+    <Text allowFontScaling style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>
+      {busy ? t('guidance.voiceProcessing') : label}
+    </Text>
   </Pressable>;
 }

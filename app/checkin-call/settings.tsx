@@ -247,7 +247,6 @@ export default function CheckinCallSettingsScreen() {
               <Ionicons name="headset-outline" size={24} color="#00897b" />
               <Text style={styles.cardTitle}>{t('title')}</Text>
             </View>
-            <Text style={styles.cardSubtitle}>{t('subtitle')}</Text>
           </View>
 
           {/* Toggle row */}
@@ -276,7 +275,6 @@ export default function CheckinCallSettingsScreen() {
             <Text style={styles.toggleLabel}>{t('eligibleContacts')}</Text>
             {contacts.length === 0 ? <>
               <Text style={styles.cardSubtitle}>{t('noEligibleContacts')}</Text>
-              <Text style={styles.cardSubtitle}>{t('contactSetupHint')}</Text>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t('manageCareCircle')}
@@ -409,7 +407,6 @@ export default function CheckinCallSettingsScreen() {
           })}
 
           {access === 'error' && <Pressable accessibilityRole="button" style={styles.setupAction} onPress={() => setReload(current => current + 1)}><Text style={styles.setupActionText}>{tc('retry')}</Text></Pressable>}
-          <Text style={styles.cardSubtitle}>{t('urgentSettingsNotice')}</Text>
 
           {/* Save Button */}
           <Pressable

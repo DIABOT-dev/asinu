@@ -208,14 +208,12 @@ export function VoiceSettings({ userId }: { userId: string }) {
           { paddingBottom: insets.bottom + 24 },
         ]}
       >
-        <Text style={styles.copy}>{t('personalization.description')}</Text>
         {!value && !error && <ActivityIndicator color={colors.primaryDark} />}
         {!!value && (
           <>
             <Text style={styles.subheading}>
               {t('personalization.addressTitle')}
             </Text>
-            <Text style={styles.copy}>{t('personalization.addressHint')}</Text>
             <View style={styles.options}>
               {ADDRESS_OPTIONS.map((address) => (
                 <Pressable
@@ -255,9 +253,6 @@ export function VoiceSettings({ userId }: { userId: string }) {
                     <Text style={styles.subheading}>
                       {t(`personalization.${field}`)}
                     </Text>
-                    <Text style={styles.copy}>
-                      {t(`personalization.${field}Hint`)}
-                    </Text>
                   </View>
                   <Switch
                     accessibilityLabel={t(`personalization.${field}`)}
@@ -281,9 +276,6 @@ export function VoiceSettings({ userId }: { userId: string }) {
               <>
                 <Text style={styles.subheading}>
                   {t('personalization.regionTitle')}
-                </Text>
-                <Text style={styles.copy}>
-                  {t('personalization.regionHint')}
                 </Text>
                 <View style={styles.options}>
                   {REGION_OPTIONS.map((region) => (

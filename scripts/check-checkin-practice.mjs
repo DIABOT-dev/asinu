@@ -83,7 +83,7 @@ const native = { View: 'View', Text: 'Text', Image: 'Image', asinuChatSticker: '
   Svg: 'Svg', Path: 'Path', Circle: 'Circle', CheckinHeroBadge: 'Badge', guideColors: { background: '#f9fcfb', ink: '#123b35',
     actionBackground: '#08b8a2', onAction: '#061c19' }, colors: { primary: '#08b8a2' } };
 function routeHarness(language, params = { mode: 'guide' }, guidance = {}) {
-  const runtime = hooks(), calls = { network: [], consent: 0, progress: [], finished: [], routes: [], alerts: [], audio: [] };
+  const runtime = hooks(), calls = { network: [], consent: 0, progress: [], finished: [], routes: [], alerts: [], audio: [], help: [] };
   const tr = translations(language);
   const guideState = { account: '7', ready: true,
     progress: { firstCheckin: false, welcomeSeen: true, completed: [], epoch: 0 }, ...guidance,
@@ -106,7 +106,7 @@ function routeHarness(language, params = { mode: 'guide' }, guidance = {}) {
   const router = { canGoBack: () => true, back: () => calls.routes.push('back'), replace: route => calls.routes.push(route) };
   const source = `${extract('CheckinScreen')}\nmodule.exports = CheckinScreen;`;
   const CheckinScreen = evaluate(source, { ...native, ...runtime, ...tr, useLocalSearchParams: () => params,
-    useReviewGuidance: () => () => {}, useRouter: () => router, useSafeAreaInsets: () => ({ top: 20, bottom: 20 }),
+    useReviewGuidance: (destination, options) => () => calls.help.push({ destination, options }), useRouter: () => router, useSafeAreaInsets: () => ({ top: 20, bottom: 20 }),
     useScaledTypography: () => ({}), useThemeColors: () => ({ isDark: false }), createStyles: () => ({}),
     useAppAlert: () => ({ alertState: {}, showAlert: (...args) => calls.alerts.push(args), dismissAlert() {} }),
     useAuthStore: select => select({ profile: { id: 7 } }), useGuidanceStore,
@@ -120,6 +120,25 @@ function routeHarness(language, params = { mode: 'guide' }, guidance = {}) {
   return { calls, guideState, settle: () => runtime.settle(() => CheckinScreen()) };
 }
 for (const language of ['vi', 'en']) {
+  await test(`${language}: contextual Help only appears at the two live entry screens and preserves their guide context`, async () => {
+    for (const mode of ['daily', 'random']) {
+      const h = routeHarness(language, { mode }); let tree = await h.settle();
+      const help = nodes(tree).find(n => n.props?.testID === 'checkin-context-help'); assert.ok(help);
+      help.props.onPress();
+      assert.deepEqual(h.calls.help, [{ destination: 'checkin', options: { instant: mode === 'random', followup: false } }]);
+      await nodes(tree).find(n => n.type === 'Status').props.onSelect('tired'); tree = await h.settle();
+      assert.ok(!nodes(tree).some(n => n.props?.testID === 'checkin-context-help'), 'Location questions must not start a new guide');
+      await nodes(tree).find(n => n.type === 'Location').props.onConfirm(['head'], 'example'); tree = await h.settle();
+      assert.ok(!nodes(tree).some(n => n.props?.testID === 'checkin-context-help'), 'Triage questions must not start a new guide');
+    }
+    const daily = routeHarness(language, { mode: 'daily' }); let tree = await daily.settle();
+    await nodes(tree).find(n => n.type === 'Status').props.onSelect('fine'); tree = await daily.settle();
+    assert.ok(!nodes(tree).some(n => n.props?.testID === 'checkin-context-help'), 'Results do not reopen entry help');
+    for (const entry of [undefined, 'instant']) {
+      const guide = routeHarness(language, { mode: 'guide', entry });
+      assert.ok(!nodes(await guide.settle()).some(n => n.props?.testID === 'checkin-context-help'), 'Do not nest a second guide');
+    }
+  });
   for (const status of ['fine', 'tired', 'very_tired', 'specific_concern']) {
     await test(`${language}/${status}: actual tutorial handlers finish without health, AI, call or first-check-in writes`, async () => {
       // Even a stale real check-in ID cannot escape the local practice client.
@@ -316,10 +335,21 @@ function locationHarness(language) {
   const find = id => { const node = nodes(tree).find(item => item.props?.testID === id); assert.ok(node, id); return node; };
   return { calls, tr, find, settle, async press(id) { await find(id).props.onPress(); return settle(); },
     async note(value) { nodes(tree).find(item => item.type === 'Input').props.onChangeText(value); return settle(); },
+    async voiceBusy(value) { nodes(tree).find(item => item.type === 'VoiceAnswerButton').props.onProcessingChange(value); return settle(); },
     async loading(value) { props = { ...props, loading: value }; return settle(); } };
 }
 
 for (const language of ['vi', 'en']) {
+  await test(`${language}: location answers wait for recorded speech before continuing`, async () => {
+    const h = locationHarness(language); await h.settle();
+    await h.press('checkin-location-region-whole_body');
+    assert.equal(h.find('checkin-location-continue').props.disabled, false);
+    await h.voiceBusy(true);
+    assert.equal(h.find('checkin-location-continue').props.disabled, true);
+    await h.press('checkin-location-continue'); assert.equal(h.calls.length, 0);
+    await h.voiceBusy(false); await h.press('checkin-location-continue');
+    assert.equal(h.calls.length, 1);
+  });
   await test(`${language}: selecting head and limbs asks for both exact spots before starting check-in`, async () => {
     const h = locationHarness(language); await h.settle();
     await h.press('checkin-location-region-head'); await h.press('checkin-location-region-limbs');
