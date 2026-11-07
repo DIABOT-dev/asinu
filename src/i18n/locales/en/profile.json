@@ -147,5 +147,6 @@
   "checkinCallLockedDesc": "Check-in call settings are included with An Tam. Upgrade so Asinu can call to check on you after a missed check-in.",
   "requiresAnTam": "An Tam required",
   "chooseAnTam": "Choose An Tam",
-  "sectionRewards": "Tasks & rewards"
+  "sectionRewards": "Tasks & rewards",
+  "planUnavailable": "Plan information is not available yet"
 }
