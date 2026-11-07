@@ -11,7 +11,7 @@ type OverviewState = {
   error: boolean;
 };
 
-export function useHealthTreeOverview() {
+export function useHealthTreeOverview({ includeHealthScore = true }: { includeHealthScore?: boolean } = {}) {
   const userId = useAuthStore((state) => state.profile?.id) ?? null;
   const focused = useRef(false);
   const request = useRef(0);
@@ -45,6 +45,10 @@ export function useHealthTreeOverview() {
           error: false,
         };
       });
+      if (!includeHealthScore) {
+        setState({ userId, score: null, loading: false, refreshing: false, error: false });
+        return;
+      }
       try {
         const score = await checkinApi.getHealthScore();
         if (focused.current && request.current === requestId) {
@@ -67,7 +71,7 @@ export function useHealthTreeOverview() {
         }
       }
     },
-    [userId]
+    [userId, includeHealthScore]
   );
 
   useFocusEffect(

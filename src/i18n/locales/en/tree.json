@@ -118,6 +118,5 @@
   "earlyConsult": "Consult specialist",
   "earlyRetry": "Try again",
   "earlyOpen": "View your recent health",
-  "journalCalendarHint": "Tap a check-in day to revisit your notes.",
   "journalFutureDayAccessibility": "Day {{day}}, upcoming date."
 }

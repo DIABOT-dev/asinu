@@ -363,7 +363,7 @@ await test("leaving scanner before permission lookup completes cannot trigger a 
   assert.equal(h.calls.settings, 0);
 });
 
-function treeHarness() {
+function treeHarness(options = {}) {
   const r = runtime();
   const auth = { profile: { id: "alice" } };
   const server = {
@@ -395,10 +395,18 @@ function treeHarness() {
     server,
     auth,
     calls,
-    read: () => r.render(useHealthTreeOverview),
-    settle: () => r.settle(useHealthTreeOverview),
+    read: () => r.render(() => useHealthTreeOverview(options)),
+    settle: () => r.settle(() => useHealthTreeOverview(options)),
   };
 }
+await test('calendar-only overview never requests a hidden health score and still refreshes on pull and return', async () => {
+  const h = treeHarness({ includeHealthScore: false }); h.server.error = true;
+  await h.settle(); assert.equal(h.calls.scores, 0); assert.equal(h.read().refreshKey, 0);
+  assert.equal(h.read().loading, false); assert.equal(h.read().error, false);
+  await h.read().refresh(); assert.equal(h.read().refreshKey, 1);
+  h.blur(); h.focus(); await flush(); assert.equal(h.read().refreshKey, 2);
+  assert.equal(h.calls.scores, 0); h.blur();
+});
 await test("initial health-score completion does not invalidate the calendar that is already loading", async () => {
   const h = treeHarness(); let finish;
   h.server.pending = new Promise(resolve => { finish = resolve; });

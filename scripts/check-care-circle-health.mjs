@@ -306,7 +306,7 @@ await test('the original personal calendar retains its own report API', async ()
   assert.deepEqual(h.selfCalls, [['month', '2026-10']]); h.unmount();
 });
 for (const language of ['vi', 'en']) {
-  await test(`${language}: the health journal header has local artwork and both labelled health actions retain their behavior`, () => {
+  await test(`${language}: the health journal shows only its title, artwork and calendar without extra health panels`, () => {
     let cursor = 0;
     const slots = [];
     const hooks = { createElement: React.createElement, Fragment: React.Fragment,
@@ -332,8 +332,10 @@ for (const language of ['vi', 'en']) {
       '../../components/HealthJournalCalendar': { HealthJournalCalendar: 'Calendar' },
       '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: theme.lightColors, isDark: false }) },
       '../../styles': theme,
-      './useHealthTreeOverview': { useHealthTreeOverview: () => ({ score: null, refreshing: false, error: false,
-        refreshKey: 0, refresh() {}, retry() {} }) },
+      './useHealthTreeOverview': { useHealthTreeOverview: options => {
+        assert.deepEqual(options, { includeHealthScore: false });
+        return { refreshing: false, refreshKey: 0, refresh() {} };
+      } },
       '../auth/auth.store': { useAuthStore: select => select({ profile: { id: 'fixture' } }) },
     });
     const render = () => { cursor = 0; const wrapper = HealthTreeOverview(); return flattenElements(wrapper.type(wrapper.props)); };
@@ -345,17 +347,9 @@ for (const language of ['vi', 'en']) {
     const calendar = nodes.find(node => node.type === 'Calendar');
     assert.equal(calendar.props.showSummary, undefined, 'The default monthly summary stays visible');
     assert.equal(calendar.props.showAttention, false);
-    calendar.props.onMonthChange('2026-09');
-    nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t('earlyTitle')).props.onPress();
-    nodes = render(); const early = nodes.find(node => node.type === 'EarlySignal');
-    assert.equal(early.props.modalOnly, true); early.props.onClose();
-    nodes = render();
-    nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t('journalAttentionDays')).props.onPress();
-    nodes = render(); assert.equal(nodes.find(node => node.type === 'Modal').props.visible, true);
-    const attention = nodes.filter(node => node.type === 'Calendar').find(node => node.props.attentionOnly);
-    assert.equal(attention.props.initialMonth, '2026-09');
-    nodes.find(node => node.type === 'Modal').props.onRequestClose();
-    assert.equal(render().find(node => node.type === 'Modal').props.visible, false);
+    assert.equal(nodes.filter(node => node.type === 'Calendar').length, 1);
+    assert.equal(nodes.filter(node => node.type === 'Pressable' || node.type === 'Modal' || node.type === 'EarlySignal').length, 0);
+    assert.deepEqual(nodes.filter(node => node.type === 'Text').map(node => node.props.children), [t('journalTitle')]);
   });
 }
 
