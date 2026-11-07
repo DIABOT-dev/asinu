@@ -104,6 +104,7 @@ export function useMedicationPurposeLookup({
       const name = item.display_name.trim();
       if (item.kind !== "MEDICINE" || name.length < 2 || !item.clientId)
         continue;
+      if (item.existingItemId) continue;
       const key = medicationPurposeKey(item);
       if (
         item.purposeLookup?.key === key &&
@@ -155,6 +156,7 @@ export function useMedicationPurposeLookup({
       enabled &&
       draft.some(
         (item) =>
+          !item.existingItemId &&
           item.kind === "MEDICINE" &&
           item.display_name.trim().length >= 2 &&
           (!item.purposeLookup?.result || item.purposeLookup.loading),

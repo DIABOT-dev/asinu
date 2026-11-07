@@ -87,8 +87,8 @@ function Button({
           backgroundColor: quiet
             ? colors.primaryLight
             : danger
-              ? colors.danger
-              : colors.primaryText,
+            ? colors.danger
+            : colors.primaryText,
         },
         (disabled || busy || pressed) && s.disabled,
       ]}
@@ -178,7 +178,7 @@ export function MedicationOverviewPanel({
               accessibilityLabel={t(
                 key === "today"
                   ? "medicationTodayTab"
-                  : "medicationSchedulesTab",
+                  : "medicationSchedulesTab"
               )}
               accessibilityState={{ selected: tab === key }}
               onPress={() => onTabChange(key)}
@@ -201,7 +201,7 @@ export function MedicationOverviewPanel({
                 {t(
                   key === "today"
                     ? "medicationTodayTab"
-                    : "medicationSchedulesTab",
+                    : "medicationSchedulesTab"
                 )}
               </Text>
             </Pressable>
@@ -305,8 +305,8 @@ export function MedicationOverviewPanel({
                 med.loading
                   ? "loading"
                   : med.failed
-                    ? "error"
-                    : "featureUnavailable",
+                  ? "error"
+                  : "featureUnavailable"
               )}
             </Text>
           </View>
@@ -371,7 +371,7 @@ export function MedicationOverviewPanel({
                     const status = medicationDoseStatusKey(
                       dose,
                       med.now,
-                      med.data!.remindersEnabled !== false,
+                      med.data!.remindersEnabled !== false
                     );
                     const color = [
                       "OUT_OF_MEDS",
@@ -382,8 +382,8 @@ export function MedicationOverviewPanel({
                         ? "#f0c47a"
                         : "#996515"
                       : ["TAKEN", "CALLING"].includes(dose.state)
-                        ? colors.primaryText
-                        : colors.textSecondary;
+                      ? colors.primaryText
+                      : colors.textSecondary;
                     const elapsed = med.now - Date.parse(dose.scheduled_at);
                     // A missed first call returns to SCHEDULED while waiting
                     // for its retry. Keep the same two-hour answer window as
@@ -391,7 +391,7 @@ export function MedicationOverviewPanel({
                     const canAnswer =
                       med.data!.self &&
                       ["SCHEDULED", "CALLING", "UNCONFIRMED"].includes(
-                        dose.state,
+                        dose.state
                       ) &&
                       Number.isFinite(elapsed) &&
                       elapsed <= 2 * 60 * 60 * 1000 &&
@@ -415,7 +415,7 @@ export function MedicationOverviewPanel({
                           <Pressable
                             accessibilityRole="button"
                             accessibilityLabel={`${t(
-                              "medicationAnswerAction",
+                              "medicationAnswerAction"
                             )} ${dose.time_local.slice(0, 5)}`}
                             disabled={med.busy}
                             onPress={() => onAnswer(dose.id)}
@@ -477,7 +477,7 @@ export function MedicationOverviewPanel({
                             .map(
                               (id) =>
                                 med.data!.items.find((item) => item.id === id)
-                                  ?.display_name,
+                                  ?.display_name
                             )
                             .filter(Boolean)
                             .join(" · ")}
@@ -492,7 +492,7 @@ export function MedicationOverviewPanel({
                               {t(
                                 schedule.consent_state === "PENDING"
                                   ? "pendingConsent"
-                                  : schedule.consent_state,
+                                  : schedule.consent_state
                               )}
                             </Text>
                           )
@@ -652,12 +652,14 @@ export function MedicationScheduleSheet({
           <View style={s.sheetHeader}>
             <Text accessibilityRole="header" style={[s.heading, title, s.copy]}>
               {t(
-                med.mode === "edit"
+                med.mode === "move"
+                  ? "doseMove"
+                  : med.mode === "edit"
                   ? "editSchedule"
                   : med.mode === "remove"
-                    ? "removeSchedule"
-                    : "medicationScheduleAt",
-                { time: med.selected?.time_local.slice(0, 5) },
+                  ? "removeSchedule"
+                  : "medicationScheduleAt",
+                { time: med.selected?.time_local.slice(0, 5) }
               )}
             </Text>
             <Pressable
@@ -677,6 +679,38 @@ export function MedicationScheduleSheet({
           >
             {med.mode === "menu" ? (
               <>
+                {med.selected?.active &&
+                  med.selected.consent_state !== "DECLINED" &&
+                  med.selected.item_ids.map((id) => {
+                    const item = med.data?.items.find((row) => row.id === id);
+                    return (
+                      item && (
+                        <Pressable
+                          key={id}
+                          accessibilityRole="button"
+                          accessibilityLabel={t("doseMoveItem", {
+                            name: item.display_name,
+                          })}
+                          onPress={() => med.openMove(id)}
+                          style={s.row}
+                        >
+                          <Ionicons
+                            name="time-outline"
+                            size={24}
+                            color={colors.primaryText}
+                          />
+                          <Text style={[s.title, title, s.copy]}>
+                            {item.display_name}
+                          </Text>
+                          <Text
+                            style={[s.caption, { color: colors.primaryText }]}
+                          >
+                            {t("doseMove")}
+                          </Text>
+                        </Pressable>
+                      )
+                    );
+                  })}
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={t("editSchedule")}
@@ -705,6 +739,69 @@ export function MedicationScheduleSheet({
                     {t("removeSchedule")}
                   </Text>
                 </Pressable>
+              </>
+            ) : med.mode === "move" ? (
+              <>
+                <Text style={[s.title, title]}>
+                  {
+                    med.data?.items.find((item) => item.id === med.movingItem)
+                      ?.display_name
+                  }
+                </Text>
+                {med.data?.schedules
+                  .filter(
+                    (row) =>
+                      row.id !== med.selected?.id &&
+                      row.active &&
+                      row.consent_state !== "DECLINED"
+                  )
+                  .map((row) => (
+                    <Pressable
+                      key={row.id}
+                      accessibilityRole="radio"
+                      accessibilityLabel={row.time_local.slice(0, 5)}
+                      accessibilityState={{
+                        checked: med.time === row.time_local.slice(0, 5),
+                        disabled: med.busy,
+                      }}
+                      disabled={med.busy}
+                      onPress={() => med.setTime(row.time_local.slice(0, 5))}
+                      style={s.row}
+                    >
+                      <Ionicons
+                        name={
+                          med.time === row.time_local.slice(0, 5)
+                            ? "radio-button-on"
+                            : "radio-button-off"
+                        }
+                        size={22}
+                        color={colors.primaryText}
+                      />
+                      <Text style={[s.title, title]}>
+                        {row.time_local.slice(0, 5)}
+                      </Text>
+                    </Pressable>
+                  ))}
+                <Text style={[s.caption, caption]}>{t("doseOtherTime")}</Text>
+                <TextInput
+                  accessibilityLabel={t("doseOtherTime")}
+                  value={med.time}
+                  onChangeText={med.setTime}
+                  maxLength={5}
+                  keyboardType="numbers-and-punctuation"
+                  editable={!med.busy}
+                  style={[
+                    s.timeInput,
+                    title,
+                    { backgroundColor: colors.primaryLight },
+                  ]}
+                />
+                <Button
+                  label={t("doseMove")}
+                  disabled={!med.canMove}
+                  busy={med.busy}
+                  onPress={() => void med.move()}
+                />
               </>
             ) : med.mode === "edit" ? (
               <>

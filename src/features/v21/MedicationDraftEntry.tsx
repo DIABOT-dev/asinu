@@ -33,6 +33,7 @@ export function MedicationDraftEntry({
     .filter(Boolean)
     .slice(0, 2)
     .join(" · ");
+  const times = draft.snapshot.slots.map((slot) => slot.time_local).join(" · ");
   return (
     <View style={[s.row, { borderColor: colors.border }]}>
       <Pressable
@@ -64,8 +65,13 @@ export function MedicationDraftEntry({
             {t("draftTitle")}
           </Text>
           <Text style={[s.caption, { color: colors.textSecondary }]}>
-            {t("draftItems", { count: draft.snapshot.items.length })}
+            {draft.snapshot.items.length
+              ? t("draftItems", { count: draft.snapshot.items.length })
+              : t("doseDraftTimes", { count: draft.snapshot.slots.length })}
           </Text>
+          {draft.snapshot.setupFlow === "dose_first" && !!times && (
+            <Text style={[s.name, { color: colors.primaryText }]}>{times}</Text>
+          )}
           {draft.snapshot.items.slice(0, 2).map((item) => (
             <View key={item.clientId} style={s.item}>
               <Text style={[s.name, { color: colors.textPrimary }]}>

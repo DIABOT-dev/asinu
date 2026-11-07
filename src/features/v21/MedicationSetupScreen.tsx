@@ -18,18 +18,18 @@ import { AiDataConsentModal } from "../../components/AiDataConsentModal";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import {
-  medicationAnchors,
   medicationNameHasNoDose,
   validMedicationTime,
   useMedicationSetup,
   type MedicationSetupController,
 } from "./useMedicationSetup";
-import type { MedKind, Meals } from "./v21.api";
+import type { MedKind } from "./v21.api";
 import { medicationSetupStyles as s } from "./medication-setup.styles";
 import { medicationQuickNames, validMedicationNote } from "./medication-input";
 import { MedicationPhotoPreview } from "./MedicationPhotoPreview";
 import { MedicationScanOverlay } from "./MedicationScanOverlay";
 import { MedicationBackground } from "./MedicationBackground";
+import { MedicationDosePicker } from "./MedicationDosePicker";
 import {
   MedicationPurposeReview,
   MedicationPurposeTags,
@@ -180,7 +180,7 @@ export function MedicationSetupPanel({
   const { colors } = useThemeColors();
   const insets = useSafeAreaInsets();
   const title = { color: colors.textPrimary };
-  const { data, step, draft, meals, slots, busy, listening } = setup;
+  const { data, step, draft, slots, busy, listening } = setup;
   const disabled = busy || !data;
   const quickNames = medicationQuickNames(data?.conditions);
   return (
@@ -212,7 +212,7 @@ export function MedicationSetupPanel({
           <Text accessibilityRole="header" style={[s.heading, title, s.flex]}>
             {t("setupTitle")}
           </Text>
-          {(draft.length > 0 || setup.photo) && (
+          {(draft.length > 0 || setup.photo || slots.length > 0) && (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t("saveDraftAndLeave")}
@@ -230,7 +230,7 @@ export function MedicationSetupPanel({
           accessibilityRole="progressbar"
           accessibilityLabel={t("step", {
             current: step,
-            label: t(`step${step}`),
+            label: t(`doseStep${step}`),
           })}
           accessibilityValue={{ min: 1, max: 4, now: step }}
           style={s.progress}
@@ -296,7 +296,7 @@ export function MedicationSetupPanel({
         contentContainerStyle={s.content}
       >
         <Text accessibilityRole="header" style={[s.stepTitle, title]}>
-          {t(`setupStage${step}`)}
+          {t(`doseStep${step}`)}
         </Text>
         {setup.draftStatus !== "idle" && (
           <View style={s.draftStatus}>
@@ -305,8 +305,8 @@ export function MedicationSetupPanel({
                 setup.draftStatus === "error"
                   ? "cloud-offline-outline"
                   : setup.draftStatus === "saved"
-                    ? "cloud-done-outline"
-                    : "cloud-upload-outline"
+                  ? "cloud-done-outline"
+                  : "cloud-upload-outline"
               }
               size={18}
               color={
@@ -332,8 +332,8 @@ export function MedicationSetupPanel({
                 setup.draftStatus === "error"
                   ? setup.draftErrorKey
                   : setup.draftStatus === "saved"
-                    ? "draftSaved"
-                    : "draftSaving",
+                  ? "draftSaved"
+                  : "draftSaving"
               )}
             </Text>
             {setup.draftStatus === "error" && (
@@ -356,7 +356,7 @@ export function MedicationSetupPanel({
             )}
           </View>
         )}
-        {(draft.length > 0 || setup.photo) && (
+        {(draft.length > 0 || setup.photo || slots.length > 0) && (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("deleteDraft")}
@@ -394,8 +394,48 @@ export function MedicationSetupPanel({
           </View>
         ) : (
           <>
-            {step === 1 && (
+            {step === 1 && <MedicationDosePicker setup={setup} />}
+            {step === 2 && (
               <>
+                {data.items.length > 0 && (
+                  <View style={s.section}>
+                    <Text style={[s.sectionTitle, title]}>
+                      {t("doseSavedMedicines")}
+                    </Text>
+                    {data.items.map((item) => {
+                      const selected = draft.findIndex(
+                        (row) => row.existingItemId === item.id
+                      );
+                      return (
+                        <Pressable
+                          key={item.id}
+                          accessibilityRole="checkbox"
+                          accessibilityLabel={item.display_name}
+                          accessibilityState={{
+                            checked: selected >= 0,
+                            disabled,
+                          }}
+                          disabled={disabled}
+                          onPress={() =>
+                            selected >= 0
+                              ? setup.removeItem(selected)
+                              : setup.selectExisting(item.id)
+                          }
+                          style={s.option}
+                        >
+                          <Ionicons
+                            name={selected >= 0 ? "checkbox" : "square-outline"}
+                            size={24}
+                            color={colors.primaryText}
+                          />
+                          <Text style={[s.label, title, s.flex]}>
+                            {item.display_name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
                 {setup.photo && (
                   <Image
                     source={{ uri: setup.photo }}
@@ -441,7 +481,7 @@ export function MedicationSetupPanel({
                 )}
               </>
             )}
-            {step === 2 && (
+            {step === 3 && (
               <>
                 {draft.some((item) => item.source === "PHOTO_AI") && (
                   <View style={s.section}>
@@ -468,13 +508,7 @@ export function MedicationSetupPanel({
                           number: index + 1,
                         })}
                         disabled={busy}
-                        onPress={() =>
-                          draft.length === 1
-                            ? setup.discardDraft()
-                            : setup.setDraft((old) =>
-                                old.filter((_, n) => n !== index),
-                              )
-                        }
+                        onPress={() => setup.removeItem(index)}
                         style={s.iconButton}
                       >
                         <Ionicons
@@ -484,123 +518,184 @@ export function MedicationSetupPanel({
                         />
                       </Pressable>
                     </View>
-                    {item.source === "PHOTO_AI" && !!item.printed_name && (
-                      <View style={s.printedName}>
+                    {item.existingItemId ? (
+                      <View style={s.section}>
+                        <Text style={[s.sectionTitle, title]}>
+                          {item.display_name}
+                        </Text>
+                        <MedicationPurposeTags
+                          codes={item.selectedPurposeCodes || []}
+                        />
+                      </View>
+                    ) : (
+                      <>
+                        {item.source === "PHOTO_AI" && !!item.printed_name && (
+                          <View style={s.printedName}>
+                            <Text
+                              style={[
+                                s.caption,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              {t("medicationPrintedName")}
+                            </Text>
+                            <Text selectable style={[s.label, title]}>
+                              {item.printed_name}
+                            </Text>
+                          </View>
+                        )}
                         <Text
                           style={[s.caption, { color: colors.textSecondary }]}
                         >
-                          {t("medicationPrintedName")}
+                          {t("name")}
                         </Text>
-                        <Text selectable style={[s.label, title]}>
-                          {item.printed_name}
-                        </Text>
-                      </View>
-                    )}
-                    <Text style={[s.caption, { color: colors.textSecondary }]}>
-                      {t("name")}
-                    </Text>
-                    <TextInput
-                      accessibilityLabel={t("name")}
-                      placeholder={t("setupNamePlaceholder")}
-                      placeholderTextColor={colors.textSecondary}
-                      maxLength={30}
-                      value={item.display_name}
-                      editable={!busy}
-                      onChangeText={(value) =>
-                        setup.update(index, {
-                          display_name: value,
-                          confirmed: false,
-                        })
-                      }
-                      style={[
-                        s.nameInput,
-                        {
-                          color: colors.textPrimary,
-                          backgroundColor: colors.surfaceMuted,
-                        },
-                      ]}
-                    />
-                    {!!item.display_name &&
-                      !medicationNameHasNoDose(item.display_name) && (
+                        <TextInput
+                          accessibilityLabel={t("name")}
+                          placeholder={t("setupNamePlaceholder")}
+                          placeholderTextColor={colors.textSecondary}
+                          maxLength={30}
+                          value={item.display_name}
+                          editable={!busy}
+                          onChangeText={(value) =>
+                            setup.update(index, {
+                              display_name: value,
+                              confirmed: false,
+                            })
+                          }
+                          style={[
+                            s.nameInput,
+                            {
+                              color: colors.textPrimary,
+                              backgroundColor: colors.surfaceMuted,
+                            },
+                          ]}
+                        />
+                        {!!item.display_name &&
+                          !medicationNameHasNoDose(item.display_name) && (
+                            <Text
+                              accessibilityRole="alert"
+                              style={[s.error, { color: colors.danger }]}
+                            >
+                              {t("noDosage")}
+                            </Text>
+                          )}
                         <Text
-                          accessibilityRole="alert"
-                          style={[s.error, { color: colors.danger }]}
+                          style={[s.caption, { color: colors.textSecondary }]}
                         >
-                          {t("noDosage")}
+                          {t("medicationKindLabel")}
                         </Text>
-                      )}
-                    <Text style={[s.caption, { color: colors.textSecondary }]}>
-                      {t("medicationKindLabel")}
+                        <View style={s.chips}>
+                          {(["MEDICINE", "SUPPLEMENT"] as MedKind[]).map(
+                            (kind) => (
+                              <Chip
+                                key={kind}
+                                radio
+                                label={t(kind)}
+                                selected={item.kind === kind}
+                                disabled={busy}
+                                onPress={() =>
+                                  setup.update(index, {
+                                    kind,
+                                    confirmed: false,
+                                  })
+                                }
+                              />
+                            )
+                          )}
+                        </View>
+                        <MedicationPurposeReview
+                          item={item}
+                          disabled={busy}
+                          onRetry={() => setup.retryPurpose(index)}
+                          onToggle={(code) =>
+                            setup.update(index, {
+                              selectedPurposeCodes:
+                                item.selectedPurposeCodes?.includes(code)
+                                  ? item.selectedPurposeCodes.filter(
+                                      (value) => value !== code
+                                    )
+                                  : [
+                                      ...(item.selectedPurposeCodes || []),
+                                      code,
+                                    ],
+                              confirmed: false,
+                            })
+                          }
+                        />
+                        <Pressable
+                          accessibilityRole="checkbox"
+                          accessibilityLabel={t(
+                            item.selectedPurposeCodes?.length
+                              ? "itemAndTagsConfirmed"
+                              : "itemConfirmed"
+                          )}
+                          accessibilityState={{
+                            checked: item.confirmed,
+                            disabled:
+                              busy ||
+                              (item.kind === "MEDICINE" &&
+                                !item.purposeLookup?.result),
+                          }}
+                          disabled={
+                            busy ||
+                            (item.kind === "MEDICINE" &&
+                              !item.purposeLookup?.result)
+                          }
+                          onPress={() =>
+                            setup.update(index, { confirmed: !item.confirmed })
+                          }
+                          style={s.confirmRow}
+                        >
+                          <Ionicons
+                            name={
+                              item.confirmed ? "checkbox" : "square-outline"
+                            }
+                            size={23}
+                            color={colors.primaryText}
+                          />
+                          <Text style={[s.label, title, s.flex]}>
+                            {t(
+                              item.selectedPurposeCodes?.length
+                                ? "itemAndTagsConfirmed"
+                                : "itemConfirmed"
+                            )}
+                          </Text>
+                        </Pressable>
+                      </>
+                    )}
+                    {!!item.timeHints?.length && (
+                      <Text
+                        style={[s.caption, { color: colors.textSecondary }]}
+                      >
+                        {t("medicationTimeHint", {
+                          times: item.timeHints
+                            .map((hint) => t(`medicationHint_${hint}`))
+                            .join(", "),
+                        })}
+                      </Text>
+                    )}
+                    <Text style={[s.label, { color: colors.primaryText }]}>
+                      {t("doseAssignTimes")}
                     </Text>
                     <View style={s.chips}>
-                      {(["MEDICINE", "SUPPLEMENT"] as MedKind[]).map((kind) => (
+                      {slots.map((slot, slotIndex) => (
                         <Chip
-                          key={kind}
-                          radio
-                          label={t(kind)}
-                          selected={item.kind === kind}
+                          key={slotIndex}
+                          label={slot.time_local}
+                          selected={slot.item_indexes.includes(index)}
                           disabled={busy}
-                          onPress={() =>
-                            setup.update(index, { kind, confirmed: false })
-                          }
+                          onPress={() => setup.assignItem(index, slotIndex)}
                         />
                       ))}
                     </View>
-                    <MedicationPurposeReview
-                      item={item}
-                      disabled={busy}
-                      onRetry={() => setup.retryPurpose(index)}
-                      onToggle={(code) =>
-                        setup.update(index, {
-                          selectedPurposeCodes:
-                            item.selectedPurposeCodes?.includes(code)
-                              ? item.selectedPurposeCodes.filter(
-                                  (value) => value !== code,
-                                )
-                              : [...(item.selectedPurposeCodes || []), code],
-                          confirmed: false,
-                        })
-                      }
-                    />
-                    <Pressable
-                      accessibilityRole="checkbox"
-                      accessibilityLabel={t(
-                        item.selectedPurposeCodes?.length
-                          ? "itemAndTagsConfirmed"
-                          : "itemConfirmed",
-                      )}
-                      accessibilityState={{
-                        checked: item.confirmed,
-                        disabled:
-                          busy ||
-                          (item.kind === "MEDICINE" &&
-                            !item.purposeLookup?.result),
-                      }}
-                      disabled={
-                        busy ||
-                        (item.kind === "MEDICINE" &&
-                          !item.purposeLookup?.result)
-                      }
-                      onPress={() =>
-                        setup.update(index, { confirmed: !item.confirmed })
-                      }
-                      style={s.confirmRow}
-                    >
-                      <Ionicons
-                        name={item.confirmed ? "checkbox" : "square-outline"}
-                        size={23}
-                        color={colors.primaryText}
-                      />
-                      <Text style={[s.label, title, s.flex]}>
-                        {t(
-                          item.selectedPurposeCodes?.length
-                            ? "itemAndTagsConfirmed"
-                            : "itemConfirmed",
-                        )}
-                      </Text>
-                    </Pressable>
                   </View>
                 ))}
+                <Option
+                  label={t("doseAddMore")}
+                  icon="add"
+                  disabled={busy}
+                  onPress={setup.addMore}
+                />
                 <View style={s.section}>
                   <Text style={[s.sectionTitle, title]}>
                     {t("setupQuickAdd")}
@@ -626,105 +721,6 @@ export function MedicationSetupPanel({
                 </View>
               </>
             )}
-            {step === 3 && (
-              <>
-                <View style={s.section}>
-                  <Text style={[s.sectionTitle, title]}>{t("step3")}</Text>
-                  {(Object.keys(meals) as (keyof Meals)[]).map((meal) => (
-                    <View key={meal} style={s.timeRow}>
-                      <Ionicons
-                        name={
-                          meal === "bedtime"
-                            ? "moon-outline"
-                            : meal === "breakfast"
-                              ? "sunny-outline"
-                              : meal === "lunch"
-                                ? "restaurant-outline"
-                                : "partly-sunny-outline"
-                        }
-                        size={22}
-                        color={colors.primaryText}
-                      />
-                      <Text style={[s.label, title, s.flex]}>{t(meal)}</Text>
-                      <ClockField
-                        label={t(meal)}
-                        value={meals[meal]}
-                        disabled={busy}
-                        onChange={(value) =>
-                          setup.setMeals((old) => ({ ...old, [meal]: value }))
-                        }
-                      />
-                    </View>
-                  ))}
-                </View>
-                <Help label={t("setupTimingHelp")}>{t("mealIntro")}</Help>
-                <Text style={[s.caption, { color: colors.textSecondary }]}>
-                  {t("setupTimingInstruction")}
-                </Text>
-                {draft.map((item, index) => (
-                  <View key={index} style={s.section}>
-                    <Text style={[s.sectionTitle, title]}>
-                      {item.display_name}
-                    </Text>
-                    {!!item.timeHints?.length && (
-                      <Text
-                        style={[s.caption, { color: colors.textSecondary }]}
-                      >
-                        {t("medicationTimeHint", {
-                          times: item.timeHints
-                            .map((hint) => t(`medicationHint_${hint}`))
-                            .join(", "),
-                        })}
-                      </Text>
-                    )}
-                    <View style={s.chips}>
-                      {medicationAnchors.map((anchor) => (
-                        <Chip
-                          key={anchor}
-                          label={`${t(anchor === "bedtime" ? "anchor_bedtime" : anchor)}${setup.anchorTimes ? `\n${setup.anchorTimes[anchor]}` : ""}`}
-                          selected={item.anchors.includes(anchor)}
-                          disabled={busy}
-                          onPress={() =>
-                            setup.update(index, {
-                              anchors: item.anchors.includes(anchor)
-                                ? item.anchors.filter((a) => a !== anchor)
-                                : [...item.anchors, anchor],
-                            })
-                          }
-                        />
-                      ))}
-                    </View>
-                  </View>
-                ))}
-                {setup.selectedTimeCount !== null && (
-                  <View style={{ gap: 6 }}>
-                    <Text
-                      accessibilityLiveRegion="polite"
-                      style={[
-                        s.label,
-                        {
-                          color: setup.timingLimitExceeded
-                            ? colors.danger
-                            : colors.primaryText,
-                        },
-                      ]}
-                    >
-                      {t("setupSelectedTimes", {
-                        count: setup.selectedTimeCount,
-                      })}
-                    </Text>
-                    {setup.timingLimitExceeded && (
-                      <Text
-                        accessibilityRole="alert"
-                        style={[s.caption, { color: colors.danger }]}
-                      >
-                        {t("setupTooManyTimes")}
-                      </Text>
-                    )}
-                  </View>
-                )}
-              </>
-            )}
             {step === 4 && (
               <>
                 {slots.map((slot, index) => (
@@ -745,8 +741,8 @@ export function MedicationSetupPanel({
                         onChange={(value) =>
                           setup.setSlots((old) =>
                             old.map((s, n) =>
-                              n === index ? { ...s, time_local: value } : s,
-                            ),
+                              n === index ? { ...s, time_local: value } : s
+                            )
                           )
                         }
                       />
@@ -797,8 +793,8 @@ export function MedicationSetupPanel({
                       onChangeText={(note) =>
                         setup.setSlots((old) =>
                           old.map((row, n) =>
-                            n === index ? { ...row, note } : row,
-                          ),
+                            n === index ? { ...row, note } : row
+                          )
                         )
                       }
                       style={[
@@ -838,7 +834,7 @@ export function MedicationSetupPanel({
           </>
         )}
       </ScrollView>
-      {step > 1 && data && (
+      {data && (
         <View
           accessibilityElementsHidden={setup.scanning}
           importantForAccessibility={
@@ -855,7 +851,7 @@ export function MedicationSetupPanel({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(
-              step === 4 ? (data.self ? "save" : "sendConsent") : "next",
+              step === 4 ? (data.self ? "save" : "sendConsent") : "next"
             )}
             accessibilityState={{ disabled: !setup.canContinue, busy }}
             disabled={!setup.canContinue}

@@ -38,6 +38,11 @@ function harness() {
 let checks = 0;
 async function test(label, run) { await run(); checks++; console.log('PASS ' + label); }
 (async () => {
+  await test('a saved medicine keeps its confirmed tags and never waits for a second AI lookup', async () => {
+    const h=harness();h.props.draft[0].existingItemId='saved-medicine';h.props.draft[0].selectedPurposeCodes=['pain_relief'];
+    assert.equal(h.render().pending,false);await h.settle();assert.equal(h.calls.length,0);
+    assert.equal(h.props.draft[0].confirmed,true);assert.deepEqual(h.props.draft[0].selectedPurposeCodes,['pain_relief']);
+  });
   await test('lookup is pending before debounce, then proposes source tags without confirming them', async () => {
     const h = harness(); assert.equal(h.render().pending, true); assert.equal(h.calls.length, 0);
     await h.settle(); assert.equal(h.calls.length, 1); assert.deepEqual(h.props.draft[0].selectedPurposeCodes, ['fever_reduction', 'pain_relief']);
