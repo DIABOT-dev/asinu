@@ -74,7 +74,7 @@ const report = { totalDays: 31, checkinDays: 1, statusDistribution: { fine: 1 },
   { id: 3, date: '2026-10-02', status: 'fine', severity: 'low', summary: 'Reported well', createdAt: '2026-10-02T08:00:00Z', messages: [] },
 ] };
 const flush = async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); };
-function harness({ language = 'vi', loadReport, subjectName = 'Parent', multiplier = 1 } = {}) {
+function harness({ language = 'vi', loadReport, subjectName = 'Parent', multiplier = 1, fontScale = 1, dark = false } = {}) {
   let cursor = 0;
   const slots = [];
   let pending = [];
@@ -109,19 +109,20 @@ function harness({ language = 'vi', loadReport, subjectName = 'Parent', multipli
     const text = catalogs[ns][key]; assert.equal(typeof text, 'string', `${language}:${ns}:${key}`);
     return text.replace(/\{\{(\w+)\}\}/g, (_, part) => String(values[part] ?? ''));
   };
-  const palette = { textPrimary: '#123456', textSecondary: '#456789', primary: '#008877', primaryDark: '#006655' };
+  const theme = evaluate(read('src/styles/theme.ts'), {});
+  const palette = dark ? theme.darkColors : theme.lightColors;
   const typography = { size: { xxs: 12, xs: 14, sm: 16, md: 18, lg: 22 }, scaledSize: { sm: 16 * multiplier } };
   const selfCalls = [];
   const props = { loadReport, subjectName };
   const { HealthJournalCalendar } = evaluate(read('src/components/HealthJournalCalendar.tsx'), {
     react: { __esModule: true, default: hooks, ...hooks },
-    'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', ScrollView: 'ScrollView', Modal: 'Modal', ActivityIndicator: 'ActivityIndicator', StyleSheet: { create: value => value, absoluteFill: {} } },
+    'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', ScrollView: 'ScrollView', Modal: 'Modal', ActivityIndicator: 'ActivityIndicator', useWindowDimensions: () => ({ width: 393, fontScale }), StyleSheet: { create: value => value, absoluteFill: {}, hairlineWidth: 0.5 } },
     'react-i18next': { useTranslation: ns => ({ t: translate(ns), i18n: { language } }) },
     '@expo/vector-icons': { Ionicons: 'Icon' }, 'expo-image': { Image: 'Image' },
     'react-native-svg': { __esModule: true, default: 'Svg', Line: 'Line', Path: 'Path', Rect: 'Rect' },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ bottom: 34 }) },
-    '../hooks/useScaledTypography': { useScaledTypography: () => typography },
-    '../hooks/useThemeColors': { useThemeColors: () => ({ colors: palette, isDark: false }) },
+    '../hooks/useScaledTypography': { useScaledTypography: () => typography, useScaledFontSize: size => Math.round(size * multiplier) },
+    '../hooks/useThemeColors': { useThemeColors: () => ({ colors: palette, isDark: dark }) },
     '../lib/apiClient': { ApiError }, './ScaledText': { ScaledText: 'Text' },
     '../styles': { spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 }, radius: {}, shadows: {} },
     '../features/checkin/checkin.api': { checkinApi: { getReport: (...args) => { selfCalls.push(args); return Promise.resolve(report); } } },
@@ -265,16 +266,99 @@ await test('large-font calendar keeps wrapping labels, plain icons and a scrolla
   h.render(); h.effects(); await flush(); let nodes = h.render();
   const previous = nodes.find(node => node.props?.accessibilityLabel === h.t('journalPreviousMonth'));
   assert.equal(previous.props.style({ pressed: false })[0].backgroundColor, 'transparent');
-  const legends = nodes.filter(node => node.type === 'Text' && node.props.style?.width === '100%');
-  assert.ok(legends.length >= 5); assert.ok(legends.every(node => !node.props.numberOfLines && !node.props.adjustsFontSizeToFit));
+  const legend = nodes.find(node => node.props?.testID === 'journal-legend');
+  const legends = flattenElements(legend).filter(node => node.type === 'Text');
+  assert.equal(legends.length, 6);
+  assert.ok(legends.every(node => node.props.allowFontScaling && !node.props.numberOfLines && !node.props.adjustsFontSizeToFit));
   const day = nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === h.t('journalDayAccessibility', { day: 2, status: h.t('journalStatusFine') }));
   day.props.onPress(); nodes = h.render();
   assert.ok(nodes.some(node => node.type === 'ScrollView')); h.unmount();
 });
+for (const language of ['vi', 'en']) {
+  for (const dark of [false, true]) {
+    await test(`${language}/${dark ? 'dark' : 'light'}: health dates expose distinct status symbols and future dates never claim a missed check-in`, async () => {
+      const statuses = ['fine', 'tired', 'very_tired', 'specific_concern'];
+      const dates = ['01', '02', '03', '04'];
+      const h = harness({ language, dark, loadReport: async () => ({ ...report, checkinDays: 4,
+        sessions: statuses.map((status, i) => ({ ...report.sessions[0], id: i + 1, date: `2026-10-${dates[i]}`, status })),
+      }) });
+      h.render(); h.effects(); await flush(); const nodes = h.render();
+      for (const [index, icon] of ['checkmark', 'remove', 'alert', 'ellipsis-horizontal'].entries()) {
+        const date = nodes.find(node => node.props?.testID === `journal-day-2026-10-${dates[index]}`);
+        assert.equal(date.props.disabled, false);
+        assert.equal(flattenElements(date).find(node => node.type === 'Icon').props.name, icon);
+      }
+      const future = nodes.find(node => node.props?.testID === 'journal-day-2026-10-06');
+      assert.equal(future.props.accessibilityLabel, h.t('journalFutureDayAccessibility', { day: 6 }));
+      assert.equal(future.props.disabled, true);
+      assert.equal(flattenElements(future).filter(node => node.type === 'Icon').length, 0);
+      const legend = flattenElements(nodes.find(node => node.props?.testID === 'journal-legend'));
+      assert.equal(legend.filter(node => node.type === 'Text').length, 6);
+      assert.equal(legend.filter(node => node.type === 'Icon').length, 4);
+      const bodyCopy = nodes.filter(node => node.type === 'Text' && !node.props.maxFontSizeMultiplier);
+      assert.ok(bodyCopy.every(node => node.props.allowFontScaling)); h.unmount();
+    });
+  }
+}
+
 await test('the original personal calendar retains its own report API', async () => {
   const h = harness({ subjectName: '' }); h.render(); h.effects(); await flush();
   assert.deepEqual(h.selfCalls, [['month', '2026-10']]); h.unmount();
 });
+for (const language of ['vi', 'en']) {
+  await test(`${language}: the health journal header has local artwork and both labelled health actions retain their behavior`, () => {
+    let cursor = 0;
+    const slots = [];
+    const hooks = { createElement: React.createElement, Fragment: React.Fragment,
+      useState: initial => {
+        const index = cursor++; if (!(index in slots)) slots[index] = initial;
+        return [slots[index], value => { slots[index] = typeof value === 'function' ? value(slots[index]) : value; }];
+      },
+    };
+    const catalog = JSON.parse(read(`src/i18n/locales/${language}/tree.json`));
+    const t = key => catalog[key] ?? key;
+    const theme = evaluate(read('src/styles/theme.ts'), {});
+    const { HealthTreeOverview } = evaluate(read('src/features/tree/HealthTreeOverview.tsx'), {
+      react: { __esModule: true, default: hooks, ...hooks },
+      '@expo/vector-icons': { Ionicons: 'Icon', MaterialCommunityIcons: 'Icon' },
+      'react-i18next': { useTranslation: () => ({ t }) },
+      'react-native': { View: 'View', Image: 'Image', Text: 'Text', Pressable: 'Pressable', Modal: 'Modal',
+        ScrollView: 'ScrollView', StyleSheet: { create: styles => styles, hairlineWidth: 0.5 } },
+      'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
+      '../../components/RippleRefresh': { RippleRefreshScrollView: 'Scroll' },
+      '../../components/ScaledText': { ScaledText: 'Text' }, '../../components/Screen': { Screen: 'Screen' },
+      '../../components/OfflineBanner': { OfflineBanner: 'OfflineBanner' },
+      '../../components/EarlySignalCard': { EarlySignalCard: 'EarlySignal' },
+      '../../components/HealthJournalCalendar': { HealthJournalCalendar: 'Calendar' },
+      '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: theme.lightColors, isDark: false }) },
+      '../../styles': theme,
+      './useHealthTreeOverview': { useHealthTreeOverview: () => ({ score: null, refreshing: false, error: false,
+        refreshKey: 0, refresh() {}, retry() {} }) },
+      '../auth/auth.store': { useAuthStore: select => select({ profile: { id: 'fixture' } }) },
+    });
+    const render = () => { cursor = 0; const wrapper = HealthTreeOverview(); return flattenElements(wrapper.type(wrapper.props)); };
+    let nodes = render();
+    const image = nodes.find(node => node.type === 'Image');
+    assert.ok(image.props.source.endsWith('icons-v2/checkin-v2.png'));
+    assert.equal(image.props.resizeMode, 'contain'); assert.equal(image.props.accessible, false);
+    assert.ok(text(nodes).includes(t('journalTitle')));
+    const calendar = nodes.find(node => node.type === 'Calendar');
+    assert.equal(calendar.props.showSummary, undefined, 'The default monthly summary stays visible');
+    assert.equal(calendar.props.showAttention, false);
+    calendar.props.onMonthChange('2026-09');
+    nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t('earlyTitle')).props.onPress();
+    nodes = render(); const early = nodes.find(node => node.type === 'EarlySignal');
+    assert.equal(early.props.modalOnly, true); early.props.onClose();
+    nodes = render();
+    nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t('journalAttentionDays')).props.onPress();
+    nodes = render(); assert.equal(nodes.find(node => node.type === 'Modal').props.visible, true);
+    const attention = nodes.filter(node => node.type === 'Calendar').find(node => node.props.attentionOnly);
+    assert.equal(attention.props.initialMonth, '2026-09');
+    nodes.find(node => node.type === 'Modal').props.onRequestClose();
+    assert.equal(render().find(node => node.type === 'Modal').props.visible, false);
+  });
+}
+
 function flattenElements(tree) {
   if (Array.isArray(tree)) return tree.flatMap(flattenElements);
   if (!tree || typeof tree !== 'object') return [];

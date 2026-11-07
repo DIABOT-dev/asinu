@@ -47,7 +47,7 @@
   "dayThu": "T5",
   "dayFri": "T6",
   "daySat": "T7",
-  "journalTitle": "Nhật ký sức khỏe",
+  "journalTitle": "Lịch sức khỏe",
   "journalSubtitle": "Xem lại trạng thái check-in theo từng ngày",
   "journalPreviousMonth": "Xem tháng trước",
   "journalNextMonth": "Xem tháng sau",
@@ -117,5 +117,7 @@
   "earlyCallPerson": "Gọi cho {{name}}",
   "earlyConsult": "Tham vấn chuyên gia",
   "earlyRetry": "Thử lại",
-  "earlyOpen": "Xem sức khỏe gần đây"
+  "earlyOpen": "Xem sức khỏe gần đây",
+  "journalCalendarHint": "Chạm vào ngày đã check-in để xem lại.",
+  "journalFutureDayAccessibility": "Ngày {{day}}, chưa đến ngày này."
 }

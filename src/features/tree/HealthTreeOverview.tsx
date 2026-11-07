@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import {
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -68,7 +69,7 @@ function HealthTreeOverviewContent() {
   const hasFactors = Boolean(score?.factors.length);
 
   return (
-    <Screen>
+    <Screen style={{ backgroundColor: isDark ? colors.background : '#F2F7F4' }}>
       {error && score ? <OfflineBanner onRetry={() => void retry()} /> : null}
       <RippleRefreshScrollView
         refreshing={refreshing}
@@ -82,9 +83,28 @@ function HealthTreeOverviewContent() {
           },
         ]}
       >
-        <View style={styles.toolbar}>
+        <View style={styles.pageHeader} testID="health-journal-header">
+          <View style={styles.headerCopy}>
+            <Text allowFontScaling accessibilityRole="header" style={[styles.pageTitle, { color: colors.textPrimary }]}>
+              {tt("journalTitle")}
+            </Text>
+            <Text allowFontScaling style={[styles.pageSubtitle, { color: colors.textSecondary }]}>
+              {tt("journalCalendarHint")}
+            </Text>
+          </View>
+          <Image source={require('../../../assets/images/missions/icons-v2/checkin-v2.png')}
+            style={styles.headerArtwork} resizeMode="contain" accessible={false} />
+        </View>
+        <View style={styles.section}>
+          <HealthJournalCalendar
+            refreshKey={refreshKey}
+            showAttention={false}
+            onMonthChange={setSelectedMonth}
+          />
+        </View>
+        <View style={[styles.toolsSection, { backgroundColor: isDark ? colors.surface : '#FDFFFE', borderColor: colors.border }]}>
           <Pressable
-            style={styles.tool}
+            style={({ pressed }) => [styles.featureRow, pressed && styles.pressed]}
             accessibilityRole="button"
             accessibilityLabel={tt("earlyTitle")}
             accessibilityState={{ expanded: panel === "early" }}
@@ -92,7 +112,7 @@ function HealthTreeOverviewContent() {
           >
             <MaterialCommunityIcons
               name="radar"
-              size={27}
+              size={23}
               color={
                 hasFactors
                   ? color
@@ -101,9 +121,12 @@ function HealthTreeOverviewContent() {
                   : colors.textSecondary
               }
             />
+            <Text allowFontScaling style={[styles.featureTitle, { color: colors.textPrimary }]}>{tt("earlyTitle")}</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
           </Pressable>
+          <View style={[styles.featureSeparator, { backgroundColor: colors.border }]} />
           <Pressable
-            style={styles.tool}
+            style={({ pressed }) => [styles.featureRow, pressed && styles.pressed]}
             accessibilityRole="button"
             accessibilityLabel={tt("journalAttentionDays")}
             accessibilityState={{ expanded: panel === "attention" }}
@@ -111,23 +134,16 @@ function HealthTreeOverviewContent() {
           >
             <MaterialCommunityIcons
               name="calendar-alert"
-              size={27}
+              size={23}
               color={
                 panel === "attention"
                   ? colors.primaryDark
                   : colors.textSecondary
               }
             />
+            <Text allowFontScaling style={[styles.featureTitle, { color: colors.textPrimary }]}>{tt("journalAttentionDays")}</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
           </Pressable>
-        </View>
-        <View style={styles.section}>
-          <HealthJournalCalendar
-            refreshKey={refreshKey}
-            plain
-            showSummary={false}
-            showAttention={false}
-            onMonthChange={setSelectedMonth}
-          />
         </View>
       </RippleRefreshScrollView>
       {panel === "early" && (
@@ -187,16 +203,19 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     alignItems: "center",
     paddingHorizontal: spacing.lg,
-    gap: 12,
+    gap: 24,
   },
   section: { width: "100%", maxWidth: 680 },
-  toolbar: {
-    width: "100%",
-    maxWidth: 680,
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 8,
-  },
+  pageHeader: { width: '100%', maxWidth: 680, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 4 },
+  headerCopy: { flex: 1, minWidth: 0, gap: 8 },
+  pageTitle: { fontSize: 26, fontWeight: '700' },
+  pageSubtitle: { fontSize: 14 },
+  headerArtwork: { width: 88, height: 96, flexShrink: 0 },
+  toolsSection: { width: '100%', maxWidth: 680, borderRadius: 22, borderWidth: 1, overflow: 'hidden' },
+  featureRow: { flexDirection: 'row', alignItems: 'center', minHeight: 64, padding: 16, gap: 12 },
+  featureTitle: { flex: 1, fontSize: 15, fontWeight: '600' },
+  featureSeparator: { height: StyleSheet.hairlineWidth, marginLeft: 51, marginRight: 16 },
+  pressed: { opacity: 0.7 },
   tool: {
     width: 48,
     height: 48,
