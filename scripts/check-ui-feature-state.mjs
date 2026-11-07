@@ -2191,4 +2191,150 @@ await test("Android Back closes only the notification menu, and removing its tar
   h.blur();
 });
 
+
+// Daily missions: exercise the production screen with controlled API/native adapters.
+function missionsScreenHarness({ language = 'vi', dark = false } = {}) {
+  const r = runtime(), routes = [], requests = [];
+  const catalog = JSON.parse(fs.readFileSync(`src/i18n/locales/${language}/missions.json`, 'utf8'));
+  const t = (key, args = {}) => {
+    assert.equal(typeof catalog[key], 'string', `${language}: ${key}`);
+    return catalog[key].replace(/\{\{(\w+)\}\}/g, (_, name) => String(args[name] ?? ''));
+  };
+  const store = { status: 'success', errorState: 'none', missions: [],
+    fetchMissions: async signal => { requests.push(signal); } };
+  const theme = evaluate('src/styles/theme.ts', {});
+  const colors = dark ? theme.darkColors : theme.lightColors;
+  const screenFile = 'app/(tabs)/missions/index.tsx';
+  const assets = Object.fromEntries([...fs.readFileSync(screenFile, 'utf8').matchAll(/require\('([^']+)'\)/g)]
+    .map(match => [match[1], match[1]]));
+  const { default: Screen } = evaluate(screenFile, {
+    ...assets, react: { ...r.hooks, default: { Fragment: 'Fragment' } },
+    'react-native': { Image: 'Image', Pressable: 'Pressable', View: 'View',
+      StyleSheet: { create: value => value, hairlineWidth: 0.5 } },
+    'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
+    'react-i18next': { useTranslation: namespace => ({ t: namespace === 'missions' ? t : key => key }) },
+    'expo-router': r.router, '@expo/vector-icons': { Ionicons: 'Icon' },
+    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({
+      push: route => routes.push(route), canGoBack: () => false, replace: route => routes.push(route),
+    }) },
+    '../../../src/components/RippleRefresh': { RippleRefreshScrollView: 'Scroll' },
+    '../../../src/components/OfflineBanner': { OfflineBanner: 'OfflineBanner' },
+    '../../../src/components/ScaledText': { ScaledText: 'Text' },
+    '../../../src/components/Screen': { Screen: 'Screen' },
+    '../../../src/components/ScreenHeaderButton': { ScreenBackButton: 'Back' },
+    '../../../src/components/state/StateEmpty': { StateEmpty: 'Empty' },
+    '../../../src/components/state/StateError': { StateError: 'Error' },
+    '../../../src/components/state/MainScreenSkeletons': { MissionsTabSkeleton: 'Skeleton' },
+    '../../../src/features/missions/useMissionActions': { useMissionActions: () => store },
+    '../../../src/features/missions/MissionProgressBar': { MissionProgressBar: 'Progress' },
+    '../../../src/hooks/useThemeColors': { useThemeColors: () => ({ colors, isDark: dark }) },
+    '../../../src/styles': { getBottomTabBarHeight: theme.getBottomTabBarHeight },
+  });
+  const read = () => r.render(Screen);
+  return { ...r, store, requests, routes, colors, t, read, settle: () => r.settle(Screen),
+    nodes: () => journeyNodes(read()),
+    find: id => journeyNodes(read()).find(node => node.props?.testID === id),
+  };
+}
+const missionFixtures = () => [
+  { missionKey: 'log_weight', progress: 0, goal: 1 },
+  { missionKey: 'log_water', progress: 1, goal: 4 },
+  { missionKey: 'log_glucose', progress: 0, goal: 2 },
+  { missionKey: 'log_bp', progress: 1, goal: 2 },
+  { missionKey: 'daily_checkin', progress: 1, goal: 1 },
+].map(item => ({ ...item, id: item.missionKey, title: '', description: '', status: 'active' }));
+const flattenMissionStyle = style => Array.isArray(style)
+  ? Object.assign({}, ...style.filter(Boolean).map(flattenMissionStyle)) : style ?? {};
+for (const language of ['vi', 'en']) {
+  for (const dark of [false, true]) {
+    await test(`${language}/${dark ? 'dark' : 'light'}: missions group real progress, preserve every destination and expose scalable text`, async () => {
+      const h = missionsScreenHarness({ language, dark }); h.store.missions = missionFixtures();
+      await h.settle();
+      assert.equal(h.requests.length, 1);
+      assert.equal(h.find('missions-completed'), undefined);
+      const rows = journeyNodes(h.find('missions-remaining')).filter(node => node.props?.testID?.startsWith('mission-'));
+      assert.deepEqual(rows.map(row => row.props.testID), ['mission-log_bp', 'mission-log_glucose', 'mission-log_water', 'mission-log_weight']);
+      assert.ok(journeyNodes(h.find('missions-summary')).some(node => node.props.children === h.t('completionSummary', { completed: 1, total: 5 })));
+      for (const row of rows) {
+        assert.equal(row.props.accessibilityRole, 'button');
+        assert.ok(row.props.accessibilityLabel && row.props.accessibilityHint);
+        assert.ok(flattenMissionStyle(row.props.style({ pressed: false })).minHeight >= 44);
+        row.props.onPress();
+      }
+      h.find('missions-completed-toggle').props.onPress();
+      assert.equal(h.find('missions-completed-toggle').props.accessibilityState.expanded, true);
+      h.find('mission-daily_checkin').props.onPress();
+      assert.deepEqual(h.routes, ['/logs/blood-pressure', '/logs/glucose', '/logs/water', '/logs/weight', '/checkin']);
+      assert.ok(h.nodes().filter(node => node.type === 'Text').every(node => node.props.allowFontScaling && !node.props.numberOfLines));
+      assert.ok(h.nodes().filter(node => node.type === 'Image').every(node => node.props.resizeMode === 'contain' && node.props.accessible === false));
+      const group = flattenMissionStyle(h.find('missions-remaining').props.style);
+      assert.equal(group.backgroundColor, dark ? h.colors.surface : '#FDFFFE');
+      h.blur();
+    });
+  }
+  await test(`${language}: missing missions and empty/error/loading responses never fabricate tasks or progress`, async () => {
+    const h = missionsScreenHarness({ language });
+    for (const status of ['idle', 'loading']) {
+      h.store.status = status;
+      assert.equal(h.nodes().filter(node => node.type === 'Skeleton').length, 1);
+      assert.equal(h.find('missions-summary'), undefined);
+    }
+    h.store.status = 'success';
+    assert.equal(h.nodes().find(node => node.type === 'Empty').props.message, h.t('noMissionsToday'));
+    assert.equal(h.find('missions-remaining'), undefined);
+    h.store.status = 'error'; h.store.errorState = 'no-data';
+    assert.equal(h.nodes().filter(node => node.type === 'Error').length, 1);
+    assert.equal(h.nodes().filter(node => node.type === 'Empty').length, 0);
+    h.store.status = 'success'; h.store.errorState = 'none';
+    h.store.missions = [missionFixtures()[0]];
+    assert.equal(h.nodes().filter(node => node.props?.testID?.startsWith('mission-')).length, 1);
+    assert.ok(journeyNodes(h.find('missions-summary')).some(node => node.props.children === h.t('completionSummary', { completed: 0, total: 1 })));
+    h.store.errorState = 'remote-failed';
+    assert.equal(h.nodes().filter(node => node.type === 'OfflineBanner').length, 1);
+    assert.ok(h.find('mission-log_weight')); h.blur();
+  });
+}
+await test('mission disclosures neither navigate nor refetch, and completed tasks stay discoverable', async () => {
+  const h = missionsScreenHarness(); h.store.missions = missionFixtures(); await h.settle();
+  h.find('missions-help-toggle').props.onPress();
+  assert.ok(h.find('missions-help'));
+  assert.equal(h.find('missions-help-toggle').props.accessibilityState.expanded, true);
+  h.find('missions-help-toggle').props.onPress(); assert.equal(h.find('missions-help'), undefined);
+  for (let i = 0; i < 2; i++) h.find('missions-completed-toggle').props.onPress();
+  assert.equal(h.find('missions-completed'), undefined);
+  await h.settle(); assert.deepEqual(h.routes, []); assert.equal(h.requests.length, 1);
+  h.store.missions = missionFixtures().map(item => ({ ...item, status: 'completed' }));
+  assert.equal(h.find('missions-remaining'), undefined);
+  assert.ok(h.find('missions-completed-toggle')); h.blur();
+});
+await test('returning immediately from a health log reloads missions once and aborts the previous focus', async () => {
+  const h = missionsScreenHarness(); h.store.missions = missionFixtures(); await h.settle();
+  const first = h.requests[0]; await h.settle(); assert.equal(h.requests.length, 1);
+  h.blur(); assert.equal(first.aborted, true);
+  h.focus(); await h.settle(); assert.equal(h.requests.length, 2);
+  assert.equal(h.requests[1].aborted, false); h.blur();
+});
+await test('mission refresh clears its spinner even when the request rejects', async () => {
+  const h = missionsScreenHarness(); h.store.missions = missionFixtures(); await h.settle();
+  const pending = deferred(); h.store.fetchMissions = () => pending.promise;
+  const refresh = h.nodes().find(node => node.type === 'Scroll').props.onRefresh();
+  assert.equal(h.nodes().find(node => node.type === 'Scroll').props.refreshing, true);
+  pending.reject(new Error('offline')); await assert.rejects(refresh, /offline/);
+  assert.equal(h.nodes().find(node => node.type === 'Scroll').props.refreshing, false); h.blur();
+});
+await test('mission progress is bounded and only actual completion moves a row into the completed group', () => {
+  const h = missionsScreenHarness();
+  h.store.missions = [
+    { ...missionFixtures()[0], progress: -2 },
+    { ...missionFixtures()[1], progress: Number.NaN, goal: 0 },
+    { ...missionFixtures()[2], progress: 99 },
+  ];
+  assert.ok(h.find('mission-log_weight')); assert.ok(h.find('mission-log_water'));
+  assert.equal(h.find('mission-log_glucose'), undefined);
+  h.find('missions-completed-toggle').props.onPress();
+  assert.ok(h.find('mission-log_glucose'));
+  const summary = journeyNodes(h.find('missions-summary')).find(node => node.type === 'Progress');
+  assert.equal(summary.props.progress, 1); assert.equal(summary.props.goal, 3); h.blur();
+});
+
 console.log(`UI feature state: ${checks} runtime checks passed.`);

@@ -2,16 +2,13 @@ import React, { useState } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   View,
-  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { PineTreeIllustration } from "../../components/PineTreeIllustration";
 import { RippleRefreshScrollView } from "../../components/RippleRefresh";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { Screen } from "../../components/Screen";
@@ -20,29 +17,21 @@ import { EarlySignalCard } from "../../components/EarlySignalCard";
 import { HealthJournalCalendar } from "../../components/HealthJournalCalendar";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { getBottomTabBarHeight, spacing } from "../../styles";
-import type { HealthScoreData } from "../checkin/checkin.api";
 import { useHealthTreeOverview } from "./useHealthTreeOverview";
-import { HealthTreeSnow } from "./HealthTreeSnow";
 import { useAuthStore } from "../auth/auth.store";
 
-const TREE_STATES = {
+const STATUS_COLORS = {
   ok: {
     color: "#059669",
     darkColor: "#34d399",
-    icon: "checkmark-circle-outline",
-    titleKey: "healthScoreOk",
   },
   monitor: {
     color: "#d97706",
     darkColor: "#fbbf24",
-    icon: "eye-outline",
-    titleKey: "healthScoreMonitor",
   },
   danger: {
     color: "#dc2626",
     darkColor: "#f87171",
-    icon: "alert-circle-outline",
-    titleKey: "healthScoreDanger",
   },
 } as const;
 
@@ -52,39 +41,30 @@ export function HealthTreeOverview() {
 }
 
 function HealthTreeOverviewContent() {
-  const { t } = useTranslation("home");
   const { t: tc } = useTranslation("common");
   const { t: tt } = useTranslation("tree");
-  const { score, loading, refreshing, error, refreshKey, refresh, retry } =
+  const { score, refreshing, error, refreshKey, refresh, retry } =
     useHealthTreeOverview();
   const { colors, isDark } = useThemeColors();
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
   const [selectedMonth, setSelectedMonth] = useState<string>();
-  const [panel, setPanel] = useState<"tree" | "early" | "attention" | null>(
+  const [panel, setPanel] = useState<"early" | "attention" | null>(
     null
   );
-  const togglePanel = (next: "tree" | "early" | "attention") =>
+  const togglePanel = (next: "early" | "attention") =>
     setPanel((current) => (current === next ? null : next));
   const tabBarHeight = getBottomTabBarHeight(insets.bottom);
-  const treeSize = Math.max(
-    144,
-    Math.min(280, width - spacing.lg * 2 - 24, height * 0.32)
-  );
   const hasStatus = Boolean(
     score && (score.checkinDone || score.factors.length)
   );
   const meta = hasStatus
-    ? TREE_STATES[score!.level as HealthScoreData["level"]]
+    ? STATUS_COLORS[score!.level]
     : null;
   const color = meta
     ? isDark
       ? meta.darkColor
       : meta.color
     : colors.textSecondary;
-  const title = meta
-    ? t(meta.titleKey)
-    : t(score ? "healthScoreNoCheckin" : "healthScoreUnavailable");
   const hasFactors = Boolean(score?.factors.length);
 
   return (
@@ -103,21 +83,6 @@ function HealthTreeOverviewContent() {
         ]}
       >
         <View style={styles.toolbar}>
-          <Pressable
-            style={styles.tool}
-            accessibilityRole="button"
-            accessibilityLabel={tt("healthTree")}
-            accessibilityState={{ expanded: panel === "tree" }}
-            onPress={() => togglePanel("tree")}
-          >
-            <MaterialCommunityIcons
-              name="tree-outline"
-              size={27}
-              color={
-                panel === "tree" ? colors.primaryDark : colors.textSecondary
-              }
-            />
-          </Pressable>
           <Pressable
             style={styles.tool}
             accessibilityRole="button"
@@ -174,7 +139,7 @@ function HealthTreeOverviewContent() {
         />
       )}
       <Modal
-        visible={panel === "tree" || panel === "attention"}
+        visible={panel === "attention"}
         transparent
         animationType="fade"
         onRequestClose={() => setPanel(null)}
@@ -186,7 +151,7 @@ function HealthTreeOverviewContent() {
           >
             <View style={styles.sheetHeader}>
               <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>
-                {tt(panel === "tree" ? "healthTree" : "journalAttentionDays")}
+                {tt("journalAttentionDays")}
               </Text>
               <Pressable
                 style={styles.tool}
@@ -201,62 +166,7 @@ function HealthTreeOverviewContent() {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.modalContent}
             >
-              {panel === "tree" ? (
-                <View style={styles.tree}>
-                  <View
-                    style={[
-                      styles.treeStage,
-                      { width: treeSize + 48, height: treeSize * 1.2 },
-                    ]}
-                    accessible={false}
-                    accessibilityElementsHidden
-                    importantForAccessibility="no-hide-descendants"
-                  >
-                    <PineTreeIllustration
-                      size={treeSize}
-                      color={isDark ? "#34d399" : "#10b981"}
-                      trunkColor="#047857"
-                    />
-                    <HealthTreeSnow
-                      width={treeSize + 48}
-                      height={treeSize * 1.2}
-                    />
-                  </View>
-                  {loading ? (
-                    <ActivityIndicator
-                      size="small"
-                      color={colors.primaryDark}
-                    />
-                  ) : (
-                    <View style={styles.status}>
-                      <Ionicons
-                        name={meta?.icon ?? "help-circle-outline"}
-                        size={24}
-                        color={color}
-                      />
-                      <Text style={[styles.statusText, { color }]}>
-                        {title}
-                      </Text>
-                    </View>
-                  )}
-                  {error && (
-                    <Pressable
-                      style={styles.retry}
-                      accessibilityRole="button"
-                      onPress={() => void retry()}
-                    >
-                      <Text
-                        style={[
-                          styles.retryText,
-                          { color: colors.primaryDark },
-                        ]}
-                      >
-                        {tc("retry")}
-                      </Text>
-                    </Pressable>
-                  )}
-                </View>
-              ) : panel === "attention" ? (
+              {panel === "attention" ? (
                 <HealthJournalCalendar
                   refreshKey={refreshKey}
                   initialMonth={selectedMonth}
@@ -279,27 +189,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     gap: 12,
   },
-  tree: { alignItems: "center", gap: 24, width: "100%", maxWidth: 520 },
-  status: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    maxWidth: "100%",
-  },
-  statusText: {
-    fontSize: 22,
-    fontWeight: "700",
-    flexShrink: 1,
-    textAlign: "center",
-  },
-  retry: {
-    minHeight: 48,
-    paddingHorizontal: 16,
-    justifyContent: "center",
-    marginTop: 8,
-  },
-  retryText: { fontSize: 18, fontWeight: "600" },
   section: { width: "100%", maxWidth: 680 },
   toolbar: {
     width: "100%",
@@ -336,5 +225,4 @@ const styles = StyleSheet.create({
   },
   sheetTitle: { flex: 1, fontSize: 22, fontWeight: "700" },
   modalContent: { paddingBottom: 12 },
-  treeStage: { alignItems: "center", overflow: "hidden" },
 });

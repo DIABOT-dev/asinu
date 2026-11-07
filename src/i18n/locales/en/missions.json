@@ -7,7 +7,6 @@
   "completed": "Completed",
   "howItWorks": "How it works",
   "resetDaily": "Missions reset progress daily",
-  "pointsToTree": "When completed, points are added to \"Health Tree\"",
   "historyTracked": "Completion history is saved for tracking",
   "missionList": "Missions",
   "statusCompleted": "Completed",
@@ -33,5 +32,14 @@
   "logMedicationDesc": "Log medications taken",
   "connectFamilyDesc": "Invite family to Care Circle",
   "cannotLoadMissions": "Cannot load missions",
-  "missionListSubtitle": "Complete daily tasks for better health"
+  "missionListSubtitle": "Complete daily tasks for better health",
+  "today": "Today",
+  "completionSummary": "{{completed}} of {{total}} complete",
+  "remainingTitle": "To do",
+  "completedSection": "Completed ({{count}})",
+  "recordedProgress": "Recorded {{progress}}/{{goal}} times",
+  "singlePending": "Not recorded today",
+  "noMissionsToday": "No tasks for today yet",
+  "openMission": "Open this task",
+  "instructions": "Choose a task to check in or record your health information. Progress updates after you save successfully."
 }

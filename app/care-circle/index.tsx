@@ -43,7 +43,6 @@ import {
 } from '../../src/features/care-circle/family-relationships';
 import { getConnectionEditChanges, type ConnectionEditValues } from '../../src/features/care-circle/connection-edit';
 import { CareCircleQrActions } from '../../src/features/care-circle/components/CareCircleQrActions';
-import { CareCircleScanSpeech } from '../../src/features/care-circle/components/CareCircleScanSpeech';
 import { CareCircleQuickActions } from '../../src/features/care-circle/components/CareCircleQuickActions';
 import { GuideScrollScope, GuideTarget } from '../../src/features/guidance/GuidanceProvider';
 
@@ -282,31 +281,7 @@ export default function CareCircleScreen() {
     <>
       <AppAlertModal {...alertState} queued onDismiss={dismissAlert} />
       <Stack.Screen options={{ headerShown: false }} />
-      <Screen style={styles.screen}>
-        {/* Custom Header matching design */}
-        <View style={[styles.topHeader, { paddingTop: Math.max(insets.top, 20) + 10 }]}>
-          <View style={styles.connectionHeader}>
-            <View style={styles.scanHeaderIntro}>
-              <View style={styles.scanSpeech}>
-                <CareCircleScanSpeech />
-              </View>
-              <Image
-                source={require('../../assets/images/care-circle/asinu-pointing-both-sides-v2.png')}
-                style={styles.scanMascot}
-                resizeMode="contain"
-                accessible={false}
-              />
-            </View>
-            <CareCircleQuickActions count={connections.length} expanded={membersExpanded}
-              onInvite={() => router.push('/care-circle/invite')}
-              onScan={() => router.push('/care-circle/scan')}
-              onToggleMembers={() => {
-                scrollToMembersPending.current = !membersExpanded;
-                setMembersExpanded(expanded => !expanded);
-              }} />
-          </View>
-        </View>
-
+      <Screen style={[styles.screen, { paddingTop: Math.max(insets.top, 20) }]}>
         <GuideScrollScope scrollRef={guideScrollRef} offset={guideScrollOffset}>
         <RippleRefreshScrollView
           nativeScrollRef={guideScrollRef}
@@ -316,12 +291,22 @@ export default function CareCircleScreen() {
           onRefresh={refresh}
           style={styles.container}
           contentContainerStyle={{
-            paddingTop: spacing.xs,
+            paddingTop: 10,
             paddingBottom: getBottomTabBarHeight(insets.bottom) + spacing.lg,
           }}
           showsVerticalScrollIndicator={false}
         >
           <CareCircleQrActions />
+          <View style={styles.quickActionsSection} testID="care-circle-actions-section">
+            <Text allowFontScaling accessibilityRole="header" style={styles.quickActionsTitle}>{t('actions')}</Text>
+            <CareCircleQuickActions count={connections.length} expanded={membersExpanded}
+              onInvite={() => router.push('/care-circle/invite')}
+              onScan={() => router.push('/care-circle/scan')}
+              onToggleMembers={() => {
+                scrollToMembersPending.current = !membersExpanded;
+                setMembersExpanded(expanded => !expanded);
+              }} />
+          </View>
           {showInitialSkeleton ? (
             <CareCircleTabSkeleton />
           ) : (
@@ -865,18 +850,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       flex: 1,
       backgroundColor: 'transparent',
     },
-    // Top Header matching design
-    topHeader: {
-      alignItems: 'center',
-      justifyContent: 'center',
+    quickActionsSection: {
+      width: '100%',
+      maxWidth: 452,
+      alignSelf: 'center',
       paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.lg,
-      backgroundColor: 'transparent',
+      marginBottom: spacing.lg,
+      gap: 16,
     },
-    connectionHeader: { width: '100%', maxWidth: 420, gap: 16 },
-    scanHeaderIntro: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    scanSpeech: { flex: 1, minWidth: 0 },
-    scanMascot: { width: 72, height: 72 },
+    quickActionsTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
     // Hero Banner Card
     heroCardShadowWrap: {
       marginHorizontal: spacing.lg,

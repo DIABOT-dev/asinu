@@ -278,6 +278,12 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
 for (const language of ['vi', 'en']) {
   await test(`${language}: connected members expand inline and collapse without changing saved connections`, () => {
     const h = connectionHarness({ language });
+    const initial = nodes(h.render());
+    const qrIndex = initial.findIndex(node => node.type === 'QrActions');
+    assert.ok(qrIndex >= 0 && qrIndex < initial.findIndex(node => node.type === 'QuickActions'));
+    assert.ok(flatten(initial.find(node => node.type === 'Screen').props.style).paddingTop >= 59);
+    assert.ok(initial.some(node => node.type === 'Text' && node.props.children === translate(language, 'careCircle')('actions')));
+    assert.ok(!initial.some(node => node.type === 'ScanSpeech' || node.type === 'Image' && String(node.props.source).includes('asinu-pointing-both-sides')));
     const more = () => nodes(h.render()).some(node => node.props?.accessibilityLabel === translate(language, 'common')('notificationMoreActions'));
     assert.equal(h.membersExpanded(), false); assert.equal(more(), false);
     h.toggleMembers(); assert.equal(h.membersExpanded(), true); assert.equal(more(), true);
