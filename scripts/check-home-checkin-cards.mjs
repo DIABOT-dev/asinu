@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import ts from "typescript";
+import { progressHarness } from "./helpers/checkin-progress-harness.mjs";
 
 const read = (file) => fs.readFileSync(file, "utf8");
 const flatten = (style) =>
@@ -294,7 +295,7 @@ await test('Home shortcuts reuse V2.1 access without requesting unused coin bala
   let cursor = 0, focus, auth = { profile: { id: 7 }, token: 'session-a' };
   const slots = [], calls = [];
   const hooks = { useState: initial => {
-    const index = cursor++; if (!(index in slots)) slots[index] = initial;
+    const index = cursor++; if (!(index in slots)) slots[index] = typeof initial === 'function' ? initial() : initial;
     return [slots[index], value => { slots[index] = value; }];
   }, useCallback: work => work };
   const { V21HomeCard } = evaluate(read('src/features/v21/V21HomeCard.tsx'), {
@@ -328,6 +329,7 @@ function harness({
   session = null,
   fail = false,
   practice = false,
+  draft = null,
 } = {}) {
   let cursor = 0;
   const slots = [];
@@ -373,7 +375,7 @@ function harness({
     useCallback: (fn) => fn,
     useState: (initial) => {
       const index = cursor++;
-      if (!(index in slots)) slots[index] = initial;
+      if (!(index in slots)) slots[index] = typeof initial === 'function' ? initial() : initial;
       return [
         slots[index],
         (value) => {
@@ -410,12 +412,14 @@ function harness({
       radius: { lg: 16, xl: 20 },
       spacing: { xs: 4, md: 12, lg: 16, xxl: 28 },
     },
+    "../features/auth/auth.store": { useAuthStore: select => select({ profile: { id: 7 } }) },
+    "../features/checkin/checkin-progress": { ...progressHarness().progress, readLocationDraft: async () => draft },
     "../features/checkin/checkin.api": {
       checkinApi: {
         getToday: () =>
           fail
             ? Promise.reject(new Error("offline"))
-            : Promise.resolve({ session }),
+            : Promise.resolve({ ok: true, session }),
       },
     },
   });
@@ -591,10 +595,10 @@ for (const [label, session, visible] of [
       nodes.find((node) => node.type === "Pressable").props.onPress();
       assert.equal(
         h.pushes.at(-1),
-        "/checkin?mode=followup&checkin_id=demo-session"
+        (session.triage_completed_at ? "/checkin?mode=followup&checkin_id=demo-session" : "/checkin?mode=resume&checkin_id=demo-session")
       );
       const key =
-        session.flow_state === "high_alert"
+        !session.triage_completed_at ? "checkinResumeTitle" : session.flow_state === "high_alert"
           ? "checkinFollowHighAlert"
           : "checkinFollowDefault";
       assert.ok(
@@ -610,16 +614,43 @@ for (const [label, session, visible] of [
   });
 }
 
-await test("a failed session refresh still leaves both check-in entries usable", async () => {
-  const h = harness({ fail: true });
-  h.render("DailyCheckinCard");
-  await h.focus();
-  for (const name of ["DailyCheckinCard", "InstantCheckinCard"]) {
-    h.render(name)
-      .find((node) => node.type === "Pressable")
-      .props.onPress();
-  }
-  assert.equal(h.pushes.length, 2);
+await test("a failed refresh does not offer a false completed-state reset", async () => {
+  const h = harness({ fail: true }); h.render('DailyCheckinCard'); await h.focus();
+  assert.deepEqual(h.render('DailyCheckinCard'), []);
+  h.render('InstantCheckinCard').find(node => node.type === 'Pressable').props.onPress();
+  assert.equal(h.pushes.length, 1);
 });
+await test('a local position draft exposes Continue before a session is created', async () => {
+  const h = harness({ draft: { status: 'tired' } }); h.render('DailyCheckinCard'); await h.focus();
+  const nodes = h.render('DailyCheckinCard');
+  assert.ok(nodes.some(n => n.type === 'Text' && n.props.children === h.t('checkinResumeTitle')));
+  assert.ok(!nodes.some(n => n.type === 'Text' && n.props.children === h.t('checkinFollowTitle')));
+  nodes.find(n => n.type === 'Pressable').props.onPress(); assert.equal(h.pushes.at(-1), '/checkin');
+});
+
+const homeAst = ts.createSourceFile('home.tsx', read('app/(tabs)/home/index.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+let goToCheckinDeclaration;
+const findEntry = node => {
+  if (ts.isVariableStatement(node) && node.declarationList.declarations.some(d => d.name.getText(homeAst) === 'goToCheckin')) goToCheckinDeclaration = node.getText(homeAst);
+  ts.forEachChild(node, findEntry);
+};
+findEntry(homeAst); assert.ok(goToCheckinDeclaration);
+const { makeHomeEntry } = evaluate(`export function makeHomeEntry(checkinApi, isUnfinishedCheckin, readLocationDraft, profileId, router, setShowAlreadyDoneModal, useCallback) {
+  ${goToCheckinDeclaration}
+  return goToCheckin;
+}`, {});
+for (const [label, session, draft, expectedModal] of [
+  ['pending follow-up after a fine morning', { initial_status: 'fine', current_status: 'tired', triage_completed_at: 'earlier', triage_state: { phase: 'followup' } }, null, false],
+  ['completed fine check-in', { initial_status: 'fine', current_status: 'fine', triage_completed_at: 'earlier' }, null, true],
+  ['new unfinished location selection after a fine check-in', { initial_status: 'fine', current_status: 'fine' }, { status: 'tired' }, false],
+]) {
+  await test(`Home mission entry preserves ${label}`, async () => {
+    const pushes = [], modals = [];
+    const run = makeHomeEntry({ getToday: async () => ({ ok: true, session }) }, progressHarness().progress.isUnfinishedCheckin,
+      async () => draft, 7, { push: route => pushes.push(route) }, value => modals.push(value), callback => callback);
+    await run(); assert.deepEqual(modals, expectedModal ? [true] : []);
+    assert.deepEqual(pushes, expectedModal ? [] : ['/checkin']);
+  });
+}
 
 console.log(`Home check-in cards: ${checks} regressions passed.`);

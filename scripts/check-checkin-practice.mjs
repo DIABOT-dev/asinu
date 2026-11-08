@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
+import { progressHarness } from './helpers/checkin-progress-harness.mjs';
 
 const read = file => fs.readFileSync(file, 'utf8');
 const routeFile = ts.createSourceFile('checkin.tsx', read('app/checkin/index.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -28,6 +29,7 @@ function evaluate(source, globals = {}) {
 }
 const locationDetailsHelpers = evaluate(read('src/features/checkin/location-details.ts'));
 const { createCheckinPractice } = evaluate(read('src/features/guidance/checkin.practice.ts'));
+const triageSelection = progressHarness().selection;
 const triageOptionDisplay = evaluate(read('src/features/checkin/triage-option-display.ts'));
 const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes)
   : [tree, ...nodes(tree.props?.children)];
@@ -87,7 +89,8 @@ const native = { View: 'View', Text: 'Text', Image: 'Image', asinuChatSticker: '
   Animated: { View: 'Animated' }, FadeIn: animation, FadeInDown: animation, FadeInLeft: animation,
   Svg: 'Svg', Path: 'Path', Circle: 'Circle', CheckinHeroBadge: 'Badge', guideColors: { background: '#f9fcfb', ink: '#123b35',
     actionBackground: '#08b8a2', onAction: '#061c19' }, colors: { primary: '#08b8a2' } };
-function routeHarness(language, params = { mode: 'guide' }, guidance = {}) {
+function routeHarness(language, params = { mode: 'guide' }, guidance = {}, entry = {}) {
+  const storage = progressHarness();
   const runtime = hooks(), calls = { network: [], consent: 0, progress: [], finished: [], routes: [], alerts: [], audio: [], help: [] };
   const tr = translations(language);
   const guideState = { account: '7', ready: true,
@@ -105,12 +108,13 @@ function routeHarness(language, params = { mode: 'guide' }, guidance = {}) {
   const realApi = Object.fromEntries(Object.keys(real).map(name => [name, async (...args) => {
     calls.network.push([name, ...args]); const response = await real[name](...args);
     if (response.session) response.session = { ...response.session, id: 500, user_id: 7 };
+    if (name === 'triage' && entry.triageError) throw new Error('offline');
     return response;
   }]));
-  realApi.getToday = async () => { calls.network.push(['getToday']); return { ok: true, session: null }; };
+  realApi.getToday = async () => { calls.network.push(['getToday']); if (entry.error) throw new Error('offline'); return { ok: true, session: entry.session || null }; };
   const router = { canGoBack: () => true, back: () => calls.routes.push('back'), replace: route => calls.routes.push(route) };
   const source = `${extract('CheckinScreen')}\nmodule.exports = CheckinScreen;`;
-  const CheckinScreen = evaluate(source, { ...native, ...runtime, ...tr, useLocalSearchParams: () => params,
+  const CheckinScreen = evaluate(source, { ...storage.progress, StateError: 'StateError', ...native, ...runtime, ...tr, useLocalSearchParams: () => params,
     useReviewGuidance: (destination, options) => () => calls.help.push({ destination, options }), useRouter: () => router, useSafeAreaInsets: () => ({ top: 20, bottom: 20 }),
     useScaledTypography: () => ({}), useThemeColors: () => ({ isDark: false }), createStyles: () => ({}),
     useAppAlert: () => ({ alertState: {}, showAlert: (...args) => calls.alerts.push(args), dismissAlert() {} }),
@@ -122,7 +126,7 @@ function routeHarness(language, params = { mode: 'guide' }, guidance = {}) {
     ConclusionLoadingView: 'Loading',
     offerCheckinGiftOnHome() {},
     getLocalFallbackQuestion: () => assert.fail('Practice must not require an API fallback'), __DEV__: false });
-  return { calls, guideState, settle: () => runtime.settle(() => CheckinScreen()) };
+  return { calls, guideState, storage, settle: () => runtime.settle(() => CheckinScreen()) };
 }
 for (const language of ['vi', 'en']) {
   await test(`${language}: contextual Help only appears at the two live entry screens and preserves their guide context`, async () => {
@@ -331,17 +335,18 @@ const extractVariable = name => {
     && item.declarationList.declarations.some(declaration => declaration.name.getText(file) === name)).getText(file);
 };
 
-function locationHarness(language) {
+function locationHarness(language, overrides = {}) {
+  const storage = progressHarness(); let headerBack; let backs = 0;
   const runtime = hooks(), tr = translations(language), calls = [], scrolls = [];
   const component = evaluate(`${extractVariable('BODY_LOCATION_OPTIONS')}\n${extract('LocationScreen')}\nmodule.exports = LocationScreen;`, {
-    ...native, ...runtime, ...tr, ...locationDetailsHelpers, spacing: { xs: 4 },
+    ...storage.progress, ...native, ...runtime, ...tr, ...locationDetailsHelpers, spacing: { xs: 4 },
     VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
   });
-  let props = { styles: {}, loading: false, onConfirm: (...args) => calls.push(args), onBack() {}, onBeforeAi: async () => true, onQuestionChange: () => scrolls.push('top') };
+  let props = { styles: {}, loading: false, onConfirm: (...args) => calls.push(args), onBack() { backs++; }, onBeforeAi: async () => true, onQuestionChange: () => scrolls.push('top'), onBackHandlerChange: handler => { headerBack = handler; }, ...overrides };
   let tree;
   const settle = async () => { tree = await runtime.settle(() => component(props)); return tree; };
   const find = id => { const node = nodes(tree).find(item => item.props?.testID === id); assert.ok(node, id); return node; };
-  return { calls, scrolls, tr, find, settle, has(id) { return nodes(tree).some(item => item.props?.testID === id); }, async press(id) { await find(id).props.onPress(); return settle(); },
+  return { calls, scrolls, tr, find, settle, storage, async back() { headerBack(); return settle(); }, get backs() { return backs; }, has(id) { return nodes(tree).some(item => item.props?.testID === id); }, async press(id) { await find(id).props.onPress(); return settle(); },
     async note(value) { nodes(tree).find(item => item.type === 'VoiceAnswerInput').props.onChangeText(value); return settle(); },
     async voiceBusy(value) { nodes(tree).find(item => item.type === 'VoiceAnswerInput').props.onProcessingChange(value); return settle(); },
     async loading(value) { props = { ...props, loading: value }; return settle(); } };
@@ -454,7 +459,7 @@ for (const language of ['vi', 'en']) {
     const source = [extractVariable('createResultPreviewSession'), extractVariable('BODY_LOCATION_OPTIONS'),
       ...['CheckinUiPreview', 'StatusScreen', 'LocationScreen', 'TriageScreen', 'ConclusionLoadingView', 'stripEmojis', 'extractRecordedSymptoms', 'DoneScreen'].map(extract),
       'module.exports = CheckinUiPreview;'].join('\n');
-    const preview = evaluate(source, { ...native, ...runtime, ...translations(language), ...triageOptionDisplay, ...locationDetailsHelpers, isDoctorFeaturesEnabled: true, MAX_TRIAGE_QUESTIONS: 4,
+    const preview = evaluate(source, { ...native, ...runtime, ...translations(language), ...triageOptionDisplay, ...triageSelection, ...locationDetailsHelpers, isDoctorFeaturesEnabled: true, MAX_TRIAGE_QUESTIONS: 4,
       CHECKIN_STATUS_CHOICES: [{ status: 'fine' }, { status: 'tired' }, { status: 'very_tired' }],
       CheckinStatusChoice: 'StatusChoice', VoiceAnswerInput: 'VoiceAnswerInput',
       CheckinConclusionLoading: 'ConclusionProgress',
@@ -517,13 +522,13 @@ for (const language of ['vi', 'en']) {
       assert.equal(screen.props.instant, true);
       assert.ok(nodes(tree).some(n => n.type === 'Text' && n.props.children === translations(language).t('checkinSelectIntensityTitle')));
       await screen.props.onSelect('fine'); await screen.props.onSelect('specific_concern'); tree = await h.settle();
-      assert.deepEqual(h.calls.network, [], 'Unsupported stale presets cannot save an instant check-in');
+      assert.deepEqual(h.calls.network.map(call => call[0]), ['getToday'], 'Check progress before permitting a new instant check-in');
       screen = nodes(tree).find(n => n.type === 'Status');
       await screen.props.onSelect(level); tree = await h.settle();
       const location = nodes(tree).find(n => n.type === 'Location'); assert.ok(location);
-      assert.deepEqual(h.calls.network, [], 'Wait for locations before saving');
+      assert.deepEqual(h.calls.network.map(call => call[0]), ['getToday'], 'Wait for locations before saving');
       await location.props.onConfirm(['head','limbs'], 'Đầu: Trán; Tay chân: Cổ tay phải'); tree = await h.settle();
-      assert.deepEqual(h.calls.network[0], ['start',level,['head','limbs'],'Đầu: Trán; Tay chân: Cổ tay phải',true]);
+      assert.deepEqual(h.calls.network[1], ['start',level,['head','limbs'],'Đầu: Trán; Tay chân: Cổ tay phải',true]);
       assert.ok(nodes(tree).some(n => n.type === 'Question'));
     });
   }
@@ -543,7 +548,7 @@ for (const language of ['vi', 'en']) {
     const runtime = hooks(), tr = translations(language), calls = [];
     const optionDisplay = evaluate(read('src/features/checkin/triage-option-display.ts'));
     const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
-      ...native, ...runtime, ...tr, ...optionDisplay, MAX_TRIAGE_QUESTIONS: 4,
+      ...native, ...runtime, ...tr, ...optionDisplay, ...triageSelection, MAX_TRIAGE_QUESTIONS: 4,
       spacing: { sm: 8 }, VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
     });
     const catalog = JSON.parse(read(`../backend.asinu/src/i18n/locales/${language}.json`));
@@ -576,6 +581,104 @@ for (const language of ['vi', 'en']) {
     assert.equal(choice(nausea).props.accessibilityState.checked, false);
     nodes(tree).find(n => n.type === 'Pressable' && n.props.onPress && !n.props.accessibilityRole).props.onPress();
     assert.deepEqual(calls, [unknown]);
+  });
+}
+for (const language of ['vi', 'en']) {
+  await test(`${language}: header Back follows the same position steps as the footer and preserves choices`, async () => {
+    const h = locationHarness(language); await h.settle();
+    await h.press('checkin-location-region-head'); await h.press('checkin-location-region-chest');
+    await h.press('checkin-location-continue'); await h.press('checkin-location-position-head-forehead');
+    await h.press('checkin-location-question-next'); assert.ok(h.has('checkin-location-question-chest'));
+    await h.back(); assert.ok(h.has('checkin-location-question-head'));
+    assert.equal(h.find('checkin-location-position-head-forehead').props.accessibilityState.checked, true);
+    await h.back(); assert.ok(h.has('checkin-location-region-head')); assert.equal(h.backs, 0);
+    await h.back(); assert.equal(h.backs, 1);
+  });
+  await test(`${language}: remounting the location screen restores the saved exact position question`, async () => {
+    const h = locationHarness(language, { draftAccount: 7, draftStatus: 'tired' }); await h.settle();
+    await h.press('checkin-location-region-head'); await h.press('checkin-location-region-chest');
+    await h.press('checkin-location-continue'); await h.press('checkin-location-position-head-forehead');
+    await h.press('checkin-location-question-next');
+    const draft = await h.storage.progress.readLocationDraft(7); assert.equal(draft.detailIndex, 1);
+    const reopened = locationHarness(language, { initialDraft: draft }); await reopened.settle();
+    assert.ok(reopened.has('checkin-location-question-chest')); await reopened.back();
+    assert.equal(reopened.find('checkin-location-position-head-forehead').props.accessibilityState.checked, true);
+  });
+}
+for (const language of ['vi', 'en']) {
+  const saved = [{ step: 'symptoms', question: 'Symptoms?', answer: 'Headache' },
+    { step: 'red_flags', question: 'Danger?', answer: 'None' }];
+  const session = { id: 500, user_id: 7, initial_status: 'tired', current_status: 'tired', flow_state: 'monitoring',
+    triage_completed_at: null, resolved_at: null, triage_messages: saved, triage_state: { phase: 'initial' } };
+  for (const mode of ['daily', 'resume', 'random', 'followup']) {
+    await test(`${language}/${mode}: opening an unfinished check-in restores answers without starting or following up`, async () => {
+      const h = routeHarness(language, { mode, ...(mode === 'resume' || mode === 'followup' ? { checkin_id: '500', preset_status: 'fine' } : {}) }, {}, { session });
+      const tree = await h.settle(); const q = nodes(tree).find(n => n.type === 'Question');
+      assert.ok(q); assert.deepEqual(q.props.answers, saved);
+      assert.deepEqual(h.calls.network.map(c => c[0]), ['getToday', 'triage']);
+      assert.deepEqual(h.calls.network.at(-1), ['triage', 500, saved]);
+      assert.ok(!nodes(tree).some(n => n.type === 'Status'));
+    });
+  }
+  await test(`${language}: a failed load offers retry instead of a blank check-in`, async () => {
+    const entry = { error: true, session }, h = routeHarness(language, { mode: 'daily' }, {}, entry);
+    let tree = await h.settle();
+    assert.ok(!nodes(tree).some(n => n.type === 'Status'));
+    const retry = nodes(tree).find(n => n.type === 'StateError'); assert.ok(retry);
+    entry.error = false; retry.props.onRetry(); tree = await h.settle();
+    assert.deepEqual(nodes(tree).find(n => n.type === 'Question').props.answers, saved);
+  });
+  await test(`${language}: interrupted location selection is restored before creating a session`, async () => {
+    const h = routeHarness(language, { mode: 'daily' });
+    const draft = { status: 'very_tired', selected: ['head', 'chest'], other: '', details: { head: ['forehead'] },
+      positionNotes: {}, detailIndex: 1 };
+    await h.storage.progress.saveLocationDraft(7, draft);
+    const tree = await h.settle(); const location = nodes(tree).find(n => n.type === 'Location');
+    assert.ok(location); assert.deepEqual(location.props.initialDraft, draft);
+    assert.deepEqual(h.calls.network.map(c => c[0]), ['getToday']);
+  });
+  await test(`${language}: network failure preserves the last answer and retries the identical request`, async () => {
+    const entry = { session, triageError: true }, h = routeHarness(language, { mode: 'resume', checkin_id: '500' }, {}, entry);
+    let tree = await h.settle(); const retry = nodes(tree).find(n => n.type === 'StateError'); assert.ok(retry);
+    assert.ok(!nodes(tree).some(n => n.type === 'Question'));
+    const request = h.calls.network.at(-1); entry.triageError = false;
+    await retry.props.onRetry(); tree = await h.settle();
+    assert.deepEqual(h.calls.network.at(-1), request);
+    assert.deepEqual(nodes(tree).find(n => n.type === 'Question').props.answers, saved);
+  });
+}
+for (const language of ['vi', 'en']) {
+  await test(`${language}: typed symptoms clear None and choosing None clears the typed answer`, async () => {
+    const runtime = hooks(), calls = [], tr = translations(language);
+    const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+      ...native, ...runtime, ...tr, ...triageOptionDisplay, ...triageSelection,
+      spacing: { sm: 8 }, VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
+    });
+    const props = { styles: {}, question: 'Example question', options: ['Symptom', 'None', 'Unknown'],
+      multiSelect: true, exclusiveOptions: ['None', 'Unknown'], answers: [], loading: false,
+      onAnswer: value => calls.push(value), onBeforeAi: async () => true };
+    let tree; const settle = async () => { tree = await runtime.settle(() => component(props)); };
+    const input = () => nodes(tree).find(n => n.type === 'VoiceAnswerInput');
+    const option = label => nodes(tree).find(n => n.props?.accessibilityLabel === label);
+    const confirm = () => nodes(tree).find(n => n.type === 'Pressable' && !n.props.accessibilityRole);
+    await settle(); input().props.onChangeText('Example symptom'); await settle();
+    option('None').props.onPress(); await settle(); assert.equal(input().props.value, '');
+    input().props.onChangeText('Example symptom'); await settle();
+    assert.equal(option('None').props.accessibilityState.checked, false);
+    confirm().props.onPress(); await settle(); assert.deepEqual(calls, ['Example symptom']);
+  });
+  await test(`${language}: repeated single-choice taps cannot send competing answers`, async () => {
+    const runtime = hooks(), calls = [], tr = translations(language); let finish;
+    const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+      ...native, ...runtime, ...tr, ...triageOptionDisplay, ...triageSelection,
+      spacing: { sm: 8 }, VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
+    });
+    const tree = await runtime.settle(() => component({ styles: {}, question: 'Example question',
+      options: ['First', 'Second'], multiSelect: false, answers: [], loading: false,
+      onAnswer: value => { calls.push(value); return new Promise(resolve => { finish = resolve; }); }, onBeforeAi: async () => true }));
+    const choices = nodes(tree).filter(n => n.props?.accessibilityRole === 'radio');
+    choices[0].props.onPress(); choices[0].props.onPress(); choices[1].props.onPress();
+    assert.deepEqual(calls, ['First']); finish(); await tick();
   });
 }
 console.log(`Check-in practice: ${checks} runtime regressions passed.`);

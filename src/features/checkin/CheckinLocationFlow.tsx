@@ -9,6 +9,8 @@ import { GuideTarget, useGuideAcknowledgement } from '../guidance/GuidanceProvid
 import { VoiceAnswerInput } from '../guidance/VoiceAnswerInput';
 import { colors, spacing } from '../../styles';
 import { LOCATION_DETAIL_GROUPS, locationDetailLabel, toggleLocationDetail, missingLocationDetails, formatLocationNotes, type BodyLocation, type LocationDetails } from './location-details';
+import { saveLocationDraft, type LocationDraft } from './checkin-progress';
+import type { CheckinStatus } from './checkin.api';
 type Styles = Record<string, ViewStyle & TextStyle> & { mascotSticker: ImageStyle };
 const asinuChatSticker = require('../../../assets/asinu_chat_sticker.png');
 
@@ -27,6 +29,11 @@ export function CheckinLocationFlow({
   styles,
   onConfirm,
   onQuestionChange,
+  onBack,
+  onBackHandlerChange,
+  initialDraft,
+  draftStatus,
+  draftAccount,
   loading,
   onBeforeAi,
   practice = false,
@@ -35,6 +42,10 @@ export function CheckinLocationFlow({
   styles: Styles;
   onConfirm: (locs: BodyLocation[], other: string) => void | Promise<void>;
   onBack: () => void;
+  onBackHandlerChange?: (handler: (() => void) | null) => void;
+  initialDraft?: LocationDraft | null;
+  draftStatus?: CheckinStatus | null;
+  draftAccount?: string | number;
   onQuestionChange?: () => void;
   loading: boolean;
   onBeforeAi: () => Promise<boolean>;
@@ -45,17 +56,32 @@ export function CheckinLocationFlow({
   const { t: tg } = useTranslation('onboarding');
   const acknowledgeGuide = useGuideAcknowledgement();
   const [selected, setSelected] = useState<Set<BodyLocation>>(
-    readOnly ? new Set([BODY_LOCATION_OPTIONS[0].key]) : new Set()
+    readOnly ? new Set([BODY_LOCATION_OPTIONS[0].key]) : new Set(initialDraft?.selected || [])
   );
-  const [other, setOther] = useState('');
-  const [locationDetails, setLocationDetails] = useState<LocationDetails>(readOnly ? { head: ['uncertain'] } : {});
-  const [detailIndex, setDetailIndex] = useState<number | null>(null);
-  const [positionNotes, setPositionNotes] = useState<Partial<Record<BodyLocation, string>>>({});
+  const [other, setOther] = useState(initialDraft?.other || '');
+  const [locationDetails, setLocationDetails] = useState<LocationDetails>(readOnly ? { head: ['uncertain'] } : initialDraft?.details || {});
+  const [detailIndex, setDetailIndex] = useState<number | null>(initialDraft?.detailIndex ?? null);
+  const [positionNotes, setPositionNotes] = useState<Partial<Record<BodyLocation, string>>>(initialDraft?.positionNotes || {});
   const [isTranscribing, setIsTranscribing] = useState(false);
   const submitting = useRef(false);
   const questionChange = useRef(onQuestionChange);
   questionChange.current = onQuestionChange;
   useEffect(() => { questionChange.current?.(); }, [detailIndex]);
+  const snapshot = JSON.stringify({ status: draftStatus, selected: [...selected], other, details: locationDetails, positionNotes, detailIndex });
+  useEffect(() => {
+    if (!practice && !readOnly && draftAccount != null && draftStatus && !loading) {
+      void saveLocationDraft(draftAccount, JSON.parse(snapshot));
+    }
+  }, [snapshot, draftAccount, practice, readOnly, loading]);
+  const goBack = () => {
+    if (loading || isTranscribing || readOnly || submitting.current) return;
+    if (detailIndex !== null) setDetailIndex(detailIndex > 0 ? detailIndex - 1 : null);
+    else onBack();
+  };
+  useEffect(() => {
+    onBackHandlerChange?.(goBack);
+    return () => onBackHandlerChange?.(null);
+  }, [onBackHandlerChange, detailIndex, loading, isTranscribing, readOnly, onBack]);
 
   const toggle = (key: BodyLocation) => {
     if (readOnly) {return;}
@@ -138,7 +164,7 @@ export function CheckinLocationFlow({
         <Text allowFontScaling style={[styles.triagePillBtnText, !ready && styles.triagePillBtnTextDisabled]}>{t('checkinLocationContinue')}</Text>
       </Pressable>
       <Pressable testID="checkin-location-question-back" disabled={loading || isTranscribing}
-        onPress={() => { if (!loading && !isTranscribing) {setDetailIndex(detailIndex! > 0 ? detailIndex! - 1 : null);} }}
+        onPress={goBack}
         style={{ minHeight: 48, justifyContent: 'center', alignItems: 'center', marginTop: spacing.sm }}>
         <Text allowFontScaling style={{ color: colors.textSecondary, fontSize: 16 }}>{t('back', { ns: 'common' })}</Text>
       </Pressable>

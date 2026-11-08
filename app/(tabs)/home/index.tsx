@@ -13,6 +13,7 @@ import { DailyCheckinCard, InstantCheckinCard } from '../../../src/components/Da
 import { EarlySignalCard } from '../../../src/components/EarlySignalCard';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
+import { isUnfinishedCheckin, readLocationDraft } from '../../../src/features/checkin/checkin-progress';
 import { V21HomeCard } from '../../../src/features/v21/V21HomeCard';
 import { HomeFeatureGrid } from '../../../src/components/HomeFeatureGrid';
 import { HomeGiftCard } from '../../../src/features/checkin-rewards/HomeGiftCard';
@@ -534,14 +535,15 @@ export default function HomeScreen() {
       const res = await checkinApi.getToday();
       if (res.session) {
         const s = res.session;
-        if (s.initial_status === 'fine' || s.flow_state === 'resolved') {
+        if (!isUnfinishedCheckin(s) && !(await readLocationDraft(profileId, s))
+          && (s.current_status === 'fine' || s.flow_state === 'resolved')) {
           setShowAlreadyDoneModal(true);
           return;
         }
       }
     } catch {}
     router.push('/checkin');
-  }, []);
+  }, [profileId, router]);
 
   const handleMissionOpen = useCallback((mission: Mission) => {
     if (mission.missionKey === 'daily_checkin') {

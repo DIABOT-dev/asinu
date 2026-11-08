@@ -3,7 +3,7 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
  * Daily Health Check-in Screen
  * Flows:
  *   fine       → confirm → done (evening check at 21h)
- *   tired      → triage 3-5 questions → summary
+ *   tired      → regional questions → summary
  *   very_tired → triage (more urgent) → summary
  *   followup   → same 3-button screen with context banner
  */
@@ -48,6 +48,9 @@ import { useLanguageStore } from '../../src/stores/language.store';
 import { showToast } from '../../src/stores/toast.store';
 import { colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { StateError } from '../../src/components/state/StateError';
+import { loadCheckinEntry, saveLocationDraft, clearLocationDraft, savePendingAnswers, clearPendingAnswers, type LocationDraft } from '../../src/features/checkin/checkin-progress';
+import { toggleTriageOption, withoutExclusiveAnswers, composeTriageAnswer } from '../../src/features/checkin/triage-answer-selection';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 import { GuidePracticeScope, GuideScrollScope, GuideTarget, useGuideAcknowledgement } from '../../src/features/guidance/GuidanceProvider';
 import { useReviewGuidance } from '../../src/features/guidance/GuidanceSettings';
@@ -59,52 +62,6 @@ import { guidanceAudio } from '../../src/features/guidance/guidance.audio';
 import { guideColors as guideColors } from '../../src/features/guidance/guidance.model';
 
 const asinuChatSticker = require('../../assets/asinu_chat_sticker.png');
-
-// ─── Local fallback questions (when network itself fails) ────────────────────
-
-const LOCAL_FALLBACK_INITIAL = [
-  { step: 'symptoms', questionKey: 'checkinFallbackInitial2Question', optionsKey: 'checkinFallbackInitial2Options', multiSelect: true },
-  { step: 'onset', questionKey: 'checkinFallbackInitial3Question', optionsKey: 'checkinFallbackInitial3Options', multiSelect: false },
-  { step: 'progression', questionKey: 'checkinFallbackProgressionQuestion', optionsKey: 'checkinFallbackProgressionOptions', multiSelect: false },
-  { step: 'red_flags', questionKey: 'checkinFallbackRedFlagsQuestion', optionsKey: 'checkinFallbackRedFlagsOptions', multiSelect: true },
-];
-
-const LOCAL_FALLBACK_FOLLOWUP = [
-  { step: 'followup_status', questionKey: 'checkinFallbackFollowup1Question', optionsKey: 'checkinFallbackFollowup1Options', multiSelect: false },
-  { step: 'followup_detail', questionKey: 'checkinFallbackFollowup2Question', optionsKey: 'checkinFallbackFollowup2Options', multiSelect: true },
-];
-
-function getLocalFallbackQuestion(
-  answerCount: number,
-  isFollowUp: boolean,
-  translate: (key: string, options?: Record<string, unknown>) => unknown,
-) {
-  const bank = isFollowUp ? LOCAL_FALLBACK_FOLLOWUP : LOCAL_FALLBACK_INITIAL;
-
-  if (answerCount < bank.length) {
-    const q = bank[answerCount];
-    return {
-      isDone: false,
-      step: q.step,
-      question: String(translate(q.questionKey)),
-      options: translate(q.optionsKey, { returnObjects: true }) as string[],
-      multiSelect: q.multiSelect,
-      _fallback: true,
-    };
-  }
-
-  // All exhausted → done
-  return {
-    isDone: true,
-    summary: String(translate('checkinFallbackSummary')),
-    severity: 'medium' as const,
-    recommendation: String(translate('checkinFallbackRecommendation')),
-    needsDoctor: false,
-    _fallback: true,
-  };
-}
-
-// ─── Status options ────────────────────────────────────────────────────────────
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
@@ -148,7 +105,6 @@ function CheckinScreen() {
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const userId = useAuthStore((state) => state.profile?.id);
   const guidanceReady = useGuidanceStore(state => state.ready);
-  const { language } = useLanguageStore();
   const params = useLocalSearchParams<{
     checkin_id?: string;
     mode?: string;
@@ -168,13 +124,11 @@ function CheckinScreen() {
   const isResultPreview = params.mode === 'result_preview';
   const reviewGuidance = useReviewGuidance('checkin', { instant: isInstantEntry, followup: isFollowUp });
   const existingCheckinId = isPractice ? (practiceFollowup ? -1 : null)
-    : params.checkin_id ? parseInt(params.checkin_id) : null;
+    : params.checkin_id ? parseInt(params.checkin_id, 10) : null;
   const presetStatus = params.preset_status as CheckinStatus | undefined;
 
   const [screen, setScreen] = useState<Screen>(isResultPreview ? 'done' : 'status');
-  const [loading, setLoading] = useState(
-    !isPractice && !isResultPreview && !isFollowUp && !existingCheckinId && !isRandom,
-  );
+  const [loading, setLoading] = useState(!isPractice && !isResultPreview);
   const [session, setSession] = useState<CheckinSession | null>(() =>
     isResultPreview
       ? createResultPreviewSession(
@@ -194,30 +148,41 @@ function CheckinScreen() {
     }
   }, [guidanceReady, isPractice, userId]);
 
-  // Auto-detect: đã check-in hôm nay chưa? Nếu rồi → redirect đúng mode
-  // Random mode: bỏ qua check, luôn cho check-in
+  const [entryError, setEntryError] = useState(false);
+  const [entryAttempt, setEntryAttempt] = useState(0);
+  const [locationDraft, setLocationDraft] = useState<LocationDraft | null>(null);
+  const locationBackRef = useRef<null | (() => void)>(null);
   useEffect(() => {
-    if (isPractice || isResultPreview || isFollowUp || existingCheckinId || isRandom) { setLoading(false); return; }
+    if (isPractice || isResultPreview) { setLoading(false); return; }
     let mounted = true;
-    checkinClient.getToday()
-      .then(res => {
+    setLoading(true);
+    setEntryError(false);
+    loadCheckinEntry(checkinClient, userId, params.mode, existingCheckinId)
+      .then(async entry => {
         if (!mounted) return;
-        if (res.session) {
-          const s = res.session;
-          if (s.initial_status === 'fine' || s.flow_state === 'resolved') {
-            if (router.canGoBack()) router.back();
-            else router.replace('/(tabs)/home');
-            return;
-          } else if (s.triage_completed_at) {
-            router.replace({ pathname: '/checkin', params: { checkin_id: String(s.id), mode: 'followup' } });
-            return;
-          }
+        if (entry.kind === 'resume') {
+          setSession(entry.session);
+          const saved = entry.answers;
+          setAnswers(saved);
+          setScreen('triage');
+          await fetchNextQuestion(entry.session, saved, true);
+        } else if (entry.kind === 'location') {
+          setLocationDraft(entry.draft);
+          setPendingStatus(entry.draft.status);
+          setScreen('location');
+        } else if (entry.kind === 'home') {
+          if (router.canGoBack()) router.back();
+          else router.replace('/(tabs)/home');
+          return;
+        } else if (entry.kind === 'followup' && !isFollowUp) {
+          router.replace({ pathname: '/checkin', params: { checkin_id: String(entry.session.id), mode: 'followup' } });
+          return;
         }
-        setLoading(false);
+        if (mounted) setLoading(false);
       })
-      .catch(() => { if (mounted) setLoading(false); });
+      .catch(() => { if (mounted) { setEntryError(true); setLoading(false); } });
     return () => { mounted = false; };
-  }, [checkinClient, existingCheckinId, isFollowUp, isPractice, isRandom, isResultPreview, router]);
+  }, [checkinClient, existingCheckinId, isPractice, isResultPreview, params.mode, userId, entryAttempt, router]);
 
   useEffect(() => {
     if (screen !== 'done' || isPractice || isResultPreview || !session || session.id <= 0) return;
@@ -230,10 +195,10 @@ function CheckinScreen() {
   // Auto-start nếu có preset_status từ FAB
   const presetHandled = useRef(false);
   useEffect(() => {
-    if (!presetStatus || presetHandled.current || loading) return;
+    if (!presetStatus || presetHandled.current || loading || entryError || screen !== 'status') return;
     presetHandled.current = true;
     handleStatusSelect(presetStatus);
-  }, [presetStatus, loading]);
+  }, [presetStatus, loading, entryError, screen]);
 
   // Triage state
   const [answers, setAnswers] = useState<TriageAnswer[]>(() =>
@@ -246,6 +211,8 @@ function CheckinScreen() {
         ]
       : [],
   );
+  const [triageError, setTriageError] = useState(false);
+  const triageRetryRef = useRef<null | (() => Promise<void>)>(null);
   const [currentQ, setCurrentQ]    = useState<string>('');
   const [currentStep, setCurrentStep] = useState<string>('');
   const [questionProgress, setQuestionProgress] = useState<{ current: number; total: number } | undefined>();
@@ -255,7 +222,6 @@ function CheckinScreen() {
   const [currentOptsGrouped, setCurrentOptsGrouped] = useState<TriageOptionGroup[] | null>(null);
   const [currentMultiSelect, setCurrentMultiSelect] = useState(true);
   const [currentAllowFreeText, setCurrentAllowFreeText] = useState(false);
-  const [customAnswer, setCustomAnswer] = useState('');
   const mainScrollRef = useRef<ScrollView>(null);
   const guideScrollOffset = useRef(0);
   const [triageSummary, setTriageSummary] = useState<TriageSummaryView | null>(() =>
@@ -268,16 +234,12 @@ function CheckinScreen() {
         }
       : null,
   );
-  // Track user scroll position để chỉ auto scrollToEnd khi user đang ở bottom
-  // (vd: tin AI mới về). KHÔNG đẩy xuống nếu user đang đọc options ở giữa list.
-  const userAtBottomRef = useRef(true);
-  const lastQuestionIdRef = useRef<string>('');
   const handleMainScroll = (e: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    guideScrollOffset.current = contentOffset.y;
-    const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
-    userAtBottomRef.current = distanceFromBottom < 80;
+    guideScrollOffset.current = e.nativeEvent.contentOffset.y;
   };
+  useEffect(() => {
+    if (screen === 'triage' && currentStep) mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [screen, currentStep]);
 
   // Illusion layer state
   const [currentEmpathy, setCurrentEmpathy] = useState<{ text: string; templateId: string } | null>(null);
@@ -307,7 +269,10 @@ function CheckinScreen() {
   const handleAiConsentDecline = useCallback(() => {
     pendingAiActionRef.current = null;
     setShowAiConsent(false);
-  }, []);
+    if (screen === 'triage' && !currentQ) {
+      if (router.canGoBack()) router.back(); else router.replace('/(tabs)/home');
+    }
+  }, [screen, currentQ, router]);
 
   // ─── Status select ─────────────────────────────────────────────────────────
 
@@ -328,6 +293,7 @@ function CheckinScreen() {
       try {
         const res = await checkinClient.followUp(existingCheckinId, status);
         setSession(res.session);
+        if (!isPractice) await clearPendingAnswers(userId, res.session);
         if (status === 'fine') {
           setScreen('done');
           showToast(isPractice ? tg('guidance.practiceSaved') : t('checkinSaved'), 'success');
@@ -350,6 +316,7 @@ function CheckinScreen() {
       try {
         const res = await checkinClient.start(status, null, null, isRandom);
         setSession(res.session);
+        if (!isPractice) { await clearPendingAnswers(userId, res.session); await clearLocationDraft(userId); }
         setScreen('done');
         showToast(isPractice ? tg('guidance.practiceSaved') : t('checkinSaved'), 'success');
         setLoading(false);
@@ -370,6 +337,7 @@ function CheckinScreen() {
       try {
         const res = await checkinClient.start(status, null, null, isRandom);
         setSession(res.session);
+        if (!isPractice) { await clearPendingAnswers(userId, res.session); await clearLocationDraft(userId); }
         setScreen('triage');
         await fetchNextQuestion(res.session, [], true);
       } catch (err: any) {
@@ -381,9 +349,12 @@ function CheckinScreen() {
     }
 
     // "Hơi mệt" / "Rất mệt" keep the body-location shortcut.
+    const draft: LocationDraft = { status, selected: [], other: '', details: {}, positionNotes: {}, detailIndex: null };
+    if (!isPractice) await saveLocationDraft(userId, draft);
+    setLocationDraft(draft);
     setPendingStatus(status);
     setScreen('location');
-  }, [checkinClient, isPractice, isFollowUp, isInstantEntry, existingCheckinId, requestAiConsent]);
+  }, [checkinClient, isPractice, isFollowUp, isInstantEntry, existingCheckinId, requestAiConsent, userId, isRandom, t, tg]);
 
   const handleLocationsConfirm = useCallback(async (locs: BodyLocation[], other: string) => {
     if (!pendingStatus) return;
@@ -401,6 +372,7 @@ function CheckinScreen() {
         isRandom,
       );
       setSession(res.session);
+      if (!isPractice) { await clearPendingAnswers(userId, res.session); await clearLocationDraft(userId); }
       setScreen('triage');
       await fetchNextQuestion(res.session, [], true);
     } catch (err: any) {
@@ -408,7 +380,7 @@ function CheckinScreen() {
       showAlert(t('error', { ns: 'common' }), t('checkinError'));
       setLoading(false);
     }
-  }, [checkinClient, pendingStatus, language, requestAiConsent]);
+  }, [checkinClient, pendingStatus, requestAiConsent, isPractice, userId, isRandom, t]);
 
   // ─── Triage ────────────────────────────────────────────────────────────────
 
@@ -418,7 +390,10 @@ function CheckinScreen() {
       return;
     }
     if (!skipLoadingStart) setLoading(true);
+    setTriageError(false);
+    triageRetryRef.current = () => fetchNextQuestion(sess, prevAnswers);
     try {
+      if (!isPractice) await savePendingAnswers(userId, sess, prevAnswers);
       const result = await checkinClient.triage(sess.id, prevAnswers);
       if (__DEV__) console.log('[Checkin] triage completed:', {
         isDone: result.isDone, step: result.step,
@@ -429,6 +404,7 @@ function CheckinScreen() {
       if ((result as any).ok === false) {
         throw new Error((result as any).error || 'Triage API error');
       }
+      if (!isPractice) await clearPendingAnswers(userId, sess);
       if (result.isDone) {
         setTriageSummary({
           summary: result.summary || '',
@@ -467,12 +443,6 @@ function CheckinScreen() {
         setQuestionProgress(result.questionProgress);
         setQuestionGroup(result.questionGroup || null);
         setExclusiveOptions(result.exclusiveOptions || []);
-        // Khi câu hỏi MỚI về (khác câu trước) → reset userAtBottom=true để
-        // onContentSizeChange tự scroll xuống tin mới (user thường muốn xem).
-        if (newQ !== lastQuestionIdRef.current) {
-          userAtBottomRef.current = true;
-          lastQuestionIdRef.current = newQ;
-        }
         setCurrentQ(newQ);
         setCurrentOpts(result.options || []);
         setCurrentOptsGrouped(result.optionsGrouped || null);
@@ -503,31 +473,12 @@ function CheckinScreen() {
           setCurrentMultiSelect(!isSingleSelect);
         }
         setCurrentAllowFreeText(result.allowFreeText === true);
-        setCustomAnswer('');
       }
     } catch (err: any) {
-      if (__DEV__) console.warn('[Checkin] triage fallback:', err?.message || err);
-      const fallback = getLocalFallbackQuestion(prevAnswers.length, isFollowUp, t);
-      if (fallback.isDone) {
-        const retryAnswers = prevAnswers.slice(0, -1);
-        const retryFallback = getLocalFallbackQuestion(retryAnswers.length, isFollowUp, t);
-        setAnswers(retryAnswers);
-        if (!retryFallback.isDone) {
-          setCurrentStep(retryFallback.step || `fallback_${retryAnswers.length + 1}`);
-          setCurrentQ(retryFallback.question || '');
-          setCurrentOpts(retryFallback.options || []);
-          setCurrentOptsGrouped(null);
-          setCurrentMultiSelect(retryFallback.multiSelect ?? false);
-        }
-        showAlert(t('error', { ns: 'common' }), t('checkinSyncError'));
-      } else {
-        setCurrentStep(fallback.step || `fallback_${prevAnswers.length + 1}`);
-        setCurrentQ(fallback.question || '');
-        setCurrentOpts(fallback.options || []);
-        setCurrentOptsGrouped(null);
-        setCurrentMultiSelect(fallback.multiSelect ?? false);
-        setCustomAnswer('');
-      }
+      if (__DEV__) console.warn('[Checkin] triage request failed:', err?.message || err);
+      // Keep this exact request, including the last answer. A network failure
+      // must never replace a regional question with an unrelated fallback.
+      setTriageError(true);
     } finally {
       setLoading(false);
     }
@@ -622,8 +573,7 @@ function CheckinScreen() {
           style={{ width: 44, height: 44 }}
           onPress={() => {
             if (screen === 'location') {
-              setPendingStatus(null);
-              setScreen('status');
+              locationBackRef.current?.();
             } else {
               router.back();
             }
@@ -688,20 +638,16 @@ function CheckinScreen() {
         overScrollMode="never"
         onScroll={handleMainScroll}
         scrollEventThrottle={120}
-        onContentSizeChange={() => {
-          // CHỈ auto scrollToEnd khi:
-          //   - đang ở triage screen, VÀ
-          //   - user đang ở gần bottom (vd: AI vừa trả tin mới)
-          // Nếu user đang scroll lên đọc options ở giữa → KHÔNG đẩy xuống.
-          if (screen === 'triage' && userAtBottomRef.current) {
-            mainScrollRef.current?.scrollToEnd({ animated: true });
-          }
-        }}
       >
-        {screen === 'status' && <StatusScreen styles={styles} onSelect={handleStatusSelect} isFollowUp={isFollowUp} instant={isInstantEntry} practice={isPractice} />}
+        {entryError ? <StateError message={t('checkinResumeError')} onRetry={() => setEntryAttempt(value => value + 1)} /> : null}
+        {!entryError && screen === 'status' && <StatusScreen styles={styles} onSelect={handleStatusSelect} isFollowUp={isFollowUp} instant={isInstantEntry} practice={isPractice} />}
         {screen === 'location' && (
           <LocationScreen
             styles={styles}
+            initialDraft={locationDraft}
+            draftStatus={pendingStatus}
+            draftAccount={isPractice ? undefined : userId}
+            onBackHandlerChange={handler => { locationBackRef.current = handler; }}
             onQuestionChange={() => mainScrollRef.current?.scrollTo({ y: 0, animated: false })}
             onConfirm={handleLocationsConfirm}
             onBack={() => { setPendingStatus(null); setScreen('status'); }}
@@ -710,7 +656,8 @@ function CheckinScreen() {
             practice={isPractice}
           />
         )}
-        {screen === 'triage' && (
+        {screen === 'triage' && triageError ? <StateError message={t('checkinSyncError')} onRetry={() => { void triageRetryRef.current?.(); }} /> : null}
+        {screen === 'triage' && !triageError && (
           <TriageScreen
             styles={styles}
             question={currentQ}
@@ -901,7 +848,7 @@ function TriageScreen({
   allowFreeText?: boolean;
   answers: TriageAnswer[];
   loading: boolean;
-  onAnswer: (a: string) => void;
+  onAnswer: (a: string) => void | Promise<void>;
   onBeforeAi: () => Promise<boolean>;
   empathy?: { text: string; templateId: string } | null;
   continuity?: { text: string; templateId: string } | null;
@@ -919,6 +866,14 @@ function TriageScreen({
   const scrollRef = useRef<ScrollView>(null);
 
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  useEffect(() => { if (!readOnly) setShowHistory(false); }, [question, readOnly]);
+  const answering = useRef(false);
+  const submitAnswer = (answer: string) => {
+    if (answering.current) return;
+    answering.current = true;
+    void Promise.resolve(onAnswer(answer)).finally(() => { answering.current = false; }).catch(() => {});
+  };
 
   const progressCurrent = questionProgress?.current || answers.length + 1;
   const progressTotal = questionProgress?.total;
@@ -927,17 +882,11 @@ function TriageScreen({
   const handleOptionTap = (opt: string) => {
     if (readOnly || loading || isTranscribing) return;
     if (multiSelect) {
-      // Multi-select: toggle selection
-      setSelected((prev) => {
-        const next = new Set(prev);
-        if (next.has(opt)) next.delete(opt);
-        else if (exclusiveOptions.includes(opt)) { return new Set([opt]); }
-        else { exclusiveOptions.forEach(item => next.delete(item)); next.add(opt); }
-        return next;
-      });
+      if (exclusiveOptions.includes(opt)) setCustom('');
+      setSelected(previous => toggleTriageOption(previous, opt, exclusiveOptions));
     } else {
       // Single-select: send immediately
-      onAnswer(opt);
+      submitAnswer(opt);
       setSelected(new Set());
       setCustom('');
     }
@@ -945,11 +894,9 @@ function TriageScreen({
 
   const handleConfirm = () => {
     if (readOnly || loading || isTranscribing) return;
-    const parts: string[] = [...selected];
-    if (custom.trim()) parts.push(custom.trim());
-    if (parts.length === 0) return;
-    const combined = parts.join(', ');
-    onAnswer(combined);
+    const combined = composeTriageAnswer(selected, custom, exclusiveOptions);
+    if (!combined) return;
+    submitAnswer(combined);
     setSelected(new Set());
     setCustom('');
   };
@@ -990,7 +937,13 @@ function TriageScreen({
       {/* Answered history if any */}
       {answers.length > 0 && (
         <View style={{ marginBottom: 12 }}>
-          {answers.map((a, i) => (
+          <Pressable disabled={readOnly} onPress={() => { if (!readOnly) setShowHistory(value => !value); }}
+            accessibilityRole="button" accessibilityState={{ expanded: showHistory }}
+            style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={styles.historyQuestionText}>{t('checkinAnsweredCount', { count: answers.length })}</Text>
+            <Ionicons name={showHistory ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
+          </Pressable>
+          {showHistory && answers.map((a, i) => (
             <View key={i} style={styles.historyAnswerRow}>
               <View style={styles.historyQuestionTag}>
                 <Text style={styles.historyQuestionText}>{a.question}</Text>
@@ -1136,7 +1089,10 @@ function TriageScreen({
           {(multiSelect || allowFreeText || options.length === 0) && (
             <GuideTarget step="checkin.other" enabled={practice && !loading} withoutChoices={!hasAnswerChoices}>
               <Animated.View entering={FadeInDown.delay(180).duration(400)} style={styles.triageInputCard}>
-                <VoiceAnswerInput key={question} value={custom} onChangeText={setCustom}
+                <VoiceAnswerInput key={question} value={custom} onChangeText={text => {
+                  setCustom(text);
+                  if (text.trim()) setSelected(previous => withoutExclusiveAnswers(previous, exclusiveOptions));
+                }}
                   onRecognized={() => acknowledgeGuide('checkin.voice')}
                   onBeforeAi={onBeforeAi} onProcessingChange={setIsTranscribing}
                   disabled={loading} readOnly={readOnly} practice={practice}

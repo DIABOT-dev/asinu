@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import ts from 'typescript';
+import { progressHarness } from './helpers/checkin-progress-harness.mjs';
+const triageSelection = progressHarness().selection;
 const read = file => fs.readFileSync(file, 'utf8');
 function evaluateSource(source, imports = {}, globals = {}) {
   const module = { exports: {} };
@@ -420,7 +422,7 @@ await test('real symptom guides cover single, multiple, grouped, empty-group and
   }, { View: 'View', Text: 'Text', Image: 'Image', Svg: 'Svg', Path: 'Path', asinuChatSticker: 'asinu_chat_sticker.png', Pressable: 'Pressable', TextInput: 'TextInput', ActivityIndicator: 'Spinner',
     Ionicons: 'Icon', MaterialCommunityIcons: 'Icon', Animated: { View: 'Animated' },
     FadeIn: animation, FadeInDown: animation, FadeInLeft: animation, GuideTarget: 'GuideTarget', VoiceAnswerInput: 'VoiceAnswerInput',
-    ...triageOptionDisplay, colors: theme.lightColors, spacing: theme.spacing, MAX_TRIAGE_QUESTIONS: 10,
+    ...triageOptionDisplay, ...triageSelection, colors: theme.lightColors, spacing: theme.spacing, MAX_TRIAGE_QUESTIONS: 10,
     useTranslation: () => ({ t: key => key }), useLanguageStore: () => ({ language: 'vi' }), useGuideAcknowledgement: () => () => {},
     useState: initial => [initial, () => {}], useRef: initial => ({ current: initial }), useEffect() {} });
   const defaults = { styles: {}, question: 'question', answers: [], options: ['first', 'second'], practice: true,
@@ -869,7 +871,7 @@ await test('the actual live symptom input appends dictated text, reflects proces
   }, { View:'View',Text:'Text',Image:'Image',Pressable:'Pressable',TextInput:'Input',Ionicons:'Icon',MaterialCommunityIcons:'Icon',Svg:'Svg',Path:'Path',
     Animated:{View:'Animated'},FadeIn:animation,FadeInDown:animation,FadeInLeft:animation,GuideTarget:'Guide',VoiceAnswerInput:'VoiceField',
     asinuChatSticker:'existing-art', colors:theme.lightColors, spacing:theme.spacing, MAX_TRIAGE_QUESTIONS:4,
-    ...triageOptionDisplay,useTranslation:()=>({t:key=>key}),useGuideAcknowledgement:()=>()=>{},useRef:initial=>({current:initial}),useEffect(){},
+    ...triageOptionDisplay, ...triageSelection,useTranslation:()=>({t:key=>key}),useGuideAcknowledgement:()=>()=>{},useRef:initial=>({current:initial}),useEffect(){},
     useState(initial){const index=cursor++;states[index]??={value:initial};return [states[index].value,value=>{states[index].value=typeof value==='function'?value(states[index].value):value;}];},
   });
   const submitted=[];
