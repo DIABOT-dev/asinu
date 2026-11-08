@@ -367,9 +367,6 @@ export function VoiceSettings({ userId }: { userId: string }) {
             )}
             {section === 'permissions' && (
               <View style={styles.panel}>
-                <Text accessibilityRole="header" style={styles.subheading}>
-                  {t('personalization.sections.permissions')}
-                </Text>
                 {(['use_name', 'use_health', 'weather_enabled'] as const).map(
                   permissionSwitch
                 )}
@@ -377,9 +374,6 @@ export function VoiceSettings({ userId }: { userId: string }) {
             )}
             {section === 'weather' && (
               <View style={styles.panel}>
-                <Text accessibilityRole="header" style={styles.subheading}>
-                  {t('personalization.sections.weather')}
-                </Text>
                 <>
                   {!value.weather_enabled && (
                     <Text style={styles.copy}>
