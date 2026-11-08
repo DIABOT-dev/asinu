@@ -13,6 +13,11 @@
   },
   "personalization": {
     "screenTitle": "Personalize check-in calls",
+    "sections": {
+      "permissions": "Permissions",
+      "address": "How to address you",
+      "weather": "Weather area"
+    },
     "open": "Personalize call reminders",
     "title": "Reminders for you",
     "description": "An Asinu introduction and a suitable form of address. These choices only change the script, not your schedule or plan permissions.",

@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,8 @@ import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { AppAlertModal } from '../../src/components/AppAlertModal';
+import { QuickActionTile } from '../../src/components/QuickActionTile';
+import { useFontSizeStore } from '../../src/stores/font-size.store';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import {
   checkinCallApi,
@@ -32,6 +35,13 @@ import {
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { colors } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+
+type PersonalizationSection = 'permissions' | 'address' | 'weather';
+const PERSONALIZATION_ACTIONS = [
+  { id: 'permissions', icon: 'shield-checkmark-outline' },
+  { id: 'address', icon: 'person-outline' },
+  { id: 'weather', icon: 'partly-sunny-outline' },
+] as const;
 
 export default function VoiceSettingsRoute() {
   const token = useAuthStore((state) => state.token);
@@ -49,6 +59,11 @@ export function VoiceSettings({ userId }: { userId: string }) {
   const { t: tc } = useTranslation('common');
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { width, fontScale } = useWindowDimensions();
+  const multiplier = useFontSizeStore((state) => state.multiplier);
+  const actionColumns = width < 360 || fontScale * multiplier >= 1.2 ? 2 : 3;
+  const actionWidth = (width - 40 - 12 * (actionColumns - 1)) / actionColumns;
+  const [section, setSection] = useState<PersonalizationSection | null>(null);
   const [value, setValue] = useState<CheckinVoicePreferences | null>(null);
   const [saved, setSaved] = useState<CheckinVoicePreferences | null>(null);
   const [busy, setBusy] = useState(false);
@@ -119,7 +134,10 @@ export function VoiceSettings({ userId }: { userId: string }) {
     setBusy(true);
     setError('');
     try {
-      const permission = await runNativePermission(() => Location.requestForegroundPermissionsAsync(), { key: 'location', canRun: current });
+      const permission = await runNativePermission(
+        () => Location.requestForegroundPermissionsAsync(),
+        { key: 'location', canRun: current }
+      );
       if (!current()) return;
       if (permission.status !== 'granted') {
         setError(t('personalization.locationDenied'));
@@ -168,7 +186,13 @@ export function VoiceSettings({ userId }: { userId: string }) {
 
   const dirty = value && JSON.stringify(value) !== JSON.stringify(saved);
   const save = async () => {
-    if (!value || !dirty || inFlight.current || !weatherRegionReady(value) || !current()) {
+    if (
+      !value ||
+      !dirty ||
+      inFlight.current ||
+      !weatherRegionReady(value) ||
+      !current()
+    ) {
       return;
     }
     inFlight.current = true;
@@ -188,6 +212,25 @@ export function VoiceSettings({ userId }: { userId: string }) {
     }
   };
   const ready = value && weatherRegionReady(value);
+  const permissionSwitch = (
+    field: 'use_name' | 'use_health' | 'weather_enabled'
+  ) =>
+    value && (
+      <View key={field} style={styles.toggleRow}>
+        <View style={styles.toggleCopy}>
+          <Text style={styles.subheading}>{t(`personalization.${field}`)}</Text>
+        </View>
+        <Switch
+          accessibilityLabel={t(`personalization.${field}`)}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: value[field], disabled: busy }}
+          value={value[field]}
+          disabled={busy}
+          onValueChange={(enabled) => changeConsent(field, enabled)}
+          trackColor={{ false: colors.border, true: colors.primaryDark }}
+        />
+      </View>
+    );
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -211,146 +254,192 @@ export function VoiceSettings({ userId }: { userId: string }) {
         {!value && !error && <ActivityIndicator color={colors.primaryDark} />}
         {!!value && (
           <>
-            <Text style={styles.subheading}>
-              {t('personalization.addressTitle')}
-            </Text>
-            <View style={styles.options}>
-              {ADDRESS_OPTIONS.map((address) => (
-                <Pressable
-                  key={address}
-                  accessibilityRole="radio"
-                  accessibilityLabel={t(`personalization.address.${address}`)}
-                  accessibilityState={{
-                    checked: value.address === address,
-                    disabled: busy,
-                  }}
-                  disabled={busy}
-                  style={[
-                    styles.option,
-                    value.address === address && styles.selected,
-                  ]}
-                  onPress={() => setValue({ ...value, address })}
-                >
-                  <Ionicons
-                    name={
-                      value.address === address
-                        ? 'radio-button-on'
-                        : 'radio-button-off'
-                    }
-                    size={22}
-                    color={colors.primaryDark}
-                  />
-                  <Text style={styles.optionText}>
-                    {t(`personalization.address.${address}`)}
-                  </Text>
-                </Pressable>
+            <View style={styles.actions}>
+              {PERSONALIZATION_ACTIONS.map((action) => (
+                <QuickActionTile
+                  key={action.id}
+                  testID={`voice-action-${action.id}`}
+                  label={t(`personalization.sections.${action.id}`)}
+                  expanded={section === action.id}
+                  style={{ width: actionWidth }}
+                  icon={
+                    <Ionicons
+                      name={action.icon}
+                      size={32}
+                      color={colors.primaryText}
+                      accessible={false}
+                    />
+                  }
+                  onPress={() =>
+                    setSection((current) =>
+                      current === action.id ? null : action.id
+                    )
+                  }
+                />
               ))}
             </View>
-            {(['use_name', 'use_health', 'weather_enabled'] as const).map(
-              (field) => (
-                <View key={field} style={styles.toggleRow}>
-                  <View style={styles.toggleCopy}>
-                    <Text style={styles.subheading}>
-                      {t(`personalization.${field}`)}
-                    </Text>
-                  </View>
-                  <Switch
-                    accessibilityLabel={t(`personalization.${field}`)}
-                    accessibilityRole="switch"
-                    accessibilityState={{
-                      checked: value[field],
-                      disabled: busy,
-                    }}
-                    value={value[field]}
-                    disabled={busy}
-                    onValueChange={(enabled) => changeConsent(field, enabled)}
-                    trackColor={{
-                      false: colors.border,
-                      true: colors.primaryDark,
-                    }}
-                  />
-                </View>
-              )
-            )}
-            {value.weather_enabled && (
-              <>
+            {section === 'address' && (
+              <View style={styles.panel}>
                 <Text style={styles.subheading}>
-                  {t('personalization.regionTitle')}
+                  {t('personalization.addressTitle')}
                 </Text>
                 <View style={styles.options}>
-                  {REGION_OPTIONS.map((region) => (
+                  {ADDRESS_OPTIONS.map((address) => (
                     <Pressable
-                      key={region}
+                      key={address}
                       accessibilityRole="radio"
                       accessibilityLabel={t(
-                        `personalization.regions.${region}`
+                        `personalization.address.${address}`
                       )}
                       accessibilityState={{
-                        checked: value.region === region,
+                        checked: value.address === address,
                         disabled: busy,
                       }}
                       disabled={busy}
                       style={[
                         styles.option,
-                        value.region === region && styles.selected,
+                        value.address === address && styles.selected,
                       ]}
-                      onPress={() =>
-                        setValue({ ...value, region, location: null })
-                      }
+                      onPress={() => setValue({ ...value, address })}
                     >
+                      <Ionicons
+                        name={
+                          value.address === address
+                            ? 'radio-button-on'
+                            : 'radio-button-off'
+                        }
+                        size={22}
+                        color={colors.primaryDark}
+                      />
                       <Text style={styles.optionText}>
-                        {t(`personalization.regions.${region}`)}
+                        {t(`personalization.address.${address}`)}
                       </Text>
                     </Pressable>
                   ))}
                 </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('personalization.useLocation')}
-                  disabled={busy}
-                  accessibilityState={{ busy, disabled: busy }}
-                  onPress={locate}
-                  style={styles.action}
-                >
-                  <Ionicons
-                    name="location-outline"
-                    size={22}
-                    color={colors.primaryDark}
-                  />
-                  <Text style={styles.optionText}>
-                    {t('personalization.useLocation')}
-                  </Text>
-                </Pressable>
-                {value.region === 'device' && (
-                  <Text style={styles.copy}>
-                    {t('personalization.locationSelected')}
-                  </Text>
-                )}
-                {!ready && (
-                  <Text style={styles.error}>
-                    {t('personalization.chooseRegion')}
-                  </Text>
-                )}
-                <Text style={styles.copy}>
-                  {t('personalization.weatherCredit')}
-                </Text>
-                <Pressable
-                  accessibilityRole="link"
-                  accessibilityLabel={t('personalization.weatherSource')}
-                  style={styles.action}
-                  onPress={() => {
-                    void Linking.openURL(
-                      'https://api.met.no/doc/License'
-                    ).catch(() => setError(t('personalization.linkFailed')));
-                  }}
-                >
-                  <Text style={styles.optionText}>
-                    {t('personalization.weatherSource')}
-                  </Text>
-                </Pressable>
-              </>
+              </View>
             )}
-            <Text style={styles.copy}>{t('personalization.privacy')}</Text>
+            {section === 'permissions' && (
+              <View style={styles.panel}>
+                <Text accessibilityRole="header" style={styles.subheading}>
+                  {t('personalization.sections.permissions')}
+                </Text>
+                {(['use_name', 'use_health', 'weather_enabled'] as const).map(
+                  permissionSwitch
+                )}
+                <Text style={styles.copy}>{t('personalization.privacy')}</Text>
+              </View>
+            )}
+            {section === 'weather' && (
+              <View style={styles.panel}>
+                <Text accessibilityRole="header" style={styles.subheading}>
+                  {t('personalization.sections.weather')}
+                </Text>
+                {permissionSwitch('weather_enabled')}
+                {value.weather_enabled && (
+                  <>
+                    <Text style={styles.subheading}>
+                      {t('personalization.regionTitle')}
+                    </Text>
+                    <View style={styles.options}>
+                      {REGION_OPTIONS.map((region) => (
+                        <Pressable
+                          key={region}
+                          accessibilityRole="radio"
+                          accessibilityLabel={t(
+                            `personalization.regions.${region}`
+                          )}
+                          accessibilityState={{
+                            checked: value.region === region,
+                            disabled: busy,
+                          }}
+                          disabled={busy}
+                          style={[
+                            styles.option,
+                            value.region === region && styles.selected,
+                          ]}
+                          onPress={() =>
+                            setValue({ ...value, region, location: null })
+                          }
+                        >
+                          <Text style={styles.optionText}>
+                            {t(`personalization.regions.${region}`)}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t('personalization.useLocation')}
+                      disabled={busy}
+                      accessibilityState={{ busy, disabled: busy }}
+                      onPress={locate}
+                      style={styles.action}
+                    >
+                      <Ionicons
+                        name="location-outline"
+                        size={22}
+                        color={colors.primaryDark}
+                      />
+                      <Text style={styles.optionText}>
+                        {t('personalization.useLocation')}
+                      </Text>
+                    </Pressable>
+                    {value.region === 'device' && (
+                      <Text style={styles.copy}>
+                        {t('personalization.locationSelected')}
+                      </Text>
+                    )}
+                    {!ready && (
+                      <Text style={styles.error}>
+                        {t('personalization.chooseRegion')}
+                      </Text>
+                    )}
+                    <Text style={styles.copy}>
+                      {t('personalization.weatherCredit')}
+                    </Text>
+                    <Pressable
+                      accessibilityRole="link"
+                      accessibilityLabel={t('personalization.weatherSource')}
+                      style={styles.action}
+                      onPress={() => {
+                        void Linking.openURL(
+                          'https://api.met.no/doc/License'
+                        ).catch(() =>
+                          setError(t('personalization.linkFailed'))
+                        );
+                      }}
+                    >
+                      <Text style={styles.optionText}>
+                        {t('personalization.weatherSource')}
+                      </Text>
+                    </Pressable>
+                  </>
+                )}
+              </View>
+            )}
+            {!ready && value.weather_enabled && section !== 'weather' && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('personalization.chooseRegion')}
+                style={styles.action}
+                onPress={() => setSection('weather')}
+              >
+                <Ionicons
+                  name="location-outline"
+                  size={22}
+                  color={colors.primaryDark}
+                />
+                <Text style={styles.error}>
+                  {t('personalization.chooseRegion')}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={colors.primaryDark}
+                />
+              </Pressable>
+            )}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t('personalization.save')}
@@ -440,6 +529,14 @@ function createStyles() {
       color: colors.textPrimary,
     },
     body: { padding: 20, gap: 16 },
+    actions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      columnGap: 12,
+      rowGap: 20,
+      paddingVertical: 8,
+    },
+    panel: { gap: 12, paddingTop: 8, paddingBottom: 4 },
     subheading: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
     copy: { fontSize: 16, color: colors.textSecondary },
     options: { gap: 8 },

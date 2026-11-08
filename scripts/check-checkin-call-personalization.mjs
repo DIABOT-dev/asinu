@@ -56,6 +56,9 @@ function harness({
   token = 'test-session',
   hydrated = true,
   id = '7',
+  width = 393,
+  fontScale = 1,
+  multiplier = 1,
 } = {}) {
   const slots = [];
   let cursor = 0,
@@ -153,6 +156,7 @@ function harness({
       View: 'View',
       StyleSheet: { create: (v) => v },
       Linking: { openURL: async (url) => calls.source.push(url) },
+      useWindowDimensions: () => ({ width, fontScale }),
     },
     '@expo/vector-icons': { Ionicons: 'Icon' },
     '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({ back: () => calls.back++ }) },
@@ -183,6 +187,8 @@ function harness({
     },
     '../../src/components/ScaledText': { ScaledText: 'Text' },
     '../../src/components/AppAlertModal': { AppAlertModal: 'AppModal' },
+    '../../src/components/QuickActionTile': { QuickActionTile: 'ActionTile' },
+    '../../src/stores/font-size.store': { useFontSizeStore: select => select({ multiplier }) },
     '../../src/features/auth/auth.store': { useAuthStore },
     '../../src/features/checkin-call/voice-preferences': preferences,
     '../../src/features/checkin-call/checkin-call.api': {
@@ -228,19 +234,20 @@ function harness({
     calls,
     session,
     t: translations.checkinCall,
-    button: (key) =>
-      render().find(
-        (node) =>
-          node.type === 'Button' &&
-          node.props.accessibilityLabel === translations.checkinCall(key)
-      ),
-    toggle: (field) =>
-      render().find(
-        (node) =>
-          node.type === 'Switch' &&
-          node.props.accessibilityLabel ===
-            translations.checkinCall(`personalization.${field}`)
-      ),
+    openSection: section => {
+      const action = render().find(node => node.type === 'ActionTile' && node.props.testID === `voice-action-${section}`);
+      if (action && !action.props.expanded) action.props.onPress();
+    },
+    button: key => {
+      if (key.startsWith('personalization.address.')) h.openSection('address');
+      if (key.startsWith('personalization.regions.') || ['personalization.useLocation', 'personalization.weatherSource'].includes(key)) h.openSection('weather');
+      return render().find(node => node.type === 'Button' && node.props.accessibilityLabel === translations.checkinCall(key));
+    },
+    toggle: field => {
+      const find = () => render().find(node => node.type === 'Switch' && node.props.accessibilityLabel === translations.checkinCall(`personalization.${field}`));
+      if (!find()) h.openSection('permissions');
+      return find();
+    },
     modal: () => render().find((node) => node.type === 'AppModal'),
     text: () =>
       render()
@@ -272,6 +279,10 @@ for (const language of ['vi', 'en']) {
   await test(`${language}: all labels resolve and personal data use starts off`, async () => {
     const h = harness({ language });
     await h.settle();
+    const actions = h.render().filter(node => node.type === 'ActionTile');
+    assert.deepEqual(actions.map(node => node.props.label), ['permissions', 'address', 'weather'].map(section => h.t(`personalization.sections.${section}`)));
+    assert.ok(actions.every(node => node.props.expanded === false));
+    assert.equal(h.render().filter(node => node.type === 'Switch' || node.props.accessibilityRole === 'radio').length, 0);
     for (const field of ['use_name', 'use_health', 'weather_enabled'])
       assert.equal(h.toggle(field).props.value, false);
     assert.equal(h.calls.permissions, 0);
@@ -317,6 +328,8 @@ await test('weather consent requires an area and never asks GPS permission autom
   assert.equal(h.button('personalization.save').props.disabled, true);
   assert.equal(h.calls.permissions, 0);
   assert.ok(h.text().includes(h.t('personalization.chooseRegion')));
+  h.button('personalization.chooseRegion').props.onPress();
+  assert.equal(h.render().find(node => node.props.testID === 'voice-action-weather').props.expanded, true);
   h.button('personalization.regions.hanoi').props.onPress();
   await h.button('personalization.save').props.onPress();
   assert.equal(h.calls.saves[0].region, 'hanoi');
@@ -473,6 +486,7 @@ await test('long text can wrap; consent uses scrollable app UI and vertically st
   assert.equal(h.modal().props.stackButtons, true);
   for (const node of h.render().filter((node) => node.type === 'Text'))
     assert.equal(node.props.numberOfLines, undefined);
+  h.openSection('address');
   for (const node of h
     .render()
     .filter(
@@ -499,6 +513,33 @@ await test('weather source attribution links to the provider license', async () 
   assert.deepEqual(h.calls.source, ['https://api.met.no/doc/License']);
   h.unmount();
 });
+await test('switching personalization actions retains every draft and never reloads or saves it implicitly', async () => {
+  const h = harness(); await h.settle();
+  h.consent('use_name');
+  h.button('personalization.address.co').props.onPress();
+  h.openSection('weather'); h.consent('weather_enabled');
+  h.button('personalization.regions.hanoi').props.onPress();
+  h.openSection('permissions'); assert.equal(h.toggle('use_name').props.value, true);
+  h.openSection('address'); assert.equal(h.button('personalization.address.co').props.accessibilityState.checked, true);
+  const action = h.render().find(node => node.props.testID === 'voice-action-address');
+  action.props.onPress();
+  assert.ok(h.render().filter(node => node.type === 'ActionTile').every(node => node.props.expanded === false));
+  assert.equal(h.render().filter(node => node.props.accessibilityRole === 'radio').length, 0);
+  assert.equal(h.calls.loads, 1); assert.deepEqual(h.calls.saves, []);
+  await h.button('personalization.save').props.onPress();
+  assert.equal(h.calls.saves[0].address, 'co'); assert.equal(h.calls.saves[0].use_name, true);
+  assert.equal(h.calls.saves[0].weather_enabled, true); assert.equal(h.calls.saves[0].region, 'hanoi');
+  h.unmount();
+});
+for (const [width, fontScale, multiplier, columns] of [[393, 1, 1, 3], [320, 1, 1, 2], [393, 1.4, 1.25, 2]]) {
+  await test(`personalization actions fit ${width}px at font ${fontScale}/${multiplier}`, async () => {
+    const h = harness({ width, fontScale, multiplier }); await h.settle();
+    const actions = h.render().filter(node => node.type === 'ActionTile');
+    assert.ok(actions.every(node => node.props.style.width >= 64));
+    assert.ok(Math.abs(actions[0].props.style.width * columns + 12 * (columns - 1) - (width - 40)) < 0.01);
+    h.unmount();
+  });
+}
 await test('weather validation rejects empty regions, out-of-range GPS and non-finite coordinates', () => {
   assert.equal(
     preferences.weatherRegionReady(preferences.VOICE_DEFAULTS),

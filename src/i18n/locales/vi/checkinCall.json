@@ -13,6 +13,11 @@
   },
   "personalization": {
     "screenTitle": "Cá nhân hoá tổng đài",
+    "sections": {
+      "permissions": "Cấp quyền",
+      "address": "Xưng hô",
+      "weather": "Khu vực thời tiết"
+    },
     "open": "Cá nhân hóa lời nhắc cuộc gọi",
     "title": "Lời nhắc dành cho bạn",
     "description": "Lời giới thiệu Asinu và cách xưng hô phù hợp. Các lựa chọn dưới đây chỉ thay đổi lời thoại, không đổi lịch gọi hay quyền của gói.",
