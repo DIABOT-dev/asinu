@@ -310,14 +310,19 @@ await test('clock wheels accept minute precision only after confirmation and can
   await h.button('saveSettings').props.onPress();
   assert.equal(h.calls.saves[0].checkin_time, '07:43'); h.unmount();
 });
-await test('duration wheels retain server limits and steps, and reject invalid direct callbacks', async () => {
+await test('duration wheels include every integer within server limits and reject fractions or out-of-range values', async () => {
   const h = harness({ contacts: [{ id: 1, name: 'Relative' }] }); await h.settle();
+  for (const [label, min, max] of [['fieldGrace', 2, 12], ['fieldUserTimeout', 30, 180],
+    ['fieldFamilyRing', 30, 120], ['fieldFamilyConfirm', 5, 30], ['fieldMaxRounds', 1, 3]]) {
+    h.button(label).props.onPress();
+    assert.deepEqual(h.picker().props.values, Array.from({ length: max - min + 1 }, (_, index) => min + index));
+    h.picker().props.onClose();
+  }
   h.button('fieldUserTimeout').props.onPress();
-  assert.deepEqual(h.picker().props.values, [30, 60, 90, 120, 150, 180]);
-  h.picker().props.onConfirm(45); assert.equal(h.button('saveSettings').props.disabled, true);
+  h.picker().props.onConfirm(45.5); assert.equal(h.button('saveSettings').props.disabled, true);
   h.picker().props.onConfirm(999); assert.equal(h.button('saveSettings').props.disabled, true);
-  h.picker().props.onConfirm(120); await h.button('saveSettings').props.onPress();
-  assert.equal(h.calls.saves[0].user_timeout_seconds, 120); h.unmount();
+  h.picker().props.onConfirm(45); await h.button('saveSettings').props.onPress();
+  assert.equal(h.calls.saves[0].user_timeout_seconds, 45); h.unmount();
 });
 
 function wheelHarness(value, values) {
@@ -375,12 +380,12 @@ await test('confirmation waits for every moving wheel to settle', () => {
   minute.props._onScrollEnd(); assert.equal(h.confirm().props.disabled, false);
 });
 await test('duration wheel accessibility adjusts within the allowed options and cancel never confirms', () => {
-  const h = wheelHarness(180, [30, 60, 90, 120, 150, 180]);
+  const h = wheelHarness(180, Array.from({ length: 151 }, (_, index) => 30 + index));
   const adjustable = () => h.nodes().find(node => node.props.accessibilityRole === 'adjustable');
   adjustable().props.onAccessibilityAction({ nativeEvent: { actionName: 'increment' } });
   assert.equal(h.wheels()[0].props.value, 180);
   adjustable().props.onAccessibilityAction({ nativeEvent: { actionName: 'decrement' } });
-  assert.equal(h.wheels()[0].props.value, 150);
+  assert.equal(h.wheels()[0].props.value, 179);
   h.nodes().find(node => node.props.accessibilityLabel === 'cancel').props.onPress();
   assert.equal(h.closed.length, 1); assert.deepEqual(h.selected, []);
 });

@@ -30,13 +30,12 @@ const FIELDS: Array<{
   icon: keyof typeof Ionicons.glyphMap;
   min: number;
   max: number;
-  step: number;
 }> = [
-  { key: 'grace_hours', labelKey: 'fieldGrace', unitKey: 'unitHours', icon: 'timer-outline', min: 2, max: 12, step: 2 },
-  { key: 'user_timeout_seconds', labelKey: 'fieldUserTimeout', unitKey: 'unitSeconds', icon: 'time-outline', min: 30, max: 180, step: 30 },
-  { key: 'family_ring_seconds', labelKey: 'fieldFamilyRing', unitKey: 'unitSeconds', icon: 'notifications-outline', min: 30, max: 120, step: 30 },
-  { key: 'family_confirm_minutes', labelKey: 'fieldFamilyConfirm', unitKey: 'unitMinutes', icon: 'stopwatch-outline', min: 5, max: 30, step: 5 },
-  { key: 'max_rounds', labelKey: 'fieldMaxRounds', unitKey: 'unitRounds', icon: 'warning-outline', min: 1, max: 3, step: 1 },
+  { key: 'grace_hours', labelKey: 'fieldGrace', unitKey: 'unitHours', icon: 'timer-outline', min: 2, max: 12 },
+  { key: 'user_timeout_seconds', labelKey: 'fieldUserTimeout', unitKey: 'unitSeconds', icon: 'time-outline', min: 30, max: 180 },
+  { key: 'family_ring_seconds', labelKey: 'fieldFamilyRing', unitKey: 'unitSeconds', icon: 'notifications-outline', min: 30, max: 120 },
+  { key: 'family_confirm_minutes', labelKey: 'fieldFamilyConfirm', unitKey: 'unitMinutes', icon: 'stopwatch-outline', min: 5, max: 30 },
+  { key: 'max_rounds', labelKey: 'fieldMaxRounds', unitKey: 'unitRounds', icon: 'warning-outline', min: 1, max: 3 },
 ];
 
 export default function CheckinCallSettingsScreen() {
@@ -156,8 +155,8 @@ export default function CheckinCallSettingsScreen() {
     if (!value || saveInFlight.current || access !== 'granted' || noContactsWarning || !focused.current) return;
     if (activeField === 'time' && typeof next === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(next)) {
       setValue(current => current ? { ...current, checkin_time: next } : current);
-    } else if (selectedField && typeof next === 'number' && Number.isFinite(next)
-      && next >= selectedField.min && next <= selectedField.max && (next - selectedField.min) % selectedField.step === 0) {
+    } else if (selectedField && typeof next === 'number' && Number.isInteger(next)
+      && next >= selectedField.min && next <= selectedField.max) {
       setValue(current => current ? { ...current, [selectedField.key]: next } : current);
     } else return;
     setActiveField(null);
@@ -304,8 +303,8 @@ export default function CheckinCallSettingsScreen() {
         title={t(activeField === 'time' ? 'checkinTime' : selectedField!.labelKey)}
         value={activeField === 'time' ? value.checkin_time.slice(0, 5) : Number(value[selectedField!.key])}
         unit={selectedField ? t(selectedField.unitKey) : undefined}
-        values={selectedField ? Array.from({ length: (selectedField.max - selectedField.min) / selectedField.step + 1 },
-          (_, index) => selectedField.min + index * selectedField.step) : undefined}
+        values={selectedField ? Array.from({ length: selectedField.max - selectedField.min + 1 },
+          (_, index) => selectedField.min + index) : undefined}
         onConfirm={confirmSelection} onClose={() => setActiveField(null)} />}
       <AppAlertModal
         queued
