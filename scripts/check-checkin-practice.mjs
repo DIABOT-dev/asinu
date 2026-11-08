@@ -4,7 +4,12 @@ import ts from 'typescript';
 
 const read = file => fs.readFileSync(file, 'utf8');
 const routeFile = ts.createSourceFile('checkin.tsx', read('app/checkin/index.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const locationFile = ts.createSourceFile('location.tsx', read('src/features/checkin/CheckinLocationFlow.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const extract = name => {
+  if (name === 'LocationScreen') {
+    const node = locationFile.statements.find(item => ts.isFunctionDeclaration(item) && item.name?.text === 'CheckinLocationFlow');
+    assert.ok(node); return node.getText(locationFile).replace('export function CheckinLocationFlow', 'function LocationScreen');
+  }
   const node = routeFile.statements.find(item => ts.isFunctionDeclaration(item) && item.name?.text === name);
   assert.ok(node, `Missing actual check-in function: ${name}`);
   return node.getText(routeFile);
@@ -60,7 +65,7 @@ function hooks() {
   };
 }
 function translations(language) {
-  const catalogs = Object.fromEntries(['home', 'onboarding'].map(ns => [ns, JSON.parse(read(`src/i18n/locales/${language}/${ns}.json`))]));
+  const catalogs = Object.fromEntries(['home', 'onboarding', 'common'].map(ns => [ns, JSON.parse(read(`src/i18n/locales/${language}/${ns}.json`))]));
   const get = (ns, key, options = {}) => {
     const value = key.split('.').reduce((entry, part) => entry?.[part], catalogs[options.ns || ns]);
     assert.notEqual(value, undefined, `Missing ${language}/${options.ns || ns}/${key}`);
@@ -320,20 +325,23 @@ for (const language of ['vi', 'en']) {
 
 // Exercise the real shared screen components independently of the live route.
 const { CHECKIN_UI_PREVIEWS } = evaluate(read('src/features/checkin/checkin-ui-gallery.ts'));
-const extractVariable = name => routeFile.statements.find(item => ts.isVariableStatement(item)
-  && item.declarationList.declarations.some(declaration => declaration.name.getText(routeFile) === name)).getText(routeFile);
+const extractVariable = name => {
+  const file = name === 'BODY_LOCATION_OPTIONS' ? locationFile : routeFile;
+  return file.statements.find(item => ts.isVariableStatement(item)
+    && item.declarationList.declarations.some(declaration => declaration.name.getText(file) === name)).getText(file);
+};
 
 function locationHarness(language) {
-  const runtime = hooks(), tr = translations(language), calls = [];
+  const runtime = hooks(), tr = translations(language), calls = [], scrolls = [];
   const component = evaluate(`${extractVariable('BODY_LOCATION_OPTIONS')}\n${extract('LocationScreen')}\nmodule.exports = LocationScreen;`, {
     ...native, ...runtime, ...tr, ...locationDetailsHelpers, spacing: { xs: 4 },
     VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
   });
-  let props = { styles: {}, loading: false, onConfirm: (...args) => calls.push(args), onBack() {}, onBeforeAi: async () => true };
+  let props = { styles: {}, loading: false, onConfirm: (...args) => calls.push(args), onBack() {}, onBeforeAi: async () => true, onQuestionChange: () => scrolls.push('top') };
   let tree;
   const settle = async () => { tree = await runtime.settle(() => component(props)); return tree; };
   const find = id => { const node = nodes(tree).find(item => item.props?.testID === id); assert.ok(node, id); return node; };
-  return { calls, tr, find, settle, async press(id) { await find(id).props.onPress(); return settle(); },
+  return { calls, scrolls, tr, find, settle, has(id) { return nodes(tree).some(item => item.props?.testID === id); }, async press(id) { await find(id).props.onPress(); return settle(); },
     async note(value) { nodes(tree).find(item => item.type === 'VoiceAnswerInput').props.onChangeText(value); return settle(); },
     async voiceBusy(value) { nodes(tree).find(item => item.type === 'VoiceAnswerInput').props.onProcessingChange(value); return settle(); },
     async loading(value) { props = { ...props, loading: value }; return settle(); } };
@@ -350,42 +358,73 @@ for (const language of ['vi', 'en']) {
     await h.voiceBusy(false); await h.press('checkin-location-continue');
     assert.equal(h.calls.length, 1);
   });
-  await test(`${language}: selecting head and limbs asks for both exact spots before starting check-in`, async () => {
+  await test(`${language}: head and chest positions appear as separate follow-up questions with answers`, async () => {
     const h = locationHarness(language); await h.settle();
-    await h.press('checkin-location-region-head'); await h.press('checkin-location-region-limbs');
-    assert.ok(h.find('checkin-location-detail-head'));
-    assert.ok(h.find('checkin-location-detail-limbs'));
-    assert.equal(h.find('checkin-location-continue').props.disabled, true);
-    await h.press('checkin-location-continue'); assert.equal(h.calls.length, 0);
-    await h.press('checkin-location-detail-head');
-    await h.press('checkin-location-position-head-forehead');
-    assert.equal(h.find('checkin-location-continue').props.disabled, true, 'The arm/leg area still needs an answer');
-    await h.press('checkin-location-detail-limbs');
-    await h.press('checkin-location-position-limbs-right_wrist');
+    await h.press('checkin-location-region-head'); await h.press('checkin-location-region-chest');
+    assert.equal(h.has('checkin-location-question-head'), false);
+    assert.equal(h.has('checkin-location-position-head-forehead'), false);
     assert.equal(h.find('checkin-location-continue').props.disabled, false);
-    await h.press('checkin-location-continue');
-    assert.deepEqual(h.calls[0][0], ['head', 'limbs']);
+    await h.press('checkin-location-continue'); assert.equal(h.calls.length, 0);
+    assert.equal(h.has('checkin-location-question-head'), true);
+    assert.equal(h.has('checkin-location-question-chest'), false);
+    assert.equal(h.scrolls.length, 2, 'The first position question starts at the heading');
+    await h.press('checkin-location-question-next'); assert.equal(h.calls.length, 0);
+    await h.press('checkin-location-position-head-forehead');
+    assert.equal(h.scrolls.length, 2, 'Selecting an answer must not jump the screen');
+    await h.press('checkin-location-question-next');
+    assert.equal(h.scrolls.length, 3, 'The next region starts at its own heading');
+    assert.equal(h.has('checkin-location-question-chest'), true);
+    assert.equal(h.has('checkin-location-position-head-forehead'), false);
+    await h.press('checkin-location-position-chest-middle_chest');
+    await h.press('checkin-location-question-back');
+    assert.equal(h.find('checkin-location-position-head-forehead').props.accessibilityState.checked, true);
+    await h.press('checkin-location-question-next');
+    assert.equal(h.find('checkin-location-position-chest-middle_chest').props.accessibilityState.checked, true);
+    await h.press('checkin-location-question-next');
+    assert.deepEqual(h.calls[0][0], ['head', 'chest']);
     assert.ok(h.calls[0][1].includes(h.tr.t('checkinLocationDetail_forehead')));
-    assert.ok(h.calls[0][1].includes(h.tr.t('checkinLocationDetail_right_wrist')));
+    assert.ok(h.calls[0][1].includes(h.tr.t('checkinLocationDetail_middle_chest')));
+    await h.press('checkin-location-question-back'); await h.press('checkin-location-question-back');
     await h.press('checkin-location-region-head');
-    await h.press('checkin-location-continue');
-    assert.deepEqual(h.calls[1][0], ['limbs']);
+    await h.press('checkin-location-continue'); await h.press('checkin-location-question-next');
+    assert.deepEqual(h.calls[1][0], ['chest']);
     assert.ok(!h.calls[1][1].includes(h.tr.t('checkinLocationDetail_forehead')), 'A removed region cannot leak a stale answer');
   });
   await test(`${language}: uncertain and custom positions are supported without inventing pain`, async () => {
     const h = locationHarness(language); await h.settle(); await h.press('checkin-location-region-head');
-    await h.press('checkin-location-detail-head'); await h.press('checkin-location-position-head-uncertain');
-    assert.equal(h.find('checkin-location-continue').props.disabled, false);
-    await h.press('checkin-location-continue');
+    await h.press('checkin-location-continue'); await h.press('checkin-location-position-head-uncertain');
+    assert.equal(h.find('checkin-location-question-next').props.disabled, false);
+    await h.press('checkin-location-question-next');
     assert.ok(h.calls[0][1].includes(h.tr.t('checkinLocationDetail_uncertain')));
     await h.press('checkin-location-position-head-other_detail');
-    assert.equal(h.find('checkin-location-continue').props.disabled, true);
+    assert.equal(h.find('checkin-location-question-next').props.disabled, true);
     await h.note(language === 'vi' ? 'Phía sau tai phải' : 'Behind the right ear');
-    assert.equal(h.find('checkin-location-continue').props.disabled, false);
-    await h.press('checkin-location-continue');
+    assert.equal(h.find('checkin-location-question-next').props.disabled, false);
+    await h.voiceBusy(true);
+    assert.equal(h.find('checkin-location-question-next').props.disabled, true);
+    await h.voiceBusy(false); await h.press('checkin-location-question-next');
     assert.ok(h.calls[1][1].includes(language === 'vi' ? 'Phía sau tai phải' : 'Behind the right ear'));
-    await h.loading(true); await h.press('checkin-location-continue');
+    await h.loading(true); await h.press('checkin-location-question-next');
     assert.equal(h.calls.length, 2, 'A stale loading action cannot submit again');
+  });
+  await test(`${language}: Other requires a separate description for each selected region`, async () => {
+    const h = locationHarness(language); await h.settle();
+    await h.press('checkin-location-region-head'); await h.press('checkin-location-region-chest');
+    await h.press('checkin-location-continue'); await h.press('checkin-location-position-head-other_detail');
+    await h.note('Behind the right ear'); await h.press('checkin-location-question-next');
+    await h.press('checkin-location-position-chest-other_detail');
+    assert.equal(h.find('checkin-location-question-next').props.disabled, true, 'The head note cannot satisfy the chest question');
+    await h.note('Below the collarbone'); await h.press('checkin-location-question-next');
+    assert.ok(h.calls[0][1].includes('Behind the right ear'));
+    assert.ok(h.calls[0][1].includes('Below the collarbone'));
+  });
+  await test(`${language}: rapid taps on the last position question submit only once`, async () => {
+    const h = locationHarness(language); await h.settle();
+    await h.press('checkin-location-region-head'); await h.press('checkin-location-continue');
+    await h.press('checkin-location-position-head-uncertain');
+    const next = h.find('checkin-location-question-next').props.onPress;
+    next(); next(); await h.settle();
+    assert.equal(h.calls.length, 1);
   });
   await test(`${language}: whole-body and mental choices do not demand a fictitious anatomical spot`, async () => {
     const h = locationHarness(language); await h.settle();

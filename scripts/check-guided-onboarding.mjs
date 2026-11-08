@@ -508,11 +508,13 @@ await test('real status, location and symptom-question screens register differen
   const expected = { StatusScreen: ['checkin.status'], LocationScreen: ['checkin.location', 'checkin.location_other', 'checkin.location_confirm'],
     TriageScreen: ['checkin.choices', 'checkin.other', 'checkin.confirm'] };
   for (const [name, ids] of Object.entries(expected)) {
-    const component = file.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
+    const owner = name === 'LocationScreen'
+      ? ts.createSourceFile('location.tsx', read('src/features/checkin/CheckinLocationFlow.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX) : file;
+    const component = owner.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === (name === 'LocationScreen' ? 'CheckinLocationFlow' : name));
     assert.ok(component);
     const registered = new Set();
     const visit = node => {
-      if (ts.isJsxAttribute(node) && node.name.getText(file) === 'step' && ts.isStringLiteral(node.initializer)) {
+      if (ts.isJsxAttribute(node) && node.name.getText(owner) === 'step' && ts.isStringLiteral(node.initializer)) {
         registered.add(node.initializer.text);
       }
       ts.forEachChild(node, visit);

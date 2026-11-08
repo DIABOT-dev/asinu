@@ -132,7 +132,8 @@ export function formatLocationNotes(
   locations: BodyLocation[],
   details: LocationDetails,
   other: string,
-  translate: (key: string) => string
+  translate: (key: string) => string,
+  positionNotes: Partial<Record<BodyLocation, string>> = {}
 ): string {
   const notes = locations.flatMap((location) => {
     const group = LOCATION_DETAIL_GROUPS.find(
@@ -145,7 +146,9 @@ export function formatLocationNotes(
     return chosen.length
       ? [
           `${translate(group.labelKey)}: ${chosen
-            .map((key) => translate(locationDetailLabel(key)))
+            .map((key) => key === 'other_detail' && positionNotes[location]?.trim()
+              ? `${translate(locationDetailLabel(key))}: ${positionNotes[location]!.trim().replace(/;/g, ',')}`
+              : translate(locationDetailLabel(key)))
             .join(', ')}`,
         ]
       : [];

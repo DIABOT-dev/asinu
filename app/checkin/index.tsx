@@ -41,7 +41,8 @@ import { CheckinConclusion } from '../../src/features/checkin/CheckinConclusion'
 import { CheckinConclusionLoading } from '../../src/features/checkin/CheckinConclusionLoading';
 import { hasDisplayCheckinConclusion, checkinConclusionSpeech } from '../../src/features/checkin/checkin-conclusion';
 import { formatTriageOptionLabel, getTriageOptionIcon } from '../../src/features/checkin/triage-option-display';
-import { LOCATION_DETAIL_GROUPS, locationDetailLabel, toggleLocationDetail, missingLocationDetails, formatLocationNotes, type BodyLocation, type LocationDetails } from '../../src/features/checkin/location-details';
+import { type BodyLocation } from '../../src/features/checkin/location-details';
+import { CheckinLocationFlow } from '../../src/features/checkin/CheckinLocationFlow';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { showToast } from '../../src/stores/toast.store';
@@ -131,21 +132,6 @@ const createResultPreviewSession = (question: string, symptoms: string): Checkin
     created_at: now,
   };
 };
-
-// T2 Body Location options — match backend body-location.js BODY_LOCATIONS enum
-
-// MaterialCommunityIcons vector — outline style, không có background filled.
-// Mỗi icon match ngữ nghĩa vùng cơ thể.
-type MciName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-const BODY_LOCATION_OPTIONS: Array<{ key: BodyLocation; icon: MciName; labelKey: string; descKey: string }> = [
-  { key: 'head', icon: 'head-outline', labelKey: 'checkinLocationHead', descKey: 'checkinLocationHeadDesc' },
-  { key: 'chest', icon: 'heart-pulse', labelKey: 'checkinLocationChest', descKey: 'checkinLocationChestDesc' },
-  { key: 'abdomen', icon: 'stomach', labelKey: 'checkinLocationAbdomen', descKey: 'checkinLocationAbdomenDesc' },
-  { key: 'limbs', icon: 'arm-flex-outline', labelKey: 'checkinLocationLimbs', descKey: 'checkinLocationLimbsDesc' },
-  { key: 'skin', icon: 'hand-back-right-outline', labelKey: 'checkinLocationSkin', descKey: 'checkinLocationSkinDesc' },
-  { key: 'whole_body', icon: 'human', labelKey: 'checkinLocationWholeBody', descKey: 'checkinLocationWholeBodyDesc' },
-  { key: 'mental', icon: 'brain', labelKey: 'checkinLocationMental', descKey: 'checkinLocationMentalDesc' },
-];
 
 export default function CheckinRoute() {
   const params = useLocalSearchParams<{ mode?: string; checkin_id?: string; guide?: string; entry?: string }>();
@@ -717,6 +703,7 @@ function CheckinScreen() {
         {screen === 'location' && (
           <LocationScreen
             styles={styles}
+            onQuestionChange={() => mainScrollRef.current?.scrollTo({ y: 0, animated: false })}
             onConfirm={handleLocationsConfirm}
             onBack={() => { setPendingStatus(null); setScreen('status'); }}
             loading={loading}
@@ -878,215 +865,8 @@ function StatusScreen({
 
 // ─── T2 Location screen ──────────────────────────────────────────────────────
 
-function LocationScreen({
-  styles,
-  onConfirm,
-  onBack,
-  loading,
-  onBeforeAi,
-  practice = false,
-  readOnly = false,
-}: {
-  styles: Styles;
-  onConfirm: (locs: BodyLocation[], other: string) => void;
-  onBack: () => void;
-  loading: boolean;
-  onBeforeAi: () => Promise<boolean>;
-  practice?: boolean;
-  readOnly?: boolean;
-}) {
-  const { t } = useTranslation('home');
-  const { t: tg } = useTranslation('onboarding');
-  const acknowledgeGuide = useGuideAcknowledgement();
-  const [selected, setSelected] = useState<Set<BodyLocation>>(
-    readOnly ? new Set([BODY_LOCATION_OPTIONS[0].key]) : new Set()
-  );
-  const [other, setOther] = useState('');
-  const [locationDetails, setLocationDetails] = useState<LocationDetails>(readOnly ? { head: ['uncertain'] } : {});
-  const [expandedLocation, setExpandedLocation] = useState<BodyLocation | null>(null);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-
-  const toggle = (key: BodyLocation) => {
-    if (readOnly) return;
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  const count = selected.size + (other.trim() ? 1 : 0);
-  const detailGroups = LOCATION_DETAIL_GROUPS.filter(group => selected.has(group.location));
-  const missingDetails = missingLocationDetails(Array.from(selected), locationDetails, other);
-  const canConfirm = count > 0 && !missingDetails.length && !loading && !isTranscribing;
-  const confirmLabel = count > 0
-    ? t('checkinLocationContinueCount', { count })
-    : t('checkinLocationContinue');
-
-  return (
-    <View style={styles.section}>
-      {/* Top progress bar & step counter */}
-      <View style={styles.triageProgressRow}>
-        <View style={styles.triageProgressTrack}>
-          <View style={[styles.triageProgressFill, { width: '20%' }]} />
-        </View>
-        <Text style={styles.triageProgressText}>1/5</Text>
-      </View>
-
-      {/* Companion Mascot sticker + Speech bubble */}
-      <Animated.View entering={FadeInLeft.duration(350)} style={styles.mascotRow}>
-        <Image
-          source={asinuChatSticker}
-          style={styles.mascotSticker}
-          resizeMode="contain"
-        />
-        <View style={styles.mascotBubble}>
-          <Text style={styles.mascotBubbleText}>
-            {t('checkinLocationMascotBubble')}
-          </Text>
-        </View>
-      </Animated.View>
-
-      {/* Question section: Pulse icon + Title */}
-      <Animated.View entering={FadeInLeft.duration(400)} style={styles.questionSection}>
-        <View style={styles.questionHeaderRow}>
-          <MaterialCommunityIcons name="pulse" size={26} color="#08b8a2" style={styles.questionPulseIcon} />
-          <Text allowFontScaling style={[styles.questionHeaderTitle, practice && { fontSize: 22, lineHeight: 30 }]}>
-            {t('checkinLocationTitle')}
-          </Text>
-        </View>
-      </Animated.View>
-
-      {/* Body location options */}
-      <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.triageOptionsList}>
-        {BODY_LOCATION_OPTIONS.map((opt, optionIndex) => {
-          const isSelected = selected.has(opt.key);
-          return (
-            <GuideTarget key={opt.key} step="checkin.location" enabled={practice && optionIndex === 0 && !loading}>
-              <Pressable
-                key={opt.key}
-                testID={`checkin-location-region-${opt.key}`}
-                onPress={() => !loading && toggle(opt.key)}
-                disabled={loading || readOnly}
-                style={({ pressed }) => [
-                  styles.triageOptionCard,
-                  isSelected && styles.triageOptionCardSelected,
-                  (pressed || loading) && { opacity: 0.85 },
-                ]}
-              >
-                <View style={[styles.triageCheckbox, isSelected && styles.triageCheckboxSelected]}>
-                  {isSelected && <Ionicons name="checkmark" size={13} color="#ffffff" />}
-                </View>
-                <View style={styles.locationOptionIcon}>
-                  <MaterialCommunityIcons
-                    name={opt.icon}
-                    size={24}
-                    color={isSelected ? '#08b8a2' : '#64748b'}
-                  />
-                </View>
-                <Text allowFontScaling style={[styles.triageOptionTitle, styles.locationOptionLabel, isSelected && styles.triageOptionTitleSelected]}>
-                  {t(opt.labelKey)}
-                </Text>
-              </Pressable>
-            </GuideTarget>
-          );
-        })}
-      </Animated.View>
-
-      {detailGroups.length > 0 && <View style={{ gap: 12 }} testID="checkin-location-details">
-        <Text allowFontScaling style={[styles.questionHeaderTitle, { fontSize: 20, lineHeight: 28 }]}>{t('checkinLocationDetailsTitle')}</Text>
-        <Text allowFontScaling style={styles.questionSubtitle}>{t('checkinLocationDetailsHint')}</Text>
-        {detailGroups.map(group => {
-          const chosen = locationDetails[group.location] || [];
-          const expanded = expandedLocation === group.location;
-          return <View key={group.location} style={{ gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#DCEBE7' }}>
-            <Pressable testID={`checkin-location-detail-${group.location}`} disabled={loading || readOnly}
-              accessibilityRole="button" accessibilityState={{ expanded, disabled: loading || readOnly }}
-              onPress={() => { if (!loading && !readOnly) setExpandedLocation(expanded ? null : group.location); }}
-              style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <View style={{ flex: 1, gap: 4 }}>
-                <Text allowFontScaling style={styles.triageOptionTitle}>{t('checkinLocationDetailQuestion', { region: t(group.labelKey) })}</Text>
-                <Text allowFontScaling style={[styles.questionSubtitle, { color: chosen.length ? '#0F766E' : '#526C66' }]}>
-                  {chosen.length ? chosen.map(key => t(locationDetailLabel(key))).join(', ') : t('checkinLocationDetailSelect')}
-                </Text>
-              </View>
-              <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color="#0F766E" />
-            </Pressable>
-            {expanded && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {group.positionKeys.map(key => <Pressable key={key} testID={`checkin-location-position-${group.location}-${key}`}
-                disabled={loading || readOnly} accessibilityRole="checkbox" accessibilityState={{ checked: chosen.includes(key), disabled: loading || readOnly }}
-                onPress={() => { if (!loading && !readOnly) setLocationDetails(previous => toggleLocationDetail(previous, group.location, key)); }}
-                style={{ minHeight: 44, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderRadius: 14,
-                  borderColor: chosen.includes(key) ? '#08b8a2' : '#C8DDD6', backgroundColor: chosen.includes(key) ? '#DEF5EF' : '#F5FBF8',
-                  flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                {chosen.includes(key) && <Ionicons name="checkmark" size={16} color="#0F766E" />}
-                <Text allowFontScaling style={{ color: '#173831', fontSize: 16, lineHeight: 23 }}>{t(locationDetailLabel(key))}</Text>
-              </Pressable>)}
-            </View>}
-          </View>;
-        })}
-        {missingDetails.length > 0 && <Text allowFontScaling style={styles.questionSubtitle} accessibilityLiveRegion="polite">
-          {t('checkinLocationDetailsRemaining', { regions: missingDetails.map(location => t(LOCATION_DETAIL_GROUPS.find(group => group.location === location)!.labelKey)).join(', ') })}
-        </Text>}
-      </View>}
-
-      {/* Free-text "Khác" / voice input */}
-      <GuideTarget step="checkin.location_other" enabled={practice && !loading}>
-        <Animated.View entering={FadeInDown.delay(160).duration(400)}>
-          {practice ? (
-            <Text allowFontScaling style={{ color: colors.textPrimary, marginBottom: spacing.xs, fontSize: 18, fontWeight: '700' }}>
-              {tg('guidance.otherAnswer')}
-            </Text>
-          ) : null}
-          <VoiceAnswerInput value={other} onChangeText={setOther}
-            onRecognized={() => acknowledgeGuide('checkin.voice')}
-            onBeforeAi={onBeforeAi} onProcessingChange={setIsTranscribing}
-            disabled={loading} readOnly={readOnly} practice={practice}
-            placeholder={t('checkinLocationOtherPlaceholder')} maxLength={200}
-            style={styles.triageInputCard}
-            inputStyle={[styles.triageTextInput, practice && { fontSize: 20 }]} />
-        </Animated.View>
-      </GuideTarget>
-
-      {/* Action / Continue button */}
-      <GuideTarget step="checkin.location_confirm" enabled={practice && canConfirm}>
-        <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-          <Pressable
-            testID="checkin-location-continue"
-            onPress={() => { if (!readOnly && canConfirm) onConfirm(Array.from(selected), formatLocationNotes(Array.from(selected), locationDetails, other, key => String(t(key)))); }}
-            disabled={!canConfirm || readOnly}
-            style={({ pressed }) => [
-              styles.triagePillBtn,
-              !canConfirm && styles.triagePillBtnDisabled,
-              pressed && canConfirm && { opacity: 0.88, transform: [{ scale: 0.98 }] },
-            ]}
-          >
-            <Text allowFontScaling style={[styles.triagePillBtnText, !canConfirm && styles.triagePillBtnTextDisabled, practice && { fontSize: 20 }]}>
-              {confirmLabel}
-            </Text>
-            <Ionicons
-              name="arrow-forward"
-              size={18}
-              color={canConfirm ? '#ffffff' : '#94a3b8'}
-              style={{ marginLeft: 6 }}
-            />
-          </Pressable>
-        </Animated.View>
-      </GuideTarget>
-
-      {/* Bottom watermark decoration */}
-      <View style={styles.bottomWatermarkWrap} pointerEvents="none">
-        <Svg width={200} height={160} viewBox="0 0 200 160" fill="none">
-          <Path d="M0 110 C60 75 120 95 200 55 L200 160 L0 160 Z" fill="#e6faf8" opacity={0.5} />
-          <Path d="M25 130 C85 100 145 115 200 95 L200 160 L25 160 Z" fill="#d8f6f1" opacity={0.4} />
-          <Path d="M165 95 H177 V83 C177 81 178.8 79.5 181 79.5 C183.2 79.5 185 81 185 83 V95 H197 C199 95 200.5 96.8 200.5 99 C200.5 101.2 199 103 197 103 H185 V115 C185 117 183.2 118.5 181 118.5 C178.8 118.5 177 117 177 115 V103 H165 C163 103 161.5 101.2 161.5 99 C161.5 96.8 163 95 165 95 Z" fill="#08b8a2" opacity={0.2} />
-          <Path d="M173 124 C160 129 157 142 163 152 C174 150 182 138 173 124 Z" fill="#08b8a2" opacity={0.2} />
-          <Path d="M185 120 C192 128 194 144 186 151 C177 146 177 133 185 120 Z" fill="#08b8a2" opacity={0.16} />
-        </Svg>
-      </View>
-    </View>
-  );
+function LocationScreen(props: React.ComponentProps<typeof CheckinLocationFlow>) {
+  return <CheckinLocationFlow {...props} />;
 }
 
 // ─── Triage screen ────────────────────────────────────────────────────────────
