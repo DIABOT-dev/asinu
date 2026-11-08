@@ -79,7 +79,7 @@ function translations(language) {
 }
 const animation = { duration: () => animation, delay: () => animation };
 const native = { View: 'View', Text: 'Text', Image: 'Image', asinuChatSticker: 'asinu_chat_sticker.png', TextInput: 'Input', Pressable: 'Pressable', ScrollView: 'ScrollView',
-  ActivityIndicator: 'Spinner', Ionicons: 'Icon', MaterialCommunityIcons: 'Icon', Stack: { Screen: 'Stack' },
+  CheckinQuestionLoading: 'QuestionLoading', ActivityIndicator: 'Spinner', Ionicons: 'Icon', MaterialCommunityIcons: 'Icon', Stack: { Screen: 'Stack' },
   GuidePracticeScope: 'PracticeScope', GuideScrollScope: 'ScrollScope', GuideTarget: 'GuideTarget',
   ScreenBackButton: 'Back', AppAlertModal: 'Alert', AiDataConsentModal: 'Consent',
   CheckinGiftCloseButton: ({ disabled, eligible = false, children }) => {
@@ -697,4 +697,17 @@ for (const language of ['vi', 'en']) {
     assert.equal(question.props.loading, false); assert.equal(question.props.question, 'Example question');
   });
 }
+await test('a question response replaces the processing state immediately without adding a timer or AI request', async () => {
+  let complete;
+  const entry = { session: { id: 500, user_id: 7, initial_status: 'tired', current_status: 'tired',
+    triage_completed_at: null, triage_messages: [], triage_state: {} },
+    api: { triage: () => new Promise(resolve => { complete = resolve; }) } };
+  const h = routeHarness('vi', { mode: 'resume', checkin_id: '500' }, {}, entry);
+  let tree = await h.settle(); assert.equal(nodes(tree).find(n => n.type === 'Question').props.loading, true);
+  assert.deepEqual(h.calls.network.map(call => call[0]), ['getToday', 'triage']);
+  complete({ ok: true, isDone: false, step: 'symptoms', question: 'Example question', options: ['First', 'Second'], multiSelect: true });
+  tree = await h.settle(); const question = nodes(tree).find(n => n.type === 'Question');
+  assert.equal(question.props.loading, false); assert.deepEqual(question.props.options, ['First', 'Second']);
+  assert.deepEqual(h.calls.network.map(call => call[0]), ['getToday', 'triage']);
+});
 console.log(`Check-in practice: ${checks} runtime regressions passed.`);

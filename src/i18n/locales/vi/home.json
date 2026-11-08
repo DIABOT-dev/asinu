@@ -1,4 +1,9 @@
 {
+  "checkinQuestionPreparingFirst": "Asinu đang chuẩn bị câu hỏi",
+  "checkinQuestionReviewingAnswer": "Asinu đang xem câu trả lời",
+  "checkinQuestionLoadingPercent": "Tiến độ ước tính {{percent}}%",
+  "checkinQuestionLoadingEstimate": "Tiến độ ước tính",
+  "checkinQuestionLoadingLonger": "Vẫn đang xử lý, anh/chị chờ chút nhé",
   "checkinAnsweredCount": "Đã trả lời {{count}} câu",
   "checkinResumeError": "Chưa tải được check-in đang dở. Anh/chị thử lại nhé.",
   "checkinResumeTitle": "Tiếp tục check-in",

@@ -1,4 +1,9 @@
 {
+  "checkinQuestionPreparingFirst": "Asinu is preparing your question",
+  "checkinQuestionReviewingAnswer": "Asinu is reviewing your answer",
+  "checkinQuestionLoadingPercent": "Estimated progress {{percent}}%",
+  "checkinQuestionLoadingEstimate": "Estimated progress",
+  "checkinQuestionLoadingLonger": "Still processing, please wait a moment",
   "checkinAnsweredCount": "{{count}} questions answered",
   "checkinResumeError": "Could not load your check-in. Please try again.",
   "checkinResumeTitle": "Continue check-in",

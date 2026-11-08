@@ -39,6 +39,7 @@ import { useCheckinCallAudio } from '../../src/features/checkin-call/useCheckinC
 import { CHECKIN_STATUS_CHOICES, CheckinStatusChoice } from '../../src/features/checkin/CheckinStatusChoice';
 import { CheckinConclusion } from '../../src/features/checkin/CheckinConclusion';
 import { CheckinConclusionLoading } from '../../src/features/checkin/CheckinConclusionLoading';
+import { CheckinQuestionLoading } from '../../src/features/checkin/CheckinQuestionLoading';
 import { hasDisplayCheckinConclusion, checkinConclusionSpeech } from '../../src/features/checkin/checkin-conclusion';
 import { formatTriageOptionLabel, getTriageOptionIcon } from '../../src/features/checkin/triage-option-display';
 import { type BodyLocation } from '../../src/features/checkin/location-details';
@@ -958,17 +959,7 @@ function TriageScreen({
       )}
 
       {loading ? (
-        <Animated.View entering={FadeInLeft.duration(300)} style={styles.mascotRow}>
-          <Image source={asinuChatSticker} style={styles.mascotSticker} resizeMode="contain" />
-          <View style={styles.mascotBubble}>
-            <Text accessibilityLiveRegion="polite" style={styles.mascotBubbleText}>{t('checkinTriageAnalyzing')}</Text>
-            <View style={styles.typingRow}>
-              <View style={[styles.typingDot, { opacity: 0.8 }]} />
-              <View style={[styles.typingDot, { opacity: 0.5 }]} />
-              <View style={[styles.typingDot, { opacity: 0.3 }]} />
-            </View>
-          </View>
-        </Animated.View>
+        <CheckinQuestionLoading key={`question-${answers.length}`} first={answers.length === 0} active={!readOnly} />
       ) : (
         <>
           {/* Companion Mascot sticker + Speech bubble */}

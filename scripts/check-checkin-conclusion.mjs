@@ -396,6 +396,7 @@ for (const lang of ['vi', 'en']) {
       },
     };
     const globals = {
+      CheckinQuestionLoading: 'QuestionLoading',
       useTranslation: () => ({ t: (key) => home[key] || key }),
       useGuideAcknowledgement: () => () => {},
       useState: (initial) => [initial, () => {}],
@@ -435,10 +436,10 @@ for (const lang of ['vi', 'en']) {
       loading: true,
       onAnswer: () => assert.fail('unexpected answer'),
     });
-    assert.ok(text(tree).includes(home.checkinTriageAnalyzing));
-    assert.ok(
-      nodes(tree).some((n) => n.props?.accessibilityLiveRegion === 'polite'),
-    );
+    const loadingState = nodes(tree).find(n => n.type === 'QuestionLoading');
+    assert.ok(loadingState);
+    assert.equal(loadingState.props.first, true);
+    assert.equal(loadingState.props.active, true);
   });
   function resultHarness() {
     const source = fs.readFileSync('app/checkin/index.tsx', 'utf8');
