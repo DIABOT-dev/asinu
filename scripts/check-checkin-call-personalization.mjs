@@ -299,6 +299,7 @@ for (const language of ['vi', 'en']) {
     assert.ok(actions.every(node => node.props.expanded === false));
     assert.equal(h.render().filter(node => node.type === 'Switch' || node.props.accessibilityRole === 'radio').length, 0);
     for (const field of ['use_name', 'use_health', 'weather_enabled']) assert.equal(h.toggle(field).props.value, false);
+    assert.equal(h.render().filter(node => node.type === 'Switch').length, 3);
     assert.equal(h.calls.permissions, 0); assert.equal(h.calls.locations, 0);
     assert.deepEqual(h.calls.saves, []); assert.deepEqual(h.calls.toasts, []);
     assert.ok(!h.text().includes(language === 'vi' ? 'Lưu cách cá nhân hóa' : 'Save personalization'));
@@ -338,7 +339,7 @@ await test('enabling weather without an area opens area choices without saving a
   const h = harness(); await h.settle();
   h.toggle('weather_enabled').props.onValueChange(true);
   assert.equal(h.render().find(node => node.props.testID === 'voice-action-weather').props.expanded, true);
-  assert.equal(h.toggle('weather_enabled').props.value, false);
+  assert.equal(h.render().filter(node => node.type === 'Switch').length, 0);
   assert.ok(h.text().includes(h.t('personalization.chooseRegion')));
   assert.deepEqual(h.calls.saves, []); assert.deepEqual(h.calls.toasts, []); assert.equal(h.calls.permissions, 0);
   await h.chooseRegion('hanoi');

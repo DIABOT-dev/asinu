@@ -373,7 +373,6 @@ export function VoiceSettings({ userId }: { userId: string }) {
                 {(['use_name', 'use_health', 'weather_enabled'] as const).map(
                   permissionSwitch
                 )}
-                <Text style={styles.copy}>{t('personalization.privacy')}</Text>
               </View>
             )}
             {section === 'weather' && (
@@ -381,7 +380,6 @@ export function VoiceSettings({ userId }: { userId: string }) {
                 <Text accessibilityRole="header" style={styles.subheading}>
                   {t('personalization.sections.weather')}
                 </Text>
-                {permissionSwitch('weather_enabled')}
                 <>
                   {!value.weather_enabled && (
                     <Text style={styles.copy}>

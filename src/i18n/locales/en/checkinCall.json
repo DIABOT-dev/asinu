@@ -57,7 +57,6 @@
     "weatherForecastAt": "Forecast time: {{time}}",
     "weatherSource": "View the weather data source and license",
     "linkFailed": "Could not open the link. Please try again.",
-    "privacy": "Names and health measurements are not spoken on the lock screen. Calls do not record your answers. Changes save automatically; turn options off at any time to stop personalization in subsequent reminders.",
     "consentTitle": "Allow reminder personalization?",
     "voiceConsent": "When enabled, Asinu uses your selected information to create in-app reminders. Only the text to be spoken is sent to the VieNeu speech service, not your full profile. You can turn this off and save at any time. Private information is not read on the lock screen.",
     "weatherConsent": "Asinu sends approximate regional coordinates through its backend to MET Norway for a forecast, not your name or health data. There is no background location tracking. You can choose a region manually without granting GPS permission.",
