@@ -72,6 +72,7 @@ function harness({
     permissions: 0,
     locations: 0,
     source: [],
+    toasts: [],
   };
   const memo = (fn, deps) => {
     const index = cursor++;
@@ -189,6 +190,7 @@ function harness({
     '../../src/components/AppAlertModal': { AppAlertModal: 'AppModal' },
     '../../src/components/QuickActionTile': { QuickActionTile: 'ActionTile' },
     '../../src/stores/font-size.store': { useFontSizeStore: select => select({ multiplier }) },
+    '../../src/stores/toast.store': { showToast: (...args) => calls.toasts.push(args) },
     '../../src/features/auth/auth.store': { useAuthStore },
     '../../src/features/checkin-call/voice-preferences': preferences,
     '../../src/features/checkin-call/checkin-call.api': {
@@ -260,12 +262,26 @@ function harness({
       await flush();
       return render();
     },
-    consent: (field, agree = true) => {
-      h.toggle(field).props.onValueChange(true);
+    retry: () => render().find(node => node.type === 'Button' && node.props.accessibilityLabel === translations.common('retry')),
+    acceptConsent: async (agree = true) => {
       const modal = h.modal();
       assert.equal(modal.props.visible, true);
       modal.props.onDismiss();
-      if (agree) modal.props.buttons[1].onPress();
+      if (agree) await modal.props.buttons[1].onPress();
+    },
+    consent: async (field, agree = true) => {
+      h.toggle(field).props.onValueChange(true);
+      await h.acceptConsent(agree);
+    },
+    chooseRegion: async (region, agree = true) => {
+      const work = h.button(`personalization.regions.${region}`).props.onPress();
+      if (h.modal().props.visible) await h.acceptConsent(agree);
+      else await work;
+    },
+    useLocation: async () => {
+      const work = h.button('personalization.useLocation').props.onPress();
+      if (h.modal().props.visible) await h.acceptConsent();
+      else await work;
     },
     unmount: () => {
       slots.forEach((slot) => slot.cleanup?.());
@@ -276,295 +292,192 @@ function harness({
 }
 
 for (const language of ['vi', 'en']) {
-  await test(`${language}: all labels resolve and personal data use starts off`, async () => {
-    const h = harness({ language });
-    await h.settle();
+  await test(`${language}: action groups start collapsed without writes, permission prompts or a Save button`, async () => {
+    const h = harness({ language }); await h.settle();
     const actions = h.render().filter(node => node.type === 'ActionTile');
     assert.deepEqual(actions.map(node => node.props.label), ['permissions', 'address', 'weather'].map(section => h.t(`personalization.sections.${section}`)));
     assert.ok(actions.every(node => node.props.expanded === false));
     assert.equal(h.render().filter(node => node.type === 'Switch' || node.props.accessibilityRole === 'radio').length, 0);
-    for (const field of ['use_name', 'use_health', 'weather_enabled'])
-      assert.equal(h.toggle(field).props.value, false);
-    assert.equal(h.calls.permissions, 0);
-    assert.equal(h.calls.locations, 0);
-    assert.equal(h.button('personalization.save').props.disabled, true);
-    assert.ok(h.text().includes(h.t('personalization.privacy')));
+    for (const field of ['use_name', 'use_health', 'weather_enabled']) assert.equal(h.toggle(field).props.value, false);
+    assert.equal(h.calls.permissions, 0); assert.equal(h.calls.locations, 0);
+    assert.deepEqual(h.calls.saves, []); assert.deepEqual(h.calls.toasts, []);
+    assert.ok(!h.text().includes(language === 'vi' ? 'Lưu cách cá nhân hóa' : 'Save personalization'));
+    h.unmount();
+  });
+  await test(`${language}: approving personal data use autosaves and announces confirmed success without leaving`, async () => {
+    const h = harness({ language }); await h.settle();
+    h.toggle('use_name').props.onValueChange(true);
+    assert.deepEqual(h.calls.saves, []); assert.deepEqual(h.calls.toasts, []);
+    await h.acceptConsent();
+    assert.equal(h.calls.saves.length, 1); assert.equal(h.calls.saves[0].use_name, true);
+    assert.equal(h.toggle('use_name').props.value, true); assert.equal(h.calls.back, 0);
+    assert.deepEqual(h.calls.toasts, [[h.t('personalization.saved'), 'success']]);
     h.unmount();
   });
 }
 await test('hydration and login guards precede any preference request', () => {
-  const cold = harness({ hydrated: false });
-  assert.equal(cold.render(true)[0].type, 'Spinner');
-  const guest = harness({ token: null });
-  assert.equal(guest.render(true)[0].type, 'Redirect');
-  assert.equal(guest.render(true)[0].props.href, '/login');
-  assert.equal(guest.calls.loads, 0);
+  const cold = harness({ hydrated: false }); assert.equal(cold.render(true)[0].type, 'Spinner');
+  const guest = harness({ token: null }); assert.equal(guest.render(true)[0].type, 'Redirect');
+  assert.equal(guest.render(true)[0].props.href, '/login'); assert.equal(guest.calls.loads, 0);
 });
-await test('consent cancellation does not enable or save optional data use', async () => {
-  const h = harness();
-  await h.settle();
-  h.consent('use_name', false);
-  assert.equal(h.toggle('use_name').props.value, false);
-  assert.equal(h.calls.saves.length, 0);
-  h.unmount();
+await test('cancelled consent changes neither saved flags nor success notifications', async () => {
+  const h = harness(); await h.settle(); await h.consent('use_name', false);
+  assert.equal(h.toggle('use_name').props.value, false); assert.deepEqual(h.calls.saves, []);
+  assert.deepEqual(h.calls.toasts, []); h.unmount();
 });
-await test('explicit consent enables a draft; only Save persists it for the current user', async () => {
-  const h = harness();
-  await h.settle();
-  h.consent('use_name');
-  assert.equal(h.toggle('use_name').props.value, true);
-  assert.equal(h.calls.saves.length, 0);
-  h.button('personalization.address.co').props.onPress();
-  await h.button('personalization.save').props.onPress();
-  assert.equal(h.calls.saves[0].use_name, true);
+await test('choosing an address autosaves immediately and reselecting it makes no duplicate request', async () => {
+  const h = harness(); await h.settle();
+  await h.button('personalization.address.co').props.onPress();
   assert.equal(h.calls.saves[0].address, 'co');
-  assert.equal(h.calls.back, 1);
-  h.unmount();
+  assert.equal(h.button('personalization.address.co').props.accessibilityState.checked, true);
+  assert.deepEqual(h.calls.toasts, [[h.t('personalization.saved'), 'success']]);
+  await h.button('personalization.address.co').props.onPress();
+  assert.equal(h.calls.saves.length, 1); assert.equal(h.calls.toasts.length, 1); h.unmount();
 });
-await test('weather consent requires an area and never asks GPS permission automatically', async () => {
-  const h = harness();
-  await h.settle();
-  h.consent('weather_enabled');
-  assert.equal(h.button('personalization.save').props.disabled, true);
-  assert.equal(h.calls.permissions, 0);
-  assert.ok(h.text().includes(h.t('personalization.chooseRegion')));
-  h.button('personalization.chooseRegion').props.onPress();
+await test('enabling weather without an area opens area choices without saving an invalid preference or requesting GPS', async () => {
+  const h = harness(); await h.settle();
+  h.toggle('weather_enabled').props.onValueChange(true);
   assert.equal(h.render().find(node => node.props.testID === 'voice-action-weather').props.expanded, true);
-  h.button('personalization.regions.hanoi').props.onPress();
-  await h.button('personalization.save').props.onPress();
-  assert.equal(h.calls.saves[0].region, 'hanoi');
-  assert.equal(h.calls.saves[0].location, null);
-  h.unmount();
+  assert.equal(h.toggle('weather_enabled').props.value, false);
+  assert.ok(h.text().includes(h.t('personalization.chooseRegion')));
+  assert.deepEqual(h.calls.saves, []); assert.deepEqual(h.calls.toasts, []); assert.equal(h.calls.permissions, 0);
+  await h.chooseRegion('hanoi');
+  assert.equal(h.calls.saves.length, 1); assert.equal(h.calls.saves[0].weather_enabled, true);
+  assert.equal(h.calls.saves[0].region, 'hanoi'); assert.equal(h.calls.saves[0].location, null);
+  assert.equal(h.calls.permissions, 0); assert.equal(h.calls.locations, 0); h.unmount();
 });
-await test('denied location offers manual area selection without blocking Save', async () => {
-  const h = harness({ permission: 'denied' });
-  await h.settle();
-  h.consent('weather_enabled');
-  await h.button('personalization.useLocation').props.onPress();
-  assert.equal(h.calls.locations, 0);
-  assert.ok(h.text().includes(h.t('personalization.locationDenied')));
-  h.button('personalization.regions.hcm').props.onPress();
-  assert.equal(h.button('personalization.save').props.disabled, false);
-  h.unmount();
+await test('declining weather consent does not save the chosen area', async () => {
+  const h = harness(); await h.settle(); await h.chooseRegion('hanoi', false);
+  assert.deepEqual(h.calls.saves, []); assert.equal(h.toggle('weather_enabled').props.value, false);
+  assert.deepEqual(h.calls.toasts, []); h.unmount();
 });
-await test('one foreground reading is rounded before saving; precise GPS never enters the API draft', async () => {
-  const h = harness();
-  await h.settle();
-  h.consent('weather_enabled');
-  await h.button('personalization.useLocation').props.onPress();
-  await h.button('personalization.save').props.onPress();
-  assert.equal(h.calls.permissions, 1);
-  assert.equal(h.calls.locations, 1);
-  assert.deepEqual(h.calls.saves[0].location, {
-    latitude: 10.8,
-    longitude: 106.7,
-  });
-  h.unmount();
+await test('changing an already enabled weather area autosaves without asking for consent or GPS again', async () => {
+  const h = harness({ value: { ...preferences.VOICE_DEFAULTS, weather_enabled: true, region: 'hanoi' } });
+  await h.settle(); await h.chooseRegion('hcm');
+  assert.equal(h.calls.saves[0].region, 'hcm'); assert.equal(h.modal().props.visible, false);
+  assert.equal(h.calls.permissions, 0); assert.equal(h.calls.toasts.at(-1)[1], 'success'); h.unmount();
 });
-await test('revoking weather clears the saved device location without a new permission', async () => {
-  const h = harness({
-    value: {
-      ...preferences.VOICE_DEFAULTS,
-      weather_enabled: true,
-      region: 'device',
-      location: { latitude: 10.8, longitude: 106.7 },
-    },
-  });
-  await h.settle();
-  h.toggle('weather_enabled').props.onValueChange(false);
-  await h.button('personalization.save').props.onPress();
-  assert.deepEqual(h.calls.saves[0], preferences.VOICE_DEFAULTS);
-  assert.equal(h.calls.permissions, 0);
-  h.unmount();
+await test('location is requested only after explicit consent, rounded once and then autosaved', async () => {
+  const h = harness(); await h.settle();
+  h.button('personalization.useLocation').props.onPress();
+  assert.equal(h.calls.permissions, 0); assert.equal(h.calls.locations, 0); assert.deepEqual(h.calls.saves, []);
+  await h.acceptConsent();
+  assert.equal(h.calls.permissions, 1); assert.equal(h.calls.locations, 1);
+  assert.equal(h.calls.saves[0].weather_enabled, true); assert.equal(h.calls.saves[0].region, 'device');
+  assert.deepEqual(h.calls.saves[0].location, { latitude: 10.8, longitude: 106.7 });
+  assert.deepEqual(h.calls.toasts, [[h.t('personalization.saved'), 'success']]); h.unmount();
 });
-await test('duplicate saves are coalesced before React can render the busy state', async () => {
-  const pending = deferred();
-  const h = harness({ save: () => pending.promise });
-  await h.settle();
-  h.consent('use_health');
-  const press = h.button('personalization.save').props.onPress;
-  const first = press();
-  const second = press();
-  assert.equal(h.calls.saves.length, 1);
-  assert.equal(h.button('personalization.save').props.disabled, true);
-  pending.resolve({ ok: true, preferences: h.calls.saves[0] });
-  await Promise.all([first, second]);
-  h.unmount();
+await test('denied location keeps weather off and a manual area can still autosave', async () => {
+  const h = harness({ permission: 'denied' }); await h.settle(); await h.useLocation();
+  assert.equal(h.calls.locations, 0); assert.deepEqual(h.calls.saves, []);
+  assert.ok(h.text().includes(h.t('personalization.locationDenied'))); assert.deepEqual(h.calls.toasts, []);
+  await h.chooseRegion('hcm');
+  assert.equal(h.calls.saves[0].region, 'hcm'); assert.equal(h.calls.saves[0].weather_enabled, true); h.unmount();
 });
-await test('failed Save retains the draft and lets the user retry without leaving the screen', async () => {
-  const h = harness({
-    save: async () => {
-      throw new Error('Offline');
-    },
-  });
-  await h.settle();
-  h.consent('use_health');
-  await h.button('personalization.save').props.onPress();
-  assert.equal(h.calls.back, 0);
-  assert.equal(h.toggle('use_health').props.value, true);
-  assert.equal(h.button('personalization.save').props.disabled, false);
-  assert.ok(h.text().includes('Offline'));
-  h.unmount();
+await test('revoking weather immediately saves the cleared area without a new permission', async () => {
+  const h = harness({ value: { ...preferences.VOICE_DEFAULTS, weather_enabled: true, region: 'device', location: { latitude: 10.8, longitude: 106.7 } } });
+  await h.settle(); await h.toggle('weather_enabled').props.onValueChange(false);
+  assert.deepEqual(h.calls.saves[0], preferences.VOICE_DEFAULTS); assert.equal(h.calls.permissions, 0);
+  assert.equal(h.toggle('weather_enabled').props.value, false); assert.equal(h.calls.toasts.at(-1)[1], 'success'); h.unmount();
 });
-await test('expired-package consent revocation is still an available settings action', async () => {
-  const h = harness({
-    value: { ...preferences.VOICE_DEFAULTS, use_name: true, use_health: true },
-  });
-  await h.settle();
-  h.toggle('use_name').props.onValueChange(false);
-  h.toggle('use_health').props.onValueChange(false);
-  await h.button('personalization.save').props.onPress();
-  assert.deepEqual(h.calls.saves[0], preferences.VOICE_DEFAULTS);
-  h.unmount();
+await test('duplicate actions coalesce and success appears only after the server confirms', async () => {
+  const pending = deferred(); const h = harness({ save: () => pending.promise }); await h.settle();
+  h.toggle('use_health').props.onValueChange(true);
+  const modal = h.modal(); modal.props.onDismiss();
+  const first = modal.props.buttons[1].onPress(), second = modal.props.buttons[1].onPress();
+  assert.equal(h.calls.saves.length, 1); assert.equal(h.toggle('use_health').props.disabled, true);
+  assert.equal(h.toggle('use_health').props.value, false); assert.deepEqual(h.calls.toasts, []);
+  pending.resolve({ ok: true, preferences: h.calls.saves[0] }); await Promise.all([first, second]);
+  assert.equal(h.toggle('use_health').props.value, true); assert.equal(h.calls.toasts.length, 1); h.unmount();
 });
-await test('failed loading shows Retry and does not present fake default settings as saved', async () => {
+await test('failed autosave retains confirmed values, reports failure and retries the selected choice', async () => {
+  let attempts = 0;
+  const h = harness({ save: async next => { if (!attempts++) throw new Error('Offline'); return { preferences: next }; } });
+  await h.settle(); await h.consent('use_health');
+  assert.equal(h.toggle('use_health').props.value, false); assert.equal(h.calls.back, 0);
+  assert.deepEqual(h.calls.toasts, [['Offline', 'error']]); assert.ok(h.retry());
+  await h.retry().props.onPress();
+  assert.equal(h.calls.saves.length, 2); assert.equal(h.toggle('use_health').props.value, true);
+  assert.deepEqual(h.calls.toasts.at(-1), [h.t('personalization.saved'), 'success']); assert.equal(h.retry(), undefined); h.unmount();
+});
+await test('a new successful choice replaces a failed retry instead of replaying an older setting', async () => {
+  let attempts = 0;
+  const h = harness({ save: async next => { if (!attempts++) throw new Error('Offline'); return { preferences: next }; } });
+  await h.settle(); await h.button('personalization.address.co').props.onPress(); assert.ok(h.retry());
+  await h.button('personalization.address.chi').props.onPress();
+  assert.equal(h.calls.saves[1].address, 'chi'); assert.equal(h.retry(), undefined);
+  assert.equal(h.button('personalization.address.chi').props.accessibilityState.checked, true); h.unmount();
+});
+await test('consent revocation remains available and each autosave preserves the other confirmed flags', async () => {
+  const h = harness({ value: { ...preferences.VOICE_DEFAULTS, use_name: true, use_health: true } }); await h.settle();
+  await h.toggle('use_name').props.onValueChange(false); await h.toggle('use_health').props.onValueChange(false);
+  assert.equal(h.calls.saves.length, 2); assert.equal(h.calls.saves[0].use_health, true);
+  assert.deepEqual(h.calls.saves[1], preferences.VOICE_DEFAULTS); h.unmount();
+});
+await test('failed loading exposes retry without fake preferences, writes or success notifications', async () => {
   let failures = 1;
-  const h = harness({
-    load: async () => {
-      if (failures--) throw new Error('Offline');
-      return { preferences: preferences.VOICE_DEFAULTS };
-    },
+  const h = harness({ load: async () => { if (failures--) throw new Error('Offline'); return { preferences: preferences.VOICE_DEFAULTS }; } });
+  await h.settle(); assert.equal(h.render().filter(node => node.type === 'ActionTile').length, 0);
+  assert.ok(h.retry()); assert.deepEqual(h.calls.saves, []); assert.deepEqual(h.calls.toasts, []);
+  h.retry().props.onPress(); await h.settle(); assert.ok(h.toggle('use_name')); h.unmount();
+});
+await test('a late location lookup cannot save or notify after the screen unmounts', async () => {
+  const gps = deferred(); const h = harness({ locate: () => gps.promise }); await h.settle();
+  const reading = h.useLocation(); await flush(); h.unmount();
+  gps.resolve({ coords: { latitude: 10.76, longitude: 106.66 } }); await reading;
+  assert.deepEqual(h.calls.saves, []); assert.deepEqual(h.calls.toasts, []);
+});
+for (const mode of ['unmount', 'account']) {
+  await test(`${mode}: late autosave cannot update or announce success in another screen or account`, async () => {
+    const pending = deferred(); const h = harness({ save: () => pending.promise }); await h.settle();
+    const saving = h.button('personalization.address.co').props.onPress();
+    if (mode === 'unmount') h.unmount(); else h.session.profile.id = '8';
+    pending.resolve({ preferences: h.calls.saves[0] }); await saving;
+    assert.equal(h.calls.back, 0); assert.deepEqual(h.calls.toasts, []);
+    if (mode !== 'unmount') h.unmount();
   });
-  await h.settle();
-  assert.equal(h.button('personalization.save'), undefined);
-  const retry = h
-    .render()
-    .find(
-      (node) =>
-        node.type === 'Button' &&
-        node.props.accessibilityLabel ===
-          JSON.parse(fs.readFileSync('src/i18n/locales/vi/common.json', 'utf8'))
-            .retry
-    );
-  assert.ok(retry);
-  retry.props.onPress();
-  await h.settle();
-  assert.ok(h.toggle('use_name'));
-  h.unmount();
+}
+await test('access-token renewal for the same account does not disable autosave', async () => {
+  const h = harness(); await h.settle(); h.session.token = 'renewed-session'; await h.consent('use_name');
+  assert.equal(h.calls.saves.length, 1); assert.equal(h.calls.toasts.at(-1)[1], 'success'); h.unmount();
 });
-await test('late location and Save completions cannot update an unmounted or different-user screen', async () => {
-  const gps = deferred();
-  const h = harness({ locate: () => gps.promise });
-  await h.settle();
-  h.consent('weather_enabled');
-  const reading = h.button('personalization.useLocation').props.onPress();
-  await flush();
-  h.unmount();
-  gps.resolve({ coords: { latitude: 10.76, longitude: 106.66 } });
-  await reading;
-  const pending = deferred();
-  const other = harness({ save: () => pending.promise });
-  await other.settle();
-  other.consent('use_name');
-  const saving = other.button('personalization.save').props.onPress();
-  other.session.profile.id = '8';
-  pending.resolve({ preferences: preferences.VOICE_DEFAULTS });
-  await saving;
-  assert.equal(other.calls.back, 0);
-  other.unmount();
-});
-await test('unchanged voice preferences cannot submit even when invoking the disabled handler', async () => {
-  const h = harness(); await h.settle();
-  const button = h.button('personalization.save'); assert.equal(button.props.disabled, true);
-  await button.props.onPress(); assert.equal(h.calls.saves.length, 0); h.unmount();
-});
-await test('access-token renewal for the same account does not silently disable the settings screen', async () => {
-  const h = harness();
-  await h.settle();
-  h.session.token = 'renewed-session';
-  h.consent('use_name');
-  await h.button('personalization.save').props.onPress();
-  assert.equal(h.calls.saves.length, 1);
-  h.unmount();
-});
-await test('long text can wrap; consent uses scrollable app UI and vertically stacked buttons', async () => {
-  const h = harness();
-  await h.settle();
-  h.consent('weather_enabled');
-  h.toggle('use_name').props.onValueChange(true);
-  assert.equal(h.modal().props.scrollable, true);
-  assert.equal(h.modal().props.stackButtons, true);
-  for (const node of h.render().filter((node) => node.type === 'Text'))
-    assert.equal(node.props.numberOfLines, undefined);
+await test('long text wraps and consent remains scrollable with vertically stacked buttons', async () => {
+  const h = harness(); await h.settle(); h.toggle('use_name').props.onValueChange(true);
+  assert.equal(h.modal().props.scrollable, true); assert.equal(h.modal().props.stackButtons, true);
+  for (const node of h.render().filter(node => node.type === 'Text')) assert.equal(node.props.numberOfLines, undefined);
   h.openSection('address');
-  for (const node of h
-    .render()
-    .filter(
-      (node) =>
-        node.type === 'Button' && node.props.accessibilityRole === 'radio'
-    )) {
-    assert.ok(node.props.style[0].minHeight >= 48);
-    assert.equal(node.props.style[0].height, undefined);
+  for (const node of h.render().filter(node => node.type === 'Button' && node.props.accessibilityRole === 'radio')) {
+    assert.ok(node.props.style[0].minHeight >= 48); assert.equal(node.props.style[0].height, undefined);
   }
-  assert.ok(h.render().some((node) => node.type === 'ScrollView'));
-  h.unmount();
+  assert.ok(h.render().some(node => node.type === 'ScrollView')); h.unmount();
 });
-await test('weather source attribution links to the provider license', async () => {
-  const h = harness({
-    value: {
-      ...preferences.VOICE_DEFAULTS,
-      weather_enabled: true,
-      region: 'hanoi',
-    },
-  });
-  await h.settle();
-  h.button('personalization.weatherSource').props.onPress();
-  await flush();
-  assert.deepEqual(h.calls.source, ['https://api.met.no/doc/License']);
-  h.unmount();
+await test('weather source attribution opens the provider license without changing preferences', async () => {
+  const h = harness(); await h.settle(); h.button('personalization.weatherSource').props.onPress(); await flush();
+  assert.deepEqual(h.calls.source, ['https://api.met.no/doc/License']); assert.deepEqual(h.calls.saves, []); h.unmount();
 });
-await test('switching personalization actions retains every draft and never reloads or saves it implicitly', async () => {
-  const h = harness(); await h.settle();
-  h.consent('use_name');
-  h.button('personalization.address.co').props.onPress();
-  h.openSection('weather'); h.consent('weather_enabled');
-  h.button('personalization.regions.hanoi').props.onPress();
+await test('switching action groups retains autosaved values without another load or implicit writes', async () => {
+  const h = harness(); await h.settle(); await h.consent('use_name');
+  await h.button('personalization.address.co').props.onPress(); await h.chooseRegion('hanoi');
   h.openSection('permissions'); assert.equal(h.toggle('use_name').props.value, true);
   h.openSection('address'); assert.equal(h.button('personalization.address.co').props.accessibilityState.checked, true);
-  const action = h.render().find(node => node.props.testID === 'voice-action-address');
-  action.props.onPress();
+  h.render().find(node => node.props.testID === 'voice-action-address').props.onPress();
   assert.ok(h.render().filter(node => node.type === 'ActionTile').every(node => node.props.expanded === false));
-  assert.equal(h.render().filter(node => node.props.accessibilityRole === 'radio').length, 0);
-  assert.equal(h.calls.loads, 1); assert.deepEqual(h.calls.saves, []);
-  await h.button('personalization.save').props.onPress();
-  assert.equal(h.calls.saves[0].address, 'co'); assert.equal(h.calls.saves[0].use_name, true);
-  assert.equal(h.calls.saves[0].weather_enabled, true); assert.equal(h.calls.saves[0].region, 'hanoi');
-  h.unmount();
+  assert.equal(h.calls.loads, 1); assert.equal(h.calls.saves.length, 3);
+  assert.equal(h.calls.saves[2].address, 'co'); assert.equal(h.calls.saves[2].use_name, true);
+  assert.equal(h.calls.saves[2].weather_enabled, true); h.unmount();
 });
 for (const [width, fontScale, multiplier, columns] of [[393, 1, 1, 3], [320, 1, 1, 2], [393, 1.4, 1.25, 2]]) {
   await test(`personalization actions fit ${width}px at font ${fontScale}/${multiplier}`, async () => {
     const h = harness({ width, fontScale, multiplier }); await h.settle();
     const actions = h.render().filter(node => node.type === 'ActionTile');
     assert.ok(actions.every(node => node.props.style.width >= 64));
-    assert.ok(Math.abs(actions[0].props.style.width * columns + 12 * (columns - 1) - (width - 40)) < 0.01);
-    h.unmount();
+    assert.ok(Math.abs(actions[0].props.style.width * columns + 12 * (columns - 1) - (width - 40)) < 0.01); h.unmount();
   });
 }
-await test('weather validation rejects empty regions, out-of-range GPS and non-finite coordinates', () => {
-  assert.equal(
-    preferences.weatherRegionReady(preferences.VOICE_DEFAULTS),
-    true
-  );
-  assert.equal(
-    preferences.weatherRegionReady({
-      ...preferences.VOICE_DEFAULTS,
-      weather_enabled: true,
-    }),
-    false
-  );
-  assert.equal(
-    preferences.weatherRegionReady({
-      ...preferences.VOICE_DEFAULTS,
-      weather_enabled: true,
-      region: 'device',
-      location: { latitude: NaN, longitude: 106 },
-    }),
-    false
-  );
-  assert.deepEqual(preferences.coarsePoint(10.762622, 106.660172), {
-    latitude: 10.8,
-    longitude: 106.7,
-  });
+await test('weather validation rejects empty areas, out-of-range GPS and non-finite coordinates', () => {
+  assert.equal(preferences.weatherRegionReady(preferences.VOICE_DEFAULTS), true);
+  assert.equal(preferences.weatherRegionReady({ ...preferences.VOICE_DEFAULTS, weather_enabled: true }), false);
+  assert.equal(preferences.weatherRegionReady({ ...preferences.VOICE_DEFAULTS, weather_enabled: true, region: 'device', location: { latitude: NaN, longitude: 106 } }), false);
+  assert.equal(preferences.weatherRegionReady({ ...preferences.VOICE_DEFAULTS, weather_enabled: true, region: 'device', location: { latitude: 91, longitude: 106 } }), false);
 });
-
 console.log(`Check-in personalization: ${checks} runtime checks passed.`);
