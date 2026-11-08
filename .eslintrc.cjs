@@ -14,7 +14,7 @@ module.exports = {
   ],
   overrides: [
     {
-      files: ['scripts/check-checkin-conclusion.mjs', 'scripts/check-checkin-practice.mjs', 'scripts/check-guided-onboarding.mjs'],
+      files: ['scripts/check-checkin-conclusion.mjs', 'scripts/check-checkin-practice.mjs', 'scripts/check-guided-onboarding.mjs', 'scripts/check-checkin-voice-upload.mjs'],
       parser: 'espree',
       parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
     },

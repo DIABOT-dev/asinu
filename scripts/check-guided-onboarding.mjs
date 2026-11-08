@@ -889,6 +889,7 @@ await test('the real transcription client keeps chat gated separately and bounds
   class Form { constructor(){this.entries=[];} append(...args){this.entries.push(args);} }
   class Failure extends Error { constructor(message,status){super(message);this.statusCode=status;} }
   const {chatApi}=evaluate('src/features/chat/chat.api.ts',{
+    'expo-file-system':{File:class File {constructor(uri){this.uri=uri;} }},'react-native':{Platform:{OS:'ios'}},
     '../../observability/sentry':{monitoredFetch:async(url,options)=>{requests.push({url,options});return response;}},
     '../../i18n':{default:{t:key=>key}},'../../lib/apiClient':{ApiError:Failure},
     '../../lib/env':{env:{apiBaseUrl:'https://test.invalid'}},'../../lib/tokenStore':{tokenStore:{getToken:()=> 'test-token'}},
