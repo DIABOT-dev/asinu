@@ -71,7 +71,6 @@ function harness({
     back: 0,
     permissions: 0,
     locations: 0,
-    source: [],
     toasts: [],
   };
   const memo = (fn, deps) => {
@@ -156,7 +155,6 @@ function harness({
       Switch: 'Switch',
       View: 'View',
       StyleSheet: { create: (v) => v },
-      Linking: { openURL: async (url) => calls.source.push(url) },
       useWindowDimensions: () => ({ width, fontScale }),
     },
     '@expo/vector-icons': { Ionicons: 'Icon' },
@@ -242,7 +240,7 @@ function harness({
     },
     button: key => {
       if (key.startsWith('personalization.address.')) h.openSection('address');
-      if (key.startsWith('personalization.regions.') || ['personalization.useLocation', 'personalization.weatherSource'].includes(key)) h.openSection('weather');
+      if (key.startsWith('personalization.regions.') || key === 'personalization.useLocation') h.openSection('weather');
       return render().find(node => node.type === 'Button' && node.props.accessibilityLabel === translations.checkinCall(key));
     },
     toggle: field => {
@@ -451,10 +449,6 @@ await test('long text wraps and consent remains scrollable with vertically stack
     assert.ok(node.props.style[0].minHeight >= 48); assert.equal(node.props.style[0].height, undefined);
   }
   assert.ok(h.render().some(node => node.type === 'ScrollView')); h.unmount();
-});
-await test('weather source attribution opens the provider license without changing preferences', async () => {
-  const h = harness(); await h.settle(); h.button('personalization.weatherSource').props.onPress(); await flush();
-  assert.deepEqual(h.calls.source, ['https://api.met.no/doc/License']); assert.deepEqual(h.calls.saves, []); h.unmount();
 });
 await test('switching action groups retains autosaved values without another load or implicit writes', async () => {
   const h = harness(); await h.settle(); await h.consent('use_name');

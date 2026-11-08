@@ -2,7 +2,6 @@ import { runNativePermission } from '../../src/lib/native-permissions';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -438,20 +437,6 @@ export function VoiceSettings({ userId }: { userId: string }) {
                   <Text style={styles.copy}>
                     {t('personalization.weatherCredit')}
                   </Text>
-                  <Pressable
-                    accessibilityRole="link"
-                    accessibilityLabel={t('personalization.weatherSource')}
-                    style={styles.action}
-                    onPress={() => {
-                      void Linking.openURL(
-                        'https://api.met.no/doc/License'
-                      ).catch(() => setError(t('personalization.linkFailed')));
-                    }}
-                  >
-                    <Text style={styles.optionText}>
-                      {t('personalization.weatherSource')}
-                    </Text>
-                  </Pressable>
                 </>
               </View>
             )}

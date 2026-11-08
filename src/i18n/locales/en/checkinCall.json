@@ -55,8 +55,6 @@
     "chooseRegion": "Choose an area to turn on weather reminders.",
     "weatherCredit": "Forecast from MET Norway (CC BY 4.0). Asinu turns it into general daily-life reminders, not treatment advice.",
     "weatherForecastAt": "Forecast time: {{time}}",
-    "weatherSource": "View the weather data source and license",
-    "linkFailed": "Could not open the link. Please try again.",
     "consentTitle": "Allow reminder personalization?",
     "voiceConsent": "When enabled, Asinu uses your selected information to create in-app reminders. Only the text to be spoken is sent to the VieNeu speech service, not your full profile. You can turn this off and save at any time. Private information is not read on the lock screen.",
     "weatherConsent": "Asinu sends approximate regional coordinates through its backend to MET Norway for a forecast, not your name or health data. There is no background location tracking. You can choose a region manually without granting GPS permission.",
