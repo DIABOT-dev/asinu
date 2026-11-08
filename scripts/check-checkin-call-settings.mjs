@@ -95,7 +95,7 @@ function harness({ language = 'vi', settings = defaults, contacts = [], status, 
     'react-i18next': { useTranslation: namespace => ({ t: translations[namespace] }) },
     '../../src/components/AppAlertModal': { AppAlertModal: 'AppModal' },
     '../../src/components/ScaledText': { ScaledText: 'Text' },
-    '../../src/features/checkin-call/AndroidCallAccessCard': { AndroidCallAccessCard: 'AndroidAccessCard' },
+    '../../src/features/checkin-call/CallSettingPicker': { CallSettingPicker: 'SettingPicker' },
     '../../src/stores/font-size.store': { useFontSizeStore: selector => selector({ scale: fontScale }) },
     '../../src/stores/toast.store': { showToast: (...args) => calls.toasts.push(args) },
     '../../src/lib/apiClient': { apiClient: async path => {
@@ -144,6 +144,7 @@ function harness({ language = 'vi', settings = defaults, contacts = [], status, 
     button: key => render().find(node => node.type === 'Button' && node.props.accessibilityLabel === translations.checkinCall(key)),
     toggle: () => render().find(node => node.type === 'Switch'),
     modal: () => render().find(node => node.type === 'AppModal' && node.props.visible),
+    picker: () => render().find(node => node.type === 'SettingPicker'),
     confirmWarning: () => {
       const modal = h.modal(); assert.ok(modal, 'The no-relative warning must be shown');
       modal.props.onDismiss(); return modal.props.buttons[0].onPress?.();
@@ -187,7 +188,9 @@ for (const language of ['vi', 'en']) {
     h.confirmWarning();
     assert.equal(h.toggle().props.value, true);
     assert.equal(h.button('saveSettings').props.disabled, false);
-    h.button('manageCareCircle').props.onPress();
+    h.toggle().props.onValueChange(false);
+    h.toggle().props.onValueChange(true);
+    const warning = h.modal(); warning.props.onDismiss(); warning.props.buttons[1].onPress?.();
     assert.deepEqual(h.calls.pushes, ['/care-circle']); h.unmount();
   });
   await test(`${language}: successful save sends the edited draft and leaves only after success`, async () => {
@@ -230,8 +233,7 @@ for (const language of ['vi', 'en']) {
   await test(`${language}: an enabled schedule can be edited and saved while the circle stays empty`, async () => {
     const h = harness({ language, settings: { ...defaults, enabled: true } }); await h.settle();
     h.button('checkinTime').props.onPress();
-    const increase = h.render().find(node => node.type === 'Button' && node.props.accessibilityLabel === h.t('increaseValue', { label: h.t('checkinTime') }));
-    increase.props.onPress({ stopPropagation() {} });
+    h.picker().props.onConfirm('08:30');
     assert.equal(h.modal(), undefined); await h.button('saveSettings').props.onPress();
     assert.equal(h.calls.saves[0].enabled, true); assert.equal(h.calls.saves[0].checkin_time, '08:30');
     assert.deepEqual(h.calls.toasts.at(-1), [h.t('savedSettings'), 'success']); h.unmount();
@@ -241,19 +243,20 @@ await test('returning from Care Circle refreshes contacts without dropping an un
   const h = harness(); await h.settle();
   h.enable();
   h.button('checkinTime').props.onPress();
-  const increase = h.render().find(node => node.type === 'Button' && node.props.accessibilityLabel === h.t('increaseValue', { label: h.t('checkinTime') }));
-  increase.props.onPress({ stopPropagation() {} });
+  h.picker().props.onConfirm('08:30');
   h.blur(); h.server.contacts = [{ id: 8, name: 'New relative' }]; await h.focus();
-  assert.equal(h.calls.settings, 2); assert.ok(h.text().includes('New relative'));
-  assert.equal(h.toggle().props.value, true); await h.button('saveSettings').props.onPress();
+  assert.equal(h.calls.settings, 2); assert.equal(h.toggle().props.value, true);
+  h.toggle().props.onValueChange(false); h.toggle().props.onValueChange(true);
+  assert.equal(h.modal(), undefined);
+  await h.button('saveSettings').props.onPress();
   assert.equal(h.calls.saves[0].checkin_time, '08:30'); h.unmount();
 });
-await test('manual refresh and returning from background both recheck eligibility', async () => {
+await test('returning from background rechecks eligibility without a manual refresh button', async () => {
   const h = harness(); await h.settle();
   h.server.contacts = [{ id: 8, name: 'Refreshed relative' }];
-  h.button('refreshContacts').props.onPress(); await h.settle();
-  assert.ok(h.text().includes('Refreshed relative')); assert.equal(h.calls.settings, 2);
-  await h.resume(); assert.equal(h.calls.settings, 3); h.unmount();
+  await h.resume(); assert.equal(h.calls.settings, 2);
+  h.toggle().props.onValueChange(true); assert.equal(h.modal(), undefined);
+  assert.equal(h.toggle().props.value, true); h.unmount();
 });
 await test('duplicate taps cannot send two saves before React updates the busy state', async () => {
   let complete;
@@ -271,20 +274,19 @@ await test('expired subscription still blocks configuration with the app modal',
 });
 await test('a failed refresh cannot save under an unknown entitlement and can recover', async () => {
   const h = harness(); await h.settle(); h.enable();
-  h.server.status = new Error('Offline'); h.button('refreshContacts').props.onPress(); await h.settle();
+  h.server.status = new Error('Offline'); await h.resume();
   assert.equal(h.button('saveSettings').props.disabled, true); assert.equal(h.calls.saves.length, 0);
   assert.deepEqual(h.calls.toasts.at(-1), ['Offline', 'error', 5000]);
   assert.ok(!h.text().includes('Offline'));
-  h.server.status = { callCenterEnabled: true }; h.button('refreshContacts').props.onPress(); await h.settle();
+  h.server.status = { callCenterEnabled: true }; await h.resume();
   assert.equal(h.button('saveSettings').props.disabled, false); h.unmount();
 });
-await test('large text keeps setup actions readable with accessible touch targets', async () => {
+await test('large text keeps timing controls readable with accessible touch targets', async () => {
   const h = harness({ width: 320, fontScale: 'xlarge' }); await h.settle();
-  for (const key of ['manageCareCircle', 'refreshContacts']) {
-    const button = h.button(key); assert.ok(button.props.style.minHeight >= 44);
-    assert.equal(button.props.children[1].props.numberOfLines, undefined);
-  }
-  const row = h.button('checkinTime'); assert.equal(row.props.style[1].flexDirection, 'column'); h.unmount();
+  const row = h.button('checkinTime'); assert.equal(row.props.style[1].flexDirection, 'column');
+  row.props.onPress();
+  assert.equal(h.picker().props.value, '08:00');
+  h.unmount();
 });
 await test('a failed initial settings load uses a toast and a neutral retry state, never a red error paragraph', async () => {
   const h = harness({ status: new Error('Offline') }); await h.settle();
@@ -296,4 +298,91 @@ await test('leaving settings before a save finishes cannot show a success toast 
   await h.settle(); h.enable(); const save = h.button('saveSettings').props.onPress();
   h.unmount(); complete(); await save; assert.equal(h.calls.back, 0); assert.deepEqual(h.calls.toasts, []);
 });
+await test('clock wheels accept minute precision only after confirmation and cancellation preserves the draft', async () => {
+  const h = harness({ contacts: [{ id: 1, name: 'Relative' }] }); await h.settle();
+  h.button('checkinTime').props.onPress();
+  assert.equal(h.picker().props.value, '08:00');
+  h.picker().props.onClose(); assert.equal(h.picker(), undefined);
+  assert.equal(h.button('saveSettings').props.disabled, true);
+  h.button('checkinTime').props.onPress();
+  h.picker().props.onConfirm('24:10'); assert.equal(h.button('saveSettings').props.disabled, true);
+  h.picker().props.onConfirm('07:43'); assert.equal(h.picker(), undefined);
+  await h.button('saveSettings').props.onPress();
+  assert.equal(h.calls.saves[0].checkin_time, '07:43'); h.unmount();
+});
+await test('duration wheels retain server limits and steps, and reject invalid direct callbacks', async () => {
+  const h = harness({ contacts: [{ id: 1, name: 'Relative' }] }); await h.settle();
+  h.button('fieldUserTimeout').props.onPress();
+  assert.deepEqual(h.picker().props.values, [30, 60, 90, 120, 150, 180]);
+  h.picker().props.onConfirm(45); assert.equal(h.button('saveSettings').props.disabled, true);
+  h.picker().props.onConfirm(999); assert.equal(h.button('saveSettings').props.disabled, true);
+  h.picker().props.onConfirm(120); await h.button('saveSettings').props.onPress();
+  assert.equal(h.calls.saves[0].user_timeout_seconds, 120); h.unmount();
+});
+
+function wheelHarness(value, values) {
+  const selected = [], closed = [];
+  const slots = []; let cursor = 0;
+  const hooks = {
+    useState: initial => { const index = cursor++; slots[index] ??= { value: initial };
+      return [slots[index].value, value => { slots[index].value = typeof value === 'function' ? value(slots[index].value) : value; }]; },
+    useRef: initial => { const index = cursor++; slots[index] ??= { current: initial }; return slots[index]; },
+    useMemo: work => work(),
+  };
+  const module = { exports: {} };
+  const jsx = (type, props) => ({ type, props });
+  const imports = {
+    react: hooks, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
+    'react-native': { View: 'View', Pressable: 'Button', StyleSheet: { create: value => value, absoluteFill: {} },
+      useWindowDimensions: () => ({ height: 680, fontScale: 1.4 }) },
+    '@expo/vector-icons': { Ionicons: 'Icon' },
+    '@quidone/react-native-wheel-picker': { __esModule: true, default: 'Wheel' },
+    'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 20, bottom: 20 }) },
+    '../../components/QueuedModal': { QueuedModal: 'QueuedModal' },
+    '../../components/ScaledText': { ScaledText: 'Text' },
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
+    '../../hooks/useScaledTypography': { useScaledTypography: () => ({ scaledSize: { xl: 28 } }) },
+  };
+  const source = fs.readFileSync('src/features/checkin-call/CallSettingPicker.tsx', 'utf8');
+  const output = ts.transpileModule(source, { compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
+  } }).outputText;
+  new Function('module', 'exports', 'require', output)(module, module.exports, id => {
+    assert.ok(id in imports, `Missing wheel adapter ${id}`); return imports[id];
+  });
+  const walk = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(walk)
+    : [tree, ...walk(tree.props?.children)];
+  const render = () => { cursor = 0; return module.exports.CallSettingPicker({ title: 'Time', value, values,
+    unit: 'seconds', onConfirm: next => selected.push(next), onClose: () => closed.push(true) }); };
+  const nodes = () => walk(render());
+  return { render, nodes, selected, closed,
+    wheels: () => nodes().filter(node => node.type === 'Wheel'),
+    confirm: () => nodes().find(node => node.props.testID === 'call-setting-picker-confirm'),
+  };
+}
+await test('library clock wheels preserve both columns when changed before the next render', () => {
+  const h = wheelHarness('08:00'); const [hour, minute] = h.wheels();
+  hour.props.onValueChanged({ item: { value: 7 } }); minute.props.onValueChanged({ item: { value: 43 } });
+  assert.deepEqual(h.selected, []); h.confirm().props.onPress(); assert.deepEqual(h.selected, ['07:43']);
+  assert.equal(h.wheels()[0].props.visibleItemCount, 3);
+});
+await test('confirmation waits for every moving wheel to settle', () => {
+  const h = wheelHarness('08:00'); const [hour, minute] = h.wheels();
+  hour.props._onScrollStart(); minute.props._onScrollStart();
+  h.confirm().props.onPress(); assert.deepEqual(h.selected, []);
+  hour.props._onScrollEnd(); assert.equal(h.confirm().props.disabled, true);
+  minute.props._onScrollEnd(); assert.equal(h.confirm().props.disabled, false);
+});
+await test('duration wheel accessibility adjusts within the allowed options and cancel never confirms', () => {
+  const h = wheelHarness(180, [30, 60, 90, 120, 150, 180]);
+  const adjustable = () => h.nodes().find(node => node.props.accessibilityRole === 'adjustable');
+  adjustable().props.onAccessibilityAction({ nativeEvent: { actionName: 'increment' } });
+  assert.equal(h.wheels()[0].props.value, 180);
+  adjustable().props.onAccessibilityAction({ nativeEvent: { actionName: 'decrement' } });
+  assert.equal(h.wheels()[0].props.value, 150);
+  h.nodes().find(node => node.props.accessibilityLabel === 'cancel').props.onPress();
+  assert.equal(h.closed.length, 1); assert.deepEqual(h.selected, []);
+});
+
 console.log(`Check-in call settings: ${checks} runtime checks passed.`);

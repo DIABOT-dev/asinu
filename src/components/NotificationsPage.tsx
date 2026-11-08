@@ -626,13 +626,6 @@ export function NotificationsPage() {
               </View>
             </View>
 
-            {unreadCount > 0 && notifications.length > 0 && (
-              <View style={styles.inboxSummary}>
-                <Text style={styles.summaryText}>
-                  {t('notificationUnreadCount', { count: unreadCount })}
-                </Text>
-              </View>
-            )}
 
             <View style={styles.filterRow}>
               <ScrollView
@@ -928,17 +921,6 @@ function createStyles(
       fontSize: scaledTypography.size.sm,
       fontWeight: '600',
       flexShrink: 1,
-    },
-    inboxSummary: {
-      minHeight: 52,
-      marginTop: spacing.sm,
-      paddingHorizontal: spacing.xl,
-      justifyContent: 'center',
-    },
-    summaryText: {
-      color: colors.textSecondary,
-      fontSize: scaledTypography.size.sm,
-      fontWeight: '500',
     },
     filterRow: { marginTop: spacing.xs },
     filterContent: {

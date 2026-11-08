@@ -428,7 +428,6 @@
     "downloadSize": "{{downloaded}} MB / {{total}} MB"
   },
   "notificationUnread": "Chưa đọc",
-  "notificationUnreadCount": "{{count}} chưa đọc",
   "notificationLoadFailed": "Chưa tải được thông báo",
   "notificationFilterEmpty": "Chưa có thông báo trong mục này",
   "notificationEmptyHint": "Nhắc nhở sức khỏe và tin từ gia đình sẽ xuất hiện ở đây."

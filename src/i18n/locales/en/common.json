@@ -428,7 +428,6 @@
     "downloadSize": "{{downloaded}} MB / {{total}} MB"
   },
   "notificationUnread": "Unread",
-  "notificationUnreadCount": "{{count}} unread",
   "notificationLoadFailed": "Could not load notifications",
   "notificationFilterEmpty": "No notifications in this category",
   "notificationEmptyHint": "Health reminders and updates from your family will appear here."

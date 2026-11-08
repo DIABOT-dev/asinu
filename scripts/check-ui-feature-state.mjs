@@ -1988,13 +1988,13 @@ await test("inbox item actions do not open or mark a notification and deletion s
   assert.deepEqual(h.calls.removed, ["checkin"]);
   h.blur();
 });
-await test("the inbox omits the read-all summary and shortcut while its overflow action still marks all read", async () => {
+await test("the inbox omits read-all and unread-count summaries while its overflow action still marks all read", async () => {
   const h = inboxHarness();
   await h.settle();
   const assertRemovedLabels = () => {
     assert.ok(
       !journeyNodes(h.read()).some((node) =>
-        ["Đã đọc tất cả", "Đọc tất cả"].includes(node.props.children),
+        ["Đã đọc tất cả", "Đọc tất cả", "1 chưa đọc"].includes(node.props.children),
       ),
     );
   };
@@ -2015,9 +2015,6 @@ await test("the inbox omits the read-all summary and shortcut while its overflow
         ),
     );
   assertRemovedLabels();
-  assert.ok(
-    journeyNodes(h.read()).some((node) => node.props.children === "1 chưa đọc"),
-  );
   assert.equal(markAllButton(), undefined);
   openActions();
   const button = markAllButton();

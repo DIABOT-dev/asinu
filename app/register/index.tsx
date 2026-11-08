@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -14,11 +15,6 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeInUp,
-} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScaledTextInput as RNTextInput } from '../../src/components/ScaledTextInput';
@@ -31,10 +27,11 @@ import { LanguageToggle } from '../../src/components/LanguageToggle';
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { MedicalAuthBackdrop } from '../../src/components/MedicalAuthBackdrop';
-
-const appLogo = require('../../assets/icon.png');
+import { authScreenLogo as appLogo, useAuthScreenReady } from '../../src/features/auth/useAuthScreenReady';
+import { AuthScreenLoading } from '../../src/features/auth/AuthScreenLoading';
 
 export default function RegisterScreen() {
+  const screenReady = useAuthScreenReady();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -148,6 +145,8 @@ export default function RegisterScreen() {
 
   const canSubmit = isAgreed && email.trim() && password.trim() && !loading;
 
+  if (!screenReady) return <AuthScreenLoading />;
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -197,25 +196,19 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Top Bar: Pill Language Toggle on Right */}
-          <Animated.View entering={FadeIn.duration(400)} style={styles.topBarRowNoBack}>
+          <View style={styles.topBarRowNoBack}>
             <LanguageToggle />
-          </Animated.View>
+          </View>
 
-          {/* Logo + Title + Subtitle */}
+          {/* Logo */}
           <View style={styles.heroSection}>
-            <Animated.View entering={FadeInDown.duration(500)} style={styles.logoWrap}>
+            <View style={styles.logoWrap}>
               <Image source={appLogo} style={styles.logo} resizeMode="cover" />
-            </Animated.View>
-            <Animated.View entering={FadeIn.delay(200).duration(400)} style={{ alignSelf: 'stretch' }}>
-              <Text style={styles.title}>{t('createAccount')}</Text>
-            </Animated.View>
-            <Animated.View entering={FadeIn.delay(300).duration(400)} style={{ alignSelf: 'stretch' }}>
-              <Text style={styles.subtitle}>{t('registerSubtitle')}</Text>
-            </Animated.View>
+            </View>
           </View>
 
           {/* Main Form Card */}
-          <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+          <View>
             <View style={styles.formCard}>
               {/* Email Field */}
               <View style={styles.inputGroup}>
@@ -254,7 +247,6 @@ export default function RegisterScreen() {
                     style={styles.textInputField}
                   />
                 </View>
-                <Text style={styles.fieldHelp}>{t('phoneHelp')}</Text>
                 {phoneError && (
                   <View style={styles.fieldErrorRow}>
                     <Ionicons name="alert-circle" size={14} color={colors.danger} />
@@ -376,10 +368,10 @@ export default function RegisterScreen() {
                 </LinearGradient>
               </Pressable>
             </View>
-          </Animated.View>
+          </View>
 
           {/* Trust Points Card (Bảo mật - An toàn - Hỗ trợ) */}
-          <Animated.View entering={FadeInUp.delay(350).duration(400)}>
+          <View>
             <View style={styles.trustCard}>
               {/* Item 1: Bảo mật */}
               <View style={styles.trustItem}>
@@ -412,15 +404,15 @@ export default function RegisterScreen() {
                 </View>
               </View>
             </View>
-          </Animated.View>
+          </View>
 
           {/* Login Prompt */}
-          <Animated.View entering={FadeInUp.delay(450).duration(400)} style={styles.loginPrompt}>
+          <View style={styles.loginPrompt}>
             <Text style={styles.loginText}>{t('hasAccount')}</Text>
-            <Pressable onPress={() => router.replace('/login')}>
+            <Pressable onPress={() => { Keyboard.dismiss(); router.replace('/login'); }}>
               <Text style={styles.loginLink}>{t('login')}</Text>
             </Pressable>
-          </Animated.View>
+          </View>
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
@@ -515,21 +507,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       width: '100%',
       height: '100%',
     },
-    title: {
-      fontSize: 27,
-      fontWeight: '800',
-      color: isDark ? '#F1F5F9' : '#0B1E48',
-      textAlign: 'center',
-      letterSpacing: -0.5,
-    },
-    subtitle: {
-      color: isDark ? '#94A3B8' : '#64748B',
-      textAlign: 'center',
-      fontSize: 14,
-      lineHeight: 20,
-      marginTop: 2,
-    },
-
     // ── Form Card ──
     formCard: {
       backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
@@ -575,12 +552,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     eyeBtn: {
       padding: 6,
       marginLeft: 4,
-    },
-    fieldHelp: {
-      fontSize: 12.5,
-      color: isDark ? '#94A3B8' : '#64748B',
-      marginLeft: 4,
-      marginTop: 2,
     },
     fieldErrorRow: {
       flexDirection: 'row',

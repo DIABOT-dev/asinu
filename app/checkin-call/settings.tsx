@@ -20,10 +20,11 @@ import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { useFontSizeStore } from '../../src/stores/font-size.store';
 import { showToast } from '../../src/stores/toast.store';
-import { AndroidCallAccessCard } from '../../src/features/checkin-call/AndroidCallAccessCard';
+import { CallSettingPicker } from '../../src/features/checkin-call/CallSettingPicker';
 
+type DurationField = 'grace_hours' | 'user_timeout_seconds' | 'family_ring_seconds' | 'family_confirm_minutes' | 'max_rounds';
 const FIELDS: Array<{
-  key: keyof CheckinCallSettings;
+  key: DurationField;
   labelKey: string;
   unitKey: string;
   icon: keyof typeof Ionicons.glyphMap;
@@ -37,16 +38,6 @@ const FIELDS: Array<{
   { key: 'family_confirm_minutes', labelKey: 'fieldFamilyConfirm', unitKey: 'unitMinutes', icon: 'stopwatch-outline', min: 5, max: 30, step: 5 },
   { key: 'max_rounds', labelKey: 'fieldMaxRounds', unitKey: 'unitRounds', icon: 'warning-outline', min: 1, max: 3, step: 1 },
 ];
-
-const minutesFromTime = (time: string) => {
-  const [hours, minutes] = time.slice(0, 5).split(':').map(Number);
-  return hours * 60 + minutes;
-};
-
-const timeFromMinutes = (minutes: number) => {
-  const normalized = (minutes + 24 * 60) % (24 * 60);
-  return `${String(Math.floor(normalized / 60)).padStart(2, '0')}:${String(normalized % 60).padStart(2, '0')}`;
-};
 
 export default function CheckinCallSettingsScreen() {
   const router = useRouter();
@@ -114,6 +105,7 @@ export default function CheckinCallSettingsScreen() {
     return () => {
       active = false;
       focused.current = false;
+      if (mounted.current) setActiveField(null);
     };
   }, [tc, reload]));
 
@@ -159,22 +151,16 @@ export default function CheckinCallSettingsScreen() {
     setValue(current => current ? { ...current, enabled } : current);
   };
 
-  const shiftTime = (direction: 1 | -1) => {
-    if (!value || saving) return;
-    setValue({
-      ...value,
-      checkin_time: timeFromMinutes(minutesFromTime(value.checkin_time) + direction * 30),
-    });
-  };
-
-  const stepField = (
-    field: typeof FIELDS[number],
-    direction: 1 | -1
-  ) => {
-    if (!value || saving) return;
-    const current = Number(value[field.key]);
-    const next = Math.min(field.max, Math.max(field.min, current + direction * field.step));
-    setValue({ ...value, [field.key]: next });
+  const selectedField = FIELDS.find(field => field.key === activeField);
+  const confirmSelection = (next: string | number) => {
+    if (!value || saveInFlight.current || access !== 'granted' || noContactsWarning || !focused.current) return;
+    if (activeField === 'time' && typeof next === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(next)) {
+      setValue(current => current ? { ...current, checkin_time: next } : current);
+    } else if (selectedField && typeof next === 'number' && Number.isFinite(next)
+      && next >= selectedField.min && next <= selectedField.max && (next - selectedField.min) % selectedField.step === 0) {
+      setValue(current => current ? { ...current, [selectedField.key]: next } : current);
+    } else return;
+    setActiveField(null);
   };
 
   if (access === 'denied') {
@@ -234,7 +220,7 @@ export default function CheckinCallSettingsScreen() {
         >
           <Ionicons name="chevron-back" size={24} color="#0f3e36" />
         </Pressable>
-        <Text style={styles.topBarTitle}>{t('title')}</Text>
+        <Text style={styles.topBarTitle}>{t('settingsTitle')}</Text>
         <View style={styles.backButton} />
       </View>
 
@@ -245,7 +231,7 @@ export default function CheckinCallSettingsScreen() {
           <View style={styles.cardHeader}>
             <View style={styles.titleRow}>
               <Ionicons name="headset-outline" size={24} color="#00897b" />
-              <Text style={styles.cardTitle}>{t('title')}</Text>
+              <Text style={styles.cardTitle}>{t('settingsTitle')}</Text>
             </View>
           </View>
 
@@ -265,146 +251,34 @@ export default function CheckinCallSettingsScreen() {
             />
           </View>
 
-          <AndroidCallAccessCard />
-          <Pressable accessibilityRole="button" accessibilityLabel={t('personalization.open')}
-            style={styles.setupAction} disabled={busy} onPress={() => router.push('/checkin-call/voice-settings')}>
-            <Ionicons name="person-outline" size={20} color="#00897b" />
-            <Text style={styles.setupActionText}>{t('personalization.open')}</Text>
-          </Pressable>
-          {contacts !== null && <View style={styles.contactPreview}>
-            <Text style={styles.toggleLabel}>{t('eligibleContacts')}</Text>
-            {contacts.length === 0 ? <>
-              <Text style={styles.cardSubtitle}>{t('noEligibleContacts')}</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('manageCareCircle')}
-                disabled={busy}
-                style={styles.setupAction}
-                onPress={() => router.push('/care-circle')}
-              >
-                <Ionicons name="people-outline" size={20} color="#00897b" />
-                <Text style={styles.setupActionText}>{t('manageCareCircle')}</Text>
-              </Pressable>
-            </> : contacts.map((contact, index) => <Text style={styles.cardSubtitle} key={contact.id}>{index + 1}. {contact.name || t('eligibleContactFallback', { index: index + 1 })}</Text>)}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('refreshContacts')}
-              accessibilityState={{ disabled: busy, busy: access === 'loading' }}
-              disabled={busy}
-              style={styles.setupAction}
-              onPress={() => setReload(current => current + 1)}
-            >
-              {access === 'loading'
-                ? <ActivityIndicator size="small" color="#00897b" />
-                : <Ionicons name="refresh-outline" size={20} color="#00897b" />}
-              <Text style={styles.setupActionText}>{t('refreshContacts')}</Text>
-            </Pressable>
-          </View>}
 
-          {/* Row 1: Check-in Time */}
           <Pressable
             style={[styles.settingItemRow, stackedFields && styles.stackedItemRow]}
-            accessibilityRole="button"
-            accessibilityLabel={t('checkinTime')}
-            accessibilityValue={{ text: value.checkin_time.slice(0, 5) }}
-            accessibilityHint={t('editSettingHint')}
-            onPress={() => setActiveField(activeField === 'time' ? null : 'time')}
-          >
+            accessibilityRole="button" accessibilityLabel={t('checkinTime')}
+            accessibilityValue={{ text: value.checkin_time.slice(0, 5) }} accessibilityHint={t('editSettingHint')}
+            disabled={busy} accessibilityState={{ disabled: busy }} onPress={() => setActiveField('time')}>
             <View style={styles.rowLeftGroup}>
               <Ionicons name="call-outline" size={22} color="#00897b" style={styles.settingRowIcon} />
               <Text style={styles.settingItemLabel}>{t('checkinTime')}</Text>
             </View>
-            <View style={styles.pillWithControls}>
-              {activeField === 'time' && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('decreaseValue', { label: t('checkinTime') })}
-                  style={styles.stepBtn}
-                  onPress={(event) => {
-                    event.stopPropagation();
-                    shiftTime(-1);
-                  }}
-                >
-                  <Text style={styles.stepBtnText}>−</Text>
-                </Pressable>
-              )}
-              <View style={styles.pillBadge}>
-                <Text style={styles.pillBadgeText}>{value.checkin_time.slice(0, 5)}</Text>
-              </View>
-              {activeField === 'time' && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('increaseValue', { label: t('checkinTime') })}
-                  style={styles.stepBtn}
-                  onPress={(event) => {
-                    event.stopPropagation();
-                    shiftTime(1);
-                  }}
-                >
-                  <Text style={styles.stepBtnText}>+</Text>
-                </Pressable>
-              )}
+            <View style={styles.pillBadge}>
+              <Text style={styles.pillBadgeText}>{value.checkin_time.slice(0, 5)}</Text>
             </View>
           </Pressable>
 
-          {/* Remaining 5 setting rows */}
-          {FIELDS.map((field) => {
-            const numVal = Number(value[field.key]);
-            const unit = t(field.unitKey);
-            const isSelected = activeField === field.key;
-            return (
-              <View key={field.key}>
-                <Pressable
-                  style={[styles.settingItemRow, stackedFields && styles.stackedItemRow]}
-                  accessibilityRole="button"
-                  accessibilityLabel={t(field.labelKey)}
-                  accessibilityValue={{ text: `${numVal} ${unit}` }}
-                  accessibilityHint={t('editSettingHint')}
-                  onPress={() => setActiveField(isSelected ? null : field.key)}
-                >
-                  <View style={styles.rowLeftGroup}>
-                    <Ionicons name={field.icon} size={22} color="#00897b" style={styles.settingRowIcon} />
-                    <Text style={styles.settingItemLabel}>{t(field.labelKey)}</Text>
-                  </View>
-                  <View style={styles.pillWithControls}>
-                    {isSelected && (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={t('decreaseValue', { label: t(field.labelKey) })}
-                        disabled={saving || numVal <= field.min}
-                        accessibilityState={{ disabled: saving || numVal <= field.min }}
-                        style={styles.stepBtn}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          stepField(field, -1);
-                        }}
-                      >
-                        <Text style={styles.stepBtnText}>−</Text>
-                      </Pressable>
-                    )}
-                    <View style={styles.pillBadge}>
-                      <Text style={styles.pillBadgeText}>{`${numVal} ${unit}`}</Text>
-                    </View>
-                    {isSelected && (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={t('increaseValue', { label: t(field.labelKey) })}
-                        disabled={saving || numVal >= field.max}
-                        accessibilityState={{ disabled: saving || numVal >= field.max }}
-                        style={styles.stepBtn}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          stepField(field, 1);
-                        }}
-                      >
-                        <Text style={styles.stepBtnText}>+</Text>
-                      </Pressable>
-                    )}
-                  </View>
-                </Pressable>
-              </View>
-            );
-          })}
+          {FIELDS.map(field => <Pressable key={field.key}
+            style={[styles.settingItemRow, stackedFields && styles.stackedItemRow]}
+            accessibilityRole="button" accessibilityLabel={t(field.labelKey)}
+            accessibilityValue={{ text: `${value[field.key]} ${t(field.unitKey)}` }} accessibilityHint={t('editSettingHint')}
+            disabled={busy} accessibilityState={{ disabled: busy }} onPress={() => setActiveField(field.key)}>
+            <View style={styles.rowLeftGroup}>
+              <Ionicons name={field.icon} size={22} color="#00897b" style={styles.settingRowIcon} />
+              <Text style={styles.settingItemLabel}>{t(field.labelKey)}</Text>
+            </View>
+            <View style={styles.pillBadge}>
+              <Text style={styles.pillBadgeText}>{`${value[field.key]} ${t(field.unitKey)}`}</Text>
+            </View>
+          </Pressable>)}
 
           {access === 'error' && <Pressable accessibilityRole="button" style={styles.setupAction} onPress={() => setReload(current => current + 1)}><Text style={styles.setupActionText}>{tc('retry')}</Text></Pressable>}
 
@@ -426,6 +300,13 @@ export default function CheckinCallSettingsScreen() {
 
         </View>
       </ScrollView>
+      {activeField && (activeField === 'time' || selectedField) && <CallSettingPicker key={activeField}
+        title={t(activeField === 'time' ? 'checkinTime' : selectedField!.labelKey)}
+        value={activeField === 'time' ? value.checkin_time.slice(0, 5) : Number(value[selectedField!.key])}
+        unit={selectedField ? t(selectedField.unitKey) : undefined}
+        values={selectedField ? Array.from({ length: (selectedField.max - selectedField.min) / selectedField.step + 1 },
+          (_, index) => selectedField.min + index * selectedField.step) : undefined}
+        onConfirm={confirmSelection} onClose={() => setActiveField(null)} />}
       <AppAlertModal
         queued
         visible={noContactsWarning}
@@ -464,7 +345,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f4faf8',
   },
   backButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  contactPreview: { gap: 8, paddingVertical: 12 },
   setupAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
   setupActionText: { flexShrink: 1, color: '#00897b', fontSize: 14, fontWeight: '600' },
   topBarTitle: { fontSize: 17, fontWeight: '700', color: '#0f3e36', textAlign: 'center', flex: 1 },
@@ -495,11 +375,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontWeight: '800',
     color: '#0f3e36',
-  },
-  cardSubtitle: {
-    fontSize: 13,
-    color: '#64748b',
-    lineHeight: 18,
   },
   toggleRow: {
     flexDirection: 'row',
@@ -541,12 +416,6 @@ const styles = StyleSheet.create({
     color: '#475569',
     flex: 1,
   },
-  pillWithControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
   pillBadge: {
     flexShrink: 1,
     backgroundColor: '#f0fdf9',
@@ -567,12 +436,6 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  stepBtnText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#00897b',
-    marginTop: -2,
   },
   saveBtn: {
     backgroundColor: '#00897b',

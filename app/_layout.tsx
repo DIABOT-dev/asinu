@@ -68,6 +68,10 @@ export default function RootLayout() {
   const router = useGuardedRouter();
   const { t } = useTranslation("auth");
   const { colors, isDark } = useThemeColors();
+  const authScreenOptions = useMemo(() => ({
+    animation: "none" as const,
+    contentStyle: { backgroundColor: isDark ? "#0A1A2F" : "#FAFCFE" },
+  }), [isDark]);
   const scaledTypography = useScaledTypography();
   const setSystemScheme = useThemeStore((s) => s.setSystemScheme);
   // Load Inter font weights — chuẩn typography cho healthcare app.
@@ -175,17 +179,15 @@ export default function RootLayout() {
                         </Stack.Protected>
                         <Stack.Screen
                           name="login/index"
-                          options={{
-                            animation: "fade",
-                            animationDuration: 240,
-                          }}
+                          options={authScreenOptions}
+                        />
+                        <Stack.Screen
+                          name="login/email"
+                          options={authScreenOptions}
                         />
                         <Stack.Screen
                           name="register/index"
-                          options={{
-                            animation: "fade",
-                            animationDuration: 240,
-                          }}
+                          options={authScreenOptions}
                         />
                         <Stack.Screen
                           name="legal/content"

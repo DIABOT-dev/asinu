@@ -200,7 +200,7 @@ export function VoiceSettings({ userId }: { userId: string }) {
         >
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.heading}>{t('personalization.title')}</Text>
+        <Text style={styles.heading}>{t('personalization.screenTitle')}</Text>
       </View>
       <ScrollView
         contentContainerStyle={[

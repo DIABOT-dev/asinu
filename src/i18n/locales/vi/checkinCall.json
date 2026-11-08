@@ -12,6 +12,7 @@
     "settingsFailed": "Chưa mở được quyền cuộc gọi. Vui lòng thử lại."
   },
   "personalization": {
+    "screenTitle": "Cá nhân hoá tổng đài",
     "open": "Cá nhân hóa lời nhắc cuộc gọi",
     "title": "Lời nhắc dành cho bạn",
     "description": "Lời giới thiệu Asinu và cách xưng hô phù hợp. Các lựa chọn dưới đây chỉ thay đổi lời thoại, không đổi lịch gọi hay quyền của gói.",
@@ -78,18 +79,14 @@
   "savedSettings": "Cấu hình đã lưu",
   "schedulePreview": "Nếu chưa check-in, Asinu bắt đầu liên hệ lúc {{time}} ({{timezone}}){{nextDay}}.",
   "nextDay": ", ngày tiếp theo",
-  "eligibleContacts": "Thứ tự người nhận đủ điều kiện hiện tại",
-  "eligibleContactFallback": "Người thân {{index}}",
-  "noEligibleContacts": "Hiện chưa có người thân đủ điều kiện nhận cảnh báo trong Vòng kết nối.",
-  "contactSetupHint": "Bạn vẫn có thể bật và lưu lịch gọi nhắc cho mình. Để Asinu báo người thân, hãy kết nối họ, cấp quyền nhận và xác nhận cảnh báo, rồi nhờ họ bật thông báo trong app.",
   "noContactsWarning": {
     "title": "Chưa có người thân nhận cảnh báo",
     "body": "Bạn vẫn có thể chỉnh cấu hình. Để bật lịch gọi, hãy kết nối ít nhất một người thân, cấp quyền nhận và xác nhận cảnh báo, rồi nhờ họ bật thông báo trong Asinu."
   },
   "manageCareCircle": "Thiết lập người thân trong Vòng kết nối",
-  "refreshContacts": "Kiểm tra lại người nhận",
   "urgentSettingsNotice": "Cảnh báo cấp bách gọi đồng thời, tiếp tục tối đa 30 phút. Nhận cuộc gọi chưa dừng các cuộc gọi khác; cần bấm Tôi nhận, sẽ kiểm tra. Sau khi nhận cuộc gọi cấp bách, có tối đa 2 phút để xác nhận.",
   "title": "Tổng đài check-in",
+  "settingsTitle": "Cấu hình tổng đài",
   "subtitle": "Asinu sẽ gọi khi bạn chưa check-in sau thời gian cho phép.",
   "enable": "Bật tổng đài check-in",
   "active": "Đang hoạt động",

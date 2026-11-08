@@ -265,6 +265,7 @@ for (const language of ['vi', 'en']) {
     assert.equal(background.props.importantForAccessibility, 'no-hide-descendants');
     const scroll = nodes(tree).find(node => node.type === 'ScrollView');
     assert.ok(!nodes(scroll).some(node => node.type === backdrop.type));
+    assert.equal(nodes(tree).filter(node => node.type === 'MascotGreeting').length, 0, 'The profile footer has no Asinu greeting');
   });
   await test(`${language}: account deletion is under Account and its confirmation opens on the first press`, () => {
     const h = harness({ language });
