@@ -165,7 +165,7 @@ function CheckinScreen() {
           const saved = entry.answers;
           setAnswers(saved);
           setScreen('triage');
-          await fetchNextQuestion(entry.session, saved, true);
+          await fetchNextQuestion(entry.session, saved);
         } else if (entry.kind === 'location') {
           setLocationDraft(entry.draft);
           setPendingStatus(entry.draft.status);
@@ -301,7 +301,7 @@ function CheckinScreen() {
           return;
         }
         setScreen('triage');
-        await fetchNextQuestion(res.session, [], true);
+        await fetchNextQuestion(res.session, []);
       } catch (err: any) {
         if (__DEV__) console.warn('[Checkin] handleStatusSelect followup:', err?.message || err);
         showAlert(t('error', { ns: 'common' }), t('checkinError'));
@@ -339,7 +339,7 @@ function CheckinScreen() {
         setSession(res.session);
         if (!isPractice) { await clearPendingAnswers(userId, res.session); await clearLocationDraft(userId); }
         setScreen('triage');
-        await fetchNextQuestion(res.session, [], true);
+        await fetchNextQuestion(res.session, []);
       } catch (err: any) {
         if (__DEV__) console.warn('[Checkin] handleStatusSelect concern:', err?.message || err);
         showAlert(t('error', { ns: 'common' }), t('checkinError'));
@@ -374,7 +374,7 @@ function CheckinScreen() {
       setSession(res.session);
       if (!isPractice) { await clearPendingAnswers(userId, res.session); await clearLocationDraft(userId); }
       setScreen('triage');
-      await fetchNextQuestion(res.session, [], true);
+      await fetchNextQuestion(res.session, []);
     } catch (err: any) {
       if (__DEV__) console.warn('[Checkin] handleLocationsConfirm:', err?.message || err);
       showAlert(t('error', { ns: 'common' }), t('checkinError'));
@@ -384,12 +384,12 @@ function CheckinScreen() {
 
   // ─── Triage ────────────────────────────────────────────────────────────────
 
-  const fetchNextQuestion = async (sess: CheckinSession, prevAnswers: TriageAnswer[], skipLoadingStart = false) => {
-    if (!(await requestAiConsent(() => fetchNextQuestion(sess, prevAnswers, skipLoadingStart)))) {
+  const fetchNextQuestion = async (sess: CheckinSession, prevAnswers: TriageAnswer[]) => {
+    if (!(await requestAiConsent(() => fetchNextQuestion(sess, prevAnswers)))) {
       setLoading(false);
       return;
     }
-    if (!skipLoadingStart) setLoading(true);
+    setLoading(true);
     setTriageError(false);
     triageRetryRef.current = () => fetchNextQuestion(sess, prevAnswers);
     try {

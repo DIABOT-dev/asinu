@@ -109,7 +109,7 @@ test('a last submitted answer survives losing the response or restarting the app
   await p.clearPendingAnswers(7, session);
   assert.deepEqual((await p.loadCheckinEntry(client(session), 7)).answers, [answer]);
 });
-test('newer server progress, a changed answer or a new revision wins over stale pending answers', async () => {
+test('newer server progress, a changed answer or a new occurrence wins over stale pending answers', async () => {
   const { progress: p } = progressHarness();
   await p.savePendingAnswers(7, session, [answer]);
   const newer = { ...session, triage_messages: [answer, { question: 'Next?', answer: 'Example' }] };
@@ -119,7 +119,7 @@ test('newer server progress, a changed answer or a new revision wins over stale 
   const phase = {
     ...session,
     triage_messages: [],
-    triage_state: { phase: 'initial', revision: 'r2' },
+    triage_state: { phase: 'initial', phase_id: 'another-interview', revision: 'r2' },
   };
   assert.deepEqual((await p.loadCheckinEntry(client(phase), 7)).answers, []);
 });
@@ -176,4 +176,41 @@ test('a location draft already submitted before a lost response cannot start ano
   await p.saveLocationDraft(7, draft);
   await p.loadCheckinEntry(client(session), 7);
   assert.equal(await p.readLocationDraft(7), null);
+});
+
+for (const phase of ['initial', 'followup']) {
+  test(`${phase}: a pending answer survives resuming and then losing the network after the revision advances`, async () => {
+    const { progress: p } = progressHarness();
+    const opened = { ...session, triage_state: { phase, phase_id: 'interview-a', revision: 'r1' } };
+    const answers = [answer, { step: 'red_flags', question: 'Warning signs?', answer: 'None' }];
+    await p.savePendingAnswers(7, opened, answers);
+    const server = { ...opened, triage_state: { phase, phase_id: 'interview-a', revision: 'r2' } };
+    assert.deepEqual((await p.loadCheckinEntry(client(server), 7)).answers, answers);
+  });
+}
+
+test('a new follow-up phase never consumes pending answers from the previous phase', async () => {
+  const { progress: p } = progressHarness();
+  const old = {
+    ...session,
+    triage_state: { phase: 'followup', phase_id: 'old', revision: 'old-write' },
+  };
+  await p.savePendingAnswers(7, old, [answer]);
+  const fresh = {
+    ...old,
+    triage_messages: [],
+    triage_state: { phase: 'followup', phase_id: 'new', revision: 'new-write' },
+  };
+  assert.deepEqual((await p.loadCheckinEntry(client(fresh), 7)).answers, []);
+});
+test('a legacy follow-up adopts its existing revision as the stable phase identity', async () => {
+  const { progress: p } = progressHarness();
+  const old = { ...session, triage_state: { phase: 'followup', revision: 'first-write' } };
+  await p.savePendingAnswers(7, old, [answer]);
+  const upgraded = {
+    ...old,
+    triage_messages: [],
+    triage_state: { phase: 'followup', phase_id: 'first-write', revision: 'next-write' },
+  };
+  assert.deepEqual((await p.loadCheckinEntry(client(upgraded), 7)).answers, [answer]);
 });

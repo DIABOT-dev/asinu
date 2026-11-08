@@ -106,7 +106,7 @@ function routeHarness(language, params = { mode: 'guide' }, guidance = {}, entry
   const useGuidanceStore = Object.assign(select => select(guideState), { getState: () => guideState });
   const real = createCheckinPractice(tr.t);
   const realApi = Object.fromEntries(Object.keys(real).map(name => [name, async (...args) => {
-    calls.network.push([name, ...args]); const response = await real[name](...args);
+    calls.network.push([name, ...args]); const response = await (entry.api?.[name] ? entry.api[name](...args) : real[name](...args));
     if (response.session) response.session = { ...response.session, id: 500, user_id: 7 };
     if (name === 'triage' && entry.triageError) throw new Error('offline');
     return response;
@@ -120,7 +120,7 @@ function routeHarness(language, params = { mode: 'guide' }, guidance = {}, entry
     useAppAlert: () => ({ alertState: {}, showAlert: (...args) => calls.alerts.push(args), dismissAlert() {} }),
     useAuthStore: select => select({ profile: { id: 7 } }), useGuidanceStore,
     useLanguageStore: () => ({ language }), createCheckinPractice, checkinApi: realApi,
-    hasAiDataConsent: async () => { calls.consent++; return true; }, showToast() {},
+    hasAiDataConsent: async () => { calls.consent++; return entry.consented !== false; }, showToast() {},
     guidanceAudio: { stop: async () => calls.audio.push('stop') }, Platform: { OS: 'ios' },
     StatusScreen: 'Status', LocationScreen: 'Location', TriageScreen: 'Question', DoneScreen: 'Result',
     ConclusionLoadingView: 'Loading',
@@ -679,6 +679,22 @@ for (const language of ['vi', 'en']) {
     const choices = nodes(tree).filter(n => n.props?.accessibilityRole === 'radio');
     choices[0].props.onPress(); choices[0].props.onPress(); choices[1].props.onPress();
     assert.deepEqual(calls, ['First']); finish(); await tick();
+  });
+}
+for (const language of ['vi', 'en']) {
+  await test(`${language}: resuming after AI consent keeps answer controls disabled until the question arrives`, async () => {
+    let release;
+    const entry = { session: { id: 500, user_id: 7, initial_status: 'tired', current_status: 'tired',
+      triage_completed_at: null, triage_messages: [], triage_state: {} }, consented: false,
+      api: { triage: () => new Promise(resolve => { release = resolve; }) } };
+    const h = routeHarness(language, { mode: 'resume', checkin_id: '500' }, {}, entry);
+    let tree = await h.settle(); const consent = nodes(tree).find(n => n.type === 'Consent');
+    assert.equal(consent.props.visible, true); entry.consented = true;
+    consent.props.onAgree(); tree = await h.settle();
+    assert.ok(release); assert.equal(nodes(tree).find(n => n.type === 'Question').props.loading, true);
+    release({ ok: true, isDone: false, step: 'symptoms', question: 'Example question', options: ['Example symptom', 'None'], multiSelect: true });
+    tree = await h.settle(); const question = nodes(tree).find(n => n.type === 'Question');
+    assert.equal(question.props.loading, false); assert.equal(question.props.question, 'Example question');
   });
 }
 console.log(`Check-in practice: ${checks} runtime regressions passed.`);

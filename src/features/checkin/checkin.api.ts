@@ -26,13 +26,14 @@ export interface CheckinSession {
   body_location_other?: string | null;
   triage_severity: TriageSeverity | null;
   triage_completed_at: string | null;
-  triage_state?: { phase?: 'initial' | 'followup'; revision?: string; completed?: { finalized?: boolean } };
+  triage_state?: { phase?: 'initial' | 'followup'; phase_id?: string; revision?: string; completed?: { finalized?: boolean } };
   next_checkin_at: string | null;
   no_response_count: number;
   family_alerted: boolean;
   emergency_triggered: boolean;
   resolved_at: string | null;
   created_at: string;
+  occurrence_started_at?: string | null;
   last_response_at?: string | null;
 }
 

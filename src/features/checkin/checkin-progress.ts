@@ -92,6 +92,17 @@ const pendingKey = (account: string | number | undefined, session: CheckinSessio
     account,
     `manual-pending-${session.id}-${session.triage_state?.phase || 'initial'}`,
   );
+// The CAS revision changes on every question. Only a new interview phase or
+// occurrence may invalidate an unsynced answer from the same patient.
+function pendingScope(session: CheckinSession) {
+  const phase = session.triage_state?.phase || 'initial';
+  const started = session.occurrence_started_at || session.created_at;
+  const occurrence = started ? new Date(started).toISOString() : String(session.id);
+  const phaseId =
+    session.triage_state?.phase_id ||
+    (phase === 'followup' ? session.triage_state?.revision || null : `initial:${occurrence}`);
+  return JSON.stringify([occurrence, phase, phaseId]);
+}
 export const savePendingAnswers = (
   account: string | number | undefined,
   session: CheckinSession,
@@ -101,6 +112,7 @@ export const savePendingAnswers = (
     pendingKey(account, session),
     JSON.stringify({
       expiresAt: Date.now() + 86400000,
+      scope: pendingScope(session),
       revision: session.triage_state?.revision,
       answers,
     }),
@@ -116,7 +128,10 @@ async function resumableAnswers(account: string | number | undefined, session: C
     try {
       const pending = JSON.parse(raw);
       const answers = pending.answers;
+      if (pending.scope && pending.scope !== pendingScope(session)) return saved;
+      // Read older app drafts conservatively until they are rewritten.
       if (
+        !pending.scope &&
         pending.revision &&
         session.triage_state?.revision &&
         pending.revision !== session.triage_state.revision
@@ -194,7 +209,9 @@ export async function loadCheckinEntry(
     return { kind: 'resume', session: s, answers: await resumableAnswers(account, s) };
   }
   if (mode === 'resume') {
-    if (s) { return { kind: 'home' }; }
+    if (s) {
+      return { kind: 'home' };
+    }
     throw new Error('CHECKIN_SESSION_UNAVAILABLE');
   }
   const draft = await readLocationDraft(account, s);
