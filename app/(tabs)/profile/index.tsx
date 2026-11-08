@@ -15,6 +15,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -236,7 +237,7 @@ export default function ProfileScreen() {
   const [expandedSections, setExpandedSections] = useState<
     Record<ProfileSection, boolean>
   >({
-    personal: true,
+    personal: false,
     rewards: false,
     health: false,
     account: false,
@@ -264,8 +265,8 @@ export default function ProfileScreen() {
       accessibilityState={{ expanded: expandedSections[section] }}
     >
       <View style={styles.sectionHeaderLeft}>
-        <View style={styles.sectionIcon}>{icon}</View>
-        <Text allowFontScaling style={styles.sectionHeading}>{title}</Text>
+        {icon}
+        <Text style={styles.sectionHeading}>{title}</Text>
       </View>
       <Ionicons
         name={expandedSections[section] ? "chevron-up" : "chevron-down"}
@@ -772,59 +773,74 @@ export default function ProfileScreen() {
           <ProfileTabSkeleton />
         ) : (
           <>
-            <View style={styles.pageHeader}>
-              <Text allowFontScaling accessibilityRole="header" style={styles.pageTitle}>{t('headerTitle')}</Text>
-              <TouchableOpacity testID="profile-edit-profile" style={styles.editProfileButton}
-                onPress={handleEditProfile} activeOpacity={0.7}
-                accessibilityRole="button" accessibilityLabel={t('editProfile')}>
-                <Ionicons name="pencil-outline" size={17} color={isDark ? '#99D5C7' : '#216B5B'} />
-                <Text allowFontScaling style={styles.personalInfoEditText}>{t('edit')}</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.userCard} testID="profile-summary">
-              <View style={styles.identityRow}>
+            {/* ==================== USER PROFILE CARD ==================== */}
+            <Animated.View entering={FadeIn.duration(350)}>
+              <View style={styles.userCard}>
+                {/* Avatar */}
                 <View style={styles.avatarWrap}>
-                  {profile?.avatarUrl ? <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImg} accessible={false} />
-                    : <Ionicons name="person-outline" size={30} color={isDark ? '#99D5C7' : '#216B5B'} />}
-                  {isUploadingAvatar && <View style={styles.avatarLoadingOverlay}>
-                    <ActivityIndicator size="small" color={isDark ? '#99D5C7' : '#216B5B'} />
-                  </View>}
+                  {profile?.avatarUrl ? (
+                    <Image
+                      source={{ uri: profile.avatarUrl }}
+                      style={styles.avatarImg}
+                    />
+                  ) : (
+                    <Ionicons name="person" size={32} color="#059669" />
+                  )}
+                  {isUploadingAvatar && (
+                    <View style={styles.avatarLoadingOverlay}>
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    </View>
+                  )}
                 </View>
+
+                {/* Name & plan badge */}
                 <View style={styles.userInfoCol}>
-                  <Text allowFontScaling style={styles.userName}>{identityTitle}</Text>
-                  <Text allowFontScaling style={styles.identityPhone}>{phone || tc('notUpdated')}</Text>
-                </View>
-              </View>
-              <TouchableOpacity testID="profile-plan-summary" style={styles.planBadge}
-                onPress={() => setShowPlanInfoModal(true)} activeOpacity={0.7}
-                accessibilityRole="button" accessibilityLabel={tSubscription('v2CurrentPlan')}
-                accessibilityHint={tSubscription('v2ViewBenefits')}
-                accessibilityState={{ disabled: !subStatus }} disabled={!subStatus}>
-                <View style={styles.planIcon}>
-                  <Ionicons name="shield-checkmark-outline" size={23} color={isDark ? '#DFC996' : '#8D6C2E'} />
-                </View>
-                <View style={styles.planCopy}>
-                  <Text allowFontScaling style={styles.planLabel}>{tSubscription('v2CurrentPlan')}</Text>
-                  <Text allowFontScaling style={styles.planBadgeText}>
-                    {subStatus ? localizedPlanName(subStatus.planCode, tSubscription) : t('planUnavailable')}
+                  <Text
+                    style={styles.userName}
+                    numberOfLines={2}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                  >
+                    {identityTitle}
                   </Text>
+                  {/* Plan Badge Pill */}
+                  <TouchableOpacity
+                    style={styles.planBadge}
+                    onPress={() => setShowPlanInfoModal(true)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel={tSubscription("v2CurrentPlan")}
+                    accessibilityHint={tSubscription("v2ViewBenefits")}
+                    accessibilityState={{ disabled: !subStatus }}
+                    disabled={!subStatus}
+                  >
+                    <FontAwesome5
+                      name="crown"
+                      size={11}
+                      color="#d97706"
+                      style={{ marginRight: 5 }}
+                    />
+                    <Text style={styles.planBadgeText}>
+                      {t("accountPlan", {
+                        plan: localizedPlanName(subStatus?.planCode, tSubscription),
+                      })}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
-              {coinSummary.enabled && coinSummary.balance !== null && (
-                <TouchableOpacity testID="profile-coins-summary" style={styles.coinSummary}
-                  onPress={() => router.push('/coins')} activeOpacity={0.7}
-                  accessibilityRole="button" accessibilityLabel={t('healthCoins')}>
-                  <HealthCoinIcon size={28} />
-                  <View style={styles.coinCopy}>
-                    <Text allowFontScaling style={styles.coinBalance}>{t('healthCoinsBalance', { count: coinSummary.balance })}</Text>
-                    {coinSummary.earnedToday !== null && <Text allowFontScaling style={styles.coinLabel}>{t('healthCoinsToday', { count: coinSummary.earnedToday })}</Text>}
+                {coinSummary.enabled && coinSummary.balance !== null && (
+                  <View style={styles.coinSummary}>
+                    <HealthCoinIcon />
+                    <View style={styles.coinCopy}>
+                      <Text style={styles.coinBalance}>{t('healthCoinsBalance', { count: coinSummary.balance })}</Text>
+                      {coinSummary.earnedToday !== null && <Text style={styles.coinLabel}>{t('healthCoinsToday', { count: coinSummary.earnedToday })}</Text>}
+                    </View>
                   </View>
-                </TouchableOpacity>
-              )}
-            </View>
+                )}
+              </View>
+            </Animated.View>
 
             {/* ==================== THÔNG TIN CÁ NHÂN SECTION ==================== */}
-            <View style={styles.personalSection}>
+            <Animated.View entering={FadeIn.delay(120).duration(350)}>
               <View style={[styles.sectionHeaderRow, styles.personalInfoHeader]}>
                 <TouchableOpacity
                   style={styles.personalInfoToggle}
@@ -840,10 +856,8 @@ export default function ProfileScreen() {
                   accessibilityState={{ expanded: expandedSections.personal }}
                 >
                   <View style={styles.sectionHeaderLeft}>
-                    <View style={styles.sectionIcon}>
-                      <Ionicons name="person-outline" size={20} color={isDark ? '#99D5C7' : '#216B5B'} />
-                    </View>
-                    <Text allowFontScaling style={styles.sectionHeading}>{t("personalInfo")}</Text>
+                    <Ionicons name="person" size={18} color="#059669" />
+                    <Text style={styles.sectionHeading}>{t("personalInfo")}</Text>
                   </View>
                   <Ionicons
                     name={expandedSections.personal ? "chevron-up" : "chevron-down"}
@@ -852,16 +866,52 @@ export default function ProfileScreen() {
                     accessible={false}
                   />
                 </TouchableOpacity>
+                {expandedSections.personal && (
+                  <TouchableOpacity
+                    style={styles.personalInfoEditButton}
+                    onPress={handleEditProfile}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("editProfile")}
+                  >
+                    <Ionicons
+                      name="pencil-outline"
+                      size={16}
+                      color={isDark ? "#99f6e4" : "#0b5e56"}
+                    />
+                    <Text style={styles.personalInfoEditText}>{t("edit")}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
               {expandedSections.personal && (
-                <View style={styles.personalDetails} testID="profile-personal-facts">
-                  {/* Read-only health details, with contact information in the identity summary. */}
+                <>
+                  {/* Profile details sit directly on the page background. */}
                   <View style={styles.infoGrid}>
+                    {/* 1. Số điện thoại */}
+                    <View style={styles.gridCard}>
+                      <View style={styles.gridIconWrap}>
+                        <Ionicons name="call" size={20} color="#059669" />
+                      </View>
+                      <View style={styles.gridCardContent}>
+                        <Text style={styles.gridCardLabel}>{t("phone")}</Text>
+                        <Text style={styles.gridCardValue}>
+                          {phone || tc("notUpdated")}
+                        </Text>
+                      </View>
+                    </View>
+
                     {/* 2. Giới tính */}
                     <View style={styles.gridCard}>
+                      <View style={styles.gridIconWrap}>
+                        <Ionicons
+                          name={profile?.gender === "Nữ" ? "female" : "male"}
+                          size={20}
+                          color="#2563eb"
+                        />
+                      </View>
                       <View style={styles.gridCardContent}>
-                        <Text allowFontScaling style={styles.gridCardLabel}>{t("gender")}</Text>
-                        <Text allowFontScaling style={styles.gridCardValue}>
+                        <Text style={styles.gridCardLabel}>{t("gender")}</Text>
+                        <Text style={styles.gridCardValue}>
                           {profile?.gender
                             ? profile.gender === "Nam"
                               ? tc("male")
@@ -873,9 +923,16 @@ export default function ProfileScreen() {
 
                     {/* 3. Tuổi */}
                     <View style={styles.gridCard}>
+                      <View style={styles.gridIconWrap}>
+                        <Ionicons
+                          name="calendar-outline"
+                          size={20}
+                          color="#ea580c"
+                        />
+                      </View>
                       <View style={styles.gridCardContent}>
-                        <Text allowFontScaling style={styles.gridCardLabel}>{t("age")}</Text>
-                        <Text allowFontScaling style={styles.gridCardValue}>
+                        <Text style={styles.gridCardLabel}>{t("age")}</Text>
+                        <Text style={styles.gridCardValue}>
                           {profile?.age
                             ? `${Math.round(profile.age)} ${t("ageUnit")}`
                             : tc("notUpdated")}
@@ -885,9 +942,16 @@ export default function ProfileScreen() {
 
                     {/* 4. Chiều cao */}
                     <View style={styles.gridCard}>
+                      <View style={styles.gridIconWrap}>
+                        <MaterialCommunityIcons
+                          name="human-male-height"
+                          size={20}
+                          color="#9333ea"
+                        />
+                      </View>
                       <View style={styles.gridCardContent}>
-                        <Text allowFontScaling style={styles.gridCardLabel}>{t("height")}</Text>
-                        <Text allowFontScaling style={styles.gridCardValue}>
+                        <Text style={styles.gridCardLabel}>{t("height")}</Text>
+                        <Text style={styles.gridCardValue}>
                           {profile?.heightCm
                             ? t("heightValue", {
                                 value: Math.round(profile.heightCm),
@@ -899,9 +963,16 @@ export default function ProfileScreen() {
 
                     {/* 5. Cân nặng */}
                     <View style={styles.gridCard}>
+                      <View style={styles.gridIconWrap}>
+                        <MaterialCommunityIcons
+                          name="scale-bathroom"
+                          size={20}
+                          color="#0d9488"
+                        />
+                      </View>
                       <View style={styles.gridCardContent}>
-                        <Text allowFontScaling style={styles.gridCardLabel}>{t("weight")}</Text>
-                        <Text allowFontScaling style={styles.gridCardValue}>
+                        <Text style={styles.gridCardLabel}>{t("weight")}</Text>
+                        <Text style={styles.gridCardValue}>
                           {profile?.weightKg
                             ? t("weightValue", {
                                 value: Math.round(profile.weightKg),
@@ -913,9 +984,12 @@ export default function ProfileScreen() {
 
                     {/* 6. Nhóm máu */}
                     <View style={styles.gridCard}>
+                      <View style={styles.gridIconWrap}>
+                        <Ionicons name="water" size={20} color="#e11d48" />
+                      </View>
                       <View style={styles.gridCardContent}>
-                        <Text allowFontScaling style={styles.gridCardLabel}>{t("bloodType")}</Text>
-                        <Text allowFontScaling style={styles.gridCardValue}>
+                        <Text style={styles.gridCardLabel}>{t("bloodType")}</Text>
+                        <Text style={styles.gridCardValue}>
                           {profile?.bloodType || tc("notUpdated")}
                         </Text>
                       </View>
@@ -924,11 +998,18 @@ export default function ProfileScreen() {
 
                   {/* Full-width health information. */}
                   <View style={styles.chronicDiseaseCard}>
+                    <View style={styles.gridIconWrap}>
+                      <MaterialCommunityIcons
+                        name="plus-box"
+                        size={22}
+                        color="#e11d48"
+                      />
+                    </View>
                     <View style={styles.gridCardContent}>
-                      <Text allowFontScaling style={styles.gridCardLabel}>
+                      <Text style={styles.gridCardLabel}>
                         {t("chronicDiseases")}
                       </Text>
-                      <Text allowFontScaling style={styles.gridCardValue}>
+                      <Text style={styles.gridCardValue}>
                         {profile?.chronicDiseases &&
                         profile.chronicDiseases.length > 0
                           ? profile.chronicDiseases.join(", ")
@@ -936,14 +1017,13 @@ export default function ProfileScreen() {
                       </Text>
                     </View>
                   </View>
-                </View>
+                </>
               )}
-            </View>
+            </Animated.View>
 
-            <View style={styles.menuGroup}>
             {/* ==================== BANNER CHĂM SÓC SỨC KHỎE ==================== */}
             {SHOW_CARE_BANNER && (
-              <View>
+              <Animated.View entering={FadeIn.delay(180).duration(350)}>
                 <TouchableOpacity
                   style={styles.careBanner}
                   onPress={() => router.push("/subscription")}
@@ -954,23 +1034,23 @@ export default function ProfileScreen() {
                     style={styles.careBannerArt}
                   />
                   <View style={styles.careBannerTextGroup}>
-                    <Text allowFontScaling style={styles.careBannerTitle} numberOfLines={1}>
+                    <Text style={styles.careBannerTitle} numberOfLines={1}>
                       {t("careBannerTitle")}
                     </Text>
-                    <Text allowFontScaling style={styles.careBannerSubtitle} numberOfLines={1}>
+                    <Text style={styles.careBannerSubtitle} numberOfLines={1}>
                       {t("careBannerSubtitle")}
                     </Text>
                   </View>
                 </TouchableOpacity>
-              </View>
+              </Animated.View>
             )}
 
             {/* ==================== 02 MIDDLE: SỨC KHỎE ==================== */}
-            <View>
+            <Animated.View entering={FadeIn.delay(220).duration(350)}>
               {renderSectionHeader(
                 "health",
                 t("sectionHealth"),
-                <Ionicons name="heart" size={18} color={isDark ? '#99D5C7' : '#216B5B'} />,
+                <Ionicons name="heart" size={18} color="#10b981" />,
               )}
               {expandedSections.health && (
                 <View style={styles.cardsStack}>
@@ -983,10 +1063,10 @@ export default function ProfileScreen() {
                       <Ionicons
                         name="journal-outline"
                         size={22}
-                        color={isDark ? '#99D5C7' : '#216B5B'}
+                        color="#f43f5e"
                       />
                     </View>
-                    <Text allowFontScaling style={styles.rowLabel}>{t("logEntry")}</Text>
+                    <Text style={styles.rowLabel}>{t("logEntry")}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -1010,7 +1090,7 @@ export default function ProfileScreen() {
                         color={hasCheckinCallAccess ? "#07846d" : "#94a3b8"}
                       />
                     </View>
-                    <Text allowFontScaling
+                    <Text
                       style={[
                         styles.rowLabel,
                         !hasCheckinCallAccess && styles.rowLabelLocked,
@@ -1020,7 +1100,7 @@ export default function ProfileScreen() {
                     </Text>
                     {!hasCheckinCallAccess && (
                       <View style={styles.lockedBadge}>
-                        <Text allowFontScaling style={styles.lockedBadgeText}>{t("requiresAnTam")}</Text>
+                        <Text style={styles.lockedBadgeText}>{t("requiresAnTam")}</Text>
                       </View>
                     )}
                     {!hasCheckinCallAccess && (
@@ -1039,7 +1119,7 @@ export default function ProfileScreen() {
                       <View style={styles.rowIconWrap}>
                         <Ionicons name="eye-outline" size={22} color="#07846d" />
                       </View>
-                      <Text allowFontScaling style={styles.rowLabel}>{t("checkinCallGallery")}</Text>
+                      <Text style={styles.rowLabel}>{t("checkinCallGallery")}</Text>
                     </TouchableOpacity>
                   )}
                   {isDoctorFeaturesEnabled && (
@@ -1057,7 +1137,7 @@ export default function ProfileScreen() {
                           color={colors.primary}
                         />
                       </View>
-                      <Text allowFontScaling style={styles.rowLabel}>
+                      <Text style={styles.rowLabel}>
                         {ts('doctorConsultation')}
                       </Text>
                     </TouchableOpacity>
@@ -1073,10 +1153,10 @@ export default function ProfileScreen() {
                       <Ionicons
                         name="chatbubbles-outline"
                         size={22}
-                        color={isDark ? '#99D5C7' : '#216B5B'}
+                        color="#0d9488"
                       />
                     </View>
-                    <Text allowFontScaling style={styles.rowLabel}>
+                    <Text style={styles.rowLabel}>
                       {ts("doctorConsultationHistory")}
                     </Text>
                   </TouchableOpacity>}
@@ -1093,22 +1173,22 @@ export default function ProfileScreen() {
                       <Ionicons
                         name="finger-print-outline"
                         size={22}
-                        color={isDark ? '#99D5C7' : '#216B5B'}
+                        color="#06b6d4"
                       />
                     </View>
-                    <Text allowFontScaling style={styles.rowLabel}>
+                    <Text style={styles.rowLabel}>
                       {ts("privacyCenterTitle")}
                     </Text>
                   </TouchableOpacity>}
                 </View>
               )}
-            </View>
+            </Animated.View>
 
-            <View>
+            <Animated.View entering={FadeIn.delay(260).duration(350)}>
               {renderSectionHeader(
                 "rewards",
                 t("sectionRewards"),
-                <Ionicons name="gift-outline" size={18} color={isDark ? '#99D5C7' : '#216B5B'} />,
+                <Ionicons name="gift-outline" size={18} color="#10b981" />,
               )}
               {expandedSections.rewards && (
                 <View style={styles.cardsStack}>
@@ -1118,9 +1198,9 @@ export default function ProfileScreen() {
                     activeOpacity={0.7}
                   >
                     <View style={styles.rowIconWrap}>
-                      <Ionicons name="flag-outline" size={22} color={isDark ? '#99D5C7' : '#216B5B'} />
+                      <Ionicons name="flag-outline" size={22} color="#10b981" />
                     </View>
-                    <Text allowFontScaling style={styles.rowLabel}>{t("missions")}</Text>
+                    <Text style={styles.rowLabel}>{t("missions")}</Text>
                   </TouchableOpacity>
 
                   {coinSummary.enabled && <TouchableOpacity
@@ -1133,7 +1213,7 @@ export default function ProfileScreen() {
                     <View style={styles.rowIconWrap}>
                       <HealthCoinIcon size={24} />
                     </View>
-                    <Text allowFontScaling style={styles.rowLabel}>{t('healthCoins')}</Text>
+                    <Text style={styles.rowLabel}>{t('healthCoins')}</Text>
                   </TouchableOpacity>}
                   <TouchableOpacity
                     style={styles.actionCard}
@@ -1145,7 +1225,7 @@ export default function ProfileScreen() {
                     <View style={styles.rowIconWrap}>
                       <Ionicons name="gift-outline" size={22} color={colors.primary} />
                     </View>
-                    <Text allowFontScaling style={styles.rowLabel}>{t("dailyGifts")}</Text>
+                    <Text style={styles.rowLabel}>{t("dailyGifts")}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.actionCard}
@@ -1157,18 +1237,18 @@ export default function ProfileScreen() {
                     <View style={styles.rowIconWrap}>
                       <Ionicons name="archive-outline" size={22} color={colors.primary} />
                     </View>
-                    <Text allowFontScaling style={styles.rowLabel}>{t("giftCollection")}</Text>
+                    <Text style={styles.rowLabel}>{t("giftCollection")}</Text>
                   </TouchableOpacity>
                 </View>
               )}
-            </View>
+            </Animated.View>
 
             {/* ==================== 02 MIDDLE: TÀI KHOẢN ==================== */}
-            <View>
+            <Animated.View entering={FadeIn.delay(300).duration(350)}>
               {renderSectionHeader(
                 "account",
                 t("sectionAccount"),
-                <Ionicons name="person-circle-outline" size={20} color={isDark ? '#99D5C7' : '#216B5B'} />,
+                <Ionicons name="person-circle-outline" size={20} color="#10b981" />,
               )}
               {expandedSections.account && (
                 <View style={styles.cardsStack}>
@@ -1180,7 +1260,7 @@ export default function ProfileScreen() {
                     <View style={styles.rowIconWrap}>
                       <Ionicons name="star-outline" size={22} color="#f59e0b" />
                     </View>
-                    <Text allowFontScaling style={styles.rowLabel}>{t("subscription")}</Text>
+                    <Text style={styles.rowLabel}>{t("subscription")}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -1189,9 +1269,9 @@ export default function ProfileScreen() {
                     activeOpacity={0.7}
                   >
                     <View style={styles.rowIconWrap}>
-                      <Ionicons name="wallet-outline" size={22} color={isDark ? '#99D5C7' : '#216B5B'} />
+                      <Ionicons name="wallet-outline" size={22} color="#0d9488" />
                     </View>
-                    <Text allowFontScaling style={styles.rowLabel}>{t("wallet")}</Text>
+                    <Text style={styles.rowLabel}>{t("wallet")}</Text>
                   </TouchableOpacity>
 
                   {/* Đổi mật khẩu (nếu tài khoản dùng mật khẩu) */}
@@ -1202,9 +1282,9 @@ export default function ProfileScreen() {
                       activeOpacity={0.7}
                     >
                       <View style={styles.rowIconWrap}>
-                        <Ionicons name="key-outline" size={22} color={isDark ? '#99D5C7' : '#216B5B'} />
+                        <Ionicons name="key-outline" size={22} color="#6366f1" />
                       </View>
-                      <Text allowFontScaling style={styles.rowLabel}>{t("changePassword")}</Text>
+                      <Text style={styles.rowLabel}>{t("changePassword")}</Text>
                     </TouchableOpacity>
                   ) : null}
                   <TouchableOpacity
@@ -1217,20 +1297,20 @@ export default function ProfileScreen() {
                     <View style={styles.rowIconWrap}>
                       <Ionicons name="trash-outline" size={22} color={colors.danger} />
                     </View>
-                    <Text allowFontScaling style={[styles.rowLabel, styles.deleteAccountText]}>
+                    <Text style={[styles.rowLabel, styles.deleteAccountText]}>
                       {ts("deleteAccountForever")}
                     </Text>
                   </TouchableOpacity>
                 </View>
               )}
-            </View>
+            </Animated.View>
 
             {/* ==================== 02 MIDDLE: CÀI ĐẶT ==================== */}
-            <View>
+            <Animated.View entering={FadeIn.delay(340).duration(350)}>
               {renderSectionHeader(
                 "settings",
                 t("sectionSettings"),
-                <Ionicons name="settings-sharp" size={18} color={isDark ? '#99D5C7' : '#216B5B'} />,
+                <Ionicons name="settings-sharp" size={18} color="#10b981" />,
               )}
               {expandedSections.settings && (
                 <View style={styles.cardsStack}>
@@ -1245,10 +1325,10 @@ export default function ProfileScreen() {
                     accessibilityLabel={ts("fontSize")}
                   >
                     <View style={styles.rowIconWrap}>
-                      <Ionicons name="text-outline" size={22} color={isDark ? '#99D5C7' : '#216B5B'} />
+                      <Ionicons name="text-outline" size={22} color="#0d9488" />
                     </View>
-                    <Text allowFontScaling style={styles.rowLabel}>{ts("fontSize")}</Text>
-                    <Text allowFontScaling style={styles.rowMeta}>{fontLabel}</Text>
+                    <Text style={styles.rowLabel}>{ts("fontSize")}</Text>
+                    <Text style={styles.rowMeta}>{fontLabel}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -1265,23 +1345,23 @@ export default function ProfileScreen() {
                       <Ionicons
                         name="language-outline"
                         size={22}
-                        color={isDark ? '#99D5C7' : '#216B5B'}
+                        color="#10b981"
                       />
                     </View>
-                    <Text allowFontScaling style={styles.rowLabel}>{ts("language")}</Text>
-                    <Text allowFontScaling style={styles.rowMeta}>{langLabel}</Text>
+                    <Text style={styles.rowLabel}>{ts("language")}</Text>
+                    <Text style={styles.rowMeta}>{langLabel}</Text>
                   </TouchableOpacity>
 
                   <ReminderSettingsEntry />
                 </View>
               )}
-            </View>
+            </Animated.View>
 
-            <View>
+            <Animated.View entering={FadeIn.delay(360).duration(350)}>
               {renderSectionHeader(
                 "permissions",
                 ts("appPermissions"),
-                <Ionicons name="shield-checkmark-outline" size={18} color={isDark ? '#99D5C7' : '#216B5B'} />,
+                <Ionicons name="shield-checkmark-outline" size={18} color="#10b981" />,
               )}
               {/* Preserve permission state between expands; only visibility changes. */}
               <View
@@ -1305,10 +1385,10 @@ export default function ProfileScreen() {
                       <Ionicons
                         name="sparkles-outline"
                         size={22}
-                        color={isDark ? '#99D5C7' : '#216B5B'}
+                        color="#10b981"
                       />
                     </View>
-                    <Text allowFontScaling style={styles.rowLabel}>
+                    <Text style={styles.rowLabel}>
                       {ts("aiDataConsentSettings")}
                     </Text>
                     <Switch
@@ -1329,10 +1409,10 @@ export default function ProfileScreen() {
                       <Ionicons
                         name="bookmark-outline"
                         size={22}
-                        color={isDark ? '#99D5C7' : '#216B5B'}
+                        color="#8b5cf6"
                       />
                     </View>
-                    <Text allowFontScaling style={styles.rowLabel}>{t("healthFeed")}</Text>
+                    <Text style={styles.rowLabel}>{t("healthFeed")}</Text>
                     <Switch
                       accessibilityLabel={t("healthFeed")}
                       accessibilityState={{ checked: healthFeedEnabled }}
@@ -1344,14 +1424,14 @@ export default function ProfileScreen() {
                     />
                   </View>
               </View>
-            </View>
+            </Animated.View>
 
             {/* ==================== 03 BOTTOM: TRỢ GIÚP & THÔNG TIN ==================== */}
-            <View>
+            <Animated.View entering={FadeIn.delay(380).duration(350)}>
               {renderSectionHeader(
                 "system",
                 t("sectionSystem"),
-                <Ionicons name="help-circle-outline" size={20} color={isDark ? '#99D5C7' : '#216B5B'} />,
+                <Ionicons name="help-circle-outline" size={20} color="#10b981" />,
               )}
               {expandedSections.system && (
                 <>
@@ -1367,7 +1447,7 @@ export default function ProfileScreen() {
                       <View style={styles.rowIconWrap}>
                         <Ionicons name="cloud-download-outline" size={22} color={colors.primary} />
                       </View>
-                      <Text allowFontScaling style={styles.rowLabel}>{tc(checkingUpdate ? 'appUpdate.checking' : 'appUpdate.check')}</Text>
+                      <Text style={styles.rowLabel}>{tc(checkingUpdate ? 'appUpdate.checking' : 'appUpdate.check')}</Text>
                       {checkingUpdate && <ActivityIndicator color={colors.primary} />}
                     </TouchableOpacity>
                     {/* Trợ giúp qua Zalo */}
@@ -1380,10 +1460,10 @@ export default function ProfileScreen() {
                         <Ionicons
                           name="chatbubble-ellipses-outline"
                           size={22}
-                          color={isDark ? '#99D5C7' : '#216B5B'}
+                          color="#0ea5e9"
                         />
                       </View>
-                      <Text allowFontScaling style={styles.rowLabel}>{ts("helpSupport")}</Text>
+                      <Text style={styles.rowLabel}>{ts("helpSupport")}</Text>
                     </TouchableOpacity>
 
                     {/* Chia sẻ Asinu */}
@@ -1396,10 +1476,10 @@ export default function ProfileScreen() {
                         <Ionicons
                           name="share-social-outline"
                           size={22}
-                          color={isDark ? '#99D5C7' : '#216B5B'}
+                          color="#14b8a6"
                         />
                       </View>
-                      <Text allowFontScaling style={styles.rowLabel}>{t("shareApp")}</Text>
+                      <Text style={styles.rowLabel}>{t("shareApp")}</Text>
                     </TouchableOpacity>
 
                     {/* Điều khoản dịch vụ */}
@@ -1417,10 +1497,10 @@ export default function ProfileScreen() {
                         <Ionicons
                           name="document-text-outline"
                           size={22}
-                          color={isDark ? '#99D5C7' : '#216B5B'}
+                          color="#8b5cf6"
                         />
                       </View>
-                      <Text allowFontScaling style={styles.rowLabel}>{ts("termsOfService")}</Text>
+                      <Text style={styles.rowLabel}>{ts("termsOfService")}</Text>
                     </TouchableOpacity>
 
                     {/* Chính sách bảo mật */}
@@ -1438,10 +1518,10 @@ export default function ProfileScreen() {
                         <Ionicons
                           name="shield-checkmark-outline"
                           size={22}
-                          color={isDark ? '#99D5C7' : '#216B5B'}
+                          color="#14b8a6"
                         />
                       </View>
-                      <Text allowFontScaling style={styles.rowLabel}>{ts("privacyPolicy")}</Text>
+                      <Text style={styles.rowLabel}>{ts("privacyPolicy")}</Text>
                     </TouchableOpacity>
 
                     {/* Nguồn tham khảo sức khỏe */}
@@ -1451,9 +1531,9 @@ export default function ProfileScreen() {
                       activeOpacity={0.7}
                     >
                       <View style={styles.rowIconWrap}>
-                        <Ionicons name="book-outline" size={22} color={isDark ? '#99D5C7' : '#216B5B'} />
+                        <Ionicons name="book-outline" size={22} color="#0284c7" />
                       </View>
-                      <Text allowFontScaling style={styles.rowLabel}>{ts("healthSources")}</Text>
+                      <Text style={styles.rowLabel}>{ts("healthSources")}</Text>
                     </TouchableOpacity>
 
                     {/* Yêu cầu xóa dữ liệu */}
@@ -1468,9 +1548,9 @@ export default function ProfileScreen() {
                       activeOpacity={0.7}
                     >
                       <View style={styles.rowIconWrap}>
-                        <Ionicons name="globe-outline" size={22} color={isDark ? '#99D5C7' : '#216B5B'} />
+                        <Ionicons name="globe-outline" size={22} color="#0d9488" />
                       </View>
-                      <Text allowFontScaling style={styles.rowLabel}>
+                      <Text style={styles.rowLabel}>
                         {ts("requestDataDeletion")}
                       </Text>
                     </TouchableOpacity>
@@ -1479,9 +1559,8 @@ export default function ProfileScreen() {
                 </>
               )}
 
-            </View>
+            </Animated.View>
 
-            </View>
             <View style={styles.profileFooter}>
               <TouchableOpacity
                 style={styles.logoutButton}
@@ -1494,7 +1573,7 @@ export default function ProfileScreen() {
                   color={isDark ? "#f87171" : "#e11d48"}
                   style={{ marginRight: 8 }}
                 />
-                <Text allowFontScaling style={styles.logoutButtonText}>{t("logout")}</Text>
+                <Text style={styles.logoutButtonText}>{t("logout")}</Text>
               </TouchableOpacity>
               <ProfileMascotGreeting />
             </View>
@@ -2212,32 +2291,41 @@ function createStyles(
   typography: ReturnType<typeof useScaledTypography>,
   isDark: boolean,
 ) {
-  const cardBg = isDark ? "#1a1d27" : "#FDFFFE";
-  const borderCol = isDark ? "#2D3140" : "#DFE9E3";
+  const cardBg = isDark ? "#1e293b" : "#ffffff";
+  const borderCol = isDark ? "#334155" : "#f1f5f9";
   const textPrimaryCol = isDark ? "#f8fafc" : "#0f172a";
   const textSecondaryCol = isDark ? "#94a3b8" : "#64748b";
 
   return StyleSheet.create({
-    container: { flexGrow: 1, backgroundColor: 'transparent' },
-    pageHeader: { marginHorizontal: 20, marginBottom: 18, flexDirection: 'row', flexWrap: 'wrap',
-      alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-    pageTitle: { fontSize: 26, fontWeight: '700', color: textPrimaryCol },
-    editProfileButton: { minHeight: 44, paddingHorizontal: 12, paddingVertical: 8,
-      borderRadius: 14, backgroundColor: isDark ? '#18332D' : '#E5F1EA',
-      flexDirection: 'row', alignItems: 'center', gap: 8 },
-    profileFooter: { marginHorizontal: 20, marginTop: 16, gap: 20, paddingBottom: 16 },
-    personalSection: { marginHorizontal: 16, marginBottom: 20, backgroundColor: cardBg,
-      borderRadius: 24, borderWidth: 1, borderColor: borderCol, overflow: 'hidden' },
-    personalDetails: { paddingBottom: 12 },
-    menuGroup: { marginHorizontal: 16, backgroundColor: cardBg, borderRadius: 24,
-      borderWidth: 1, borderColor: borderCol, overflow: 'hidden' },
-    personalInfoHeader: { marginHorizontal: 0, paddingHorizontal: 0, paddingVertical: 0, gap: 0 },
-    coinSummary: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64,
-      borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: borderCol, paddingVertical: 12 },
-    coinCopy: { flex: 1, minWidth: 0, gap: 3 },
-    coinBalance: { fontSize: 15, fontWeight: '600', color: textPrimaryCol },
-    coinLabel: { fontSize: 13, color: textSecondaryCol },
-    personalInfoEditText: { fontSize: 14, fontWeight: '600', color: isDark ? '#99D5C7' : '#216B5B' },
+    container: {
+      flexGrow: 1,
+      backgroundColor: "transparent",
+    },
+    profileFooter: {
+      flexGrow: 1,
+      minHeight: 164,
+      marginHorizontal: 24,
+      marginTop: 8,
+      flexDirection: "column",
+      justifyContent: "space-between",
+      gap: 16,
+    },
+    personalInfoHeader: {
+      paddingHorizontal: 0,
+      paddingVertical: 0,
+      gap: 0,
+    },
+    coinSummary: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginLeft: 'auto',
+      gap: 8,
+      width: 172,
+      paddingVertical: 8,
+    },
+    coinCopy: { flex: 1, minWidth: 0, gap: 4 },
+    coinBalance: { fontSize: 15, fontWeight: '800', color: isDark ? '#f0fdfa' : '#172033' },
+    coinLabel: { fontSize: 13, fontWeight: '600', color: isDark ? '#6ee7b7' : '#287f6c' },
     personalInfoToggle: {
       flex: 1,
       minHeight: 56,
@@ -2247,34 +2335,128 @@ function createStyles(
       alignItems: "center",
       gap: 12,
     },
+    personalInfoEditButton: {
+      minHeight: 44,
+      marginRight: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 8,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 4,
+    },
+    personalInfoEditText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: isDark ? "#99f6e4" : "#0b5e56",
+    },
+
     // Info Grid
-    infoGrid: { marginHorizontal: 16, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-    gridCard: { width: '48%', paddingVertical: 10, paddingHorizontal: 4, flexDirection: 'row' },
-    gridCardContent: { flex: 1, minWidth: 0 },
-    gridCardLabel: { fontSize: 13, color: textSecondaryCol },
-    gridCardValue: { fontSize: 16, fontWeight: '600', color: textPrimaryCol, marginTop: 4 },
-    chronicDiseaseCard: { marginHorizontal: 16, paddingVertical: 14, paddingHorizontal: 4, flexDirection: 'row',
-      borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: borderCol },
-    userCard: { marginHorizontal: 16, marginBottom: 20, paddingHorizontal: 18, paddingTop: 18,
-      backgroundColor: cardBg, borderRadius: 24, borderWidth: 1, borderColor: borderCol },
-    identityRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingBottom: 16 },
-    avatarWrap: { width: 64, height: 64, borderRadius: 22, justifyContent: 'center', alignItems: 'center',
-      position: 'relative', backgroundColor: isDark ? '#18332D' : '#E5F1EA' },
-    avatarImg: { width: 64, height: 64, borderRadius: 22 },
-    avatarLoadingOverlay: { ...StyleSheet.absoluteFill, borderRadius: 22, backgroundColor: 'rgba(8,28,24,0.35)',
-      justifyContent: 'center', alignItems: 'center' },
-    userInfoCol: { flex: 1, minWidth: 0, gap: 5 },
-    userName: { fontSize: 22, fontWeight: '700', color: textPrimaryCol },
-    identityPhone: { fontSize: 14, color: textSecondaryCol },
-    planBadge: { flexDirection: 'row', alignItems: 'center', minHeight: 64, paddingVertical: 12, gap: 12,
-      borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: borderCol },
-    planIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 12,
-      backgroundColor: isDark ? '#3B3321' : '#F6F0E3' },
-    planCopy: { flex: 1, minWidth: 0, gap: 3 },
-    planLabel: { fontSize: 12, color: textSecondaryCol },
-    planBadgeText: { fontSize: 15, fontWeight: '600', color: textPrimaryCol },
-    sectionIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center',
-      borderRadius: 12, backgroundColor: isDark ? '#18332D' : '#EAF3ED' },
+    infoGrid: {
+      marginHorizontal: 16,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "space-between",
+      rowGap: 10,
+    },
+    gridCard: {
+      width: "48.5%",
+      backgroundColor: "transparent",
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    gridIconWrap: {
+      width: 26,
+      height: 26,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 8,
+    },
+    gridCardContent: {
+      flex: 1,
+    },
+    gridCardLabel: {
+      fontSize: 13,
+      color: textSecondaryCol,
+    },
+    gridCardValue: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: textPrimaryCol,
+      marginTop: 2,
+    },
+    chronicDiseaseCard: {
+      marginHorizontal: 16,
+      marginTop: 10,
+      backgroundColor: "transparent",
+      paddingVertical: 13,
+      paddingHorizontal: 12,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+
+    // Identity sits directly on the healthcare wallpaper.
+    userCard: {
+      marginHorizontal: 16,
+      paddingVertical: 12,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      rowGap: 12,
+      alignItems: "center",
+    },
+    avatarWrap: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      justifyContent: "center",
+      alignItems: "center",
+      position: "relative",
+    },
+    avatarImg: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+    },
+    avatarLoadingOverlay: {
+      ...StyleSheet.absoluteFill,
+      borderRadius: 32,
+      backgroundColor: "rgba(0,0,0,0.35)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    userInfoCol: {
+      flex: 1,
+      minWidth: 96,
+      marginLeft: 14,
+      justifyContent: "center",
+    },
+    userName: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: textPrimaryCol,
+    },
+    planBadge: {
+      maxWidth: '100%',
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: isDark ? "#78350f33" : "#fef3c7",
+      borderRadius: 12,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+      alignSelf: "flex-start",
+      marginTop: 6,
+      borderWidth: 1,
+      borderColor: isDark ? "#92400e" : "#fde68a",
+    },
+    planBadgeText: {
+      flexShrink: 1,
+      fontSize: 12,
+      fontWeight: "600",
+      color: isDark ? "#fcd34d" : "#b45309",
+    },
+
     sectionHeaderLeft: {
       flex: 1,
       flexDirection: "row",
@@ -2322,13 +2504,31 @@ function createStyles(
     },
 
     // Grouped Section (Thao tác, Sức khỏe, Tài khoản, Cài đặt, Hệ thống)
-    sectionHeaderRow: { minHeight: 68, paddingHorizontal: 16, paddingVertical: 14,
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: borderCol },
-    cardsStack: { paddingHorizontal: 12, paddingBottom: 12 },
-    collapsedSection: { display: 'none' },
-    actionCard: { minHeight: 56, paddingVertical: 14, paddingHorizontal: 8,
-      flexDirection: 'row', alignItems: 'center', gap: 4 },
+    sectionHeaderRow: {
+      marginHorizontal: 16,
+      marginTop: 6,
+      marginBottom: 4,
+      minHeight: 56,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+    },
+    cardsStack: {
+      marginLeft: 36,
+      marginRight: 16,
+      backgroundColor: "transparent",
+    },
+    collapsedSection: { display: "none" },
+    actionCard: {
+      minHeight: 56,
+      paddingVertical: 13,
+      paddingHorizontal: 16,
+      flexDirection: "row",
+      alignItems: "center",
+    },
     actionCardLocked: {
       backgroundColor: "transparent",
     },
