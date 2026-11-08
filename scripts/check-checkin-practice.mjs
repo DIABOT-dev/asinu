@@ -558,6 +558,10 @@ for (const language of ['vi', 'en']) {
     const settle = async () => { tree = await runtime.settle(() => component(props)); return tree; };
     await settle();
     assert.ok(nodes(tree).some(n => n.type === 'Text' && n.props.children === '14/26'));
+    const unknownTotal = await runtime.settle(() => component({ ...props, questionProgress: undefined,
+      answers: Array.from({ length: 9 }, () => ({ answer: 'Recorded' })) }));
+    assert.ok(nodes(unknownTotal).some(n => n.type === 'Text' && n.props.children === tr.t('checkinQuestionNumber', { count: 10 })),
+      'Without a server total, show the real question number instead of a fictional four-question cap');
     assert.ok(nodes(tree).some(n => n.type === 'Text' && n.props.children === tr.t('checkinQuestionRegion', { region: props.questionGroup.label, current: 2, total: 2 })));
     const choice = label => nodes(tree).find(n => n.props?.accessibilityLabel === label && n.props.accessibilityRole === 'checkbox');
     choice(nausea).props.onPress(); await settle();

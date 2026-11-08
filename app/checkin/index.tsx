@@ -58,7 +58,6 @@ import { createCheckinPractice } from '../../src/features/guidance/checkin.pract
 import { guidanceAudio } from '../../src/features/guidance/guidance.audio';
 import { guideColors as guideColors } from '../../src/features/guidance/guidance.model';
 
-const MAX_TRIAGE_QUESTIONS = 4;
 const asinuChatSticker = require('../../assets/asinu_chat_sticker.png');
 
 // ─── Local fallback questions (when network itself fails) ────────────────────
@@ -572,7 +571,7 @@ function CheckinScreen() {
       }
     }
 
-    // Backend enforces the question limit and returns the persisted severity.
+    // Backend decides when the assessment is complete and persists its severity.
     // Always await it so an emergency in the final answer cannot be shown as medium.
     await fetchNextQuestion(session, newAnswers);
   };
@@ -921,9 +920,9 @@ function TriageScreen({
 
   const [isTranscribing, setIsTranscribing] = useState(false);
 
-  const progressCurrent = questionProgress?.current || Math.min(answers.length + 1, MAX_TRIAGE_QUESTIONS);
-  const progressTotal = questionProgress?.total || MAX_TRIAGE_QUESTIONS;
-  const progress = progressCurrent / progressTotal;
+  const progressCurrent = questionProgress?.current || answers.length + 1;
+  const progressTotal = questionProgress?.total;
+  const progress = progressTotal ? progressCurrent / progressTotal : 0;
 
   const handleOptionTap = (opt: string) => {
     if (readOnly || loading || isTranscribing) return;
@@ -973,14 +972,14 @@ function TriageScreen({
     <View style={styles.section}>
       {/* Slim progress bar & step counter */}
       <View style={styles.triageProgressRow}>
-        <View style={styles.triageProgressTrack}>
+        {progressTotal ? <View style={styles.triageProgressTrack}>
           <Animated.View
             entering={FadeIn.duration(300)}
             style={[styles.triageProgressFill, { width: `${Math.min(progress * 100, 100)}%` }]}
           />
-        </View>
+        </View> : null}
         <Text style={styles.triageProgressText}>
-          {`${progressCurrent}/${progressTotal}`}
+          {progressTotal ? `${progressCurrent}/${progressTotal}` : t('checkinQuestionNumber', { count: progressCurrent })}
         </Text>
       </View>
 

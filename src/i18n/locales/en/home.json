@@ -760,6 +760,7 @@
   "doctorScreeningRisk_emergency": "Concern level: emergency",
   "checkinLocationDetailsTitle": "The exact spots",
   "checkinLocationPositionProgress": "Location {{current}}/{{total}}",
+  "checkinQuestionNumber": "Question {{count}}",
   "checkinLocationDetailsHint": "Tap each area below to choose the spots. You can choose more than one, or choose “Not sure of the spot”.",
   "checkinLocationDetailQuestion": "{{region}}: where do you feel discomfort?",
   "checkinLocationDetailSelect": "Choose the exact spot",

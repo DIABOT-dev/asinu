@@ -760,6 +760,7 @@
   "doctorScreeningRisk_emergency": "Mức cần chú ý: khẩn cấp",
   "checkinLocationDetailsTitle": "Vị trí cụ thể",
   "checkinLocationPositionProgress": "Vị trí {{current}}/{{total}}",
+  "checkinQuestionNumber": "Câu {{count}}",
   "checkinLocationDetailsHint": "Chạm vào từng vùng bên dưới để chọn chỗ khó chịu. Có thể chọn nhiều chỗ; nếu chưa rõ, chọn “Khó xác định”.",
   "checkinLocationDetailQuestion": "{{region}}: bạn khó chịu ở đâu?",
   "checkinLocationDetailSelect": "Chọn vị trí cụ thể",
