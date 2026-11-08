@@ -149,6 +149,8 @@ function controlHarness(file, imports = {}, runEffects = false) {
     'expo-router': { useIsFocused: () => focused },
     'react-i18next': { useTranslation: () => ({ t: key => key, i18n: { language: 'vi' } }) },
     './guidance.model': model,
+    './live-dictation.service': { getLiveDictationModule: () => null },
+    '../../lib/native-permissions': {},
     '../../components/ScaledText': { ScaledText: 'Text' },
     ...imports,
   });
@@ -417,7 +419,7 @@ await test('real symptom guides cover single, multiple, grouped, empty-group and
     'react/jsx-runtime': { jsx, jsxs: jsx },
   }, { View: 'View', Text: 'Text', Image: 'Image', Svg: 'Svg', Path: 'Path', asinuChatSticker: 'asinu_chat_sticker.png', Pressable: 'Pressable', TextInput: 'TextInput', ActivityIndicator: 'Spinner',
     Ionicons: 'Icon', MaterialCommunityIcons: 'Icon', Animated: { View: 'Animated' },
-    FadeIn: animation, FadeInDown: animation, FadeInLeft: animation, GuideTarget: 'GuideTarget', VoiceAnswerButton: 'VoiceAnswerButton',
+    FadeIn: animation, FadeInDown: animation, FadeInLeft: animation, GuideTarget: 'GuideTarget', VoiceAnswerInput: 'VoiceAnswerInput',
     ...triageOptionDisplay, colors: theme.lightColors, spacing: theme.spacing, MAX_TRIAGE_QUESTIONS: 10,
     useTranslation: () => ({ t: key => key }), useLanguageStore: () => ({ language: 'vi' }), useGuideAcknowledgement: () => () => {},
     useState: initial => [initial, () => {}], useRef: initial => ({ current: initial }), useEffect() {} });
@@ -503,8 +505,8 @@ await test('existing symptom-guide completion does not suppress the newly indepe
 await test('real status, location and symptom-question screens register different guide identities', () => {
   const file = ts.createSourceFile('checkin.tsx', read('app/checkin/index.tsx'),
     ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const expected = { StatusScreen: ['checkin.status'], LocationScreen: ['checkin.location', 'checkin.location_other', 'checkin.voice', 'checkin.location_confirm'],
-    TriageScreen: ['checkin.choices', 'checkin.other', 'checkin.voice', 'checkin.confirm'] };
+  const expected = { StatusScreen: ['checkin.status'], LocationScreen: ['checkin.location', 'checkin.location_other', 'checkin.location_confirm'],
+    TriageScreen: ['checkin.choices', 'checkin.other', 'checkin.confirm'] };
   for (const [name, ids] of Object.entries(expected)) {
     const component = file.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
     assert.ok(component);
@@ -518,6 +520,7 @@ await test('real status, location and symptom-question screens register differen
     visit(component);
     assert.deepEqual([...registered].sort(), [...ids].sort(), name);
   }
+  assert.match(read('src/features/guidance/VoiceAnswerInput.tsx'), /step="checkin.voice"/);
 });
 await test('care-circle steps follow actual form progress without a five-step blocking tour', () => {
   let progress = completedWelcome();
@@ -862,7 +865,7 @@ await test('the actual live symptom input appends dictated text, reflects proces
   const TriageScreen = evaluateSource(`${component.getText(file)}\nmodule.exports=TriageScreen;`, {
     'react/jsx-runtime': { jsx, jsxs: jsx },
   }, { View:'View',Text:'Text',Image:'Image',Pressable:'Pressable',TextInput:'Input',Ionicons:'Icon',MaterialCommunityIcons:'Icon',Svg:'Svg',Path:'Path',
-    Animated:{View:'Animated'},FadeIn:animation,FadeInDown:animation,FadeInLeft:animation,GuideTarget:'Guide',VoiceAnswerButton:'Mic',
+    Animated:{View:'Animated'},FadeIn:animation,FadeInDown:animation,FadeInLeft:animation,GuideTarget:'Guide',VoiceAnswerInput:'VoiceField',
     asinuChatSticker:'existing-art', colors:theme.lightColors, spacing:theme.spacing, MAX_TRIAGE_QUESTIONS:4,
     ...triageOptionDisplay,useTranslation:()=>({t:key=>key}),useGuideAcknowledgement:()=>()=>{},useRef:initial=>({current:initial}),useEffect(){},
     useState(initial){const index=cursor++;states[index]??={value:initial};return [states[index].value,value=>{states[index].value=typeof value==='function'?value(states[index].value):value;}];},
@@ -870,17 +873,14 @@ await test('the actual live symptom input appends dictated text, reflects proces
   const submitted=[];
   const props={styles:{},question:'What changed?',options:[],multiSelect:false,allowFreeText:true,answers:[],loading:false,practice:false,onBeforeAi:async()=>true,onAnswer: value=>submitted.push(value)};
   const render=()=>{cursor=0;return TriageScreen(props);};
-  let tree=render(),mic=nodes(tree).find(node=>node.type==='Mic');
+  let tree=render(),mic=nodes(tree).find(node=>node.type==='VoiceField');
   assert.ok(mic,'Live check-in must use the same working voice control'); assert.equal(mic.key,props.question);
-  nodes(tree).find(node=>node.type==='Input').props.onChangeText('Từ sáng');
-  mic.props.onText('tôi hơi mệt'); tree=render();
-  assert.equal(nodes(tree).find(node=>node.type==='Input').props.value,'Từ sáng tôi hơi mệt');
-  nodes(tree).find(node=>node.type==='Mic').props.onProcessingChange(true); tree=render();
-  assert.equal(nodes(tree).find(node=>node.type==='Input').props.editable,false);
+  mic.props.onChangeText('Từ sáng tôi hơi mệt'); tree=render();
+  assert.equal(nodes(tree).find(node=>node.type==='VoiceField').props.value,'Từ sáng tôi hơi mệt');
+  nodes(tree).find(node=>node.type==='VoiceField').props.onProcessingChange(true); tree=render();
   const confirm=nodes(tree).find(node=>node.type==='Pressable');
   assert.equal(confirm.props.disabled,true); confirm.props.onPress(); assert.deepEqual(submitted,[]);
-  nodes(tree).find(node=>node.type==='Mic').props.onProcessingChange(false);tree=render();
-  assert.equal(nodes(tree).find(node=>node.type==='Input').props.editable,true);
+  nodes(tree).find(node=>node.type==='VoiceField').props.onProcessingChange(false);tree=render();
   nodes(tree).find(node=>node.type==='Pressable').props.onPress();
   assert.deepEqual(submitted,['Từ sáng tôi hơi mệt']);
 });
@@ -1311,8 +1311,9 @@ await test('the profile System section has no guide replay or read-aloud setting
   const settings = [], sections = [];
   const visit = node => {
     if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(source) === 'GuidanceSettings') settings.push(node);
-    if (ts.isJsxElement(node) && node.openingElement.tagName.getText(source) === 'Animated.View'
-      && /t\("sectionSystem"\)/.test(node.getText(source))) sections.push(node);
+    if (ts.isJsxElement(node) && node.children.some(child => ts.isJsxExpression(child)
+      && child.expression && /^renderSectionHeader\(/.test(child.expression.getText(source))
+      && /t\("sectionSystem"\)/.test(child.expression.getText(source)))) sections.push(node);
     ts.forEachChild(node, visit);
   };
   visit(source);

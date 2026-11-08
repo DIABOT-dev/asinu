@@ -9,16 +9,21 @@ import { showToast } from '../../stores/toast.store';
 import { guidanceAudio } from './guidance.audio';
 import { guideColors as c } from './guidance.model';
 import { ScaledText as Text } from '../../components/ScaledText';
+import { runNativePermission } from '../../lib/native-permissions';
+import { createLiveDictation, getLiveDictationModule, type LiveDictation } from './live-dictation.service';
 
 /** Reuses the existing, consented transcription endpoint, never submits an answer. */
-export function VoiceAnswerButton({ onText, onBeforeAi, onProcessingChange, disabled = false, practice = false }: {
-  onText: (text: string) => void; onBeforeAi: () => Promise<boolean>; onProcessingChange?: (busy: boolean) => void; disabled?: boolean; practice?: boolean;
+export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcessingChange, disabled = false, practice = false }: {
+  onText: (text: string) => void; onInterimText?: (text: string) => void; onBeforeAi: () => Promise<boolean>; onProcessingChange?: (busy: boolean) => void; disabled?: boolean; practice?: boolean;
 }) {
   const { t, i18n } = useTranslation('onboarding');
   const focused = useIsFocused();
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
   const recorder = useRef<any>(null);
+  const live = useRef<LiveDictation | null>(null);
+  const callbacks = useRef({ onText, onInterimText });
+  callbacks.current = { onText, onInterimText };
   const alive = useRef(true);
   const locked = useRef(false);
   const revision = useRef(0);
@@ -31,6 +36,9 @@ export function VoiceAnswerButton({ onText, onBeforeAi, onProcessingChange, disa
       ++revision.current;
       permissionRequest.current = null;
       const previous = recorder.current; recorder.current = null;
+      const dictation = live.current; live.current = null;
+      dictation?.cancel();
+      callbacks.current.onInterimText?.('');
       void previous?.stopAndUnloadAsync().catch(() => {});
       locked.current = false;
       if (alive.current) { setRecording(false); setBusy(false); }
@@ -38,51 +46,85 @@ export function VoiceAnswerButton({ onText, onBeforeAi, onProcessingChange, disa
     const sub = AppState.addEventListener('change', state => {
       // iOS temporarily becomes inactive while its microphone dialog is open.
       // A real background/blur still cancels the request and any recording.
-      if (state !== 'active' && !(state === 'inactive' && permissionRequest.current !== null)) cancel();
+      if (state !== 'active' && !(state === 'inactive' && permissionRequest.current !== null)) {cancel();}
     });
     return () => { alive.current = false; cancel(); sub.remove(); };
   }, [focused]);
   const press = async () => {
-    if (locked.current || disabled || !alive.current) return;
+    if (locked.current || disabled || !alive.current) {return;}
     locked.current = true;
-    const version = ++revision.current;
+    const version = live.current || recorder.current ? revision.current : ++revision.current;
     const current = () => alive.current && version === revision.current;
     let transcribing = false;
+    let waitingForLiveResult = false;
     setBusy(true);
     try {
       await guidanceAudio.stop();
-      if (!current()) return;
+      if (!current()) {return;}
       if (practice) {
         if (recording) {
           setRecording(false); onText(t('guidance.practiceVoiceExample'));
           showToast(t('guidance.practiceVoiceNotice'), 'info');
-        } else setRecording(true);
+        } else {setRecording(true);}
         return;
       }
-      if (recorder.current) {
+      if (live.current) {
+        waitingForLiveResult = true;
+        setRecording(false);
+        live.current.stop();
+      } else if (recorder.current) {
         const previous = recorder.current; recorder.current = null;
         setRecording(false);
         await previous.stopAndUnloadAsync();
         await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true }).catch(() => {});
-        if (!current()) return;
+        if (!current()) {return;}
         const uri = previous.getURI();
-        if (!uri) throw new Error('RECORDING_FILE_UNAVAILABLE');
+        if (!uri) {throw new Error('RECORDING_FILE_UNAVAILABLE');}
         transcribing = true;
         const text = (await chatApi.transcribeAudio(uri, i18n.language.startsWith('en') ? 'en' : 'vi', 'checkin')).trim();
         if (current()) {
-          if (text) onText(text);
-          else showToast(t('guidance.voiceFailure'), 'info');
+          if (text) {onText(text);}
+          else {showToast(t('guidance.voiceFailure'), 'info');}
         }
       } else {
-        if (!(await onBeforeAi()) || !current()) return;
+        if (!(await onBeforeAi()) || !current()) {return;}
+        const speech = getLiveDictationModule();
+        if (speech) {
+          permissionRequest.current = version;
+          let permission;
+          try {
+            permission = await runNativePermission(() => speech.requestPermissionsAsync(), { key: 'microphone' });
+          } finally { if (permissionRequest.current === version) {permissionRequest.current = null;} }
+          if (!current()) {return;}
+          if (!permission.granted) {
+            showToast(t('guidance.speechRecognitionDenied'), 'info');
+            return;
+          }
+          const dictation = createLiveDictation(speech, {
+            language: i18n.language,
+            onInterim: text => { if (current()) {callbacks.current.onInterimText?.(text);} },
+            onDone: result => {
+              if (!current()) {return;}
+              live.current = null;
+              callbacks.current.onInterimText?.('');
+              setRecording(false); setBusy(false); locked.current = false;
+              if (result.text) {callbacks.current.onText(result.text);}
+              else {showToast(t(result.error ? 'guidance.voiceTranscriptionFailure' : 'guidance.voiceFailure'), result.error ? 'error' : 'info');}
+            },
+          });
+          live.current = dictation;
+          setRecording(true);
+          dictation.start();
+          return;
+        }
         permissionRequest.current = version;
         let permission;
         try { permission = await Audio.requestPermissionsAsync(); }
-        finally { if (permissionRequest.current === version) permissionRequest.current = null; }
-        if (!current()) return;
+        finally { if (permissionRequest.current === version) {permissionRequest.current = null;} }
+        if (!current()) {return;}
         if (!permission.granted) { showToast(t('guidance.microphoneDenied'), 'info'); return; }
         await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-        if (!current()) return;
+        if (!current()) {return;}
         const result = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
         if (!current()) { await result.recording.stopAndUnloadAsync(); return; }
         recorder.current = result.recording; setRecording(true);
@@ -98,7 +140,7 @@ export function VoiceAnswerButton({ onText, onBeforeAi, onProcessingChange, disa
         }
       }
     }
-    finally { if (current()) { locked.current = false; setBusy(false); } }
+    finally { if (current() && !waitingForLiveResult) { locked.current = false; setBusy(false); } }
   };
   const label = t(recording ? 'guidance.stopRecording' : 'guidance.speak');
   return <Pressable testID="checkin-voice-answer" accessibilityRole="button" accessibilityLabel={label} disabled={busy || disabled || !focused}

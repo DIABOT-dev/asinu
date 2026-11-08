@@ -4,3 +4,4 @@
 "NSMotionUsageDescription" = "Asinu may use motion sensors to determine the camera orientation when you scan a QR code to connect with a family member. The app does not track physical activity.";
 "NSPhotoLibraryUsageDescription" = "Asinu uses your selected photo to update your profile picture or scan a family connection QR code.";
 "NSPhotoLibraryAddUsageDescription" = "Asinu needs permission to add photos to save your QR code to your photo library.";
+"NSSpeechRecognitionUsageDescription" = "Asinu turns your speech into text while you enter a health answer. Depending on your device, Apple or Google may process the audio.";

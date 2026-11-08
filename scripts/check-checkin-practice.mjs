@@ -327,15 +327,15 @@ function locationHarness(language) {
   const runtime = hooks(), tr = translations(language), calls = [];
   const component = evaluate(`${extractVariable('BODY_LOCATION_OPTIONS')}\n${extract('LocationScreen')}\nmodule.exports = LocationScreen;`, {
     ...native, ...runtime, ...tr, ...locationDetailsHelpers, spacing: { xs: 4 },
-    VoiceAnswerButton: 'VoiceAnswerButton', useGuideAcknowledgement: () => () => {},
+    VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
   });
   let props = { styles: {}, loading: false, onConfirm: (...args) => calls.push(args), onBack() {}, onBeforeAi: async () => true };
   let tree;
   const settle = async () => { tree = await runtime.settle(() => component(props)); return tree; };
   const find = id => { const node = nodes(tree).find(item => item.props?.testID === id); assert.ok(node, id); return node; };
   return { calls, tr, find, settle, async press(id) { await find(id).props.onPress(); return settle(); },
-    async note(value) { nodes(tree).find(item => item.type === 'Input').props.onChangeText(value); return settle(); },
-    async voiceBusy(value) { nodes(tree).find(item => item.type === 'VoiceAnswerButton').props.onProcessingChange(value); return settle(); },
+    async note(value) { nodes(tree).find(item => item.type === 'VoiceAnswerInput').props.onChangeText(value); return settle(); },
+    async voiceBusy(value) { nodes(tree).find(item => item.type === 'VoiceAnswerInput').props.onProcessingChange(value); return settle(); },
     async loading(value) { props = { ...props, loading: value }; return settle(); } };
 }
 
@@ -417,7 +417,7 @@ for (const language of ['vi', 'en']) {
       'module.exports = CheckinUiPreview;'].join('\n');
     const preview = evaluate(source, { ...native, ...runtime, ...translations(language), ...triageOptionDisplay, ...locationDetailsHelpers, isDoctorFeaturesEnabled: true, MAX_TRIAGE_QUESTIONS: 4,
       CHECKIN_STATUS_CHOICES: [{ status: 'fine' }, { status: 'tired' }, { status: 'very_tired' }],
-      CheckinStatusChoice: 'StatusChoice', VoiceAnswerButton: 'VoiceAnswerButton',
+      CheckinStatusChoice: 'StatusChoice', VoiceAnswerInput: 'VoiceAnswerInput',
       CheckinConclusionLoading: 'ConclusionProgress',
       CheckinGiftModal: (props) => ({ type: 'Pressable', props: { disabled: true, children: null } }),
       useScaledTypography: () => ({}), createStyles: () => ({}), spacing: { xs: 4, sm: 8, md: 16, lg: 24 },
@@ -443,6 +443,7 @@ for (const language of ['vi', 'en']) {
           assert.equal(node.props.editable, false, `${id}: editable input`);
           assert.equal(node.props.onChangeText, undefined);
         }
+        if (node.type === 'VoiceAnswerInput') assert.equal(node.props.readOnly, true);
         if (node.type === 'StatusChoice') assert.equal(node.props.onSelect, undefined);
         if (node.type === 'GuideTarget') assert.equal(node.props.enabled, false, `${id}: active coaching target`);
       }
@@ -504,7 +505,7 @@ for (const language of ['vi', 'en']) {
     const optionDisplay = evaluate(read('src/features/checkin/triage-option-display.ts'));
     const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
       ...native, ...runtime, ...tr, ...optionDisplay, MAX_TRIAGE_QUESTIONS: 4,
-      spacing: { sm: 8 }, VoiceAnswerButton: 'VoiceAnswerButton', useGuideAcknowledgement: () => () => {},
+      spacing: { sm: 8 }, VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
     });
     const catalog = JSON.parse(read(`../backend.asinu/src/i18n/locales/${language}.json`));
     const nausea = catalog['checkin.detail.option.nausea'];

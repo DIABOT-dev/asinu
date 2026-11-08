@@ -51,7 +51,7 @@ import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 import { GuidePracticeScope, GuideScrollScope, GuideTarget, useGuideAcknowledgement } from '../../src/features/guidance/GuidanceProvider';
 import { useReviewGuidance } from '../../src/features/guidance/GuidanceSettings';
 import { useGuidanceStore } from '../../src/features/guidance/guidance.store';
-import { VoiceAnswerButton } from '../../src/features/guidance/VoiceAnswerButton';
+import { VoiceAnswerInput } from '../../src/features/guidance/VoiceAnswerInput';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { createCheckinPractice } from '../../src/features/guidance/checkin.practice';
 import { guidanceAudio } from '../../src/features/guidance/guidance.audio';
@@ -1039,27 +1039,13 @@ function LocationScreen({
               {tg('guidance.otherAnswer')}
             </Text>
           ) : null}
-          <View style={styles.triageInputCard}>
-            <GuideTarget step="checkin.voice" enabled={practice && !loading} acknowledgeOnTouch={false}>
-              <VoiceAnswerButton
-                onText={text => { setOther(previous => `${previous} ${text}`.trim()); acknowledgeGuide('checkin.voice'); }}
-                onBeforeAi={onBeforeAi}
-                onProcessingChange={setIsTranscribing}
-                disabled={loading || readOnly}
-                practice={practice}
-              />
-            </GuideTarget>
-            <TextInput
-              allowFontScaling
-              value={other}
-              onChangeText={readOnly ? undefined : setOther}
-              placeholder={t('checkinLocationOtherPlaceholder')}
-              placeholderTextColor="#94a3b8"
-              editable={!loading && !readOnly && !isTranscribing}
-              maxLength={200}
-              style={[styles.triageTextInput, practice && { fontSize: 20 }]}
-            />
-          </View>
+          <VoiceAnswerInput value={other} onChangeText={setOther}
+            onRecognized={() => acknowledgeGuide('checkin.voice')}
+            onBeforeAi={onBeforeAi} onProcessingChange={setIsTranscribing}
+            disabled={loading} readOnly={readOnly} practice={practice}
+            placeholder={t('checkinLocationOtherPlaceholder')} maxLength={200}
+            style={styles.triageInputCard}
+            inputStyle={[styles.triageTextInput, practice && { fontSize: 20 }]} />
         </Animated.View>
       </GuideTarget>
 
@@ -1371,29 +1357,13 @@ function TriageScreen({
           {(multiSelect || allowFreeText || options.length === 0) && (
             <GuideTarget step="checkin.other" enabled={practice && !loading} withoutChoices={!hasAnswerChoices}>
               <Animated.View entering={FadeInDown.delay(180).duration(400)} style={styles.triageInputCard}>
-                <GuideTarget step="checkin.voice" enabled={practice && !loading} acknowledgeOnTouch={false}>
-                  <VoiceAnswerButton
-                    key={question}
-                    practice={practice}
-                    disabled={loading || readOnly}
-                    onBeforeAi={onBeforeAi}
-                    onProcessingChange={setIsTranscribing}
-                    onText={text => {
-                      setCustom(previous => `${previous} ${text}`.trim());
-                      acknowledgeGuide('checkin.voice');
-                    }}
-                  />
-                </GuideTarget>
-                <TextInput
-                  allowFontScaling
-                  style={[styles.triageTextInput, { fontSize: practice ? 20 : 15 }]}
-                  placeholder={isTranscribing ? '...' : t('checkinCustomPlaceholder')}
-                  placeholderTextColor="#94a3b8"
-                  value={custom}
-                  onChangeText={readOnly ? undefined : setCustom}
-                  returnKeyType="done"
-                  editable={!isTranscribing && !readOnly}
-                />
+                <VoiceAnswerInput key={question} value={custom} onChangeText={setCustom}
+                  onRecognized={() => acknowledgeGuide('checkin.voice')}
+                  onBeforeAi={onBeforeAi} onProcessingChange={setIsTranscribing}
+                  disabled={loading} readOnly={readOnly} practice={practice}
+                  placeholder={t('checkinCustomPlaceholder')}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                  inputStyle={[styles.triageTextInput, { fontSize: practice ? 20 : 15 }]} />
               </Animated.View>
             </GuideTarget>
           )}

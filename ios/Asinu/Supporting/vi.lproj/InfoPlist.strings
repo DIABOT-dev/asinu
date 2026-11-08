@@ -4,3 +4,4 @@
 "NSMotionUsageDescription" = "Asinu có thể dùng cảm biến chuyển động để xác định hướng camera khi bạn quét mã QR kết nối người thân. Ứng dụng không theo dõi hoạt động thể chất.";
 "NSPhotoLibraryUsageDescription" = "Asinu dùng ảnh bạn chọn để cập nhật ảnh đại diện hoặc quét mã QR kết nối người thân.";
 "NSPhotoLibraryAddUsageDescription" = "Asinu cần quyền thêm ảnh để lưu mã QR của bạn vào thư viện ảnh.";
+"NSSpeechRecognitionUsageDescription" = "Asinu chuyển lời bạn nói thành chữ ngay khi nhập câu trả lời sức khỏe. Dịch vụ của thiết bị có thể xử lý âm thanh qua Apple hoặc Google.";
