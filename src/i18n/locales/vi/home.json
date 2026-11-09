@@ -601,7 +601,7 @@
     "đã uống thuốc",
     "chưa làm gì"
   ],
-  "checkinLocationTitle": "{{Honorific}} đang khó chịu ở đâu?",
+  "checkinLocationTitle": "{{Honorific}} đang cảm thấy khó chịu ở vùng nào của cơ thể?",
   "checkinLocationDescription": "Chọn một hoặc nhiều vùng, rồi chỉ rõ chỗ khó chịu ở từng vùng.",
   "checkinLocationRequired": "Hãy chọn ít nhất một vùng hoặc nhập mô tả.",
   "checkinLocationContinue": "Tiếp tục",

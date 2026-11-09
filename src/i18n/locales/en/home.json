@@ -601,7 +601,7 @@
     "took medication",
     "nothing yet"
   ],
-  "checkinLocationTitle": "Where do you feel discomfort?",
+  "checkinLocationTitle": "Which area of your body feels uncomfortable?",
   "checkinLocationDescription": "Choose one or more areas, then specify the spots in each area.",
   "checkinLocationRequired": "Select at least one area or enter a description.",
   "checkinLocationContinue": "Continue",
