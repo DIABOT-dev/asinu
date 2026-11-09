@@ -65,7 +65,8 @@
     "postinstall": "patch-package --error-on-fail && node scripts/patch-livekit-signal-lifecycle.cjs",
     "test:app-update": "node scripts/check-app-update.mjs",
     "test:telemetry": "node --test scripts/test-telemetry.cjs",
-    "test:checkin-conclusion": "node scripts/check-checkin-conclusion.mjs"
+    "test:checkin-conclusion": "node scripts/check-checkin-conclusion.mjs",
+    "test:checkin-presentation": "node scripts/check-checkin-presentation.mjs"
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^15.0.2",

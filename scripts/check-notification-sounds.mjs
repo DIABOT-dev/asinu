@@ -137,6 +137,7 @@ const native = {
   setNotificationHandler: (value) => { calls.handler = value; },
 };
 const notifications = evaluate('src/lib/notifications.ts', {
+  './checkin-presentation': { checkinPresentation: { isBlocked: () => false } },
   './appEnv': evaluate('src/lib/appEnv.ts', {}),
   './native-permissions': { runNativePermission: async (request) => request() },
   'expo-constants': {},
@@ -159,11 +160,11 @@ await test('Android creates every new channel without deleting user preferences'
   assert.equal(calls.channels.length, 15, '9 warm + 6 legacy channels');
   assert.ok(!fs.readFileSync('src/lib/notifications.ts', 'utf8').includes('deleteNotificationChannelAsync'));
 });
-await test('hiding Dr.Asinu removes its quick reply while health alert actions remain available', () => {
-  assert.equal(evaluate('src/lib/appEnv.ts', {}).isDoctorFeaturesEnabled, false);
+await test('specialist quick reply follows the consultation flag while health alert actions remain available', () => {
+  const enabled = evaluate('src/lib/appEnv.ts', {}).isExpertConsultationEnabled;
   assert.ok(calls.categories.includes('health_alert'));
-  assert.ok(!calls.categories.includes('doctor_message'));
-  assert.ok(calls.removedCategories.includes('doctor_message'));
+  assert.equal(calls.categories.includes('doctor_message'), enabled);
+  assert.equal(calls.removedCategories.includes('doctor_message'), !enabled);
 });
 await test('local notification scheduling selects the matching platform sound/channel', async () => {
   for (const osName of ['ios', 'android']) {

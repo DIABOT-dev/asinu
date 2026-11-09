@@ -81,6 +81,7 @@ function harness() {
     react: { useCallback: value => value, useMemo: work => work(), useEffect: work => work() },
     'expo-router': { useRouter: () => raw, useNavigationContainerRef: () => navigation },
     '../lib/navigation.guard': guards,
+    '../lib/checkin-presentation': { checkinPresentation: { defer: () => false } },
   });
   useNavigationGuardObserver();
   return {

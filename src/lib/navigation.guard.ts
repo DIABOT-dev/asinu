@@ -11,7 +11,7 @@ export type NavigationStateSnapshot = {
   }[];
 };
 
-type Destination = { path: string; key: string; answered: boolean; call: boolean };
+type Destination = { path: string; key: string; answered: boolean; call: boolean; attemptId?: string };
 const reservedParams = new Set(['screen', 'params', 'initial', 'state']);
 const decode = (value: string) => {
   try { return decodeURIComponent(value.replace(/\+/g, ' ')); }
@@ -49,7 +49,8 @@ export function navigationDestination(target: NavigationTarget): Destination {
       !name.startsWith('__internal') && !(isCall && name === 'nativeAnswered'))
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([name, value]) => [name, String(value)]);
-  return { path, key: JSON.stringify([path, entries]), answered, call: isCall };
+  return { path, key: JSON.stringify([path, entries]), answered, call: isCall,
+    attemptId: params.attemptId == null ? undefined : String(params.attemptId) };
 }
 
 export function focusedNavigationDestination(state: NavigationStateSnapshot | undefined) {

@@ -10,6 +10,7 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCheckinPresentationPriority } from '../../src/hooks/useCheckinPresentation';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -130,6 +131,7 @@ function CheckinScreen() {
 
   const [screen, setScreen] = useState<Screen>(isResultPreview ? 'done' : 'status');
   const [loading, setLoading] = useState(!isPractice && !isResultPreview);
+  useCheckinPresentationPriority(!isPractice && (loading || screen === 'done'));
   const [session, setSession] = useState<CheckinSession | null>(() =>
     isResultPreview
       ? createResultPreviewSession(

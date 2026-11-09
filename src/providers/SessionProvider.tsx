@@ -60,6 +60,7 @@ import {
 import { acceptMedicationCallOnce } from '../features/v21/medication.accept';
 import { CoinEarnedHost } from '../features/v21/CoinEarnedHost';
 import { CheckinCallHandoff } from "../features/checkin-call/checkin-call.handoff";
+import { checkinPresentation } from '../lib/checkin-presentation';
 import { acceptCheckinCallOnce } from "../features/checkin-call/checkin-call.accept";
 import { acceptDoctorIvrCallOnce } from "../features/doctor-ivr/ivr-call";
 import { getAndroidCallPermissions } from "../lib/android-checkin-call";
@@ -345,6 +346,9 @@ export const SessionProvider = ({ children }: Props) => {
   }, [authToken, expoPushToken, nativeFcmToken, voipRegistration]);
 
   const flushVoipHandoff = useCallback(() => {
+    // Retain the native handoff rather than marking an undisplayed call as
+    // routed. An ended call can still clear it while the conclusion is open.
+    if (checkinPresentation.isBlocked()) return;
     const current = callContext.current;
     const action = callHandoff.current.route({
       ready:
@@ -392,6 +396,21 @@ export const SessionProvider = ({ children }: Props) => {
       else router.navigate(checkinRoute as any);
     }
   }, [router]);
+
+  const handoffAccount = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!hydrated) return;
+    const account = profile?.id == null ? null : String(profile.id);
+    if (handoffAccount.current !== undefined && handoffAccount.current !== account) {
+      callRecoveryRevision.current++;
+      callHandoff.current.clear();
+    }
+    handoffAccount.current = account;
+  }, [hydrated, profile?.id]);
+
+  useEffect(() => checkinPresentation.subscribe(() => {
+    if (!checkinPresentation.isBlocked()) flushVoipHandoff();
+  }), [flushVoipHandoff]);
 
   const openVoipCall = useCallback(
     (call: VoipCallPayload) => {
@@ -441,6 +460,7 @@ export const SessionProvider = ({ children }: Props) => {
     const removeEnded = addVoipCallEndedListener((call) => {
       callRecoveryRevision.current++;
       callHandoff.current.clear(call.attemptId);
+      checkinPresentation.cancel('external-navigation', call.attemptId);
       // A Telecom hang-up can arrive before the check-in screen has mounted.
       // Use the authenticated endpoint; the ring-only native capability cannot
       // modify a connected call or confirm anyone's health status.
@@ -709,9 +729,14 @@ export const SessionProvider = ({ children }: Props) => {
       }
       if (actionIdentifier === "CALL") {
         const alertId = data?.alertId ? Number(data.alertId) : null;
-        if (alertId) checkinApi.confirmAlert(alertId, "called").catch(() => {});
         const phone = data?.patientPhone as string;
-        if (phone) Linking.openURL(`tel:${phone}`).catch(() => {});
+        const account = useAuthStore.getState().token;
+        const callPatient = () => {
+          if (!account || useAuthStore.getState().token !== account) return;
+          if (alertId) checkinApi.confirmAlert(alertId, "called").catch(() => {});
+          if (phone) void Linking.openURL(`tel:${phone}`).catch(() => {});
+        };
+        if (!checkinPresentation.defer('notification-phone', callPatient, 30_000)) callPatient();
         return;
       }
 

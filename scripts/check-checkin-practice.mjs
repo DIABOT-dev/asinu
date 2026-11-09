@@ -91,7 +91,7 @@ const native = { View: 'View', Text: 'Text', Image: 'Image', asinuChatSticker: '
     actionBackground: '#08b8a2', onAction: '#061c19' }, colors: { primary: '#08b8a2' } };
 function routeHarness(language, params = { mode: 'guide' }, guidance = {}, entry = {}) {
   const storage = progressHarness();
-  const runtime = hooks(), calls = { network: [], consent: 0, progress: [], finished: [], routes: [], alerts: [], audio: [], help: [] };
+  const runtime = hooks(), calls = { network: [], consent: 0, progress: [], finished: [], routes: [], alerts: [], audio: [], help: [], presentation: [] };
   const tr = translations(language);
   const guideState = { account: '7', ready: true,
     progress: { firstCheckin: false, welcomeSeen: true, completed: [], epoch: 0 }, ...guidance,
@@ -115,6 +115,7 @@ function routeHarness(language, params = { mode: 'guide' }, guidance = {}, entry
   const router = { canGoBack: () => true, back: () => calls.routes.push('back'), replace: route => calls.routes.push(route) };
   const source = `${extract('CheckinScreen')}\nmodule.exports = CheckinScreen;`;
   const CheckinScreen = evaluate(source, { useCheckinQuestionViewport: () => ({ onContentSizeChange() {}, onScrollBeginDrag() {} }), ...storage.progress, StateError: 'StateError', ...native, ...runtime, ...tr, useLocalSearchParams: () => params,
+    useCheckinPresentationPriority: blocked => calls.presentation.push(blocked),
     useReviewGuidance: (destination, options) => () => calls.help.push({ destination, options }), useRouter: () => router, useSafeAreaInsets: () => ({ top: 20, bottom: 20 }),
     useScaledTypography: () => ({}), useThemeColors: () => ({ isDark: false }), createStyles: () => ({}),
     useAppAlert: () => ({ alertState: {}, showAlert: (...args) => calls.alerts.push(args), dismissAlert() {} }),
@@ -786,4 +787,27 @@ for (const language of ['vi', 'en']) {
     assert.equal(h.calls.network.filter(call=>call[0]==='triage').length,1);
   });
 }
+await test('live result preparation and the resulting conclusion both request foreground priority', async () => {
+  let resolve;
+  const response = new Promise(done => { resolve = done; });
+  const session = { id: 500, user_id: 7, initial_status: 'tired', current_status: 'tired',
+    triage_messages: [], triage_state: { phase: 'initial', phase_id: 'phase-a' } };
+  const h = routeHarness('vi', { mode: 'resume', checkin_id: '500' }, {}, {
+    session, api: { triage: () => response },
+  });
+  await h.settle(); assert.equal(h.calls.presentation.at(-1), true);
+  resolve({ ok: true, isDone: true, summary: 'Kết quả', severity: 'low', recommendation: 'Theo dõi' });
+  const tree = await h.settle();
+  assert.ok(nodes(tree).some(n => n.type === 'Result'));
+  assert.equal(h.calls.presentation.at(-1), true);
+});
+await test('offline result preparation releases priority for the inline retry screen; practice never takes it', async () => {
+  const session = { id: 500, user_id: 7, initial_status: 'tired', current_status: 'tired',
+    triage_messages: [], triage_state: { phase: 'initial', phase_id: 'phase-a' } };
+  const h = routeHarness('vi', { mode: 'resume', checkin_id: '500' }, {}, { session, triageError: true });
+  const tree = await h.settle(); assert.ok(nodes(tree).some(n => n.type === 'StateError'));
+  assert.equal(h.calls.presentation.at(-1), false);
+  const practice = routeHarness('vi'); await practice.settle();
+  assert.ok(practice.calls.presentation.every(value => value === false));
+});
 console.log(`Check-in practice: ${checks} runtime regressions passed.`);

@@ -156,6 +156,8 @@ function hostHarness(os = 'ios') {
     'react/jsx-runtime': jsxRuntime,
     'react-native': { Modal: 'NativeModal', Platform: { OS: os } },
     '../lib/modalQueue': { ModalQueue },
+    '../lib/checkin-presentation': { checkinPresentation: { isBlocked: () => false } },
+    '../hooks/useCheckinPresentation': { useCheckinPresentationBlocked: () => false },
     '../lib/native-permissions': { attachNativePermissionPresenter: () => () => {} },
   };
   const components = evaluate(read('src/components/QueuedModal.tsx'), imports);
@@ -209,6 +211,7 @@ function alertHarness() {
     'react/jsx-runtime': jsxRuntime, 'react-native': native,
     '@expo/vector-icons': { MaterialCommunityIcons: 'Icon' }, './ScaledText': { ScaledText: 'Text' },
     './QueuedModal': { QueuedModal: 'QueuedModal' },
+    '../hooks/useCheckinPresentation': { useCheckinPresentationBlocked: () => false },
     '../hooks/useScaledTypography': { useScaledTypography: () => ({ size: { md: 17, sm: 14 } }) },
     '../hooks/useThemeColors': { useThemeColors: () => ({ isDark: false }) },
     'react-i18next': { useTranslation: () => ({ t: key => key }) },

@@ -796,13 +796,17 @@ function toastHarness() {
     store.getState = get; store.setState = set;
     return store;
   };
-  const toast = evaluate(read('src/stores/toast.store.ts'), { zustand: { create } });
+  const toast = evaluate(read('src/stores/toast.store.ts'), { zustand: { create },
+    '../lib/checkin-presentation': { checkinPresentation: { defer: () => false, subscribe: () => () => {} } },
+    '../lib/tokenStore': { tokenStore: { subscribeSession: () => () => {} } },
+  });
   const host = evaluate(read('src/components/GlobalToastHost.tsx'), {
     react: {
       useCallback: fn => fn, useId: () => scope,
       useLayoutEffect: effect => { if (!cleanups.has(scope)) cleanups.set(scope, effect()); },
     },
     zustand: { create }, '../stores/toast.store': toast, './Toast': { Toast: 'Toast' },
+    '../hooks/useCheckinPresentation': { useCheckinPresentationBlocked: () => false },
   });
   const resolve = element => typeof element?.type === 'function' ? resolve(element.type(element.props)) : element;
   const root = () => resolve(host.GlobalToastHost());
