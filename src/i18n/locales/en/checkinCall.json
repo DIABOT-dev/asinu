@@ -445,7 +445,7 @@
       },
       "emergency": {
         "title": "Result: emergency",
-        "description": "Emergency guidance and a display-only call button"
+        "description": "Emergency guidance and warnings"
       },
       "noCaregiver": {
         "title": "Result: no caregiver",

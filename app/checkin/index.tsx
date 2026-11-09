@@ -14,7 +14,6 @@ import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Image,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -1388,12 +1387,6 @@ function DoneScreen({
     ? 'information-circle'
     : 'checkmark-circle';
 
-  const handleCall115 = () => {
-    if (readOnly) return;
-    if (practice) { showToast(tg('guidance.practiceActionNotice'), 'info'); return; }
-    Linking.openURL('tel:115').catch(() => {});
-  };
-
   const recordedSymptoms = extractRecordedSymptoms(session, answers, isFine, t);
 
   const cleanAdvice = stripEmojis(
@@ -1626,44 +1619,6 @@ function DoneScreen({
             </Text>
           </View>
           </GuideTarget>
-
-          {/* Emergency Call Button (Only for Emergency) */}
-          {isEmergency && (
-            <GuideTarget step="checkin.result_emergency" enabled={practice}>
-            <View>
-              <Pressable
-                disabled={readOnly}
-                onPress={handleCall115}
-                style={({ pressed }) => [
-                  {
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    backgroundColor: '#DC2626',
-                    paddingVertical: 14,
-                    paddingHorizontal: 20,
-                    borderRadius: 16,
-                    shadowColor: '#DC2626',
-                    shadowOpacity: 0.35,
-                    shadowRadius: 8,
-                    shadowOffset: { width: 0, height: 4 },
-                    elevation: 5,
-                    opacity: pressed ? 0.88 : 1,
-                  },
-                ]}
-              >
-                <Ionicons name="call" size={22} color="#FFFFFF" />
-                <Text allowFontScaling style={[{ flex: 1, color: '#FFFFFF', fontSize: 18, fontWeight: '800', letterSpacing: 0.4, lineHeight: 24, textAlign: 'center' }, practice && { fontSize: 22, lineHeight: 32 }]}>
-                  {t('checkinCallEmergency')}
-                </Text>
-                <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
-              </Pressable>
-              <Text style={{ textAlign: 'center', color: '#64748B', fontSize: 12, marginTop: 6 }}>
-                {t('checkinCallEmergencyHint')}
-              </Text>
-            </View>
-            </GuideTarget>
-          )}
 
           {structuredConclusion ? <CheckinConclusion result={structuredConclusion}
             onConnectExpert={connectConclusionExpert} expertAvailable={isExpertConsultationEnabled} readOnly={readOnly} /> : <>

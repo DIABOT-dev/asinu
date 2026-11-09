@@ -629,7 +629,10 @@ for (const lang of ['vi', 'en']) {
         assert.ok(!loading(tree)); assert.equal(h.timers.size, 0);
         assertAiNotice(tree, result.aiNotice);
         if (variant.readOnly || variant.practice) assert.equal(h.calls.length, 0);
-        if (variant.triageSummary) assert.ok(nodes(tree).some(n => n.props?.accessibilityLabel === home.checkinCall115));
+        if (variant.triageSummary) {
+          assert.ok(!nodes(tree).some(n => n.type === 'Pressable' && nodes(n).some(child => child.type === 'Text' && child.props.children === home.checkinCallEmergency)));
+          assert.ok(text(tree).includes(home.checkinEmergencyAdvice), 'Emergency advice remains visible without a call CTA');
+        }
       } finally { h.cleanup(); }
     }
   });
