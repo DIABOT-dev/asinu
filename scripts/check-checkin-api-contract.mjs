@@ -103,6 +103,7 @@ expectCall(health.calls, {
     previous_answers: [{ step: 'progression', question: 'Mức độ?', answer: 'Nhẹ' }],
     conclusion_format: 'narrative',
     assessment_version: 2,
+    adaptive_questions: true,
   },
   timeoutMs: 90000,
 });

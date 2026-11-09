@@ -114,7 +114,7 @@ function routeHarness(language, params = { mode: 'guide' }, guidance = {}, entry
   realApi.getToday = async () => { calls.network.push(['getToday']); if (entry.error) throw new Error('offline'); return { ok: true, session: entry.session || null }; };
   const router = { canGoBack: () => true, back: () => calls.routes.push('back'), replace: route => calls.routes.push(route) };
   const source = `${extract('CheckinScreen')}\nmodule.exports = CheckinScreen;`;
-  const CheckinScreen = evaluate(source, { ...storage.progress, StateError: 'StateError', ...native, ...runtime, ...tr, useLocalSearchParams: () => params,
+  const CheckinScreen = evaluate(source, { useCheckinQuestionViewport: () => ({ onContentSizeChange() {}, onScrollBeginDrag() {} }), ...storage.progress, StateError: 'StateError', ...native, ...runtime, ...tr, useLocalSearchParams: () => params,
     useReviewGuidance: (destination, options) => () => calls.help.push({ destination, options }), useRouter: () => router, useSafeAreaInsets: () => ({ top: 20, bottom: 20 }),
     useScaledTypography: () => ({}), useThemeColors: () => ({ isDark: false }), createStyles: () => ({}),
     useAppAlert: () => ({ alertState: {}, showAlert: (...args) => calls.alerts.push(args), dismissAlert() {} }),
@@ -709,5 +709,24 @@ await test('a question response replaces the processing state immediately withou
   tree = await h.settle(); const question = nodes(tree).find(n => n.type === 'Question');
   assert.equal(question.props.loading, false); assert.deepEqual(question.props.options, ['First', 'Second']);
   assert.deepEqual(h.calls.network.map(call => call[0]), ['getToday', 'triage']);
+});
+await test('adaptive Other opens a free answer without submitting the placeholder, and an open fallback can be skipped', async () => {
+  const runtime = hooks(), tr = translations('vi'), calls = [];
+  const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+    ...native, ...runtime, ...tr, ...triageOptionDisplay, ...triageSelection,
+    spacing: { sm: 8 }, VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
+  });
+  let props = { styles: {}, question: 'Âm thanh giống loại nào?', options: ['Tiếng ve', 'Tiếng rít', 'Không rõ', 'Khác, nhập hoặc nói câu trả lời'],
+    freeTextOption: 'Khác, nhập hoặc nói câu trả lời', multiSelect: false, allowFreeText: true,
+    answers: [], loading: false, onAnswer: answer => calls.push(answer), onBeforeAi: async () => true };
+  let tree; const settle = async () => { tree = await runtime.settle(() => component(props)); };
+  await settle(); nodes(tree).find(n => n.props?.accessibilityLabel === props.freeTextOption).props.onPress(); await settle();
+  assert.deepEqual(calls, []);
+  nodes(tree).find(n => n.type === 'VoiceAnswerInput').props.onChangeText('Tiếng gió'); await settle();
+  nodes(tree).find(n => n.type === 'Pressable' && !n.props.accessibilityRole).props.onPress(); await settle();
+  assert.deepEqual(calls, ['Tiếng gió']);
+  props = { ...props, question: 'Mô tả thêm nhé?', options: [], freeTextOption: undefined, skipAnswerLabel: 'Không có gì thêm' };
+  await settle(); nodes(tree).find(n => n.props?.accessibilityLabel === props.skipAnswerLabel).props.onPress(); await settle();
+  assert.deepEqual(calls, ['Tiếng gió', 'Không có gì thêm']);
 });
 console.log(`Check-in practice: ${checks} runtime regressions passed.`);

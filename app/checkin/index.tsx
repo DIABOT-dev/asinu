@@ -40,6 +40,7 @@ import { CHECKIN_STATUS_CHOICES, CheckinStatusChoice } from '../../src/features/
 import { CheckinConclusion } from '../../src/features/checkin/CheckinConclusion';
 import { CheckinConclusionLoading } from '../../src/features/checkin/CheckinConclusionLoading';
 import { CheckinQuestionLoading } from '../../src/features/checkin/CheckinQuestionLoading';
+import { useCheckinQuestionViewport } from '../../src/features/checkin/useCheckinQuestionViewport';
 import { hasDisplayCheckinConclusion, checkinConclusionSpeech } from '../../src/features/checkin/checkin-conclusion';
 import { formatTriageOptionLabel, getTriageOptionIcon } from '../../src/features/checkin/triage-option-display';
 import { type BodyLocation } from '../../src/features/checkin/location-details';
@@ -223,6 +224,8 @@ function CheckinScreen() {
   const [currentOptsGrouped, setCurrentOptsGrouped] = useState<TriageOptionGroup[] | null>(null);
   const [currentMultiSelect, setCurrentMultiSelect] = useState(true);
   const [currentAllowFreeText, setCurrentAllowFreeText] = useState(false);
+  const [currentFreeTextOption, setCurrentFreeTextOption] = useState<string>();
+  const [currentSkipAnswerLabel, setCurrentSkipAnswerLabel] = useState<string>();
   const mainScrollRef = useRef<ScrollView>(null);
   const guideScrollOffset = useRef(0);
   const [triageSummary, setTriageSummary] = useState<TriageSummaryView | null>(() =>
@@ -238,9 +241,8 @@ function CheckinScreen() {
   const handleMainScroll = (e: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) => {
     guideScrollOffset.current = e.nativeEvent.contentOffset.y;
   };
-  useEffect(() => {
-    if (screen === 'triage' && currentStep) mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-  }, [screen, currentStep]);
+  const questionViewport = useCheckinQuestionViewport(mainScrollRef, `${screen}:${currentStep}:${currentQ}`,
+    screen === 'triage' && !isPractice, loading);
 
   // Illusion layer state
   const [currentEmpathy, setCurrentEmpathy] = useState<{ text: string; templateId: string } | null>(null);
@@ -474,6 +476,8 @@ function CheckinScreen() {
           setCurrentMultiSelect(!isSingleSelect);
         }
         setCurrentAllowFreeText(result.allowFreeText === true);
+        setCurrentFreeTextOption(result.freeTextOption);
+        setCurrentSkipAnswerLabel(result.skipAnswerLabel);
       }
     } catch (err: any) {
       if (__DEV__) console.warn('[Checkin] triage request failed:', err?.message || err);
@@ -638,6 +642,8 @@ function CheckinScreen() {
         bounces={false}
         overScrollMode="never"
         onScroll={handleMainScroll}
+        onContentSizeChange={questionViewport.onContentSizeChange}
+        onScrollBeginDrag={questionViewport.onScrollBeginDrag}
         scrollEventThrottle={120}
       >
         {entryError ? <StateError message={t('checkinResumeError')} onRetry={() => setEntryAttempt(value => value + 1)} /> : null}
@@ -669,6 +675,8 @@ function CheckinScreen() {
             exclusiveOptions={exclusiveOptions}
             multiSelect={currentMultiSelect}
             allowFreeText={currentAllowFreeText}
+            freeTextOption={currentFreeTextOption}
+            skipAnswerLabel={currentSkipAnswerLabel}
             answers={answers}
             loading={loading}
             onAnswer={handleAnswer}
@@ -828,6 +836,8 @@ function TriageScreen({
   exclusiveOptions = [],
   multiSelect,
   allowFreeText,
+  freeTextOption,
+  skipAnswerLabel,
   answers,
   loading,
   onAnswer,
@@ -847,6 +857,8 @@ function TriageScreen({
   exclusiveOptions?: string[];
   multiSelect: boolean;
   allowFreeText?: boolean;
+  freeTextOption?: string;
+  skipAnswerLabel?: string;
   answers: TriageAnswer[];
   loading: boolean;
   onAnswer: (a: string) => void | Promise<void>;
@@ -864,9 +876,9 @@ function TriageScreen({
   const [selected, setSelected] = useState<Set<string>>(
     readOnly && !multiSelect && options.length > 0 ? new Set([options[0]]) : new Set()
   );
-  const scrollRef = useRef<ScrollView>(null);
-
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [otherActive, setOtherActive] = useState(false);
+  useEffect(() => { if (!readOnly) setOtherActive(false); }, [question, readOnly]);
   const [showHistory, setShowHistory] = useState(false);
   useEffect(() => { if (!readOnly) setShowHistory(false); }, [question, readOnly]);
   const answering = useRef(false);
@@ -882,6 +894,12 @@ function TriageScreen({
 
   const handleOptionTap = (opt: string) => {
     if (readOnly || loading || isTranscribing) return;
+    if (freeTextOption && opt === freeTextOption) {
+      setOtherActive(true);
+      setSelected(new Set());
+      return;
+    }
+    setOtherActive(false);
     if (multiSelect) {
       if (exclusiveOptions.includes(opt)) setCustom('');
       setSelected(previous => toggleTriageOption(previous, opt, exclusiveOptions));
@@ -997,7 +1015,7 @@ function TriageScreen({
                     <View style={styles.groupHeaderLine} />
                   </View>
                   {group.items.map((opt, optionIndex) => {
-                    const isSelected = selected.has(opt);
+                    const isSelected = selected.has(opt) || (opt === freeTextOption && otherActive);
                     return (
                       <GuideTarget key={`${group.key}-${opt}`} step="checkin.choices" enabled={practice && groupIndex === firstOptionGroupIndex && optionIndex === 0 && !loading}>
                         <GuideTarget step={multiSelect ? 'checkin.multiple' : 'checkin.single'} enabled={practice && groupIndex === firstOptionGroupIndex && optionIndex === 0 && !loading}>
@@ -1038,7 +1056,7 @@ function TriageScreen({
           ) : options.length > 0 && (
             <Animated.View entering={FadeInDown.delay(120).duration(400)} style={styles.triageOptionsList}>
               {options.map((opt, optionIndex) => {
-                const isSelected = selected.has(opt);
+                const isSelected = selected.has(opt) || (opt === freeTextOption && otherActive);
                 return (
                   <GuideTarget key={opt} step="checkin.choices" enabled={practice && optionIndex === 0 && !loading}>
                     <GuideTarget step={multiSelect ? 'checkin.multiple' : 'checkin.single'} enabled={practice && optionIndex === 0 && !loading}>
@@ -1120,6 +1138,19 @@ function TriageScreen({
               </Animated.View>
             </GuideTarget>
           )}
+
+          {skipAnswerLabel && <Pressable disabled={readOnly || loading || isTranscribing}
+            accessibilityRole="button" accessibilityLabel={skipAnswerLabel}
+            onPress={() => {
+              if (!readOnly && !loading && !isTranscribing) {
+                submitAnswer(skipAnswerLabel);
+                setCustom('');
+                setSelected(new Set());
+              }
+            }}
+            style={{ minHeight: 48, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 18, color: colors.primaryText }}>{skipAnswerLabel}</Text>
+          </Pressable>}
 
           {/* Bottom watermark decoration */}
           <View style={styles.bottomWatermarkWrap} pointerEvents="none">

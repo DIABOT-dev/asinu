@@ -89,6 +89,8 @@ export interface TriageResult {
   needs_caregiver_cta?: boolean;
   show_urgent_caregiver_warning?: boolean;
   allowFreeText?: boolean;
+  freeTextOption?: string;
+  skipAnswerLabel?: string;
   // set when AI was unavailable and fallback questions were used
   _fallback?: boolean;
   // Illusion Layer fields (Phase 3+4)
@@ -218,7 +220,7 @@ export const checkinApi = {
   triage: (checkin_id: number, previous_answers: TriageAnswer[]) =>
     apiClient<TriageResult>('/api/mobile/checkin/triage', {
       method: 'POST',
-      body: { checkin_id, previous_answers, conclusion_format: 'narrative', assessment_version: 2 },
+      body: { checkin_id, previous_answers, conclusion_format: 'narrative', assessment_version: 2, adaptive_questions: true },
       timeoutMs: 90000,
     }),
 
