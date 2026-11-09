@@ -51,7 +51,13 @@
     "useLocation": "Use my current approximate area",
     "deviceRegion": "Area from your current location",
     "areaNameLoading": "Finding the area name…",
-    "areaNameUnavailable": "Could not get the area name",
+    "areaNameIssues": {
+      "permission": "Location saved. Allow location access to see the area name.",
+      "inactive": "Location saved. The area name will be checked when you return to the app.",
+      "timeout": "Location saved. The area name lookup is taking longer than expected. Please retry.",
+      "noAddress": "Location saved, but no local area name was found. You can select an area below.",
+      "unavailable": "Location saved. The area name service has not responded. Please retry."
+    },
     "retryAreaName": "Retry the area name",
     "locationDenied": "Location was not permitted. Choose a region manually or turn off weather reminders; check-in still works.",
     "locationFailed": "Could not get your location. Retry or choose a region manually.",

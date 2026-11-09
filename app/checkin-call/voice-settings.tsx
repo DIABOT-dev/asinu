@@ -2,6 +2,7 @@ import { runNativePermission } from '../../src/lib/native-permissions';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -35,7 +36,10 @@ import {
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { colors } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
-import { resolveWeatherArea } from '../../src/features/checkin-call/weather-area';
+import {
+  resolveWeatherArea,
+  type WeatherAreaIssue,
+} from '../../src/features/checkin-call/weather-area';
 
 type PersonalizationSection = 'permissions' | 'address' | 'weather';
 type ConsentChoice = {
@@ -81,6 +85,7 @@ export function VoiceSettings({ userId }: { userId: string }) {
     key: string;
     label: string | null;
     loading: boolean;
+    issue: WeatherAreaIssue | null;
   } | null>(null);
   const [consent, setConsent] = useState<ConsentChoice | null>(null);
   const weatherConsentGranted = useRef(false);
@@ -249,7 +254,7 @@ export function VoiceSettings({ userId }: { userId: string }) {
     []
   );
 
-  const useDeviceRegion = () => {
+  const selectDeviceRegion = () => {
     if (!value || inFlight.current || !current()) return;
     if (!value.weather_enabled && !weatherConsentGranted.current) {
       setConsent({ field: 'weather_enabled', deviceLocation: true });
@@ -269,6 +274,14 @@ export function VoiceSettings({ userId }: { userId: string }) {
   const selectedDeviceArea = deviceArea?.key === areaKey ? deviceArea : null;
   const areaLoading = Boolean(areaKey) && selectedDeviceArea?.loading !== false;
   useEffect(() => {
+    // iOS temporarily becomes inactive while a system permission sheet is open.
+    // Revisit saved area metadata when it returns; never start GPS on resume.
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && current()) setAreaRetry((count) => count + 1);
+    });
+    return () => subscription.remove();
+  }, [current]);
+  useEffect(() => {
     if (
       section !== 'weather' ||
       areaLatitude === undefined ||
@@ -282,16 +295,18 @@ export function VoiceSettings({ userId }: { userId: string }) {
       key,
       label: previous?.key === key ? previous.label : null,
       loading: true,
+      issue: null,
     }));
     void resolveWeatherArea(
       { latitude: areaLatitude, longitude: areaLongitude },
       userId
-    ).then((label) => {
+    ).then(({ label, issue }) => {
       if (active && current())
         setDeviceArea((previous) => ({
           key,
           label: label || (previous?.key === key ? previous.label : null),
           loading: false,
+          issue,
         }));
     });
     return () => {
@@ -461,7 +476,7 @@ export function VoiceSettings({ userId }: { userId: string }) {
                                 {t(
                                   areaLoading
                                     ? 'personalization.areaNameLoading'
-                                    : 'personalization.areaNameUnavailable'
+                                    : `personalization.areaNameIssues.${selectedDeviceArea?.issue || 'unavailable'}`
                                 )}
                               </Text>
                             )}
@@ -472,12 +487,21 @@ export function VoiceSettings({ userId }: { userId: string }) {
                         ) : (
                           !selectedDeviceArea?.label && (
                             <Pressable
+                              testID="weather-area-retry"
                               accessibilityRole="button"
                               accessibilityLabel={t(
-                                'personalization.retryAreaName'
+                                selectedDeviceArea?.issue === 'permission'
+                                  ? 'personalization.useLocation'
+                                  : 'personalization.retryAreaName'
                               )}
                               style={styles.back}
-                              onPress={() => setAreaRetry((count) => count + 1)}
+                              disabled={busy}
+                              accessibilityState={{ disabled: busy }}
+                              onPress={() =>
+                                selectedDeviceArea?.issue === 'permission'
+                                  ? selectDeviceRegion()
+                                  : setAreaRetry((count) => count + 1)
+                              }
                             >
                               <Ionicons
                                 name="refresh-outline"
@@ -528,7 +552,7 @@ export function VoiceSettings({ userId }: { userId: string }) {
                     accessibilityLabel={t('personalization.useLocation')}
                     disabled={busy}
                     accessibilityState={{ busy, disabled: busy }}
-                    onPress={useDeviceRegion}
+                    onPress={selectDeviceRegion}
                     style={styles.action}
                   >
                     <Ionicons

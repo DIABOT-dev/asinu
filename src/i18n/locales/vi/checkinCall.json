@@ -51,7 +51,13 @@
     "useLocation": "Dùng khu vực vị trí hiện tại",
     "deviceRegion": "Khu vực từ vị trí hiện tại",
     "areaNameLoading": "Đang xác định tên khu vực…",
-    "areaNameUnavailable": "Chưa lấy được tên khu vực",
+    "areaNameIssues": {
+      "permission": "Đã lưu vị trí. Cho phép vị trí để xem tên khu vực.",
+      "inactive": "Đã lưu vị trí. Tên khu vực sẽ được tra lại khi mở app.",
+      "timeout": "Đã lưu vị trí. Tra tên khu vực đang chậm, bạn thử lại nhé.",
+      "noAddress": "Đã lưu vị trí nhưng chưa tìm thấy tên địa phương. Bạn có thể chọn khu vực bên dưới.",
+      "unavailable": "Đã lưu vị trí. Dịch vụ tra tên khu vực chưa phản hồi, bạn thử lại nhé."
+    },
     "retryAreaName": "Thử lại tên khu vực",
     "locationDenied": "Bạn chưa cho phép vị trí. Có thể chọn khu vực thủ công hoặc tắt lời nhắc thời tiết; check-in vẫn hoạt động.",
     "locationFailed": "Chưa lấy được vị trí. Hãy thử lại hoặc chọn khu vực thủ công.",

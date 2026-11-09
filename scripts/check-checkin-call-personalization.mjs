@@ -6,7 +6,7 @@ import React from 'react';
 const flush = async () => {
   for (let index = 0; index < 16; index++) await Promise.resolve();
 };
-const evaluate = (source, imports = {}) => {
+const evaluate = (source, imports = {}, globals = {}) => {
   const module = { exports: {} };
   const output = ts.transpileModule(source, {
     compilerOptions: {
@@ -17,13 +17,14 @@ const evaluate = (source, imports = {}) => {
   }).outputText;
   // Evaluate the actual screen handlers with deterministic native adapters.
   // eslint-disable-next-line no-new-func
-  new Function('module', 'exports', 'require', output)(
+  new Function('module', 'exports', 'require', ...Object.keys(globals), output)(
     module,
     module.exports,
     (id) => {
       assert.ok(id in imports, `Missing voice settings adapter: ${id}`);
       return imports[id];
-    }
+    },
+    ...Object.values(globals)
   );
   return module.exports;
 };
@@ -148,10 +149,15 @@ function harness({
   );
   const useAuthStore = (selector) => selector(session);
   useAuthStore.getState = () => session;
+  const appStateListeners = new Set();
   const imports = {
     react: { __esModule: true, default: hooks, ...hooks },
     'react-native': {
       ActivityIndicator: 'Spinner',
+      AppState: { addEventListener: (event, callback) => {
+        assert.equal(event, 'change'); appStateListeners.add(callback);
+        return { remove: () => appStateListeners.delete(callback) };
+      } },
       Pressable: 'Button',
       ScrollView: 'ScrollView',
       Switch: 'Switch',
@@ -195,7 +201,8 @@ function harness({
     '../../src/features/checkin-call/voice-preferences': preferences,
     '../../src/features/checkin-call/weather-area': { resolveWeatherArea: async (point, accountId) => {
       calls.areas.push({ point, accountId });
-      return resolveArea ? resolveArea(point, accountId) : 'Bình Thạnh, Thành phố Hồ Chí Minh';
+      const result = resolveArea ? await resolveArea(point, accountId) : 'Bình Thạnh, Thành phố Hồ Chí Minh';
+      return result && typeof result === 'object' ? result : { label: result, issue: result ? null : 'unavailable' };
     } },
     '../../src/features/checkin-call/checkin-call.api': {
       checkinCallApi: {
@@ -239,6 +246,8 @@ function harness({
     render,
     calls,
     session,
+    appState: state => appStateListeners.forEach(listener => listener(state)),
+    appStateListeners,
     t: translations.checkinCall,
     openSection: section => {
       const action = render().find(node => node.type === 'ActionTile' && node.props.testID === `voice-action-${section}`);
@@ -494,7 +503,7 @@ await test('a failed area-name lookup can retry without changing the selected fo
   let attempt = 0;
   const h = harness({ value: savedDeviceRegion, resolveArea: async () => attempt++ ? 'Bình Thạnh, TP. Hồ Chí Minh' : null });
   await h.settle(); h.openSection('weather'); await h.settle();
-  assert.ok(h.text().includes(h.t('personalization.areaNameUnavailable')));
+  assert.ok(h.text().includes(h.t('personalization.areaNameIssues.unavailable')));
   h.button('personalization.retryAreaName').props.onPress(); await h.settle();
   assert.ok(h.text().includes('Bình Thạnh, TP. Hồ Chí Minh'));
   assert.equal(h.calls.areas.length, 2); assert.equal(h.calls.locations, 0); assert.deepEqual(h.calls.saves, []); h.unmount();
@@ -516,8 +525,42 @@ await test('an area-name lookup completed after unmount cannot update the old sc
   pending.resolve('Bình Thạnh, TP. Hồ Chí Minh'); await flush();
   assert.deepEqual(h.calls.saves, []);
 });
+for (const language of ['vi', 'en']) {
+  for (const issue of ['permission', 'inactive', 'timeout', 'noAddress', 'unavailable']) {
+    await test(`${language}: area ${issue} explains that the forecast location is saved`, async () => {
+      const h = harness({ language, value: savedDeviceRegion, resolveArea: async () => ({ label: null, issue }) });
+      await h.settle(); h.openSection('weather'); await h.settle();
+      assert.ok(h.text().includes(h.t(`personalization.areaNameIssues.${issue}`)));
+      assert.deepEqual(h.calls.saves, []); assert.equal(h.calls.locations, 0);
+      assert.equal(h.button('personalization.regions.hcm').props.accessibilityState.checked, false);
+      h.unmount(); assert.equal(h.appStateListeners.size, 0);
+    });
+  }
+}
+await test('returning from a system sheet retries area metadata without GPS, permission prompts or a save', async () => {
+  let attempt = 0;
+  const h = harness({ value: savedDeviceRegion, resolveArea: async () => attempt++ ? { label: 'Hồ Chí Minh', issue: null } : { label: null, issue: 'inactive' } });
+  await h.settle(); h.openSection('weather'); await h.settle();
+  h.appState('inactive'); await h.settle(); assert.equal(h.calls.areas.length, 1);
+  h.appState('active'); await h.settle(); assert.equal(h.calls.areas.length, 2);
+  assert.ok(h.text().includes('Hồ Chí Minh'));
+  assert.equal(h.calls.locations, 0); assert.equal(h.calls.permissions, 0); assert.deepEqual(h.calls.saves, []);
+  h.unmount(); h.appState('active');
+});
+await test('a permission error only opens the native permission request after the user presses its action', async () => {
+  const h = harness({ value: savedDeviceRegion, resolveArea: async () => ({ label: null, issue: 'permission' }) });
+  await h.settle(); h.openSection('weather'); await h.settle();
+  assert.equal(h.calls.permissions, 0);
+  await h.render().find(node => node.props.testID === 'weather-area-retry').props.onPress(); await h.settle();
+  assert.equal(h.calls.permissions, 1); assert.equal(h.calls.locations, 1); assert.equal(h.calls.saves.length, 1); h.unmount();
+});
+await test('an active event cannot start metadata work for a signed-out screen', async () => {
+  const h = harness({ value: savedDeviceRegion }); await h.settle(); h.openSection('weather'); await h.settle();
+  h.session.token = null; h.appState('active'); await h.settle();
+  assert.equal(h.calls.areas.length, 1); h.unmount();
+});
 
-function areaServiceHarness({ permission = 'granted', lookup, cached = null, foreground = true } = {}) {
+function areaServiceHarness({ permission = 'granted', lookup, cached = null, foreground = true, clock } = {}) {
   const session = { token: 'session-a', profile: { id: '7' } };
   const calls = { lookups: [], permissionReads: 0, cached: [], cacheReads: 0 };
   let stored = cached;
@@ -534,7 +577,7 @@ function areaServiceHarness({ permission = 'granted', lookup, cached = null, for
     '../../lib/cacheKeys': { CACHE_KEYS: { CHECKIN_WEATHER_AREA: 'weather-area' } },
     '../auth/auth.store': { useAuthStore: { getState: () => session } },
     './voice-preferences': preferences,
-  });
+  }, clock || {});
   return { ...service, calls, session };
 }
 await test('area labels use only administrative names and remove duplicate city/province fields', () => {
@@ -546,21 +589,21 @@ await test('area labels use only administrative names and remove duplicate city/
 await test('area lookups share pending work, use rounded coordinates and reuse the scoped cache', async () => {
   const h = areaServiceHarness(); const point = { latitude: 21.035, longitude: 105.833 };
   const first = h.resolveWeatherArea(point, '7'), second = h.resolveWeatherArea(point, '7');
-  assert.equal(first, second); assert.equal(await first, 'Cầu Giấy, Hà Nội');
+  assert.equal(first, second); assert.deepEqual(await first, { label: 'Cầu Giấy, Hà Nội', issue: null });
   assert.deepEqual(h.calls.lookups, [{ latitude: 21, longitude: 105.8 }]);
   assert.deepEqual(h.calls.cached, [{ latitude: 21, longitude: 105.8, label: 'Cầu Giấy, Hà Nội', userId: '7' }]);
-  assert.equal(await h.resolveWeatherArea(point, '7'), 'Cầu Giấy, Hà Nội');
+  assert.deepEqual(await h.resolveWeatherArea(point, '7'), { label: 'Cầu Giấy, Hà Nội', issue: null });
   assert.equal(h.calls.lookups.length, 1); assert.equal(h.calls.permissionReads, 1);
 });
 await test('an encrypted cached area is readable offline without asking for permission or GPS', async () => {
   const h = areaServiceHarness({ permission: 'denied', foreground: false, cached: { latitude: 21, longitude: 105.8, label: 'Cầu Giấy, Hà Nội', userId: '7' } });
-  assert.equal(await h.resolveWeatherArea({ latitude: 21, longitude: 105.8 }, '7'), 'Cầu Giấy, Hà Nội');
+  assert.deepEqual(await h.resolveWeatherArea({ latitude: 21, longitude: 105.8 }, '7'), { label: 'Cầu Giấy, Hà Nội', issue: null });
   assert.equal(h.calls.permissionReads, 0); assert.deepEqual(h.calls.lookups, []);
 });
 for (const scenario of [{ permission: 'denied' }, { foreground: false }]) {
   await test(`missing foreground access never starts geocoding (${JSON.stringify(scenario)})`, async () => {
     const h = areaServiceHarness(scenario);
-    assert.equal(await h.resolveWeatherArea({ latitude: 21, longitude: 105.8 }, '7'), null);
+    assert.deepEqual(await h.resolveWeatherArea({ latitude: 21, longitude: 105.8 }, '7'), { label: null, issue: scenario.permission ? 'permission' : 'inactive' });
     assert.deepEqual(h.calls.lookups, []); assert.deepEqual(h.calls.cached, []);
   });
 }
@@ -569,14 +612,58 @@ await test('a late geocoder response cannot be cached for another account', asyn
   const work = h.resolveWeatherArea({ latitude: 21, longitude: 105.8 }, '7'); await flush();
   h.session.profile.id = '8'; h.session.token = 'session-b';
   pending.resolve([{ city: 'Hà Nội' }]);
-  assert.equal(await work, null); assert.deepEqual(h.calls.cached, []);
+  assert.deepEqual(await work, { label: null, issue: 'unavailable' }); assert.deepEqual(h.calls.cached, []);
 });
 await test('lookup errors and invalid points never produce a guessed area name', async () => {
   const h = areaServiceHarness({ lookup: async () => { throw new Error('No network'); } });
-  assert.equal(await h.resolveWeatherArea({ latitude: 90.03, longitude: 105.8 }, '7'), null);
+  assert.deepEqual(await h.resolveWeatherArea({ latitude: 90.03, longitude: 105.8 }, '7'), { label: null, issue: 'unavailable' });
   assert.equal(h.calls.cacheReads, 0);
-  assert.equal(await h.resolveWeatherArea({ latitude: 21, longitude: 105.8 }, '7'), null);
+  assert.deepEqual(await h.resolveWeatherArea({ latitude: 21, longitude: 105.8 }, '7'), { label: null, issue: 'unavailable' });
   assert.deepEqual(h.calls.cached, []);
+});
+await test('an empty geocoder response is distinguishable from permission or service errors', async () => {
+  const h = areaServiceHarness({ lookup: async () => [{ country: 'Vietnam', street: 'Private street' }] });
+  assert.deepEqual(await h.resolveWeatherArea({ latitude: 21, longitude: 105.8 }, '7'), { label: null, issue: 'noAddress' });
+  assert.deepEqual(h.calls.cached, []);
+});
+await test('a later geocoder result can supply an administrative name without exposing the first street-only result', async () => {
+  const h = areaServiceHarness({ lookup: async () => [{ street: 'Private street' }, { city: 'Hà Nội' }] });
+  assert.deepEqual(await h.resolveWeatherArea({ latitude: 21, longitude: 105.8 }, '7'), { label: 'Hà Nội', issue: null });
+});
+function fakeClock() {
+  let now = 0, nextId = 0;
+  const timers = new Map();
+  return {
+    globals: {
+      setTimeout: (callback, delay) => { const id = ++nextId; timers.set(id, { callback, at: now + delay }); return id; },
+      clearTimeout: id => timers.delete(id),
+    },
+    advance: async milliseconds => {
+      now += milliseconds;
+      for (const [id, timer] of [...timers]) if (timer.at <= now) { timers.delete(id); timer.callback(); }
+      await flush();
+    },
+    timers,
+  };
+}
+await test('a native geocoder taking more than five seconds can still succeed', async () => {
+  const pending = deferred(), clock = fakeClock();
+  const h = areaServiceHarness({ lookup: () => pending.promise, clock: clock.globals });
+  let finished = false;
+  const work = h.resolveWeatherArea({ latitude: 21, longitude: 105.8 }, '7').then(result => { finished = true; return result; });
+  await flush(); await clock.advance(6000); assert.equal(finished, false);
+  pending.resolve([{ city: 'Hà Nội' }]);
+  assert.deepEqual(await work, { label: 'Hà Nội', issue: null }); assert.equal(clock.timers.size, 0);
+});
+await test('a geocoder that never responds stops the spinner at twelve seconds with a specific retryable status', async () => {
+  const pending = deferred(), clock = fakeClock();
+  const h = areaServiceHarness({ lookup: () => pending.promise, clock: clock.globals });
+  let finished = false;
+  const work = h.resolveWeatherArea({ latitude: 21, longitude: 105.8 }, '7').then(result => { finished = true; return result; });
+  await flush(); await clock.advance(11999); assert.equal(finished, false);
+  await clock.advance(1);
+  assert.deepEqual(await work, { label: null, issue: 'timeout' });
+  pending.resolve([{ city: 'Hà Nội' }]); await flush(); assert.deepEqual(h.calls.cached, []); assert.equal(clock.timers.size, 0);
 });
 
 await test('weather validation rejects empty areas, out-of-range GPS and non-finite coordinates', () => {

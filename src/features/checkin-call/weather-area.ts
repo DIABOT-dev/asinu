@@ -11,7 +11,18 @@ type AreaParts = Pick<
   Location.LocationGeocodedAddress,
   'district' | 'subregion' | 'city' | 'region'
 >;
-const pending = new Map<string, Promise<string | null>>();
+export type WeatherAreaIssue =
+  | 'permission'
+  | 'inactive'
+  | 'timeout'
+  | 'noAddress'
+  | 'unavailable';
+export type WeatherAreaResult = {
+  label: string | null;
+  issue: WeatherAreaIssue | null;
+};
+const pending = new Map<string, Promise<WeatherAreaResult>>();
+const unavailable: WeatherAreaResult = { label: null, issue: 'unavailable' };
 
 /** Display administrative areas only, never a street, building or house number. */
 export function weatherAreaLabel(address?: Partial<AreaParts>): string | null {
@@ -49,7 +60,7 @@ export function weatherAreaLabel(address?: Partial<AreaParts>): string | null {
 export function resolveWeatherArea(
   point: Point,
   userId: string
-): Promise<string | null> {
+): Promise<WeatherAreaResult> {
   const rounded = coarsePoint(point.latitude, point.longitude);
   const owner = () =>
     String(useAuthStore.getState().profile?.id) === userId &&
@@ -61,18 +72,18 @@ export function resolveWeatherArea(
     Math.abs(point.latitude) > 90 ||
     Math.abs(point.longitude) > 180
   )
-    return Promise.resolve(null);
+    return Promise.resolve(unavailable);
   const key = `${userId}:${rounded.latitude}:${rounded.longitude}`;
   const existing = pending.get(key);
   if (existing) return existing;
 
-  const request = (async () => {
+  const request = (async (): Promise<WeatherAreaResult> => {
     try {
       const cached = await localCache.getCached<CachedArea>(
         CACHE_KEYS.CHECKIN_WEATHER_AREA,
         '1'
       );
-      if (!owner()) return null;
+      if (!owner()) return unavailable;
       if (
         cached?.userId === userId &&
         cached.latitude === rounded.latitude &&
@@ -80,16 +91,16 @@ export function resolveWeatherArea(
         typeof cached.label === 'string' &&
         cached.label.trim()
       )
-        return cached.label;
-      if (AppState.currentState !== 'active') return null;
+        return { label: cached.label, issue: null };
+      if (AppState.currentState !== 'active')
+        return { label: null, issue: 'inactive' };
       // Reading a saved area never asks for location permission or a new GPS fix.
       const permission = await Location.getForegroundPermissionsAsync();
-      if (
-        !owner() ||
-        permission.status !== 'granted' ||
-        AppState.currentState !== 'active'
-      )
-        return null;
+      if (!owner()) return unavailable;
+      if (permission.status !== 'granted')
+        return { label: null, issue: 'permission' };
+      if (AppState.currentState !== 'active')
+        return { label: null, issue: 'inactive' };
       let timer: ReturnType<typeof setTimeout> | undefined;
       let addresses: Location.LocationGeocodedAddress[];
       try {
@@ -98,24 +109,30 @@ export function resolveWeatherArea(
           new Promise<never>((_, reject) => {
             timer = setTimeout(
               () => reject(new Error('AREA_LOOKUP_TIMEOUT')),
-              5000
+              12000
             );
           }),
         ]);
       } finally {
         if (timer) clearTimeout(timer);
       }
-      const label = weatherAreaLabel(addresses[0]);
-      if (!owner()) return null;
+      const label = addresses.map(weatherAreaLabel).find(Boolean) || null;
+      if (!owner()) return unavailable;
       if (label)
         await localCache.setCached(CACHE_KEYS.CHECKIN_WEATHER_AREA, '1', {
           ...rounded,
           label,
           userId,
         });
-      return label;
-    } catch {
-      return null;
+      return { label, issue: label ? null : 'noAddress' };
+    } catch (error) {
+      return {
+        label: null,
+        issue:
+          error instanceof Error && error.message === 'AREA_LOOKUP_TIMEOUT'
+            ? 'timeout'
+            : 'unavailable',
+      };
     }
   })();
   pending.set(key, request);
