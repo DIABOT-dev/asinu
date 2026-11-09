@@ -224,7 +224,9 @@ export async function loadCheckinEntry(
   if (s && String(s.user_id) !== String(account)) {
     throw new Error('CHECKIN_ACCOUNT_CHANGED');
   }
-  if (requestedId && s?.id !== requestedId) {
+  // PostgreSQL bigint IDs are strings on the wire; route params were parsed
+  // as numbers. Compare their identities without rejecting the same session.
+  if (requestedId && String(s?.id) !== String(requestedId)) {
     throw new Error('CHECKIN_SESSION_UNAVAILABLE');
   }
   if (s && isUnfinishedCheckin(s)) {

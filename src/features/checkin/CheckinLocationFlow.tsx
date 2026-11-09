@@ -11,6 +11,7 @@ import { colors, spacing } from '../../styles';
 import { LOCATION_DETAIL_GROUPS, locationDetailLabel, toggleLocationDetail, missingLocationDetails, formatLocationNotes, type BodyLocation, type LocationDetails } from './location-details';
 import { saveLocationDraft, type LocationDraft } from './checkin-progress';
 import type { CheckinStatus } from './checkin.api';
+import { useCheckinAddressing } from './useCheckinAddressing';
 type Styles = Record<string, ViewStyle & TextStyle> & { mascotSticker: ImageStyle };
 const asinuChatSticker = require('../../../assets/asinu_chat_sticker.png');
 
@@ -54,6 +55,7 @@ export function CheckinLocationFlow({
 }) {
   const { t } = useTranslation('home');
   const { t: tg } = useTranslation('onboarding');
+  const addressing = useCheckinAddressing();
   const acknowledgeGuide = useGuideAcknowledgement();
   const [selected, setSelected] = useState<Set<BodyLocation>>(
     readOnly ? new Set([BODY_LOCATION_OPTIONS[0].key]) : new Set(initialDraft?.selected || [])
@@ -136,7 +138,7 @@ export function CheckinLocationFlow({
           importantForAccessibility="no"
         />
         <Text allowFontScaling accessibilityRole="header" style={[styles.questionHeaderTitle, { fontSize: 22, lineHeight: 30 }]}>
-          {t(group.questionKey)}
+          {t(group.questionKey, addressing)}
         </Text>
       </View>
       <View style={styles.triageOptionsList}>
@@ -191,7 +193,7 @@ export function CheckinLocationFlow({
         />
         <View style={styles.mascotBubble}>
           <Text style={styles.mascotBubbleText}>
-            {t('checkinLocationMascotBubble')}
+            {t('checkinLocationMascotBubble', addressing)}
           </Text>
         </View>
       </Animated.View>
@@ -201,7 +203,7 @@ export function CheckinLocationFlow({
         <View style={styles.questionHeaderRow}>
           <MaterialCommunityIcons name="pulse" size={26} color="#08b8a2" style={styles.questionPulseIcon} />
           <Text allowFontScaling style={[styles.questionHeaderTitle, practice && { fontSize: 22, lineHeight: 30 }]}>
-            {t('checkinLocationTitle')}
+            {t('checkinLocationTitle', addressing)}
           </Text>
         </View>
       </Animated.View>

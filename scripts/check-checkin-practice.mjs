@@ -69,6 +69,7 @@ function hooks() {
 function translations(language) {
   const catalogs = Object.fromEntries(['home', 'onboarding', 'common'].map(ns => [ns, JSON.parse(read(`src/i18n/locales/${language}/${ns}.json`))]));
   const get = (ns, key, options = {}) => {
+    options = { honorific: 'bạn', Honorific: 'Bạn', CallName: 'Bạn', ...options };
     const value = key.split('.').reduce((entry, part) => entry?.[part], catalogs[options.ns || ns]);
     assert.notEqual(value, undefined, `Missing ${language}/${options.ns || ns}/${key}`);
     return typeof value === 'string' ? value.replace(/\{\{(\w+)\}\}/g, (match, name) => options[name] ?? match) : value;
@@ -78,7 +79,7 @@ function translations(language) {
   return { t, tg, useTranslation: ns => ({ t: ns === 'onboarding' ? tg : t, i18n: { resolvedLanguage: language } }) };
 }
 const animation = { duration: () => animation, delay: () => animation };
-const native = { View: 'View', Text: 'Text', Image: 'Image', asinuChatSticker: 'asinu_chat_sticker.png', TextInput: 'Input', Pressable: 'Pressable', ScrollView: 'ScrollView',
+const native = { useCheckinAddressing: () => ({ honorific: 'bạn', Honorific: 'Bạn', CallName: 'Bạn' }), View: 'View', Text: 'Text', Image: 'Image', asinuChatSticker: 'asinu_chat_sticker.png', TextInput: 'Input', Pressable: 'Pressable', ScrollView: 'ScrollView',
   CheckinQuestionLoading: 'QuestionLoading', ActivityIndicator: 'Spinner', Ionicons: 'Icon', MaterialCommunityIcons: 'Icon', Stack: { Screen: 'Stack' },
   GuidePracticeScope: 'PracticeScope', GuideScrollScope: 'ScrollScope', GuideTarget: 'GuideTarget',
   ScreenBackButton: 'Back', AppAlertModal: 'Alert', AiDataConsentModal: 'Consent',
@@ -341,6 +342,7 @@ function locationHarness(language, overrides = {}) {
   const runtime = hooks(), tr = translations(language), calls = [], scrolls = [];
   const component = evaluate(`${extractVariable('BODY_LOCATION_OPTIONS')}\n${extract('LocationScreen')}\nmodule.exports = LocationScreen;`, {
     ...storage.progress, ...native, ...runtime, ...tr, ...locationDetailsHelpers, spacing: { xs: 4 },
+    useCheckinAddressing: () => overrides.addressing || native.useCheckinAddressing(),
     VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
   });
   let props = { styles: {}, loading: false, onConfirm: (...args) => calls.push(args), onBack() { backs++; }, onBeforeAi: async () => true, onQuestionChange: () => scrolls.push('top'), onBackHandlerChange: handler => { headerBack = handler; }, ...overrides };
@@ -378,6 +380,24 @@ for (const language of ['vi', 'en']) {
   }
 }
 
+for (const addressing of [
+  { honorific: 'bạn', Honorific: 'Bạn', CallName: 'Bạn Đức' },
+  { honorific: 'chú', Honorific: 'Chú', CallName: 'Chú Hùng' },
+  { honorific: 'bác', Honorific: 'Bác', CallName: 'Bác Hoa' },
+]) {
+  await test(`location greeting names ${addressing.CallName} once; later questions use the honorific without repeating the name`, async () => {
+    const h = locationHarness('vi', { addressing });
+    const strings = tree => nodes(tree).filter(n => n.type === 'Text' && typeof n.props.children === 'string').map(n => n.props.children).join(' ');
+    const initial = strings(await h.settle());
+    assert.equal(initial.split(addressing.CallName).length - 1, 1);
+    assert.ok(initial.includes(`${addressing.CallName} ơi`));
+    await h.press('checkin-location-region-abdomen');
+    const question = strings(await h.press('checkin-location-continue'));
+    assert.ok(question.includes(`${addressing.Honorific} thấy bụng mình`));
+    assert.ok(!question.includes(addressing.CallName));
+    assert.ok(!question.includes('{{'));
+  });
+}
 for (const language of ['vi', 'en']) {
   await test(`${language}: location answers wait for recorded speech before continuing`, async () => {
     const h = locationHarness(language); await h.settle();
@@ -812,6 +832,24 @@ for (const language of ['vi', 'en']) {
     assert.equal(h.calls.network.filter(call=>call[0]==='triage').length,1);
   });
 }
+await test('Continue Check-in restores a server bigint ID and resumes the latest saved question', async () => {
+  const saved = [
+    { step: 'symptoms', question: 'Biểu hiện nào?', answer: 'Đau bụng, Đau khớp' },
+    { step: 'detail_abdomen_onset', question: 'Bạn bắt đầu thấy khó chịu từ khi nào?', answer: 'Hôm qua' },
+  ];
+  const session = { id: '500', user_id: '7', initial_status: 'tired', current_status: 'tired',
+    triage_messages: saved, triage_state: { phase: 'initial', phase_id: 'phase-a' } };
+  const h = routeHarness('vi', { mode: 'resume', checkin_id: '500' }, {}, {
+    session, api: { triage: async () => ({ ok: true, isDone: false, step: 'detail_limbs_onset',
+      question: 'Bạn bắt đầu thấy khó chịu ở tay chân từ khi nào?', options: ['Hôm nay', 'Hôm qua'], multiSelect: false }) },
+  });
+  const tree = await h.settle();
+  assert.ok(!nodes(tree).some(n => n.type === 'StateError'));
+  const question = nodes(tree).find(n => n.type === 'Question'); assert.ok(question);
+  assert.match(question.props.question, /tay chân/);
+  assert.deepEqual(question.props.answers, saved);
+  assert.deepEqual(h.calls.network.at(-1), ['triage', '500', saved, 'phase-a']);
+});
 await test('live result preparation and the resulting conclusion both request foreground priority', async () => {
   let resolve;
   const response = new Promise(done => { resolve = done; });

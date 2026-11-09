@@ -116,9 +116,9 @@ test('the light check-in header can override its arrow color without changing ot
   assert.ok(arrow?.initializer?.expression, 'Check-in header must set its arrow color');
   // eslint-disable-next-line no-new-func -- Evaluate the checked-in color expression with controlled theme values.
   const resolveColor = new Function('screen', 'colors', `return (${arrow.initializer.expression.getText(route)})`);
-  for (const textPrimary of ['#221f1f', '#f0f0f5']) {
-    assert.equal(resolveColor('status', { textPrimary }), textPrimary, 'Status header follows its theme');
-    assert.equal(resolveColor('triage', { textPrimary }), '#0F172A', 'Existing light triage header keeps a dark arrow');
+  for (const primaryText of ['#0f766e', '#5eead4']) {
+    assert.equal(resolveColor('status', { primaryText }), primaryText, 'Status arrow follows the tinted back control');
+    assert.equal(resolveColor('triage', { primaryText }), primaryText, 'Triage arrow follows the same back control palette');
   }
 });
 for (const lang of ['vi', 'en']) {

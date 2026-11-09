@@ -11,6 +11,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCheckinPresentationPriority } from '../../src/hooks/useCheckinPresentation';
+import { useCheckinAddressing } from '../../src/features/checkin/useCheckinAddressing';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -802,14 +803,15 @@ function StatusScreen({
   readOnly?: boolean;
 }) {
   const { t } = useTranslation('home');
+  const addressing = useCheckinAddressing();
   const getGreeting = () => {
     if (instant) return t('checkinInstantStatusTitle');
-    if (isFollowUp) return t('checkinGreetingFollowUp');
+    if (isFollowUp) return t('checkinGreetingFollowUp', addressing);
     const h = new Date().getHours();
-    if (h < 12) return t('checkinGreetingMorning');
-    if (h < 14) return t('checkinGreetingAfternoon');
-    if (h < 18) return t('checkinGreetingEvening2');
-    return t('checkinGreetingEvening');
+    if (h < 12) return t('checkinGreetingMorning', addressing);
+    if (h < 14) return t('checkinGreetingAfternoon', addressing);
+    if (h < 18) return t('checkinGreetingEvening2', addressing);
+    return t('checkinGreetingEvening', addressing);
   };
 
   return (

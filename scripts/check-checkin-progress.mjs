@@ -146,6 +146,15 @@ test('account mismatch, stale session links and HTTP logical failures never rest
     /LOAD_FAILED/,
   );
 });
+test('PostgreSQL bigint session IDs resume through numeric route params without losing saved answers', async () => {
+  const { progress: p } = progressHarness();
+  const stored = { ...session, id: String(session.id), user_id: String(session.user_id) };
+  const result = await p.loadCheckinEntry(client(stored), 7, 'resume', 500);
+  assert.equal(result.kind, 'resume');
+  assert.equal(result.session.id, '500');
+  assert.deepEqual(result.answers, stored.triage_messages);
+  await assert.rejects(p.loadCheckinEntry(client(stored), 7, 'resume', 501), /UNAVAILABLE/);
+});
 test('a last submitted answer survives losing the response or restarting the app', async () => {
   const { progress: p } = progressHarness();
   const pending = [
