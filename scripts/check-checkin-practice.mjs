@@ -28,6 +28,8 @@ function evaluate(source, globals = {}) {
   return module.exports;
 }
 const locationDetailsHelpers = evaluate(read('src/features/checkin/location-details.ts'));
+const cancellationFile = ts.createSourceFile('cancel.ts', read('src/features/checkin/useCheckinCancellation.ts'), ts.ScriptTarget.Latest, true);
+const cancellationFunction = cancellationFile.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'useCheckinCancellation').getText(cancellationFile);
 const { createCheckinPractice } = evaluate(read('src/features/guidance/checkin.practice.ts'));
 const triageSelection = progressHarness().selection;
 const triageOptionDisplay = evaluate(read('src/features/checkin/triage-option-display.ts'));
@@ -113,10 +115,16 @@ function routeHarness(language, params = { mode: 'guide' }, guidance = {}, entry
     return response;
   }]));
   realApi.getToday = async () => { calls.network.push(['getToday']); if (entry.error) throw new Error('offline'); return { ok: true, session: entry.session || null }; };
+  realApi.cancel = async (id, phase) => { calls.network.push(['cancel', id, phase]); if (entry.cancelError) throw new Error('offline'); return { ok:true, cancelled:true }; };
+  const useCheckinCancellation = evaluate(`${cancellationFunction}\nmodule.exports=useCheckinCancellation;`, {
+    ...runtime, ...tr, tokenStore:{getToken:()=> 'synthetic-token'}, checkinApi:realApi, ...storage.progress,
+    useAppAlert:()=>({alertState:{},showAlert:(...args)=>calls.alerts.push(args),dismissAlert(){}}),
+  });
   const router = { canGoBack: () => true, back: () => calls.routes.push('back'), replace: route => calls.routes.push(route) };
   const source = `${extract('CheckinScreen')}\nmodule.exports = CheckinScreen;`;
   const CheckinScreen = evaluate(source, { useCheckinQuestionViewport: () => ({ onContentSizeChange() {}, onScrollBeginDrag() {} }), ...storage.progress, StateError: 'StateError', ...native, ...runtime, ...tr, useLocalSearchParams: () => params,
     useCheckinPresentationPriority: blocked => calls.presentation.push(blocked),
+    useCheckinCancellation,
     useReviewGuidance: (destination, options) => () => calls.help.push({ destination, options }), useRouter: () => router, useSafeAreaInsets: () => ({ top: 20, bottom: 20 }),
     useScaledTypography: () => ({}), useThemeColors: () => ({ isDark: false }), createStyles: () => ({}),
     useAppAlert: () => ({ alertState: {}, showAlert: (...args) => calls.alerts.push(args), dismissAlert() {} }),
@@ -872,5 +880,32 @@ await test('offline result preparation releases priority for the inline retry sc
   assert.equal(h.calls.presentation.at(-1), false);
   const practice = routeHarness('vi'); await practice.settle();
   assert.ok(practice.calls.presentation.every(value => value === false));
+});
+await test('the explicit top-right Cancel action cannot be undone by a late triage response', async () => {
+  let resolve;
+  const response=new Promise(done=>{resolve=done;});
+  const session={id:500,user_id:7,initial_status:'tired',current_status:'tired',triage_messages:[],triage_state:{phase:'initial',phase_id:'phase-a'}};
+  const h=routeHarness('vi',{mode:'resume',checkin_id:'500'},{},{session,api:{triage:()=>response}});
+  let tree=await h.settle();
+  const cancel=nodes(tree).find(node=>node.props?.testID==='checkin-cancel'); assert.ok(cancel); assert.equal(cancel.props.disabled,false);
+  cancel.props.onPress();
+  assert.equal(h.calls.network.filter(call=>call[0]==='cancel').length,0,'Opening confirmation cannot cancel anything');
+  const confirm=h.calls.alerts.at(-1)[2].find(button=>button.style==='destructive'); assert.ok(confirm);
+  confirm.onPress(); confirm.onPress(); tree=await h.settle();
+  assert.equal(h.calls.network.filter(call=>call[0]==='cancel').length,1);
+  assert.deepEqual(h.calls.network.find(call=>call[0]==='cancel'),['cancel',500,'phase-a']);
+  assert.equal(h.calls.routes.at(-1),'/(tabs)/home');
+  resolve({ok:true,isDone:true,summary:'Synthetic late result',severity:'low'}); tree=await h.settle();
+  assert.ok(!nodes(tree).some(node=>node.type==='Result'));
+});
+await test('failed cancellation keeps the saved conversation and reloads its current question', async () => {
+  const saved=[{step:'symptoms',question:'Synthetic question',answer:'Đau đầu'}];
+  const session={id:500,user_id:7,initial_status:'tired',current_status:'tired',triage_messages:saved,triage_state:{phase:'initial',phase_id:'phase-a'}};
+  const h=routeHarness('vi',{mode:'resume',checkin_id:'500'},{},{session,cancelError:true});
+  let tree=await h.settle(); nodes(tree).find(node=>node.props?.testID==='checkin-cancel').props.onPress();
+  h.calls.alerts.at(-1)[2].find(button=>button.style==='destructive').onPress(); tree=await h.settle();
+  assert.deepEqual(h.calls.routes,[]);
+  assert.deepEqual(nodes(tree).find(node=>node.type==='Question').props.answers,saved);
+  assert.ok(h.calls.alerts.at(-1)[1].includes('Tiến độ vẫn được giữ lại'));
 });
 console.log(`Check-in practice: ${checks} runtime regressions passed.`);

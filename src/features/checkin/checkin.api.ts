@@ -188,6 +188,9 @@ export interface PendingCaregiverAlert {
 }
 
 export const checkinApi = {
+  cancel: (checkinId: number, phaseId: string) => apiClient<{ ok: boolean; cancelled: boolean }>('/api/mobile/checkin/cancel', {
+    method: 'POST', body: { checkin_id: checkinId, phase_id: phaseId },
+  }),
   getToday: () =>
     apiClient<{ ok: boolean; session: CheckinSession | null }>('/api/mobile/checkin/today'),
 

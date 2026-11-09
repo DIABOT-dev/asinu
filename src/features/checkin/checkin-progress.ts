@@ -203,6 +203,22 @@ export function isUnfinishedCheckin(session: CheckinSession) {
   return session.initial_status !== 'fine' && !session.triage_completed_at;
 }
 
+export async function cancelCheckinProgress(
+  client: { cancel: (id: number, phaseId: string) => Promise<{ ok: boolean; cancelled: boolean }> },
+  account: string | number | undefined,
+  session: CheckinSession | null,
+) {
+  if (session && isUnfinishedCheckin(session)) {
+    if (String(session.user_id) !== String(account)) throw new Error('CHECKIN_ACCOUNT_CHANGED');
+    const phase = checkinPhaseId(session);
+    if (!phase) throw new Error('CHECKIN_SESSION_UNAVAILABLE');
+    const result = await client.cancel(session.id, phase);
+    if (!result.ok || !result.cancelled) throw new Error('CHECKIN_CANCEL_FAILED');
+    await clearPendingAnswers(account, session);
+  }
+  await clearLocationDraft(account);
+}
+
 type Entry =
   | { kind: 'new' | 'home' }
   | { kind: 'location'; draft: LocationDraft }

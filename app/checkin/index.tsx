@@ -12,6 +12,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCheckinPresentationPriority } from '../../src/hooks/useCheckinPresentation';
 import { useCheckinAddressing } from '../../src/features/checkin/useCheckinAddressing';
+import { useCheckinCancellation } from '../../src/features/checkin/useCheckinCancellation';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -154,16 +155,24 @@ function CheckinScreen() {
 
   const [entryError, setEntryError] = useState(false);
   const [entryAttempt, setEntryAttempt] = useState(0);
+  const requestEpoch = useRef(0);
+  const cancellation = useCheckinCancellation({
+    account: userId, session,
+    onConfirmed: () => { requestEpoch.current++; },
+    onCancelled: () => { void guidanceAudio.stop(); router.replace('/(tabs)/home'); },
+    onRecover: () => { setLoading(true); setEntryAttempt(value => value + 1); },
+  });
   const [locationDraft, setLocationDraft] = useState<LocationDraft | null>(null);
   const locationBackRef = useRef<null | (() => void)>(null);
   useEffect(() => {
     if (isPractice || isResultPreview) { setLoading(false); return; }
     let mounted = true;
+    const epoch = requestEpoch.current;
     setLoading(true);
     setEntryError(false);
     loadCheckinEntry(checkinClient, userId, params.mode, existingCheckinId)
       .then(async entry => {
-        if (!mounted) return;
+        if (!mounted || epoch !== requestEpoch.current) return;
         if (entry.kind === 'resume') {
           setSession(entry.session);
           const saved = entry.answers;
@@ -182,9 +191,9 @@ function CheckinScreen() {
           router.replace({ pathname: '/checkin', params: { checkin_id: String(entry.session.id), mode: 'followup' } });
           return;
         }
-        if (mounted) setLoading(false);
+        if (mounted && epoch === requestEpoch.current) setLoading(false);
       })
-      .catch(() => { if (mounted) { setEntryError(true); setLoading(false); } });
+      .catch(() => { if (mounted && epoch === requestEpoch.current) { setEntryError(true); setLoading(false); } });
     return () => { mounted = false; };
   }, [checkinClient, existingCheckinId, isPractice, isResultPreview, params.mode, userId, entryAttempt, router]);
 
@@ -391,6 +400,7 @@ function CheckinScreen() {
   // ─── Triage ────────────────────────────────────────────────────────────────
 
   const fetchNextQuestion = async (sess: CheckinSession, prevAnswers: TriageAnswer[]) => {
+    const epoch = requestEpoch.current;
     if (!(await requestAiConsent(() => fetchNextQuestion(sess, prevAnswers)))) {
       setLoading(false);
       return;
@@ -401,7 +411,9 @@ function CheckinScreen() {
     triageRetryRef.current = () => fetchNextQuestion(sess, prevAnswers);
     try {
       if (!isPractice) await savePendingAnswers(userId, sess, prevAnswers);
+      if (epoch !== requestEpoch.current) return;
       const result = await checkinClient.triage(sess.id, prevAnswers, isPractice ? undefined : checkinPhaseId(sess));
+      if (epoch !== requestEpoch.current) return;
       if (__DEV__) console.log('[Checkin] triage completed:', {
         isDone: result.isDone, step: result.step,
         promptVersion: result.conclusionPromptVersion,
@@ -412,6 +424,7 @@ function CheckinScreen() {
         throw new Error((result as any).error || 'Triage API error');
       }
       if (!isPractice) await clearPendingAnswers(userId, sess, prevAnswers);
+      if (epoch !== requestEpoch.current) return;
       if (result.isDone) {
         setTriageSummary({
           summary: result.summary || '',
@@ -484,6 +497,7 @@ function CheckinScreen() {
         setCurrentSkipAnswerLabel(result.skipAnswerLabel);
       }
     } catch (err: any) {
+      if (epoch !== requestEpoch.current) return;
       if (__DEV__) console.warn('[Checkin] triage request failed:', err?.message || err);
       // Keep this exact request, including the last answer. A network failure
       // must never replace a regional question with an unrelated fallback.
@@ -497,7 +511,7 @@ function CheckinScreen() {
         };
       }
     } finally {
-      setLoading(false);
+      if (epoch === requestEpoch.current) setLoading(false);
     }
   };
 
@@ -586,6 +600,7 @@ function CheckinScreen() {
         }}
       >
         <ScreenBackButton
+          disabled={cancellation.busy}
           iconColor={colors.primaryText}
           style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1,
             borderColor: colors.primary + '66', backgroundColor: colors.primaryLight }}
@@ -621,6 +636,7 @@ function CheckinScreen() {
                 ? t(isInstantEntry ? 'checkinSelectIntensityTitle' : 'checkinSelectStatusTitle')
                 : t('checkinHeaderTitle')}
         </Text>}
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         {screen === 'status' && !isPractice && !isResultPreview ? <Pressable
           testID="checkin-context-help"
           accessibilityLabel={t('checkinGuide.badge')}
@@ -636,9 +652,17 @@ function CheckinScreen() {
           }}
         >
           <Ionicons name="help-circle-outline" size={24} color={colors.primaryText} />
+        </Pressable> : null}
+        {!isPractice && !isResultPreview && screen !== 'done' ? <Pressable
+          testID="checkin-cancel" accessibilityRole="button" accessibilityLabel={t('checkinCancel')}
+          disabled={cancellation.busy || (loading && !session)} onPress={cancellation.request}
+          style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 8, justifyContent: 'center', opacity: cancellation.busy || pressed || (loading && !session) ? 0.5 : 1 })}>
+          <Text allowFontScaling style={{ color: colors.danger, fontWeight: '700', fontSize: 14 }}>{t('checkinCancel')}</Text>
         </Pressable> : <View style={{ width: 44, height: 44 }} />}
+        </View>
       </View>
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
+      <AppAlertModal {...cancellation.alertState} allowDuringCheckin onDismiss={cancellation.dismissAlert} />
       <AiDataConsentModal
         visible={showAiConsent}
         onAgree={handleAiConsentAgree}
@@ -671,7 +695,7 @@ function CheckinScreen() {
             onQuestionChange={() => mainScrollRef.current?.scrollTo({ y: 0, animated: false })}
             onConfirm={handleLocationsConfirm}
             onBack={() => { setPendingStatus(null); setScreen('status'); }}
-            loading={loading}
+            loading={loading || cancellation.busy}
             onBeforeAi={requestAiConsent}
             practice={isPractice}
           />
@@ -691,7 +715,7 @@ function CheckinScreen() {
             freeTextOption={currentFreeTextOption}
             skipAnswerLabel={currentSkipAnswerLabel}
             answers={answers}
-            loading={loading}
+            loading={loading || cancellation.busy}
             onAnswer={handleAnswer}
             empathy={currentEmpathy}
             continuity={currentContinuity}

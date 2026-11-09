@@ -89,6 +89,7 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
     const { AppAlertModal } = evaluate('src/components/AppAlertModal.tsx', {
       react: h.react, 'react-native': native, '@expo/vector-icons': icons,
       './ScaledText': { ScaledText: 'Text' }, './QueuedModal': { QueuedModal: 'QueuedModal' },
+      '../hooks/useCheckinPresentation': { useCheckinPresentationBlocked: () => false },
       '../hooks/useScaledTypography': { useScaledTypography: () => theme.typography }, '../styles': theme,
       '../hooks/useThemeColors': { useThemeColors: () => ({ isDark: mode === 'dark' }) },
       'react-i18next': { useTranslation: () => ({ t: tc }) },
@@ -128,6 +129,7 @@ for (const queued of [false, true]) {
     const { AppAlertModal } = evaluate('src/components/AppAlertModal.tsx', {
       react: h.react, 'react-native': native, '@expo/vector-icons': icons,
       './ScaledText': { ScaledText: 'Text' }, './QueuedModal': { QueuedModal: 'QueuedModal' },
+      '../hooks/useCheckinPresentation': { useCheckinPresentationBlocked: () => false },
       '../hooks/useScaledTypography': { useScaledTypography: () => theme.typography }, '../styles': theme,
       '../hooks/useThemeColors': { useThemeColors: () => ({ isDark: false }) },
       'react-i18next': { useTranslation: () => ({ t: tc }) },
@@ -165,6 +167,7 @@ for (const language of ['vi', 'en']) {
       'expo-image': { Image: 'Image' }, 'expo-linear-gradient': { LinearGradient: 'Gradient' },
       'react-i18next': { useTranslation: () => ({ t, i18n: { language } }) }, '../../components/ScaledText': { ScaledText: 'Text' },
       '../../hooks/useThemeColors': { useThemeColors: () => ({ isDark: false }) }, '../../styles': theme,
+      '../hooks/useCheckinPresentation': { useCheckinPresentationBlocked: () => false },
       '../../hooks/useScaledTypography': { useScaledTypography: () => ({ size: theme.typography.size, scaledSize: theme.typography.size }) },
       './iap.catalog': { FALLBACK_IAP_PRODUCTS: products }, './iap.service': {
         fetchAvailableProducts: async () => products,
@@ -459,6 +462,7 @@ for (const language of ['vi', 'en']) {
         'expo-image': { Image: 'Image' }, 'expo-linear-gradient': { LinearGradient: 'Gradient' },
         'react-i18next': { useTranslation: () => ({ t, i18n: { language } }) }, '../../components/ScaledText': { ScaledText: 'Text' },
         '../../hooks/useThemeColors': { useThemeColors: () => ({ isDark: false }) }, '../../styles': theme,
+        '../hooks/useCheckinPresentation': { useCheckinPresentationBlocked: () => false },
         '../../hooks/useScaledTypography': { useScaledTypography: () => ({ size: theme.typography.size, scaledSize: { sm: theme.typography.size.sm * multiplier } }) },
         './iap.catalog': { FALLBACK_IAP_PRODUCTS: products }, './iap.service': {
           fetchAvailableProducts: async () => products, purchaseSubscription: async (...args) => { calls.push(args); return { kind: 'success' }; },

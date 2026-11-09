@@ -151,6 +151,7 @@ function harness({
     "react-native-safe-area-context": { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
     "@expo/vector-icons": { MaterialCommunityIcons: "Icon" },
     "./ScaledText": { ScaledText: "Text" }, "./QueuedModal": { QueuedModal: "AppModal" },
+    '../hooks/useCheckinPresentation': { useCheckinPresentationBlocked: () => false },
     "../hooks/useScaledTypography": { useScaledTypography: () => typography },
     "../hooks/useThemeColors": { useThemeColors: () => ({ isDark: false }) },
     "react-i18next": { useTranslation: () => ({ t: translations.common }) }, "../styles": styles,
@@ -194,6 +195,7 @@ function harness({
       "../hooks/useGuardedRouter": {
         useGuardedRouter: () => ({ push: (route) => calls.pushes.push(route) }),
       },
+      '../hooks/useCheckinPresentation': { useCheckinPresentationBlocked: () => false },
       "../hooks/useScaledTypography": {
         useScaledTypography: () => typography,
       },

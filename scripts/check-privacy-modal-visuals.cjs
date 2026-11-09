@@ -38,6 +38,7 @@ function createModal(mode) {
     react: { useMemo: factory => factory(), useRef: initial => ({ current: initial }), useState: initial => [initial, () => {}] },
     'react-native': native, '@expo/vector-icons': icons,
     './ScaledText': { ScaledText: 'Text' }, './QueuedModal': { QueuedModal: 'QueuedModal' },
+    '../hooks/useCheckinPresentation': { useCheckinPresentationBlocked: () => false },
     '../hooks/useScaledTypography': { useScaledTypography: () => theme.typography }, '../styles': theme,
     '../hooks/useThemeColors': { useThemeColors: () => ({ isDark: mode === 'dark' }) },
     'react-i18next': { useTranslation: () => ({ t: key => key }) },

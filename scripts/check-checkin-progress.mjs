@@ -155,6 +155,30 @@ test('PostgreSQL bigint session IDs resume through numeric route params without 
   assert.deepEqual(result.answers, stored.triage_messages);
   await assert.rejects(p.loadCheckinEntry(client(stored), 7, 'resume', 501), /UNAVAILABLE/);
 });
+test('cancellation clears only the current account draft after the server confirms the exact phase', async () => {
+  const { progress:p }=progressHarness(), calls=[];
+  const s={...session,triage_state:{phase:'initial',phase_id:'phase-current'}};
+  await p.savePendingAnswers(7,s,[answer]); await p.saveLocationDraft(7,draft); await p.saveLocationDraft(8,draft);
+  await p.cancelCheckinProgress({cancel:async(id,phase)=>{calls.push([id,phase]);return{ok:true,cancelled:true};}},7,s);
+  assert.deepEqual(calls,[[500,'phase-current']]);
+  assert.equal(await p.readLocationDraft(7),null); assert.deepEqual(await p.readLocationDraft(8),draft);
+  assert.deepEqual((await p.loadCheckinEntry(client(s),7)).answers,s.triage_messages);
+});
+test('failed or conflicting cancellation preserves pending answers and local position drafts', async () => {
+  const {progress:p}=progressHarness();
+  const pending=[answer,{step:'onset',question:'When?',answer:'Today'}];
+  await p.savePendingAnswers(7,session,pending); await p.saveLocationDraft(7,draft);
+  await assert.rejects(p.cancelCheckinProgress({cancel:async()=>{throw new Error('offline');}},7,session),/offline/);
+  assert.deepEqual(await p.readLocationDraft(7),draft);
+  assert.deepEqual((await p.loadCheckinEntry(client(session),7)).answers,pending);
+});
+test('cancelling an unsubmitted position draft never deletes a completed server check-in', async () => {
+  const {progress:p}=progressHarness(); await p.saveLocationDraft(7,draft);
+  const api={cancel:()=>assert.fail('No unfinished server interview exists')};
+  await p.cancelCheckinProgress(api,7,null); assert.equal(await p.readLocationDraft(7),null);
+  await p.cancelCheckinProgress(api,7,{...session,triage_completed_at:'2026-11-09T00:00:00Z',triage_state:{completed:{finalized:true}}});
+  await assert.rejects(p.cancelCheckinProgress(api,8,session),/ACCOUNT_CHANGED/);
+});
 test('a last submitted answer survives losing the response or restarting the app', async () => {
   const { progress: p } = progressHarness();
   const pending = [

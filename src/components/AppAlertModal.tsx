@@ -49,6 +49,8 @@ type Props = {
   icon?: AlertIcon;
   onDismiss: () => void;
   queued?: boolean;
+  /** Explicit user actions owned by the current check-in only. */
+  allowDuringCheckin?: boolean;
   onShow?: () => void;
   stackButtons?: boolean;
   scrollable?: boolean;
@@ -69,6 +71,7 @@ export function AppAlertModal({
   icon,
   onDismiss,
   queued = false,
+  allowDuringCheckin = false,
   onShow,
   stackButtons = false,
   scrollable = false,
@@ -228,7 +231,7 @@ export function AppAlertModal({
   );
 
   return (
-    <ModalComponent visible={visible && !checkinBlocked} transparent animationType="fade" onRequestClose={onDismiss} onShow={onShow} onDismiss={handleModalDismiss}>
+    <ModalComponent visible={visible && (!checkinBlocked || allowDuringCheckin)} transparent animationType="fade" onRequestClose={onDismiss} onShow={onShow} onDismiss={handleModalDismiss}>
       <Pressable style={[styles.overlay, boundedContent && {
         paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xl,
       }]} onPress={onDismiss}>
