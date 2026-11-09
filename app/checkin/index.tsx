@@ -896,7 +896,7 @@ function TriageScreen({
     if (readOnly || loading || isTranscribing) return;
     if (freeTextOption && opt === freeTextOption) {
       setOtherActive(true);
-      setSelected(new Set());
+      setSelected(previous => multiSelect ? withoutExclusiveAnswers(previous, exclusiveOptions) : new Set());
       return;
     }
     setOtherActive(false);

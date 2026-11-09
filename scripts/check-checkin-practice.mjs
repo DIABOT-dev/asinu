@@ -729,4 +729,23 @@ await test('adaptive Other opens a free answer without submitting the placeholde
   await settle(); nodes(tree).find(n => n.props?.accessibilityLabel === props.skipAnswerLabel).props.onPress(); await settle();
   assert.deepEqual(calls, ['Tiếng gió', 'Không có gì thêm']);
 });
+await test('multi-select Other keeps meaningful selected answers and removes exclusive uncertainty', async () => {
+  const runtime = hooks(), tr = translations('vi'), calls = [];
+  const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+    ...native, ...runtime, ...tr, ...triageOptionDisplay, ...triageSelection,
+    spacing: { sm: 8 }, VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
+  });
+  const props = { styles: {}, question: 'Những biểu hiện nào?', options: ['First', 'Second', 'Không rõ', 'Khác'],
+    freeTextOption: 'Khác', exclusiveOptions: ['Không rõ'], multiSelect: true, allowFreeText: true,
+    answers: [], loading: false, onAnswer: answer => calls.push(answer), onBeforeAi: async () => true };
+  let tree; const settle = async () => { tree = await runtime.settle(() => component(props)); };
+  await settle();
+  const select = async label => { nodes(tree).find(n => n.props?.accessibilityLabel === label).props.onPress(); await settle(); };
+  await select('Không rõ'); await select('Khác');
+  assert.equal(nodes(tree).find(n => n.props?.accessibilityLabel === 'Không rõ').props.accessibilityState.checked, false);
+  await select('First'); await select('Khác');
+  nodes(tree).find(n => n.type === 'VoiceAnswerInput').props.onChangeText('Additional answer'); await settle();
+  nodes(tree).find(n => n.type === 'Pressable' && !n.props.accessibilityRole).props.onPress(); await settle();
+  assert.deepEqual(calls, ['First, Additional answer']);
+});
 console.log(`Check-in practice: ${checks} runtime regressions passed.`);
