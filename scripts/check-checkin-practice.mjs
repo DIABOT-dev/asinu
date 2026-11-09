@@ -355,11 +355,11 @@ function locationHarness(language, overrides = {}) {
 
 for (const language of ['vi', 'en']) {
   for (const [region, position, expected] of [
-    ['head', 'forehead', language === 'vi' ? /chỗ nào trên đầu/ : /Where on your head/],
-    ['chest', 'middle_chest', language === 'vi' ? /vùng nào của ngực/ : /Where in your chest/],
-    ['abdomen', 'upper_abdomen', language === 'vi' ? /vùng nào của bụng/ : /Where in your belly/],
-    ['limbs', 'right_wrist', language === 'vi' ? /Tay hoặc chân.*chỗ nào/ : /Where in your arms or legs/],
-    ['skin', 'face_neck', language === 'vi' ? /Vùng da nào/ : /Which area of your skin/],
+    ['head', 'forehead', language === 'vi' ? /đầu mình.*chỗ nào/ : /Where on your head/],
+    ['chest', 'middle_chest', language === 'vi' ? /ngực mình.*chỗ nào/ : /Where in your chest/],
+    ['abdomen', 'upper_abdomen', language === 'vi' ? /bụng mình.*chỗ nào/ : /Where in your belly/],
+    ['limbs', 'right_wrist', language === 'vi' ? /tay hoặc chân.*chỗ nào/ : /Where in your arms or legs/],
+    ['skin', 'face_neck', language === 'vi' ? /da mình.*chỗ nào/ : /Which area of your skin/],
   ]) {
     await test(`${language}: ${region} asks a natural position question that matches its answers`, async () => {
       const h = locationHarness(language); await h.settle();

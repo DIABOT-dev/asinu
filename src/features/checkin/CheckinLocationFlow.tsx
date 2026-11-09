@@ -127,7 +127,14 @@ export function CheckinLocationFlow({
         </View>
         <Text style={styles.triageProgressText}>{t('checkinLocationPositionProgress', { current: detailIndex! + 1, total: detailGroups.length })}</Text>
       </View>
-      <View style={styles.questionSection}>
+      <View style={[styles.questionSection, styles.questionHeaderRow]}>
+        <Image
+          source={asinuChatSticker}
+          style={[styles.mascotSticker, { width: 56, height: 64, flexShrink: 0 }]}
+          resizeMode="contain"
+          accessible={false}
+          importantForAccessibility="no"
+        />
         <Text allowFontScaling accessibilityRole="header" style={[styles.questionHeaderTitle, { fontSize: 22, lineHeight: 30 }]}>
           {t(group.questionKey)}
         </Text>
