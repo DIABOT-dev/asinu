@@ -51,7 +51,7 @@ import { showToast } from '../../src/stores/toast.store';
 import { colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { StateError } from '../../src/components/state/StateError';
-import { loadCheckinEntry, saveLocationDraft, clearLocationDraft, savePendingAnswers, clearPendingAnswers, type LocationDraft } from '../../src/features/checkin/checkin-progress';
+import { loadCheckinEntry, checkinPhaseId, saveLocationDraft, clearLocationDraft, savePendingAnswers, clearPendingAnswers, type LocationDraft } from '../../src/features/checkin/checkin-progress';
 import { toggleTriageOption, withoutExclusiveAnswers, composeTriageAnswer } from '../../src/features/checkin/triage-answer-selection';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 import { GuidePracticeScope, GuideScrollScope, GuideTarget, useGuideAcknowledgement } from '../../src/features/guidance/GuidanceProvider';
@@ -214,6 +214,7 @@ function CheckinScreen() {
       : [],
   );
   const [triageError, setTriageError] = useState(false);
+  const [triageConflict, setTriageConflict] = useState(false);
   const triageRetryRef = useRef<null | (() => Promise<void>)>(null);
   const [currentQ, setCurrentQ]    = useState<string>('');
   const [currentStep, setCurrentStep] = useState<string>('');
@@ -394,10 +395,11 @@ function CheckinScreen() {
     }
     setLoading(true);
     setTriageError(false);
+    setTriageConflict(false);
     triageRetryRef.current = () => fetchNextQuestion(sess, prevAnswers);
     try {
       if (!isPractice) await savePendingAnswers(userId, sess, prevAnswers);
-      const result = await checkinClient.triage(sess.id, prevAnswers);
+      const result = await checkinClient.triage(sess.id, prevAnswers, isPractice ? undefined : checkinPhaseId(sess));
       if (__DEV__) console.log('[Checkin] triage completed:', {
         isDone: result.isDone, step: result.step,
         promptVersion: result.conclusionPromptVersion,
@@ -407,7 +409,7 @@ function CheckinScreen() {
       if ((result as any).ok === false) {
         throw new Error((result as any).error || 'Triage API error');
       }
-      if (!isPractice) await clearPendingAnswers(userId, sess);
+      if (!isPractice) await clearPendingAnswers(userId, sess, prevAnswers);
       if (result.isDone) {
         setTriageSummary({
           summary: result.summary || '',
@@ -484,6 +486,14 @@ function CheckinScreen() {
       // Keep this exact request, including the last answer. A network failure
       // must never replace a regional question with an unrelated fallback.
       setTriageError(true);
+      if (err?.code === 'TRIAGE_CHANGED') {
+        setTriageConflict(true);
+        triageRetryRef.current = async () => {
+          setLoading(true);
+          setTriageError(false);
+          setEntryAttempt(value => value + 1);
+        };
+      }
     } finally {
       setLoading(false);
     }
@@ -663,8 +673,8 @@ function CheckinScreen() {
             practice={isPractice}
           />
         )}
-        {screen === 'triage' && triageError ? <StateError message={t('checkinSyncError')} onRetry={() => { void triageRetryRef.current?.(); }} /> : null}
-        {screen === 'triage' && !triageError && (
+        {screen === 'triage' && triageError ? <StateError message={t(triageConflict ? 'checkinProgressChanged' : 'checkinSyncError')} onRetry={() => { void triageRetryRef.current?.(); }} /> : null}
+        {screen === 'triage' && !entryError && !triageError && (
           <TriageScreen
             styles={styles}
             question={currentQ}

@@ -35,6 +35,7 @@ export function progressHarness() {
   return {
     progress: load('src/features/checkin/checkin-progress.ts'),
     selection: load('src/features/checkin/triage-answer-selection.ts'),
+    storage: load('src/features/checkin-call/triage-draft.storage.ts'),
     values,
   };
 }

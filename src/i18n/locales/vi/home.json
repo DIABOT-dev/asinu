@@ -458,6 +458,7 @@
   "healthFeedEmptyMessage": "Khi có nhắc nhở phù hợp, Asinu sẽ hiển thị tại đây để bạn xem lại bất cứ lúc nào.",
   "checkinError": "Không thể lưu trạng thái. Vui lòng thử lại.",
   "checkinSyncError": "Kết quả chưa được lưu vì mất kết nối. Câu trả lời vẫn được giữ; hãy thử lại khi có mạng.",
+  "checkinProgressChanged": "Phiên trả lời đã được cập nhật. Phần vừa nhập chưa được gửi. Bấm Thử lại để mở tiến độ mới nhất.",
   "checkinDoneEveningSub": "Chúc bạn ngủ ngon! Asinu sẽ hỏi thăm bạn vào sáng mai.",
   "checkinEveningQuestion": "Hôm nay bạn cảm thấy thế nào?",
   "checkinEveningGreat": "Rất tốt",

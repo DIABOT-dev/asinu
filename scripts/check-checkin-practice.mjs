@@ -616,7 +616,7 @@ for (const language of ['vi', 'en']) {
       const tree = await h.settle(); const q = nodes(tree).find(n => n.type === 'Question');
       assert.ok(q); assert.deepEqual(q.props.answers, saved);
       assert.deepEqual(h.calls.network.map(c => c[0]), ['getToday', 'triage']);
-      assert.deepEqual(h.calls.network.at(-1), ['triage', 500, saved]);
+      assert.deepEqual(h.calls.network.at(-1), ['triage', 500, saved, h.storage.progress.checkinPhaseId(session)]);
       assert.ok(!nodes(tree).some(n => n.type === 'Status'));
     });
   }
@@ -748,4 +748,42 @@ await test('multi-select Other keeps meaningful selected answers and removes exc
   nodes(tree).find(n => n.type === 'Pressable' && !n.props.accessibilityRole).props.onPress(); await settle();
   assert.deepEqual(calls, ['First, Additional answer']);
 });
+for (const language of ['vi', 'en']) {
+  for (const conflicting of [true, false]) {
+    await test(`${language}: conflict retry reloads server progress and preserves only a compatible pending answer (${conflicting})`, async () => {
+      const first = {step:'symptoms',question:'Symptoms?',answer:'Headache'};
+      const own = {step:'onset',question:'When?',answer:'Today'};
+      const remote = {...own,answer:'Yesterday'};
+      const session = {id:500,user_id:7,initial_status:'tired',current_status:'tired',flow_state:'monitoring',resolved_at:null,
+        triage_completed_at:null,triage_messages:[first],triage_state:{phase:'initial',phase_id:'phase-a'}};
+      let stage = 0;
+      const entry = {session,api:{triage:async () => {
+        if (stage++ === 0) return {ok:true,isDone:false,step:'onset',question:'When?',options:['Today','Yesterday'],multiSelect:false};
+        if (stage === 2) { entry.session = {...session,triage_messages:conflicting?[first,remote]:[first]};
+          throw Object.assign(new Error('changed'),{code:'TRIAGE_CHANGED'}); }
+        return {ok:true,isDone:false,step:'progression',question:'How is it now?',options:['Same','Better'],multiSelect:false};
+      }}};
+      const h=routeHarness(language,{mode:'resume',checkin_id:'500'},{},entry);
+      let tree=await h.settle(); await nodes(tree).find(n=>n.type==='Question').props.onAnswer('Today'); tree=await h.settle();
+      const error=nodes(tree).find(n=>n.type==='StateError'); assert.ok(error);
+      assert.ok(!nodes(tree).some(n=>n.type==='Question'));
+      assert.equal(error.props.message,translations(language).t('checkinProgressChanged'));
+      await error.props.onRetry(); tree=await h.settle();
+      const expected=conflicting?[first,remote]:[first,own];
+      assert.deepEqual(nodes(tree).find(n=>n.type==='Question').props.answers,expected);
+      assert.deepEqual(h.calls.network.at(-1),['triage',500,expected,'phase-a']);
+      assert.equal(h.calls.network.filter(call=>call[0]==='getToday').length,2);
+    });
+  }
+  await test(`${language}: failed conflict recovery cannot expose stale answer controls`, async () => {
+    const session={id:500,user_id:7,initial_status:'tired',current_status:'tired',triage_messages:[],triage_state:{phase:'initial',phase_id:'phase-a'}};
+    const entry={session,error:false,api:{triage:async()=>{throw Object.assign(new Error('changed'),{code:'TRIAGE_CHANGED'});}}};
+    const h=routeHarness(language,{mode:'resume',checkin_id:'500'},{},entry);
+    let tree=await h.settle(); entry.error=true;
+    await nodes(tree).find(n=>n.type==='StateError').props.onRetry(); tree=await h.settle();
+    assert.ok(nodes(tree).some(n=>n.type==='StateError'));
+    assert.ok(!nodes(tree).some(n=>n.type==='Question'));
+    assert.equal(h.calls.network.filter(call=>call[0]==='triage').length,1);
+  });
+}
 console.log(`Check-in practice: ${checks} runtime regressions passed.`);

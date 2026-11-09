@@ -217,10 +217,10 @@ export const checkinApi = {
       body: { checkin_id, status },
     })),
 
-  triage: (checkin_id: number, previous_answers: TriageAnswer[]) =>
+  triage: (checkin_id: number, previous_answers: TriageAnswer[], phaseId?: string) =>
     apiClient<TriageResult>('/api/mobile/checkin/triage', {
       method: 'POST',
-      body: { checkin_id, previous_answers, conclusion_format: 'narrative', assessment_version: 2, adaptive_questions: true },
+      body: { checkin_id, previous_answers, conclusion_format: 'narrative', assessment_version: 2, adaptive_questions: true, ...(phaseId ? { phase_id: phaseId } : {}) },
       timeoutMs: 90000,
     }),
 

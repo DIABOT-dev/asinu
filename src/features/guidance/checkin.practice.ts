@@ -30,7 +30,7 @@ export function createCheckinPractice(translate: Translate) {
       session = makeSession(status);
       return { ok: true, session };
     },
-    async triage(_id: number, answers: TriageAnswer[]): Promise<TriageResult> {
+    async triage(_id: number, answers: TriageAnswer[], _phaseId?: string): Promise<TriageResult> {
       const question = questions[answers.length];
       if (question) {
         return { ok: true, isDone: false, step: question.step, question: text(question.questionKey),

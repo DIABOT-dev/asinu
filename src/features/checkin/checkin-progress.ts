@@ -87,21 +87,30 @@ export const saveLocationDraft = (account: string | number | undefined, draft: L
 export const clearLocationDraft = (account: string | number | undefined) =>
   triageDraftStorage.removeItem(locationDraftKey(account));
 
-const pendingKey = (account: string | number | undefined, session: CheckinSession) =>
+const legacyPendingKey = (account: string | number | undefined, session: CheckinSession) =>
   triageDraftKey(
     account,
     `manual-pending-${session.id}-${session.triage_state?.phase || 'initial'}`,
   );
+const pendingKey = (account: string | number | undefined, session: CheckinSession) => {
+  const phaseId = checkinPhaseId(session);
+  return phaseId
+    ? triageDraftKey(account, `manual-pending-${session.id}-${session.triage_state?.phase || 'initial'}-${phaseId}`)
+    : legacyPendingKey(account, session);
+};
 // The CAS revision changes on every question. Only a new interview phase or
 // occurrence may invalidate an unsynced answer from the same patient.
-function pendingScope(session: CheckinSession) {
+export function checkinPhaseId(session: CheckinSession) {
   const phase = session.triage_state?.phase || 'initial';
   const started = session.occurrence_started_at || session.created_at;
   const occurrence = started ? new Date(started).toISOString() : String(session.id);
-  const phaseId =
-    session.triage_state?.phase_id ||
-    (phase === 'followup' ? session.triage_state?.revision || null : `initial:${occurrence}`);
-  return JSON.stringify([occurrence, phase, phaseId]);
+  return session.triage_state?.phase_id ||
+    (phase === 'followup' ? session.triage_state?.revision : `initial:${occurrence}`);
+}
+function pendingScope(session: CheckinSession) {
+  const started = session.occurrence_started_at || session.created_at;
+  const occurrence = started ? new Date(started).toISOString() : String(session.id);
+  return JSON.stringify([occurrence, session.triage_state?.phase || 'initial', checkinPhaseId(session) || null]);
 }
 export const savePendingAnswers = (
   account: string | number | undefined,
@@ -117,13 +126,27 @@ export const savePendingAnswers = (
       answers,
     }),
   );
-export const clearPendingAnswers = (
+export const clearPendingAnswers = async (
   account: string | number | undefined,
   session: CheckinSession,
-) => triageDraftStorage.removeItem(pendingKey(account, session));
+  acknowledgedAnswers?: TriageAnswer[],
+) => {
+  for (const key of new Set([pendingKey(account, session), legacyPendingKey(account, session)])) {
+    await triageDraftStorage.removeItemIf(key, raw => {
+      try {
+        const saved = JSON.parse(raw);
+        if (saved.scope && saved.scope !== pendingScope(session)) { return false; }
+        if (!saved.scope && saved.revision && saved.revision !== session.triage_state?.revision) { return false; }
+        return !acknowledgedAnswers || JSON.stringify(saved.answers) === JSON.stringify(acknowledgedAnswers);
+      } catch { return false; }
+    });
+  }
+};
 async function resumableAnswers(account: string | number | undefined, session: CheckinSession) {
   const saved = session.triage_messages || [];
-  const raw = await triageDraftStorage.getItem(pendingKey(account, session));
+  const currentKey = pendingKey(account, session), oldKey = legacyPendingKey(account, session);
+  const raw = await triageDraftStorage.getItem(currentKey) ||
+    (oldKey !== currentKey ? await triageDraftStorage.getItem(oldKey) : null);
   if (raw) {
     try {
       const pending = JSON.parse(raw);

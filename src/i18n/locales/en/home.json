@@ -458,6 +458,7 @@
   "healthFeedEmptyMessage": "When a relevant reminder is available, Asinu will keep it here so you can read it again anytime.",
   "checkinError": "Could not save status. Please try again.",
   "checkinSyncError": "Your result has not been saved because the connection was lost. Your answers are kept; please try again when you are online.",
+  "checkinProgressChanged": "This check-in has been updated. Your latest input has not been sent. Tap Retry to open the latest progress.",
   "checkinDoneEveningSub": "Sleep well! Asinu will check in with you tomorrow morning.",
   "checkinEveningQuestion": "How are you feeling today?",
   "checkinEveningGreat": "Great",

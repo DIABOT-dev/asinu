@@ -32,6 +32,58 @@ test('drafts preserve each region, note and question cursor in the OS keystore',
   assert.deepEqual(await p.loadCheckinEntry(client(null), 7), { kind: 'location', draft });
   assert.ok([...values.keys()].every((k) => /^[A-Za-z0-9_.-]+$/.test(k)));
 });
+test('phase tokens are stable across question writes and change for a new occurrence', () => {
+  const {progress:p}=progressHarness();
+  const original={...session,created_at:'2026-11-09T01:00:00.000Z',occurrence_started_at:'2026-11-09T02:00:00.000Z'};
+  assert.equal(p.checkinPhaseId(original),'initial:2026-11-09T02:00:00.000Z');
+  assert.equal(p.checkinPhaseId({...original,triage_state:{...original.triage_state,revision:'r2'}}),p.checkinPhaseId(original));
+  assert.notEqual(p.checkinPhaseId({...original,occurrence_started_at:'2026-11-09T03:00:00.000Z'}),p.checkinPhaseId(original));
+  assert.equal(p.checkinPhaseId({...original,triage_state:{phase:'followup',phase_id:'phase-b',revision:'r3'}}),'phase-b');
+});
+test('an earlier phase response cannot clear a newer phase pending answer', async () => {
+  const {progress:p}=progressHarness();
+  const old={...session,triage_state:{phase:'followup',phase_id:'phase-a'}};
+  const latest={...session,triage_messages:[],triage_state:{phase:'followup',phase_id:'phase-b'}};
+  await p.savePendingAnswers(7,old,[answer]);
+  const newer={step:'followup_status',question:'Now?',answer:'Same'};
+  await p.savePendingAnswers(7,latest,[newer]);
+  await p.clearPendingAnswers(7,old,[answer]);
+  assert.deepEqual((await p.loadCheckinEntry(client(latest),7)).answers,[newer]);
+});
+test('acknowledging an older request does not clear a longer unsent answer list', async () => {
+  const {progress:p}=progressHarness();
+  const extended=[answer,{step:'onset',question:'When?',answer:'Today'}];
+  await p.savePendingAnswers(7,session,[answer]);
+  await p.savePendingAnswers(7,session,extended);
+  await p.clearPendingAnswers(7,session,[answer]);
+  assert.deepEqual((await p.loadCheckinEntry(client(session),7)).answers,extended);
+});
+test('a new save racing an old acknowledgement remains recoverable', async () => {
+  const { progress: p } = progressHarness();
+  const extended = [answer, { step: 'onset', question: 'When?', answer: 'Today' }];
+  await p.savePendingAnswers(7, session, [answer]);
+  await Promise.all([
+    p.clearPendingAnswers(7, session, [answer]),
+    p.savePendingAnswers(7, session, extended),
+  ]);
+  assert.deepEqual((await p.loadCheckinEntry(client(session), 7)).answers, extended);
+});
+test('installed legacy drafts resume and an old phase cannot delete a newer legacy draft', async () => {
+  const { progress: p, storage, values } = progressHarness();
+  const key = storage.triageDraftKey(7, `manual-pending-${session.id}-followup`);
+  const old = { ...session, triage_state: { phase: 'followup', phase_id: 'phase-a' } };
+  const latest = { ...session, triage_state: { phase: 'followup', phase_id: 'phase-b' } };
+  const extended = [answer, { step: 'onset', question: 'When?', answer: 'Today' }];
+  values.set(key, JSON.stringify({
+    expiresAt: Date.now() + 60000,
+    scope: JSON.stringify([String(session.id), 'followup', 'phase-b']),
+    answers: extended,
+  }));
+  await p.clearPendingAnswers(7, old, extended);
+  assert.deepEqual((await p.loadCheckinEntry(client(latest), 7)).answers, extended);
+  await p.clearPendingAnswers(7, latest, extended);
+  assert.equal(values.has(key), false);
+});
 test('expired and malformed drafts cannot restore a stale cursor', async () => {
   const { progress: p, values } = progressHarness();
   const key = p.locationDraftKey(7);
