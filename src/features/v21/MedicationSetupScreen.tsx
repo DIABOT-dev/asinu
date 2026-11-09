@@ -19,7 +19,6 @@ import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import {
   medicationNameHasNoDose,
-  validMedicationTime,
   useMedicationSetup,
   type MedicationSetupController,
 } from "./useMedicationSetup";
@@ -30,6 +29,7 @@ import { MedicationPhotoPreview } from "./MedicationPhotoPreview";
 import { MedicationScanOverlay } from "./MedicationScanOverlay";
 import { MedicationBackground } from "./MedicationBackground";
 import { MedicationDosePicker } from "./MedicationDosePicker";
+import { MedicationTimeField } from "./MedicationTimeField";
 import {
   MedicationPurposeReview,
   MedicationPurposeTags,
@@ -137,40 +137,6 @@ function Help({ label, children }: { label: string; children: ReactNode }) {
     </View>
   );
 }
-function ClockField({
-  label,
-  value,
-  onChange,
-  disabled,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  disabled: boolean;
-}) {
-  const { colors } = useThemeColors();
-  const invalid = !!value && !validMedicationTime(value);
-  return (
-    <TextInput
-      accessibilityLabel={label}
-      accessibilityState={{ disabled }}
-      value={value}
-      onChangeText={onChange}
-      editable={!disabled}
-      keyboardType="numbers-and-punctuation"
-      maxLength={5}
-      selectTextOnFocus
-      style={[
-        s.clockInput,
-        {
-          color: invalid ? colors.danger : colors.textPrimary,
-          backgroundColor: colors.surfaceMuted,
-        },
-      ]}
-    />
-  );
-}
-
 export function MedicationSetupPanel({
   setup,
 }: {
@@ -725,28 +691,19 @@ export function MedicationSetupPanel({
               <>
                 {slots.map((slot, index) => (
                   <View key={index} style={s.review}>
-                    <View style={s.timeRow}>
-                      <Ionicons
-                        name="time-outline"
-                        size={23}
-                        color={colors.primaryText}
-                      />
-                      <Text style={[s.label, title, s.flex]}>
-                        {t("setupReminderTime")}
-                      </Text>
-                      <ClockField
-                        label={`${t("timeLabel")} ${index + 1}`}
-                        value={slot.time_local}
-                        disabled={busy}
-                        onChange={(value) =>
-                          setup.setSlots((old) =>
-                            old.map((s, n) =>
-                              n === index ? { ...s, time_local: value } : s
-                            )
+                    <MedicationTimeField
+                      label={t("setupReminderTime")}
+                      accessibilityLabel={`${t("timeLabel")} ${index + 1}`}
+                      value={slot.time_local}
+                      disabled={busy}
+                      onChange={(value) =>
+                        setup.setSlots((old) =>
+                          old.map((s, n) =>
+                            n === index ? { ...s, time_local: value } : s
                           )
-                        }
-                      />
-                    </View>
+                        )
+                      }
+                    />
                     <View style={s.reviewItems}>
                       {slot.item_indexes.map((itemIndex) => (
                         <View key={itemIndex} style={s.reviewItem}>

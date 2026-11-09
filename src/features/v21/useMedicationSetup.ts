@@ -35,12 +35,15 @@ import type { MedDraftSnapshot, MedSetupDraft } from "./v21.api";
 import {
   medicationTextHasNoDose,
   validMedicationNote,
+  validMedicationTime,
 } from "./medication-input";
 import {
   MedicationPhotoError,
   prepareMedicationPhoto,
   type MedicationPhotoUpload,
 } from "./medication-photo";
+export { validMedicationTime } from "./medication-input";
+
 export type MedicationDraft = {
   clientId: string;
   existingItemId?: string;
@@ -68,8 +71,6 @@ export const medicationAnchors: Anchor[] = [
   "after_dinner",
   "bedtime",
 ];
-export const validMedicationTime = (s: string) =>
-  /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
 export const medicationNameHasNoDose = medicationTextHasNoDose;
 const blank = (): MedicationDraft => ({
   clientId: randomUUID(),

@@ -1,6 +1,7 @@
 {
   "doseDraftTimes": "{{count}} cữ, chưa tạo lịch nhắc",
   "doseTimeFormat": "HH:mm",
+  "chooseTime": "Chọn giờ",
   "doseMoved": "Đã chuyển thuốc sang cữ đã chọn.",
   "doseMoveItem": "Chuyển giờ riêng cho {{name}}",
   "doseMove": "Chuyển giờ riêng",

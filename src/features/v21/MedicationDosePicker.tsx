@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, TextInput, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
@@ -11,6 +11,7 @@ import {
   type MedicationSetupController,
 } from "./useMedicationSetup";
 import type { Meals } from "./v21.api";
+import { MedicationTimeField } from "./MedicationTimeField";
 
 export function MedicationDosePicker({
   setup,
@@ -79,23 +80,12 @@ export function MedicationDosePicker({
           anchor
         )
       )}
-      <View style={s.timeRow}>
-        <Text style={[s.label, s.flex, { color: colors.textPrimary }]}>
-          {t("doseOtherTime")}
-        </Text>
-        <TextInput
-          accessibilityLabel={t("doseOtherTime")}
+      <View style={s.section}>
+        <MedicationTimeField
+          label={t("doseOtherTime")}
           value={customTime}
-          onChangeText={setCustomTime}
-          editable={!disabled}
-          maxLength={5}
-          keyboardType="numbers-and-punctuation"
-          placeholder={t("doseTimeFormat")}
-          placeholderTextColor={colors.textSecondary}
-          style={[
-            s.clockInput,
-            { color: colors.textPrimary, backgroundColor: colors.surfaceMuted },
-          ]}
+          onChange={setCustomTime}
+          disabled={disabled}
         />
         <Pressable
           accessibilityRole="button"
@@ -110,11 +100,14 @@ export function MedicationDosePicker({
             setCustomTime("");
           }}
           style={[
-            s.iconButton,
+            s.option,
             (!validMedicationTime(customTime) || disabled) && s.disabled,
           ]}
         >
           <Ionicons name="add" size={25} color={colors.primaryText} />
+          <Text style={[s.label, { color: colors.primaryText }]}>
+            {t("doseAddTime")}
+          </Text>
         </Pressable>
       </View>
       {setup.slots
@@ -149,28 +142,15 @@ export function MedicationDosePicker({
       </Pressable>
       {editMeals &&
         (Object.keys(setup.meals) as (keyof Meals)[]).map((meal) => (
-          <View key={meal} style={s.timeRow}>
-            <Text style={[s.label, s.flex, { color: colors.textPrimary }]}>
-              {t(meal)}
-            </Text>
-            <TextInput
-              accessibilityLabel={t(meal)}
-              value={setup.meals[meal]}
-              maxLength={5}
-              keyboardType="numbers-and-punctuation"
-              editable={!disabled}
-              onChangeText={(value) =>
-                setup.setMeals((old) => ({ ...old, [meal]: value }))
-              }
-              style={[
-                s.clockInput,
-                {
-                  color: colors.textPrimary,
-                  backgroundColor: colors.surfaceMuted,
-                },
-              ]}
-            />
-          </View>
+          <MedicationTimeField
+            key={meal}
+            label={t(meal)}
+            value={setup.meals[meal]}
+            disabled={disabled}
+            onChange={(value) =>
+              setup.setMeals((old) => ({ ...old, [meal]: value }))
+            }
+          />
         ))}
       {setup.timingLimitExceeded && (
         <Text

@@ -1,6 +1,7 @@
 {
   "doseDraftTimes": "{{count}} dose groups, reminders not saved",
   "doseTimeFormat": "HH:mm",
+  "chooseTime": "Choose time",
   "doseMoved": "Medicine moved to the selected dose group.",
   "doseMoveItem": "Move {{name}} to another time",
   "doseMove": "Move this medicine",

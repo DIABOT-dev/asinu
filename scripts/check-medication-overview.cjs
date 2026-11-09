@@ -75,15 +75,31 @@ function answerActions(med) {
     './MedicationBackground': { MedicationBackground: 'Background' },
     './MedicationDraftEntry': { MedicationDraftEntry: 'Draft' },
     './medication-dose-display': display.exports,
+    './MedicationTimeField': { MedicationTimeField: 'TimeField' },
   };
   const module = { exports: {} };
   const code = ts.transpileModule(fs.readFileSync('src/features/v21/MedicationOverviewScreen.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText;
   new Function('module', 'exports', 'require', code)(module, module.exports, id => { assert.ok(id in adapters, id); return adapters[id]; });
   const tree = module.exports.MedicationOverviewPanel({ med, tab: 'today', onAnswer: id => calls.push(id) });
   const nodes = value => !value || typeof value !== 'object' ? [] : Array.isArray(value) ? value.flatMap(nodes) : [value, ...nodes(value.props?.children)];
-  return { calls, actions: nodes(tree).filter(node => node.type === 'Pressable' && node.props.accessibilityLabel?.startsWith('medicationAnswerAction ')) };
+  return { calls, actions: nodes(tree).filter(node => node.type === 'Pressable' && node.props.accessibilityLabel?.startsWith('medicationAnswerAction ')),
+    sheet: () => nodes(module.exports.MedicationScheduleSheet({ med })) };
 }
 (async () => {
+  await test('editing and moving a medicine use the time picker while notes remain editable', async () => {
+    const h = harness(); (await h.settle()).openSchedule(h.schedule);
+    h.read().setMode('edit');
+    const edited = answerActions(h.read()).sheet();
+    const time = edited.find(node => node.type === 'TimeField');
+    assert.equal(time.props.value, '07:30'); assert.equal(time.props.disabled, false);
+    assert.ok(!edited.some(node => node.type === 'Input' && node.props.keyboardType === 'numbers-and-punctuation'));
+    assert.ok(edited.some(node => node.type === 'Input' && node.props.accessibilityLabel === 'medicationNoteLabel'));
+    time.props.onChange('08:17'); assert.equal(h.read().time, '08:17'); assert.equal(h.read().canSave, true);
+    h.read().openMove('item-1');
+    const moving = answerActions(h.read()).sheet().find(node => node.type === 'TimeField');
+    moving.props.onChange('23:59'); assert.equal(h.read().time, '23:59'); assert.equal(h.read().canMove, true);
+    assert.ok(h.calls.every(row => row[0] === 'read'), 'Picking a time must not submit a schedule'); h.blur();
+  });
   await test('today exposes missed-call answers only within the server two-hour window and never changes a final answer', async () => {
     const h = harness(); h.clock.now = Date.parse('2020-01-01T00:00:00Z'); h.server.serverTime = '2026-11-06T07:00:00+07:00';
     h.server.doses = [

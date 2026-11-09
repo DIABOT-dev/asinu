@@ -1,3 +1,6 @@
+export const validMedicationTime = (value: string) =>
+  /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+
 export const medicationTextHasNoDose = (text: string) =>
   !/(?:\d\s*(?:mg|mcg|µg|ml|iu|g|u|units?)\b|\b(?:liều|dosage)\b|\d\s*(?:viên|tablets?|capsules?)\b)/iu.test(
     text

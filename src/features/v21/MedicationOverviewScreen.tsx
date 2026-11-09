@@ -35,6 +35,7 @@ import { MedicationPurposeTags } from "./MedicationPurposeTags";
 import { MedicationBackground } from "./MedicationBackground";
 import { MedicationDraftEntry } from "./MedicationDraftEntry";
 import { medicationDoseStatusKey } from "./medication-dose-display";
+import { MedicationTimeField } from "./MedicationTimeField";
 
 type Tab = "today" | "schedules";
 type PanelProps = {
@@ -782,19 +783,11 @@ export function MedicationScheduleSheet({
                       </Text>
                     </Pressable>
                   ))}
-                <Text style={[s.caption, caption]}>{t("doseOtherTime")}</Text>
-                <TextInput
-                  accessibilityLabel={t("doseOtherTime")}
+                <MedicationTimeField
+                  label={t("doseOtherTime")}
                   value={med.time}
-                  onChangeText={med.setTime}
-                  maxLength={5}
-                  keyboardType="numbers-and-punctuation"
-                  editable={!med.busy}
-                  style={[
-                    s.timeInput,
-                    title,
-                    { backgroundColor: colors.primaryLight },
-                  ]}
+                  onChange={med.setTime}
+                  disabled={med.busy}
                 />
                 <Button
                   label={t("doseMove")}
@@ -805,19 +798,11 @@ export function MedicationScheduleSheet({
               </>
             ) : med.mode === "edit" ? (
               <>
-                <Text style={[s.caption, caption]}>{t("timeLabel")}</Text>
-                <TextInput
-                  accessibilityLabel={t("timeLabel")}
+                <MedicationTimeField
+                  label={t("timeLabel")}
                   value={med.time}
-                  onChangeText={med.setTime}
-                  maxLength={5}
-                  keyboardType="numbers-and-punctuation"
-                  editable={!med.busy}
-                  style={[
-                    s.timeInput,
-                    title,
-                    { backgroundColor: colors.primaryLight },
-                  ]}
+                  onChange={med.setTime}
+                  disabled={med.busy}
                 />
                 <Text style={[s.caption, caption]}>
                   {t("medicationNoteLabel")}

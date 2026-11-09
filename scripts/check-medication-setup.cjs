@@ -50,7 +50,86 @@ function harness({self=true}={}) {
   return {read,settle,toReview,data,calls,toasts,errors,server,navigation,auth,route,refocus:()=>focusCallback(),background:()=>appStates.forEach(fn=>fn('background')),makeApiError:code=>Object.assign(new ApiError('fixture'),{code}),blur:()=>slots.forEach(x=>x?.cleanup?.())};
 }
 let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+name);}
+function timeUIHarness(file, exportName, props) {
+  let cursor = 0;
+  const slots = [], effects = [], changes = [];
+  const jsx = (type, props) => ({ type, props });
+  const inputs = { exports: {} };
+  new Function('module', 'exports', ts.transpileModule(fs.readFileSync('src/features/v21/medication-input.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(inputs, inputs.exports);
+  const react = {
+    useState: initial => { const i = cursor++; slots[i] ??= { value: initial }; return [slots[i].value, value => { slots[i].value = typeof value === 'function' ? value(slots[i].value) : value; }]; },
+    useEffect: (work, deps) => { const i = cursor++, old = slots[i]; if (!old || deps.some((value, n) => value !== old.deps[n])) { slots[i] = { deps }; effects.push(work); } },
+  };
+  const dependencies = {
+    react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
+    'react-native': { View: 'View', Pressable: 'Pressable', TextInput: 'Input', ActivityIndicator: 'Spinner', Image: 'Image', KeyboardAvoidingView: 'View', ScrollView: 'Scroll', Platform: { OS: 'ios' }, StyleSheet: { create: value => value } },
+    '@expo/vector-icons': { Ionicons: 'Icon' },
+    'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    'expo-router': { Stack: {} },
+    'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
+    '../../components/ScaledText': { ScaledText: 'Text' },
+    '../../components/AiDataConsentModal': { AiDataConsentModal: 'Consent' },
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
+    '../checkin-call/CallSettingPicker': { CallSettingPicker: 'Picker' },
+    './medication-input': inputs.exports,
+    './useMedicationSetup': { medicationAnchors: [], validMedicationTime: inputs.exports.validMedicationTime, medicationNameHasNoDose: inputs.exports.medicationTextHasNoDose },
+    './medication-setup.styles': { medicationSetupStyles: {} },
+    './MedicationPhotoPreview': { MedicationPhotoPreview: 'Photo' },
+    './MedicationScanOverlay': { MedicationScanOverlay: 'Scan' },
+    './MedicationBackground': { MedicationBackground: 'Background' },
+    './MedicationDosePicker': { MedicationDosePicker: 'Doses' },
+    './MedicationTimeField': { MedicationTimeField: 'TimeField' },
+    './MedicationPurposeTags': { MedicationPurposeTags: 'Tags', MedicationPurposeReview: 'Purpose' },
+  };
+  const module = { exports: {} };
+  const output = ts.transpileModule(fs.readFileSync(`src/features/v21/${file}.tsx`, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+  new Function('module', 'exports', 'require', output)(module, module.exports, name => { assert.ok(name in dependencies, name); return dependencies[name]; });
+  props = { onChange: value => changes.push(value), ...props };
+  const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes) : [tree, ...nodes(tree.props?.children)];
+  const render = () => { cursor = 0; const tree = module.exports[exportName](props); effects.splice(0).forEach(work => work()); return nodes(tree); };
+  return { props, changes, render, open: () => render().find(node => node.type === 'Pressable').props.onPress(), picker: () => render().find(node => node.type === 'Picker') };
+}
 (async()=>{
+  await test('medication time is chosen explicitly, cancel preserves it, and invalid picker results cannot update it', () => {
+    const h = timeUIHarness('MedicationTimeField', 'MedicationTimeField', { label: 'Giờ nhắc', value: '' });
+    assert.ok(!h.render().some(node => node.type === 'Input')); assert.deepEqual(h.changes, []);
+    h.open(); assert.equal(h.picker().props.inline, true); assert.equal(h.picker().props.value, '07:00');
+    h.picker().props.onClose(); assert.deepEqual(h.changes, []); assert.equal(h.picker(), undefined);
+    h.props.value = '08:17'; h.open(); assert.equal(h.picker().props.value, '08:17');
+    h.picker().props.onConfirm('24:00'); h.picker().props.onConfirm(8.5); assert.deepEqual(h.changes, []);
+    h.picker().props.onConfirm('00:01'); assert.deepEqual(h.changes, ['00:01']); assert.equal(h.picker(), undefined);
+  });
+  await test('a busy medication time field never opens the picker or reopens an interrupted selection', () => {
+    const h = timeUIHarness('MedicationTimeField', 'MedicationTimeField', { label: 'Giờ nhắc', value: '07:30', disabled: true });
+    h.open(); assert.equal(h.picker(), undefined); assert.deepEqual(h.changes, []);
+    h.props.disabled = false; h.open(); assert.ok(h.picker());
+    h.props.disabled = true; assert.equal(h.picker(), undefined);
+    h.props.disabled = false; assert.equal(h.picker(), undefined); assert.deepEqual(h.changes, []);
+  });
+  await test('custom dose time and all four meal times use the picker without creating a default schedule', async () => {
+    const h = harness(); await h.settle();
+    const ui = timeUIHarness('MedicationDosePicker', 'MedicationDosePicker', { setup: h.read() });
+    let tree = ui.render(); assert.ok(!tree.some(node => node.type === 'Input'));
+    tree.find(node => node.type === 'TimeField').props.onChange('06:17');
+    ui.render().find(node => node.type === 'Pressable' && node.props.accessibilityLabel === 'doseAddTime').props.onPress();
+    assert.equal(h.read().slots[0].time_local, '06:17');
+    ui.render().find(node => node.type === 'Pressable' && node.props.accessibilityLabel === 'step3').props.onPress();
+    const fields = ui.render().filter(node => node.type === 'TimeField'); assert.equal(fields.length, 5);
+    for (const meal of ['breakfast', 'lunch', 'dinner', 'bedtime']) {
+      fields.find(node => node.props.label === meal).props.onChange('23:59'); assert.equal(h.read().meals[meal], '23:59');
+    }
+    assert.ok(!ui.render().some(node => node.type === 'Input')); assert.ok(!h.calls.some(row => row[0] === 'setup')); h.blur();
+  });
+  await test('review time uses a picker and updates only its own dose without submitting the schedule', async () => {
+    const h = harness(); await h.settle(); await h.toReview();
+    h.read().setSlots(old => [{ ...old[0], note: 'Sau ăn' }, { time_local: '19:00', item_indexes: [0], note: 'Buổi tối' }]);
+    const ui = timeUIHarness('MedicationSetupScreen', 'MedicationSetupPanel', { setup: h.read() });
+    const tree = ui.render(), fields = tree.filter(node => node.type === 'TimeField'); assert.equal(fields.length, 2);
+    assert.ok(!tree.some(node => node.type === 'Input' && node.props.keyboardType === 'numbers-and-punctuation'));
+    fields[0].props.onChange('08:17');
+    assert.equal(h.read().slots[0].time_local, '08:17'); assert.equal(h.read().slots[0].note, 'Sau ăn');
+    assert.equal(h.read().slots[1].time_local, '19:00'); assert.ok(!h.calls.some(row => row[0] === 'setup')); h.blur();
+  });
   await test('new setup requires an explicit time before adding medicines and never creates a default reminder',async()=>{
     const h=harness();await h.settle();assert.equal(h.calls.length,0);assert.equal(h.read().step,1);assert.equal(h.read().canContinue,false);
     h.read().next();assert.equal(h.read().step,1);assert.deepEqual(h.read().slots,[]);

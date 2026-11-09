@@ -325,7 +325,7 @@ await test('duration wheels include every integer within server limits and rejec
   assert.equal(h.calls.saves[0].user_timeout_seconds, 45); h.unmount();
 });
 
-function wheelHarness(value, values) {
+function wheelHarness(value, values, inline = false) {
   const selected = [], closed = [];
   const slots = []; let cursor = 0;
   const hooks = {
@@ -358,7 +358,7 @@ function wheelHarness(value, values) {
   });
   const walk = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(walk)
     : [tree, ...walk(tree.props?.children)];
-  const render = () => { cursor = 0; return module.exports.CallSettingPicker({ title: 'Time', value, values,
+  const render = () => { cursor = 0; return module.exports.CallSettingPicker({ title: 'Time', value, values, inline,
     unit: 'seconds', onConfirm: next => selected.push(next), onClose: () => closed.push(true) }); };
   const nodes = () => walk(render());
   return { render, nodes, selected, closed,
@@ -378,6 +378,16 @@ await test('confirmation waits for every moving wheel to settle', () => {
   h.confirm().props.onPress(); assert.deepEqual(h.selected, []);
   hour.props._onScrollEnd(); assert.equal(h.confirm().props.disabled, true);
   minute.props._onScrollEnd(); assert.equal(h.confirm().props.disabled, false);
+});
+await test('inline medication clock uses every hour and minute without opening another modal', () => {
+  const h = wheelHarness('07:30', undefined, true);
+  assert.ok(!h.nodes().some(node => node.type === 'QueuedModal'));
+  assert.ok(!h.nodes().some(node => node.props.accessibilityViewIsModal));
+  const [hour, minute] = h.wheels();
+  assert.deepEqual(hour.props.data.map(item => item.value), Array.from({ length: 24 }, (_, value) => value));
+  assert.deepEqual(minute.props.data.map(item => item.value), Array.from({ length: 60 }, (_, value) => value));
+  hour.props.onValueChanged({ item: { value: 23 } }); minute.props.onValueChanged({ item: { value: 59 } });
+  h.confirm().props.onPress(); assert.deepEqual(h.selected, ['23:59']);
 });
 await test('duration wheel accessibility adjusts within the allowed options and cancel never confirms', () => {
   const h = wheelHarness(180, Array.from({ length: 151 }, (_, index) => 30 + index));

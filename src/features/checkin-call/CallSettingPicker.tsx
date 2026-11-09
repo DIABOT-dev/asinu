@@ -14,13 +14,14 @@ type Props = {
   value: string | number;
   values?: number[];
   unit?: string;
+  inline?: boolean;
   onConfirm: (value: string | number) => void;
   onClose: () => void;
 };
 const hours = Array.from({ length: 24 }, (_, value) => ({ value, label: String(value).padStart(2, '0') }));
 const minutes = Array.from({ length: 60 }, (_, value) => ({ value, label: String(value).padStart(2, '0') }));
 
-export function CallSettingPicker({ title, value, values, unit, onConfirm, onClose }: Props) {
+export function CallSettingPicker({ title, value, values, unit, inline = false, onConfirm, onClose }: Props) {
   const { t } = useTranslation('checkinCall');
   const { t: tc } = useTranslation('common');
   const { colors } = useThemeColors();
@@ -65,11 +66,7 @@ export function CallSettingPicker({ title, value, values, unit, onConfirm, onClo
     </View>
   );
 
-  return <QueuedModal visible transparent animationType="fade" priority={10} interruptible onRequestClose={onClose}>
-    <View style={[styles.overlay, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
-      <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }]}
-        accessibilityRole="button" accessibilityLabel={tc('cancel')} onPress={onClose} />
-      <View accessibilityViewIsModal style={[styles.dialog, { backgroundColor: colors.surface }]}>
+  const content = <View accessibilityViewIsModal={!inline} style={[styles.dialog, inline && styles.inlineDialog, { backgroundColor: colors.surface }]}>
         <View style={styles.header}>
           <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
           <Pressable accessibilityRole="button" accessibilityLabel={tc('close')} style={styles.close} onPress={onClose}>
@@ -92,7 +89,15 @@ export function CallSettingPicker({ title, value, values, unit, onConfirm, onClo
             <Text style={[styles.buttonText, { color: colors.surface }]}>{tc('confirm')}</Text>
           </Pressable>
         </View>
-      </View>
+      </View>;
+  // Schedule editing already has a modal presenter. Keep its wheels inline so
+  // they cannot queue behind the very sheet containing the time field.
+  if (inline) return content;
+  return <QueuedModal visible transparent animationType="fade" priority={10} interruptible onRequestClose={onClose}>
+    <View style={[styles.overlay, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+      <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }]}
+        accessibilityRole="button" accessibilityLabel={tc('cancel')} onPress={onClose} />
+      {content}
     </View>
   </QueuedModal>;
 }
@@ -100,6 +105,7 @@ export function CallSettingPicker({ title, value, values, unit, onConfirm, onClo
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 20 },
   dialog: { width: '100%', maxWidth: 560, alignSelf: 'center', borderRadius: 24, padding: 20, gap: 16 },
+  inlineDialog: { borderRadius: 16, padding: 12 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   title: { flex: 1, fontSize: 19, fontWeight: '700' },
   close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
