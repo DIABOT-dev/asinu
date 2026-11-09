@@ -586,7 +586,7 @@ function CheckinScreen() {
       >
         <ScreenBackButton
           iconColor={screen === 'status' ? colors.textPrimary : "#0F172A"}
-          style={{ width: 44, height: 44 }}
+          style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: colors.primaryText }}
           onPress={() => {
             if (screen === 'location') {
               locationBackRef.current?.();
@@ -2470,6 +2470,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
     triagePillBtnTextDisabled: {
       color: '#ffffff',
+    },
+    triageBackBtn: {
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderColor: colors.primaryText,
+      marginBottom: 0,
+    },
+    triageBackBtnText: {
+      color: colors.primaryText,
     },
     historyAnswerRow: {
       marginBottom: 10,

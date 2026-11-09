@@ -170,10 +170,12 @@ export function CheckinLocationFlow({
         style={[styles.triagePillBtn, !ready && styles.triagePillBtnDisabled]}>
         <Text allowFontScaling style={[styles.triagePillBtnText, !ready && styles.triagePillBtnTextDisabled]}>{t('checkinLocationContinue')}</Text>
       </Pressable>
-      <Pressable testID="checkin-location-question-back" disabled={loading || isTranscribing}
+      <Pressable testID="checkin-location-question-back" disabled={loading || isTranscribing || readOnly}
+        accessibilityRole="button"
         onPress={goBack}
-        style={{ minHeight: 48, justifyContent: 'center', alignItems: 'center', marginTop: spacing.sm }}>
-        <Text allowFontScaling style={{ color: colors.textSecondary, fontSize: 16 }}>{t('back', { ns: 'common' })}</Text>
+        style={({ pressed }) => [styles.triagePillBtn, styles.triageBackBtn,
+          (loading || isTranscribing || readOnly) && { opacity: 0.45 }, pressed && { opacity: 0.78 }]}>
+        <Text allowFontScaling style={[styles.triagePillBtnText, styles.triageBackBtnText]}>{t('back', { ns: 'common' })}</Text>
       </Pressable>
     </View>;
   }
