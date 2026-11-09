@@ -354,6 +354,31 @@ function locationHarness(language, overrides = {}) {
 }
 
 for (const language of ['vi', 'en']) {
+  for (const [region, position, expected] of [
+    ['head', 'forehead', language === 'vi' ? /chỗ nào trên đầu/ : /Where on your head/],
+    ['chest', 'middle_chest', language === 'vi' ? /vùng nào của ngực/ : /Where in your chest/],
+    ['abdomen', 'upper_abdomen', language === 'vi' ? /vùng nào của bụng/ : /Where in your belly/],
+    ['limbs', 'right_wrist', language === 'vi' ? /Tay hoặc chân.*chỗ nào/ : /Where in your arms or legs/],
+    ['skin', 'face_neck', language === 'vi' ? /Vùng da nào/ : /Which area of your skin/],
+  ]) {
+    await test(`${language}: ${region} asks a natural position question that matches its answers`, async () => {
+      const h = locationHarness(language); await h.settle();
+      await h.press(`checkin-location-region-${region}`);
+      const tree = await h.press('checkin-location-continue');
+      const heading = nodes(tree).find(node => node.props?.accessibilityRole === 'header').props.children;
+      assert.match(heading, expected); assert.ok(!heading.includes(':'));
+      assert.ok(!heading.includes('{{')); assert.ok(heading.includes('Asinu'));
+      assert.equal(h.find('checkin-location-question-next').props.disabled, true);
+      await h.press(`checkin-location-position-${region}-${position}`);
+      assert.equal(h.find('checkin-location-question-next').props.disabled, false);
+      await h.press('checkin-location-question-next');
+      assert.deepEqual(h.calls[0][0], [region]);
+      assert.ok(h.calls[0][1].includes(h.tr.t(`checkinLocationDetail_${position}`)));
+    });
+  }
+}
+
+for (const language of ['vi', 'en']) {
   await test(`${language}: location answers wait for recorded speech before continuing`, async () => {
     const h = locationHarness(language); await h.settle();
     await h.press('checkin-location-region-whole_body');

@@ -10,6 +10,7 @@ export type LocationDetails = Partial<Record<BodyLocation, string[]>>;
 export type LocationDetailGroup = {
   location: BodyLocation;
   labelKey: string;
+  questionKey: string;
   positionKeys: string[];
 };
 
@@ -17,6 +18,7 @@ export const LOCATION_DETAIL_GROUPS: LocationDetailGroup[] = [
   {
     location: 'head',
     labelKey: 'checkinLocationHead',
+    questionKey: 'checkinLocationQuestionHead',
     positionKeys: [
       'forehead',
       'left_temple',
@@ -30,11 +32,13 @@ export const LOCATION_DETAIL_GROUPS: LocationDetailGroup[] = [
   {
     location: 'chest',
     labelKey: 'checkinLocationChest',
+    questionKey: 'checkinLocationQuestionChest',
     positionKeys: ['left_chest', 'right_chest', 'middle_chest', 'whole_chest'],
   },
   {
     location: 'abdomen',
     labelKey: 'checkinLocationAbdomen',
+    questionKey: 'checkinLocationQuestionAbdomen',
     positionKeys: [
       'upper_abdomen',
       'lower_abdomen',
@@ -46,6 +50,7 @@ export const LOCATION_DETAIL_GROUPS: LocationDetailGroup[] = [
   {
     location: 'limbs',
     labelKey: 'checkinLocationLimbs',
+    questionKey: 'checkinLocationQuestionLimbs',
     positionKeys: [
       'left_arm',
       'right_arm',
@@ -64,6 +69,7 @@ export const LOCATION_DETAIL_GROUPS: LocationDetailGroup[] = [
   {
     location: 'skin',
     labelKey: 'checkinLocationSkin',
+    questionKey: 'checkinLocationQuestionSkin',
     positionKeys: [
       'face_neck',
       'chest_abdomen_skin',

@@ -129,7 +129,7 @@ export function CheckinLocationFlow({
       </View>
       <View style={styles.questionSection}>
         <Text allowFontScaling accessibilityRole="header" style={[styles.questionHeaderTitle, { fontSize: 22, lineHeight: 30 }]}>
-          {t('checkinLocationDetailQuestion', { region: t(group.labelKey) })}
+          {t(group.questionKey)}
         </Text>
       </View>
       <View style={styles.triageOptionsList}>
