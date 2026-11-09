@@ -35,6 +35,7 @@ import {
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { colors } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { resolveWeatherArea } from '../../src/features/checkin-call/weather-area';
 
 type PersonalizationSection = 'permissions' | 'address' | 'weather';
 type ConsentChoice = {
@@ -75,6 +76,12 @@ export function VoiceSettings({ userId }: { userId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
+  const [areaRetry, setAreaRetry] = useState(0);
+  const [deviceArea, setDeviceArea] = useState<{
+    key: string;
+    label: string | null;
+    loading: boolean;
+  } | null>(null);
   const [consent, setConsent] = useState<ConsentChoice | null>(null);
   const weatherConsentGranted = useRef(false);
   const mounted = useRef(true);
@@ -251,6 +258,46 @@ export function VoiceSettings({ userId }: { userId: string }) {
     return locate();
   };
   const ready = value && weatherRegionReady(value);
+  const areaLatitude =
+    value?.region === 'device' ? value.location?.latitude : undefined;
+  const areaLongitude =
+    value?.region === 'device' ? value.location?.longitude : undefined;
+  const areaKey =
+    areaLatitude !== undefined && areaLongitude !== undefined
+      ? `${areaLatitude},${areaLongitude}`
+      : '';
+  const selectedDeviceArea = deviceArea?.key === areaKey ? deviceArea : null;
+  const areaLoading = Boolean(areaKey) && selectedDeviceArea?.loading !== false;
+  useEffect(() => {
+    if (
+      section !== 'weather' ||
+      areaLatitude === undefined ||
+      areaLongitude === undefined ||
+      !current()
+    )
+      return;
+    let active = true;
+    const key = `${areaLatitude},${areaLongitude}`;
+    setDeviceArea((previous) => ({
+      key,
+      label: previous?.key === key ? previous.label : null,
+      loading: true,
+    }));
+    void resolveWeatherArea(
+      { latitude: areaLatitude, longitude: areaLongitude },
+      userId
+    ).then((label) => {
+      if (active && current())
+        setDeviceArea((previous) => ({
+          key,
+          label: label || (previous?.key === key ? previous.label : null),
+          loading: false,
+        }));
+    });
+    return () => {
+      active = false;
+    };
+  }, [areaLatitude, areaLongitude, areaRetry, current, section, userId]);
   const permissionSwitch = (
     field: 'use_name' | 'use_health' | 'weather_enabled'
   ) =>
@@ -383,6 +430,65 @@ export function VoiceSettings({ userId }: { userId: string }) {
                     {t('personalization.regionTitle')}
                   </Text>
                   <View style={styles.options}>
+                    {value.region === 'device' && (
+                      <View
+                        testID="weather-device-selected"
+                        style={[styles.option, styles.selected]}
+                      >
+                        <View
+                          accessible
+                          accessibilityRole="radio"
+                          accessibilityState={{ checked: true }}
+                          accessibilityLabel={
+                            selectedDeviceArea?.label ||
+                            t('personalization.deviceRegion')
+                          }
+                          style={styles.selectedArea}
+                        >
+                          <Ionicons
+                            name="radio-button-on"
+                            size={22}
+                            color={colors.primaryDark}
+                            accessible={false}
+                          />
+                          <View style={styles.areaCopy}>
+                            <Text style={styles.optionText}>
+                              {selectedDeviceArea?.label ||
+                                t('personalization.deviceRegion')}
+                            </Text>
+                            {!selectedDeviceArea?.label && (
+                              <Text style={styles.copy}>
+                                {t(
+                                  areaLoading
+                                    ? 'personalization.areaNameLoading'
+                                    : 'personalization.areaNameUnavailable'
+                                )}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                        {areaLoading ? (
+                          <ActivityIndicator color={colors.primaryDark} />
+                        ) : (
+                          !selectedDeviceArea?.label && (
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={t(
+                                'personalization.retryAreaName'
+                              )}
+                              style={styles.back}
+                              onPress={() => setAreaRetry((count) => count + 1)}
+                            >
+                              <Ionicons
+                                name="refresh-outline"
+                                size={22}
+                                color={colors.primaryDark}
+                              />
+                            </Pressable>
+                          )
+                        )}
+                      </View>
+                    )}
                     {REGION_OPTIONS.map((region) => (
                       <Pressable
                         key={region}
@@ -401,6 +507,16 @@ export function VoiceSettings({ userId }: { userId: string }) {
                         ]}
                         onPress={() => selectRegion(region)}
                       >
+                        <Ionicons
+                          name={
+                            value.region === region
+                              ? 'radio-button-on'
+                              : 'radio-button-off'
+                          }
+                          size={22}
+                          color={colors.primaryDark}
+                          accessible={false}
+                        />
                         <Text style={styles.optionText}>
                           {t(`personalization.regions.${region}`)}
                         </Text>
@@ -424,11 +540,6 @@ export function VoiceSettings({ userId }: { userId: string }) {
                       {t('personalization.useLocation')}
                     </Text>
                   </Pressable>
-                  {value.region === 'device' && (
-                    <Text style={styles.copy}>
-                      {t('personalization.locationSelected')}
-                    </Text>
-                  )}
                   {!ready && (
                     <Text style={styles.error}>
                       {t('personalization.chooseRegion')}
@@ -574,6 +685,14 @@ function createStyles() {
     panel: { gap: 12, paddingTop: 8, paddingBottom: 4 },
     subheading: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
     copy: { fontSize: 16, color: colors.textSecondary },
+    areaCopy: { flex: 1, minWidth: 0, gap: 4 },
+    selectedArea: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
     options: { gap: 8 },
     option: {
       minHeight: 52,

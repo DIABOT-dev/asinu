@@ -49,7 +49,10 @@
       "hue": "Huế"
     },
     "useLocation": "Dùng khu vực vị trí hiện tại",
-    "locationSelected": "Đã chọn khu vực gần đúng từ vị trí hiện tại. Bạn có thể lấy lại khi đổi khu vực.",
+    "deviceRegion": "Khu vực từ vị trí hiện tại",
+    "areaNameLoading": "Đang xác định tên khu vực…",
+    "areaNameUnavailable": "Chưa lấy được tên khu vực",
+    "retryAreaName": "Thử lại tên khu vực",
     "locationDenied": "Bạn chưa cho phép vị trí. Có thể chọn khu vực thủ công hoặc tắt lời nhắc thời tiết; check-in vẫn hoạt động.",
     "locationFailed": "Chưa lấy được vị trí. Hãy thử lại hoặc chọn khu vực thủ công.",
     "chooseRegion": "Chọn khu vực để bật lời nhắc thời tiết.",

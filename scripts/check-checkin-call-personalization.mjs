@@ -53,6 +53,7 @@ function harness({
   save,
   permission = 'granted',
   locate,
+  resolveArea,
   token = 'test-session',
   hydrated = true,
   id = '7',
@@ -71,6 +72,7 @@ function harness({
     back: 0,
     permissions: 0,
     locations: 0,
+    areas: [],
     toasts: [],
   };
   const memo = (fn, deps) => {
@@ -191,6 +193,10 @@ function harness({
     '../../src/stores/toast.store': { showToast: (...args) => calls.toasts.push(args) },
     '../../src/features/auth/auth.store': { useAuthStore },
     '../../src/features/checkin-call/voice-preferences': preferences,
+    '../../src/features/checkin-call/weather-area': { resolveWeatherArea: async (point, accountId) => {
+      calls.areas.push({ point, accountId });
+      return resolveArea ? resolveArea(point, accountId) : 'Bình Thạnh, Thành phố Hồ Chí Minh';
+    } },
     '../../src/features/checkin-call/checkin-call.api': {
       checkinCallApi: {
         voicePreferences: async () => {
@@ -469,6 +475,110 @@ for (const [width, fontScale, multiplier, columns] of [[393, 1, 1, 3], [320, 1, 
     assert.ok(Math.abs(actions[0].props.style.width * columns + 12 * (columns - 1) - (width - 40)) < 0.01); h.unmount();
   });
 }
+const savedDeviceRegion = { ...preferences.VOICE_DEFAULTS, weather_enabled: true, region: 'device', location: { latitude: 10.8, longitude: 106.7 } };
+await test('a saved device area appears as the selected named option without a generic approximate-area paragraph', async () => {
+  const h = harness({ value: savedDeviceRegion }); await h.settle();
+  assert.deepEqual(h.calls.areas, []);
+  h.openSection('weather'); await h.settle();
+  assert.ok(h.text().includes('Bình Thạnh, Thành phố Hồ Chí Minh'));
+  const row = h.render().find(node => node.props.testID === 'weather-device-selected');
+  assert.ok(row);
+  assert.ok(h.render().some(node => node.props.accessibilityRole === 'radio' && node.props.accessibilityState?.checked && node.props.accessibilityLabel === 'Bình Thạnh, Thành phố Hồ Chí Minh'));
+  assert.equal(h.button('personalization.regions.hcm').props.accessibilityState.checked, false);
+  assert.ok(!h.text().includes('Đã chọn khu vực gần đúng'));
+  assert.deepEqual(h.calls.areas, [{ point: savedDeviceRegion.location, accountId: '7' }]);
+  assert.equal(h.calls.locations, 0); assert.equal(h.calls.permissions, 0); assert.deepEqual(h.calls.saves, []);
+  h.unmount();
+});
+await test('a failed area-name lookup can retry without changing the selected forecast point or starting GPS', async () => {
+  let attempt = 0;
+  const h = harness({ value: savedDeviceRegion, resolveArea: async () => attempt++ ? 'Bình Thạnh, TP. Hồ Chí Minh' : null });
+  await h.settle(); h.openSection('weather'); await h.settle();
+  assert.ok(h.text().includes(h.t('personalization.areaNameUnavailable')));
+  h.button('personalization.retryAreaName').props.onPress(); await h.settle();
+  assert.ok(h.text().includes('Bình Thạnh, TP. Hồ Chí Minh'));
+  assert.equal(h.calls.areas.length, 2); assert.equal(h.calls.locations, 0); assert.deepEqual(h.calls.saves, []); h.unmount();
+});
+await test('a late area name cannot replace a manually selected region', async () => {
+  const pending = deferred();
+  const h = harness({ value: savedDeviceRegion, resolveArea: () => pending.promise });
+  await h.settle(); h.openSection('weather'); await h.settle();
+  await h.chooseRegion('hanoi'); await h.settle();
+  pending.resolve('Bình Thạnh, TP. Hồ Chí Minh'); await flush();
+  assert.equal(h.render().some(node => node.props.testID === 'weather-device-selected'), false);
+  assert.equal(h.button('personalization.regions.hanoi').props.accessibilityState.checked, true);
+  assert.ok(!h.text().includes('Bình Thạnh')); h.unmount();
+});
+await test('an area-name lookup completed after unmount cannot update the old screen', async () => {
+  const pending = deferred();
+  const h = harness({ value: savedDeviceRegion, resolveArea: () => pending.promise });
+  await h.settle(); h.openSection('weather'); await h.settle(); h.unmount();
+  pending.resolve('Bình Thạnh, TP. Hồ Chí Minh'); await flush();
+  assert.deepEqual(h.calls.saves, []);
+});
+
+function areaServiceHarness({ permission = 'granted', lookup, cached = null, foreground = true } = {}) {
+  const session = { token: 'session-a', profile: { id: '7' } };
+  const calls = { lookups: [], permissionReads: 0, cached: [], cacheReads: 0 };
+  let stored = cached;
+  const service = evaluate(fs.readFileSync('src/features/checkin-call/weather-area.ts', 'utf8'), {
+    'react-native': { AppState: { currentState: foreground ? 'active' : 'background' } },
+    'expo-location': {
+      getForegroundPermissionsAsync: async () => { calls.permissionReads++; return { status: permission }; },
+      reverseGeocodeAsync: async point => { calls.lookups.push(point); return lookup ? lookup(point) : [{ district: 'Cầu Giấy', subregion: 'Cầu Giấy', city: 'Hà Nội', region: 'Thành phố Hà Nội', street: 'Private street', streetNumber: '12' }]; },
+    },
+    '../../lib/localCache': { localCache: {
+      getCached: async (key, version) => { calls.cacheReads++; assert.equal(key, 'weather-area'); assert.equal(version, '1'); return stored; },
+      setCached: async (key, version, value) => { assert.equal(key, 'weather-area'); assert.equal(version, '1'); calls.cached.push(value); stored = value; },
+    } },
+    '../../lib/cacheKeys': { CACHE_KEYS: { CHECKIN_WEATHER_AREA: 'weather-area' } },
+    '../auth/auth.store': { useAuthStore: { getState: () => session } },
+    './voice-preferences': preferences,
+  });
+  return { ...service, calls, session };
+}
+await test('area labels use only administrative names and remove duplicate city/province fields', () => {
+  const h = areaServiceHarness();
+  assert.equal(h.weatherAreaLabel({ district: '  Cầu Giấy  ', subregion: 'Cầu Giấy', city: 'Hà Nội', region: 'Thành phố Hà Nội', street: 'Private street', streetNumber: '12', name: 'Private house' }), 'Cầu Giấy, Hà Nội');
+  assert.equal(h.weatherAreaLabel({ street: 'Private street', country: 'Vietnam' }), null);
+  assert.equal(h.weatherAreaLabel({ district: '新宿区', city: '東京都', region: '東京都' }), '新宿区, 東京都');
+});
+await test('area lookups share pending work, use rounded coordinates and reuse the scoped cache', async () => {
+  const h = areaServiceHarness(); const point = { latitude: 21.035, longitude: 105.833 };
+  const first = h.resolveWeatherArea(point, '7'), second = h.resolveWeatherArea(point, '7');
+  assert.equal(first, second); assert.equal(await first, 'Cầu Giấy, Hà Nội');
+  assert.deepEqual(h.calls.lookups, [{ latitude: 21, longitude: 105.8 }]);
+  assert.deepEqual(h.calls.cached, [{ latitude: 21, longitude: 105.8, label: 'Cầu Giấy, Hà Nội', userId: '7' }]);
+  assert.equal(await h.resolveWeatherArea(point, '7'), 'Cầu Giấy, Hà Nội');
+  assert.equal(h.calls.lookups.length, 1); assert.equal(h.calls.permissionReads, 1);
+});
+await test('an encrypted cached area is readable offline without asking for permission or GPS', async () => {
+  const h = areaServiceHarness({ permission: 'denied', foreground: false, cached: { latitude: 21, longitude: 105.8, label: 'Cầu Giấy, Hà Nội', userId: '7' } });
+  assert.equal(await h.resolveWeatherArea({ latitude: 21, longitude: 105.8 }, '7'), 'Cầu Giấy, Hà Nội');
+  assert.equal(h.calls.permissionReads, 0); assert.deepEqual(h.calls.lookups, []);
+});
+for (const scenario of [{ permission: 'denied' }, { foreground: false }]) {
+  await test(`missing foreground access never starts geocoding (${JSON.stringify(scenario)})`, async () => {
+    const h = areaServiceHarness(scenario);
+    assert.equal(await h.resolveWeatherArea({ latitude: 21, longitude: 105.8 }, '7'), null);
+    assert.deepEqual(h.calls.lookups, []); assert.deepEqual(h.calls.cached, []);
+  });
+}
+await test('a late geocoder response cannot be cached for another account', async () => {
+  const pending = deferred(); const h = areaServiceHarness({ lookup: () => pending.promise });
+  const work = h.resolveWeatherArea({ latitude: 21, longitude: 105.8 }, '7'); await flush();
+  h.session.profile.id = '8'; h.session.token = 'session-b';
+  pending.resolve([{ city: 'Hà Nội' }]);
+  assert.equal(await work, null); assert.deepEqual(h.calls.cached, []);
+});
+await test('lookup errors and invalid points never produce a guessed area name', async () => {
+  const h = areaServiceHarness({ lookup: async () => { throw new Error('No network'); } });
+  assert.equal(await h.resolveWeatherArea({ latitude: 90.03, longitude: 105.8 }, '7'), null);
+  assert.equal(h.calls.cacheReads, 0);
+  assert.equal(await h.resolveWeatherArea({ latitude: 21, longitude: 105.8 }, '7'), null);
+  assert.deepEqual(h.calls.cached, []);
+});
+
 await test('weather validation rejects empty areas, out-of-range GPS and non-finite coordinates', () => {
   assert.equal(preferences.weatherRegionReady(preferences.VOICE_DEFAULTS), true);
   assert.equal(preferences.weatherRegionReady({ ...preferences.VOICE_DEFAULTS, weather_enabled: true }), false);

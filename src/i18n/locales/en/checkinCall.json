@@ -49,7 +49,10 @@
       "hue": "Hue"
     },
     "useLocation": "Use my current approximate area",
-    "locationSelected": "An approximate area has been selected from your current location. You can update it when you move.",
+    "deviceRegion": "Area from your current location",
+    "areaNameLoading": "Finding the area name…",
+    "areaNameUnavailable": "Could not get the area name",
+    "retryAreaName": "Retry the area name",
     "locationDenied": "Location was not permitted. Choose a region manually or turn off weather reminders; check-in still works.",
     "locationFailed": "Could not get your location. Retry or choose a region manually.",
     "chooseRegion": "Choose an area to turn on weather reminders.",
