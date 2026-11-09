@@ -118,8 +118,10 @@ function CheckinScreen() {
     entry?: string;
   }>();
   const isPractice = params.mode === 'guide';
+  const addressing = useCheckinAddressing();
   const practiceRunKey = useRef(`checkin-practice:${Date.now()}:${Math.random()}`).current;
-  const checkinClient = useMemo(() => isPractice ? createCheckinPractice(t) : checkinApi, [isPractice, t]);
+  const checkinClient = useMemo(() => isPractice ? createCheckinPractice(t, addressing) : checkinApi,
+    [isPractice, t, addressing.honorific, addressing.Honorific, addressing.CallName]);
   const [practiceFollowup, setPracticeFollowup] = useState(params.guide_followup === '1');
   const [practiceRevision, setPracticeRevision] = useState(0);
   const isFollowUp = isPractice ? practiceFollowup : params.mode === 'followup';
@@ -748,6 +750,7 @@ type Styles = ReturnType<typeof createStyles>;
 
 /** Renders the same UI as check-in without mounting its API/consent/guide controller. */
 export function CheckinUiPreview({ id }: { id: CheckinUiPreviewId }) {
+  const addressing = useCheckinAddressing();
   const { t } = useTranslation('home');
   const typography = useScaledTypography();
   const styles = useMemo(() => createStyles(typography), [typography]);
@@ -770,7 +773,7 @@ export function CheckinUiPreview({ id }: { id: CheckinUiPreviewId }) {
     }
     const single = id === 'checkin-single';
     const textOnly = id === 'checkin-text';
-    const question = t(single ? 'checkinFallbackInitial3Question' : 'checkinFallbackInitial2Question');
+    const question = t(single ? 'checkinFallbackInitial3Question' : 'checkinFallbackInitial2Question', addressing);
     const options = t(single ? 'checkinFallbackInitial3Options' : 'checkinFallbackInitial2Options', { returnObjects: true }) as string[];
     return <TriageScreen
       styles={styles}

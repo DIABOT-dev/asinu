@@ -3,14 +3,15 @@ import type { CheckinSession, CheckinStatus, TriageAnswer, TriageResult } from '
 type Translate = (key: string, options?: Record<string, unknown>) => unknown;
 
 /** Entirely in-memory examples. Never imports HTTP, storage, AI or call APIs. */
-export function createCheckinPractice(translate: Translate) {
+export function createCheckinPractice(translate: Translate, addressing = { honorific: 'bạn', Honorific: 'Bạn', CallName: 'Bạn' }) {
   let session: CheckinSession | null = null;
-  const text = (key: string, options?: Record<string, unknown>) => String(translate(key, options));
+  const text = (key: string, options?: Record<string, unknown>) => String(translate(key, { ...addressing, ...options }));
   const questions = [
     { step: 'symptoms', questionKey: 'checkinFallbackInitial2Question', optionsKey: 'checkinFallbackInitial2Options', multiSelect: true },
     { step: 'onset', questionKey: 'checkinFallbackInitial3Question', optionsKey: 'checkinFallbackInitial3Options', multiSelect: false },
-    { step: 'progression', questionKey: 'checkinFallbackProgressionQuestion', multiSelect: false },
+    { step: 'progression', questionKey: 'checkinFallbackProgressionQuestion', optionsKey: 'checkinFallbackProgressionOptions', multiSelect: false },
     { step: 'red_flags', questionKey: 'checkinFallbackRedFlagsQuestion', optionsKey: 'checkinFallbackRedFlagsOptions', multiSelect: true },
+    { step: 'context', questionKey: 'checkinPracticeExtraQuestion', multiSelect: false },
   ];
   const makeSession = (status: CheckinStatus): CheckinSession => {
     const now = new Date().toISOString();

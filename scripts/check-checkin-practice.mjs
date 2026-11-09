@@ -33,6 +33,9 @@ const cancellationFunction = cancellationFile.statements.find(node => ts.isFunct
 const { createCheckinPractice } = evaluate(read('src/features/guidance/checkin.practice.ts'));
 const triageSelection = progressHarness().selection;
 const triageOptionDisplay = evaluate(read('src/features/checkin/triage-option-display.ts'));
+assert.equal(triageOptionDisplay.formatTriageOptionLabel('yếu hoặc tê cả hai chân (hội chứng đuôi ngựa)'), 'Yếu hoặc tê cả hai chân');
+assert.equal(triageOptionDisplay.formatTriageOptionLabel('sốt cao kèm sưng đỏ khớp (nghi nhiễm trùng khớp)'), 'Sốt cao kèm sưng đỏ khớp');
+assert.equal(triageOptionDisplay.formatTriageOptionLabel('sụt cân nhanh (trên 5kg/tháng)'), 'Sụt cân nhanh (trên 5kg/tháng)');
 const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes)
   : [tree, ...nodes(tree.props?.children)];
 const tick = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
@@ -169,13 +172,13 @@ for (const language of ['vi', 'en']) {
       }
       if (status !== 'fine') {
         const layouts = [];
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < 5; i++) {
           const question = nodes(tree).find(node => node.type === 'Question'); assert.ok(question, `Question ${i}`);
           assert.equal(question.props.practice, true);
           layouts.push(question.props.options.length === 0 ? 'text' : question.props.multiSelect ? 'multiple' : 'single');
           await question.props.onAnswer('private practice answer'); tree = await h.settle();
         }
-        assert.deepEqual(layouts, ['multiple', 'single', 'text', 'multiple']);
+        assert.deepEqual(layouts, ['multiple', 'single', 'single', 'multiple', 'text']);
       }
       const result = nodes(tree).find(node => node.type === 'Result'); assert.ok(result);
       assert.equal(result.props.session.id, -1); assert.equal(result.props.practice, true);
@@ -365,11 +368,11 @@ function locationHarness(language, overrides = {}) {
 
 for (const language of ['vi', 'en']) {
   for (const [region, position, expected] of [
-    ['head', 'forehead', language === 'vi' ? /đầu mình.*chỗ nào/ : /Where on your head/],
-    ['chest', 'middle_chest', language === 'vi' ? /ngực mình.*chỗ nào/ : /Where in your chest/],
-    ['abdomen', 'upper_abdomen', language === 'vi' ? /bụng mình.*chỗ nào/ : /Where in your belly/],
-    ['limbs', 'right_wrist', language === 'vi' ? /tay hoặc chân.*chỗ nào/ : /Where in your arms or legs/],
-    ['skin', 'face_neck', language === 'vi' ? /da mình.*chỗ nào/ : /Which area of your skin/],
+    ['head', 'forehead', language === 'vi' ? /(?:chỗ nào.*đầu|đầu.*chỗ nào)/ : /Where on your head/],
+    ['chest', 'middle_chest', language === 'vi' ? /(?:chỗ nào.*ngực|ngực.*chỗ nào)/ : /Where in your chest/],
+    ['abdomen', 'upper_abdomen', language === 'vi' ? /(?:chỗ nào.*[Bb]ụng|[Bb]ụng.*chỗ nào)/ : /Where in your belly/],
+    ['limbs', 'right_wrist', language === 'vi' ? /(?:chỗ nào.*tay hoặc chân|tay hoặc chân.*chỗ nào)/ : /Where in your arms or legs/],
+    ['skin', 'face_neck', language === 'vi' ? /(?:chỗ nào.*da|da.*chỗ nào)/ : /Which area of your skin/],
   ]) {
     await test(`${language}: ${region} asks a natural position question that matches its answers`, async () => {
       const h = locationHarness(language); await h.settle();
@@ -377,7 +380,8 @@ for (const language of ['vi', 'en']) {
       const tree = await h.press('checkin-location-continue');
       const heading = nodes(tree).find(node => node.props?.accessibilityRole === 'header').props.children;
       assert.match(heading, expected); assert.ok(!heading.includes(':'));
-      assert.ok(!heading.includes('{{')); assert.ok(heading.includes('Asinu'));
+      assert.ok(!heading.includes('{{'));
+      assert.ok(heading.length > 15 && heading.length < 180, 'Each position question should stay short and readable');
       assert.equal(h.find('checkin-location-question-next').props.disabled, true);
       await h.press(`checkin-location-position-${region}-${position}`);
       assert.equal(h.find('checkin-location-question-next').props.disabled, false);
@@ -401,7 +405,7 @@ for (const addressing of [
     assert.ok(initial.includes(`${addressing.CallName} ơi`));
     await h.press('checkin-location-region-abdomen');
     const question = strings(await h.press('checkin-location-continue'));
-    assert.ok(question.includes(`${addressing.Honorific} thấy bụng mình`));
+    assert.ok(question.includes(`Bụng ${addressing.honorific}`));
     assert.ok(!question.includes(addressing.CallName));
     assert.ok(!question.includes('{{'));
   });
@@ -550,7 +554,7 @@ for (const language of ['vi', 'en']) {
 }
 await test('route identity remounts practice and real sessions rather than sharing private answer state', () => {
   assert.match(extract('CheckinRoute'), /key=\{.*params\.mode.*params\.checkin_id.*params\.guide/);
-  assert.match(extract('CheckinScreen'), /isPractice \? createCheckinPractice\(t\) : checkinApi/);
+  assert.match(extract('CheckinScreen'), /isPractice \? createCheckinPractice\(t, addressing\) : checkinApi/);
   assert.doesNotMatch(extract('CheckinScreen'), /checkinApi\.(start|triage|followUp)/);
 });
 for (const language of ['vi', 'en']) {

@@ -247,7 +247,7 @@
   "checkinEmergencySubtitle": "Your answers suggest signs that need urgent medical support.",
   "checkinHighSubtitle": "Your answers suggest signs that should be checked by a specialist soon.",
   "checkinMediumSubtitle": "Your answers suggest fatigue. Rest and continue monitoring your symptoms.",
-  "checkinFineSubtitle": "You are doing well today. Keep up your healthy routine!",
+  "checkinFineSubtitle": "Asinu has recorded how you feel right now. Keep track of any changes.",
   "checkinStatusEmergency": "EMERGENCY",
   "checkinStatusHigh": "NEEDS ATTENTION",
   "checkinStatusMedium": "MONITOR",
@@ -438,7 +438,7 @@
   "checkinConfirmSelection": "Confirm",
   "checkinSelectHint": "Select one or more options below",
   "checkinSelectSingleHint": "Choose the most appropriate answer for your current condition.",
-  "checkinTriageMascotBubble": "Please let Asinu know your current condition so Asinu can support you best!",
+  "checkinTriageMascotBubble": "You can share what you are feeling with Asinu.",
   "checkinLocationMascotBubble": "Please let Asinu know which body area is making you feel uncomfortable!",
   "checkinSynthesizingTitle": "Asinu is reviewing…",
   "checkinSynthesizingSubtitle": "Please wait a moment.\nAsinu is preparing feedback for you.",
@@ -544,12 +544,14 @@
   ],
   "checkinFallbackInitial3Question": "When did this start?",
   "checkinFallbackInitial3Options": [
-    "just now",
-    "a few hours ago",
-    "since morning",
-    "since yesterday"
+    "Under 1 hour",
+    "1 to under 24 hours",
+    "1 to under 3 days",
+    "3 to under 7 days",
+    "7 days or more",
+    "Unsure"
   ],
-  "checkinFallbackInitial4Question": "What might have caused this?",
+  "checkinFallbackInitial4Question": "Have any of these happened recently?",
   "checkinFallbackInitial4Options": [
     "lack of sleep",
     "skipped meals",
@@ -594,7 +596,7 @@
     "shortness of breath",
     "nothing new"
   ],
-  "checkinFallbackFollowup3Question": "Have you rested or eaten anything?",
+  "checkinFallbackFollowup3Question": "What have you done to look after yourself since the discomfort started?",
   "checkinFallbackFollowup3Options": [
     "rested",
     "ate something",
@@ -825,5 +827,6 @@
   "checkinQuestionRegion": "{{region}} · Area {{current}}/{{total}}",
   "checkinInstantStatusTitle": "How are you feeling right now?",
   "checkinInstantStatusHint": "Choose how you feel right now.",
-  "checkinSelectIntensityTitle": "Choose intensity"
+  "checkinSelectIntensityTitle": "Choose intensity",
+  "checkinPracticeExtraQuestion": "Is there anything else you would like to share?"
 }

@@ -463,7 +463,7 @@ await test('the real first check-in screen guides all three health choices witho
     'react/jsx-runtime': { jsx, jsxs: jsx },
   }, { View: 'View', Text: 'Text', Svg: 'Svg', Path: 'Path', Circle: 'Circle', colors: theme.colors, MaterialCommunityIcons: 'Icon', Animated: { View: 'Animated' },
     FadeIn: animation, FadeInDown: animation, GuideTarget: 'GuideTarget', CheckinStatusChoice: 'StatusChoice',
-    CHECKIN_STATUS_CHOICES: statuses, useTranslation: () => ({ t: key => key }) });
+    CHECKIN_STATUS_CHOICES: statuses, useCheckinAddressing: () => ({ honorific: 'bạn', Honorific: 'Bạn', CallName: 'Bạn' }), useTranslation: () => ({ t: key => key }) });
   const selected = [], onSelect = status => selected.push(status);
   const tree = StatusScreen({ styles: { optionList: 'optionList' }, onSelect, isFollowUp: false, practice: true });
   const guide = nodes(tree).find(node => node.type === 'GuideTarget' && node.props.step === 'checkin.status');

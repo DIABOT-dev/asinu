@@ -3,7 +3,7 @@
   "checkinQuestionReviewingAnswer": "Asinu đang xem câu trả lời",
   "checkinQuestionLoadingPercent": "Tiến độ ước tính {{percent}}%",
   "checkinQuestionLoadingEstimate": "Tiến độ ước tính",
-  "checkinQuestionLoadingLonger": "Vẫn đang xử lý, anh/chị chờ chút nhé",
+  "checkinQuestionLoadingLonger": "Asinu vẫn đang xử lý, chờ một chút nhé.",
   "checkinAnsweredCount": "Đã trả lời {{count}} câu",
   "checkinResumeError": "Chưa tải được check-in đang dở. Anh/chị thử lại nhé.",
   "checkinResumeTitle": "Tiếp tục check-in",
@@ -247,7 +247,7 @@
   "checkinEmergencySubtitle": "Kết quả cho thấy bạn có dấu hiệu cần được hỗ trợ y tế khẩn cấp.",
   "checkinHighSubtitle": "Kết quả cho thấy bạn có dấu hiệu cần được kiểm tra y tế sớm.",
   "checkinMediumSubtitle": "Kết quả cho thấy bạn có dấu hiệu mệt mỏi, cần nghỉ ngơi và theo dõi thêm.",
-  "checkinFineSubtitle": "Tình trạng sức khỏe của bạn hôm nay đang rất tốt. Hãy tiếp tục duy trì nhé!",
+  "checkinFineSubtitle": "Asinu đã ghi nhận tình trạng hiện tại. Hãy tiếp tục theo dõi nếu có thay đổi nhé.",
   "checkinStatusEmergency": "KHẨN CẤP",
   "checkinStatusHigh": "CẦN CHÚ Ý",
   "checkinStatusMedium": "THEO DÕI",
@@ -438,7 +438,7 @@
   "checkinConfirmSelection": "Xác nhận",
   "checkinSelectHint": "Chọn một hoặc nhiều mục bên dưới",
   "checkinSelectSingleHint": "Chọn một đáp án phù hợp nhất với tình trạng hiện tại của bạn.",
-  "checkinTriageMascotBubble": "Bạn ơi, hãy cho Asinu biết tình trạng hiện tại để Asinu hỗ trợ bạn tốt nhất nhé!",
+  "checkinTriageMascotBubble": "Cứ chia sẻ với Asinu nhé.",
   "checkinLocationMascotBubble": "{{CallName}} ơi, chia sẻ với Asinu chỗ đang khó chịu nhé.",
   "checkinSynthesizingTitle": "Asinu đang xem lại…",
   "checkinSynthesizingSubtitle": "Bạn chờ một chút nhé.\nAsinu đang chuẩn bị phản hồi cho bạn.",
@@ -526,14 +526,14 @@
   "healthStatusRetry": "Thử lại",
   "checkinFallbackRecommendation": "Hãy nghỉ ngơi và theo dõi thêm. Asinu sẽ hỏi lại sau nhé.",
   "checkinFallbackSummary": "Asinu đã ghi nhận tình trạng của bạn.",
-  "checkinFallbackInitial1Question": "Mức độ mệt của bạn hiện tại thế nào?",
+  "checkinFallbackInitial1Question": "Hiện giờ, {{honorific}} thấy mệt nhiều hay ít?",
   "checkinFallbackInitial1Options": [
     "nhẹ",
     "trung bình",
     "khá nặng",
     "rất nặng"
   ],
-  "checkinFallbackInitial2Question": "Bạn đang gặp triệu chứng nào?",
+  "checkinFallbackInitial2Question": "{{Honorific}} đang gặp những biểu hiện nào dưới đây?",
   "checkinFallbackInitial2Options": [
     "mệt mỏi",
     "chóng mặt",
@@ -542,14 +542,16 @@
     "khát nước",
     "không rõ"
   ],
-  "checkinFallbackInitial3Question": "Bạn bắt đầu thấy những khó chịu này từ khi nào?",
+  "checkinFallbackInitial3Question": "Những khó chịu này bắt đầu từ khi nào vậy?",
   "checkinFallbackInitial3Options": [
-    "vừa mới",
-    "vài giờ trước",
-    "từ sáng",
-    "từ hôm qua"
+    "Dưới 1 giờ",
+    "Từ 1 đến dưới 24 giờ",
+    "Từ 1 đến dưới 3 ngày",
+    "Từ 3 đến dưới 7 ngày",
+    "Từ 7 ngày trở lên",
+    "Không rõ"
   ],
-  "checkinFallbackInitial4Question": "Bạn nghĩ điều gì có thể dẫn đến tình trạng này?",
+  "checkinFallbackInitial4Question": "Gần đây, {{honorific}} có gặp việc nào dưới đây không?",
   "checkinFallbackInitial4Options": [
     "ngủ ít",
     "bỏ bữa",
@@ -557,7 +559,7 @@
     "quên uống thuốc",
     "không rõ"
   ],
-  "checkinFallbackInitial5Question": "Bạn đã làm gì để cải thiện tình trạng đang gặp chưa?",
+  "checkinFallbackInitial5Question": "{{Honorific}} đã làm gì để chăm sóc sức khỏe khi thấy khó chịu?",
   "checkinFallbackInitial5Options": [
     "nghỉ ngơi",
     "ăn uống",
@@ -565,13 +567,13 @@
     "uống thuốc",
     "chưa làm gì"
   ],
-  "checkinFallbackProgressionQuestion": "So với lúc mới bị, tình trạng của bạn đang đỡ hơn, vẫn vậy hay nặng hơn?",
+  "checkinFallbackProgressionQuestion": "Từ lúc bắt đầu đến giờ, {{honorific}} thấy đỡ hơn, vẫn vậy hay nặng hơn?",
   "checkinFallbackProgressionOptions": [
     "đang đỡ dần",
     "vẫn như cũ",
     "có vẻ nặng hơn"
   ],
-  "checkinFallbackRedFlagsQuestion": "Để hiểu rõ hơn tình trạng đang gặp, bạn có thêm dấu hiệu nào dưới đây không?",
+  "checkinFallbackRedFlagsQuestion": "Ngoài những khó chịu vừa kể, {{honorific}} có dấu hiệu nào dưới đây không?",
   "checkinFallbackRedFlagsOptions": [
     "khó thở dữ dội",
     "đau ngực kèm vã mồ hôi",
@@ -580,13 +582,13 @@
     "nôn ra máu",
     "không có"
   ],
-  "checkinFallbackFollowup1Question": "So với lần check-in trước, tình trạng sức khỏe của bạn hiện giờ thế nào?",
+  "checkinFallbackFollowup1Question": "So với lần hỏi thăm trước, {{honorific}} thấy thế nào?",
   "checkinFallbackFollowup1Options": [
     "đã đỡ hơn",
     "vẫn như cũ",
     "mệt hơn trước"
   ],
-  "checkinFallbackFollowup2Question": "Ngoài những khó chịu đã chia sẻ, bạn có gặp thêm biểu hiện nào mới không?",
+  "checkinFallbackFollowup2Question": "Từ lần hỏi thăm trước đến giờ, có biểu hiện nào mới xuất hiện không?",
   "checkinFallbackFollowup2Options": [
     "đau đầu",
     "chóng mặt",
@@ -594,7 +596,7 @@
     "khó thở",
     "không có gì thêm"
   ],
-  "checkinFallbackFollowup3Question": "Bạn đã nghỉ ngơi hoặc ăn uống gì chưa?",
+  "checkinFallbackFollowup3Question": "{{Honorific}} đã làm gì để chăm sóc sức khỏe khi thấy khó chịu?",
   "checkinFallbackFollowup3Options": [
     "đã nghỉ ngơi",
     "đã ăn uống",
@@ -777,11 +779,11 @@
   "checkinLocationPositionProgress": "Vị trí {{current}}/{{total}}",
   "checkinQuestionNumber": "Câu {{count}}",
   "checkinLocationDetailsHint": "Chạm vào từng vùng bên dưới để chọn chỗ khó chịu. Có thể chọn nhiều chỗ; nếu chưa rõ, chọn “Khó xác định”.",
-  "checkinLocationQuestionHead": "{{Honorific}} thấy đầu mình khó chịu ở chỗ nào vậy? Chia sẻ với Asinu nhé.",
-  "checkinLocationQuestionChest": "{{Honorific}} thấy ngực mình khó chịu ở chỗ nào vậy? Chia sẻ với Asinu nhé.",
-  "checkinLocationQuestionAbdomen": "{{Honorific}} thấy bụng mình khó chịu ở chỗ nào vậy? Chia sẻ với Asinu nhé.",
-  "checkinLocationQuestionLimbs": "{{Honorific}} thấy tay hoặc chân khó chịu ở chỗ nào vậy? Chia sẻ với Asinu nhé.",
-  "checkinLocationQuestionSkin": "{{Honorific}} thấy da mình khó chịu ở chỗ nào vậy? Chia sẻ với Asinu nhé.",
+  "checkinLocationQuestionHead": "{{Honorific}} thấy khó chịu ở chỗ nào trên đầu vậy?",
+  "checkinLocationQuestionChest": "{{Honorific}} thấy khó chịu ở chỗ nào trong vùng ngực vậy?",
+  "checkinLocationQuestionAbdomen": "Bụng {{honorific}} đang khó chịu ở chỗ nào? Cho Asinu biết nhé.",
+  "checkinLocationQuestionLimbs": "{{Honorific}} thấy khó chịu ở chỗ nào trên tay hoặc chân vậy?",
+  "checkinLocationQuestionSkin": "{{Honorific}} thấy da khó chịu ở chỗ nào vậy?",
   "checkinLocationDetailSelect": "Chọn vị trí cụ thể",
   "checkinLocationDetailsRemaining": "Bạn còn chọn vị trí ở: {{regions}}.",
   "checkinLocationDetail_forehead": "Trán",
@@ -825,5 +827,6 @@
   "checkinQuestionRegion": "{{region}} · Vùng {{current}}/{{total}}",
   "checkinInstantStatusTitle": "Bạn đang cảm thấy thế nào?",
   "checkinInstantStatusHint": "Chọn mức độ phù hợp với bạn lúc này.",
-  "checkinSelectIntensityTitle": "Chọn mức độ"
+  "checkinSelectIntensityTitle": "Chọn mức độ",
+  "checkinPracticeExtraQuestion": "Ngoài những điều vừa kể, {{honorific}} có muốn chia sẻ thêm gì không?"
 }
