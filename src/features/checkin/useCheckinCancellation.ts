@@ -29,17 +29,23 @@ export function useCheckinCancellation(context: {
     setBusy(true);
     const token = tokenStore.getToken();
     target.onConfirmed();
+    let leaving = false;
     try {
       await cancelCheckinProgress(checkinApi, target.account, target.session);
-      if (live.current && tokenStore.getToken() === token) target.onCancelled();
+      if (live.current && tokenStore.getToken() === token) {
+        target.onCancelled();
+        leaving = true;
+      }
     } catch {
       if (live.current && tokenStore.getToken() === token) {
         target.onRecover();
         showAlert(t("checkinCancelFailedTitle"), t("checkinCancelFailed"));
       }
     } finally {
-      running.current = false;
-      if (live.current) setBusy(false);
+      // router.replace commits on a later render. Re-enabling the mounted
+      // location form here would autosave the draft we just deleted.
+      running.current = leaving;
+      if (live.current && !leaving) setBusy(false);
     }
   };
   const request = () => {

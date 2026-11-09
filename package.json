@@ -52,7 +52,7 @@
     "test:auth": "node scripts/check-auth-flows.mjs",
     "test:checkin-question-loading": "node --test scripts/check-checkin-question-loading.mjs",
     "test:checkin-viewport": "node --test scripts/check-checkin-viewport.mjs",
-    "test:checkin-progress": "node --test scripts/check-checkin-progress.mjs",
+    "test:checkin-progress": "node --test scripts/check-checkin-progress.mjs && node scripts/check-checkin-cancel-home.mjs",
     "test:checkin-practice": "node scripts/check-checkin-practice.mjs",
     "test:checkin-gifts": "node scripts/check-checkin-gifts.mjs",
     "test:security": "node scripts/check-security.mjs && node scripts/check-health-store-session.mjs",

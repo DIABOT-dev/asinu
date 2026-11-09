@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -23,10 +23,7 @@ import { GuideTarget } from '../features/guidance/GuidanceProvider';
 import { useCheckinPracticeEntry } from '../features/guidance/useCheckinPracticeEntry';
 import { useAuthStore } from '../features/auth/auth.store';
 import { isUnfinishedCheckin, readLocationDraft } from '../features/checkin/checkin-progress';
-
-// Cache session across hot reloads to prevent flash
-let _cachedSession: CheckinSession | null | undefined;
-let _cachedAccount: string | number | undefined;
+import { cacheCheckinCardSession, checkinCardRevision, readCheckinCardCache, subscribeCheckinCardInvalidation } from '../features/checkin/checkin-card-cache';
 
 const checkinCardImages = {
   fine: require('../../assets/images/home/checkin-fine-background-v1.png'),
@@ -88,21 +85,24 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography, isDark), [scaledTypography, isDark]);
-  const [session, setSession] = useState<CheckinSession | null | undefined>(_cachedAccount === accountId ? _cachedSession : undefined);
+  const [session, setSession] = useState<CheckinSession | null | undefined>(() => readCheckinCardCache(accountId));
   const [hasDraft, setHasDraft] = useState(false);
+  useEffect(() => subscribeCheckinCardInvalidation(accountId, () => {
+    setSession(undefined);
+    setHasDraft(false);
+  }), [accountId]);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      setSession(_cachedAccount === accountId ? _cachedSession : undefined);
+      const revision = checkinCardRevision(accountId);
+      setSession(readCheckinCardCache(accountId));
       setHasDraft(false);
       checkinApi.getToday()
         .then(async res => {
           if (!res.ok) throw new Error('CHECKIN_LOAD_FAILED');
           const draft = await readLocationDraft(accountId, res.session);
-          if (!active) return;
-          _cachedAccount = accountId;
-          _cachedSession = res.session;
+          if (!active || !cacheCheckinCardSession(accountId, res.session, revision)) return;
           setSession(res.session);
           setHasDraft(!!draft);
         })

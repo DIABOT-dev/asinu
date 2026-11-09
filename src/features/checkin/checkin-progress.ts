@@ -5,6 +5,7 @@ import {
   type LocationDetails,
 } from './location-details';
 import { triageDraftKey, triageDraftStorage } from '../checkin-call/triage-draft.storage';
+import { invalidateCheckinCard } from './checkin-card-cache';
 
 export type LocationDraft = {
   status: CheckinStatus;
@@ -217,6 +218,7 @@ export async function cancelCheckinProgress(
     await clearPendingAnswers(account, session);
   }
   await clearLocationDraft(account);
+  invalidateCheckinCard(account);
 }
 
 type Entry =

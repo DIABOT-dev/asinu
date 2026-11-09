@@ -330,10 +330,12 @@ function harness({
   fail = false,
   practice = false,
   draft = null,
+  getToday,
 } = {}) {
   let cursor = 0;
   const slots = [];
   let focus;
+  const progress = progressHarness();
   const pushes = [];
   const catalog = JSON.parse(read(`src/i18n/locales/${language}/home.json`));
   const t = (key) => {
@@ -373,6 +375,14 @@ function harness({
     memo: (component) => component,
     useMemo: (fn) => fn(),
     useCallback: (fn) => fn,
+    useEffect: (work, deps) => {
+      const index = cursor++;
+      const old = slots[index];
+      if (!old || deps.some((value, i) => !Object.is(value, old.deps[i]))) {
+        old?.cleanup?.();
+        slots[index] = { deps, cleanup: work() };
+      }
+    },
     useState: (initial) => {
       const index = cursor++;
       if (!(index in slots)) slots[index] = typeof initial === 'function' ? initial() : initial;
@@ -413,13 +423,14 @@ function harness({
       spacing: { xs: 4, md: 12, lg: 16, xxl: 28 },
     },
     "../features/auth/auth.store": { useAuthStore: select => select({ profile: { id: 7 } }) },
-    "../features/checkin/checkin-progress": { ...progressHarness().progress, readLocationDraft: async () => draft },
+    "../features/checkin/checkin-progress": { ...progress.progress, readLocationDraft: async () => draft },
+    "../features/checkin/checkin-card-cache": progress.cardCache,
     "../features/checkin/checkin.api": {
       checkinApi: {
-        getToday: () =>
+        getToday: getToday || (() =>
           fail
             ? Promise.reject(new Error("offline"))
-            : Promise.resolve({ ok: true, session }),
+            : Promise.resolve({ ok: true, session })),
       },
     },
   });
@@ -441,6 +452,8 @@ function harness({
     t,
     pushes,
     colors,
+    invalidate: () => progress.cardCache.invalidateCheckinCard(7),
+    setServerSession: value => { session = value; },
     focus: async () => {
       focus();
       await flush();
@@ -653,4 +666,44 @@ for (const [label, session, draft, expectedModal] of [
   });
 }
 
+await test('confirmed cancellation clears the mounted Home cache before its next focus request', async () => {
+  const h = harness({ session: { ...active, triage_completed_at: null } });
+  h.render('DailyCheckinCard'); await h.focus();
+  assert.equal(h.render('DailyCheckinCard').find(node => node.type === 'Pressable').props.accessibilityLabel, h.t('checkinResumeTitle'));
+  h.invalidate();
+  assert.deepEqual(h.render('DailyCheckinCard'), [], 'Do not offer the cancelled session while Home refreshes');
+  h.setServerSession(null); await h.focus();
+  assert.equal(h.render('DailyCheckinCard').find(node => node.type === 'Pressable').props.accessibilityLabel, h.t('checkinFine'));
+});
+await test('a response started before cancellation cannot repopulate the Home cache', async () => {
+  let resolve;
+  const response = new Promise(done => { resolve = done; });
+  const h = harness({ getToday: () => response });
+  h.render('DailyCheckinCard'); await h.focus();
+  h.invalidate();
+  resolve({ ok: true, session: { ...active, triage_completed_at: null } });
+  await flush(); await flush();
+  assert.deepEqual(h.render('DailyCheckinCard'), []);
+});
+await test('an offline Home refresh never brings back the cancelled Continue button', async () => {
+  let offline = false;
+  const h = harness({ getToday: () => offline ? Promise.reject(new Error('offline')) : Promise.resolve({ ok:true, session:{...active,triage_completed_at:null} }) });
+  h.render('DailyCheckinCard'); await h.focus();
+  assert.ok(h.render('DailyCheckinCard').some(node => node.type === 'Pressable'));
+  h.invalidate(); offline = true; await h.focus();
+  assert.deepEqual(h.render('DailyCheckinCard'), []);
+});
+await test('cancel invalidation belongs to one account and cannot poison another account cache', () => {
+  const { cardCache: cache } = progressHarness();
+  cache.cacheCheckinCardSession(8, { ...active }, cache.checkinCardRevision(8));
+  let updated = 0;
+  const unsubscribe = cache.subscribeCheckinCardInvalidation(8, () => { updated++; });
+  cache.invalidateCheckinCard(7);
+  assert.deepEqual(cache.readCheckinCardCache(8), active);
+  assert.equal(updated, 0);
+  cache.invalidateCheckinCard(8);
+  assert.equal(cache.readCheckinCardCache(8), undefined);
+  assert.equal(updated, 1);
+  unsubscribe();
+});
 console.log(`Home check-in cards: ${checks} regressions passed.`);
