@@ -28,6 +28,7 @@ function evaluate(source, globals = {}) {
   return module.exports;
 }
 const locationDetailsHelpers = evaluate(read('src/features/checkin/location-details.ts'));
+const conclusionHelpers = evaluate(read('src/features/checkin/checkin-conclusion.ts'));
 const cancellationFile = ts.createSourceFile('cancel.ts', read('src/features/checkin/useCheckinCancellation.ts'), ts.ScriptTarget.Latest, true);
 const cancellationFunction = cancellationFile.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'useCheckinCancellation').getText(cancellationFile);
 const { createCheckinPractice } = evaluate(read('src/features/guidance/checkin.practice.ts'));
@@ -84,7 +85,7 @@ function translations(language) {
   return { t, tg, useTranslation: ns => ({ t: ns === 'onboarding' ? tg : t, i18n: { resolvedLanguage: language } }) };
 }
 const animation = { duration: () => animation, delay: () => animation };
-const native = { useCheckinAddressing: () => ({ honorific: 'bạn', Honorific: 'Bạn', CallName: 'Bạn' }), View: 'View', Text: 'Text', Image: 'Image', asinuChatSticker: 'asinu_chat_sticker.png', TextInput: 'Input', Pressable: 'Pressable', ScrollView: 'ScrollView',
+const native = { ...conclusionHelpers, useCheckinAddressing: () => ({ honorific: 'bạn', Honorific: 'Bạn', CallName: 'Bạn' }), View: 'View', Text: 'Text', Image: 'Image', asinuChatSticker: 'asinu_chat_sticker.png', TextInput: 'Input', Pressable: 'Pressable', ScrollView: 'ScrollView',
   CheckinQuestionLoading: 'QuestionLoading', ActivityIndicator: 'Spinner', Ionicons: 'Icon', MaterialCommunityIcons: 'Icon', Stack: { Screen: 'Stack' },
   GuidePracticeScope: 'PracticeScope', GuideScrollScope: 'ScrollScope', GuideTarget: 'GuideTarget',
   ScreenBackButton: 'Back', AppAlertModal: 'Alert', AiDataConsentModal: 'Consent',

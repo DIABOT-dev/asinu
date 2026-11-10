@@ -58,6 +58,7 @@ export interface TriageResult {
   multiSelect?: boolean;
   // when done
   summary?: string;
+  recordedSymptoms?: string[];
   severity?: TriageSeverity;
   recommendation?: string;
   conclusionVersion?: 2;
@@ -108,6 +109,7 @@ export interface TriageResult {
  */
 export type TriageSummaryView = {
   summary: string;
+  recordedSymptoms?: string[];
   severity: 'low' | 'medium' | 'high' | string;
   recommendation: string;
   needsDoctor: boolean;

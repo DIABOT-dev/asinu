@@ -306,6 +306,7 @@ function resultGiftHarness({ language = 'vi', status = 'fine', severity, practic
   const stop = async () => { calls.push('stop result'); audio = { ...audio, phase: 'idle' }; };
   const animation = { duration: () => animation, delay: () => animation };
   const { DoneScreen } = evaluate('app/checkin/index.tsx', {}, {
+    ...evaluate('src/features/checkin/checkin-conclusion.ts', {}),
     ...runtime, useTranslation: () => ({ t, i18n: { resolvedLanguage: language } }), useRouter: () => ({ push() {} }),
     useCheckinCallAudio: () => ({ audio, play, stopAudio: stop }),
     View: 'View', Text: 'Text', Pressable: 'Button', Svg: 'Svg', Path: 'Path', Ionicons: 'Icon',

@@ -77,6 +77,42 @@ function test(label, fn) {
   count++;
   console.log('PASS ' + label);
 }
+test('recorded symptoms exclude timing and negative warning-sign choices from the reported preview case', () => {
+  const answers = [
+    { step: 'symptoms', question: 'Bạn thấy khó chịu như thế nào?', answer: 'Đầy hơi, Khó tiêu' },
+    { step: 'onset', question: 'Bạn bắt đầu thấy khó chịu khi nào?', answer: 'Từ 1 đến dưới 3 ngày' },
+    { step: 'progression', question: 'Bạn thấy triệu chứng thay đổi thế nào?', answer: 'Vẫn như cũ' },
+    { step: 'red_flags', question: 'Bạn có triệu chứng nào sau đây?', answer: 'Không có' },
+  ];
+  assert.equal(helper.recordedCheckinSymptoms({ session: null, answers }), 'Đầy hơi, Khó tiêu');
+  assert.equal(helper.recordedCheckinSymptoms({ session: { triage_messages: answers } }), 'Đầy hơi, Khó tiêu');
+  assert.equal(helper.recordedCheckinSymptoms({ session: null, answers: answers.map(({ step, ...rest }) => rest) }), 'Đầy hơi, Khó tiêu');
+});
+test('authoritative symptoms take precedence over stale client answers and preserve inability symptoms', () => {
+  const recordedSymptoms = ['Không thở được', 'Không đứng được', 'Đau bụng', 'đau bụng', 'Không có', 'Không rõ'];
+  assert.equal(helper.recordedCheckinSymptoms({ session: null, recordedSymptoms,
+    answers: [{ step: 'symptoms', question: '', answer: 'Stale answer' }] }), 'Không thở được, Không đứng được, Đau bụng');
+  const translate = key => key;
+  assert.equal(helper.recordedCheckinSymptoms({ session: { current_status: 'tired', triage_messages: [{ step: 'symptoms', answer: 'Stale answer' }] },
+    recordedSymptoms: [], translate }), 'checkinSymptomsTired');
+});
+test('legacy questions and detailed answers cannot classify duration, severity or relief as symptoms', () => {
+  for (const answers of [
+    [
+      { question: 'What symptoms are you having?', answer: 'Headache; Nausea' },
+      { question: 'When did the symptoms start?', answer: 'Yesterday' },
+      { question: 'Are the symptoms better or worse?', answer: 'Worse' },
+      { question: 'Any other symptoms?', answer: 'None' },
+    ],
+    [
+      { step: 'symptoms', question: '', answer: 'Headache' },
+      { step: 'detail_head_associated', question: '', answer: 'Nausea' },
+      { step: 'detail_head_severity', question: '', answer: 'Severe' },
+      { step: 'detail_head_relieving', question: '', answer: 'Lying down' },
+      { step: 'adaptive_test_onset', question: '', answer: 'Yesterday' },
+    ],
+  ]) assert.equal(helper.recordedCheckinSymptoms({ session: null, answers }), 'Headache, Nausea');
+});
 test('the light check-in header can override its arrow color without changing other screen defaults', () => {
   const { ScreenBackButton } = evaluate(
     'src/components/ScreenHeaderButton.tsx',
@@ -531,6 +567,20 @@ for (const lang of ['vi', 'en']) {
   }
   const loading = tree => nodes(tree).some(n => n.type === 'Loading');
   const hasResult = tree => nodes(tree).some(n => n.type === CheckinConclusion);
+  test(`${lang}: legacy results show the saved summary and only actual symptoms`, () => {
+    const h = resultHarness();
+    try {
+      const summary = 'Saved assessment with the reported symptoms and their course.';
+      const tree = h.settle({ ...h.props, readOnly: true,
+        triageSummary: { severity: 'medium', summary, recommendation: 'Saved advice', needsDoctor: false,
+          recordedSymptoms: ['Đầy hơi', 'Khó tiêu'] },
+        answers: [{ step: 'onset', question: 'Khi nào?', answer: 'Từ 1 đến dưới 3 ngày' }] });
+      const assessment = nodes(tree).find(n => n.props?.testID === 'checkin-legacy-summary');
+      assert.ok(assessment); assert.ok(text(assessment).includes(summary));
+      assert.ok(text(tree).includes('Đầy hơi, Khó tiêu'));
+      assert.ok(!text(tree).includes('Từ 1 đến dưới 3 ngày'));
+    } finally { h.cleanup(); }
+  });
   test(`${lang}: DoneScreen waits for the narrative recording and passes the free message to its renderer`, () => {
     const h = resultHarness();
     const value = { ...result, conclusionFormat: 'narrative', narrative: 'A personal message.\n\n- A useful action.', speechText: `A personal message. ${result.closeMessage} ${result.aiNotice}` };

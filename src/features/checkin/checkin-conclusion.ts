@@ -1,4 +1,44 @@
-import type { TriageSummaryView } from "./checkin.api";
+import type { CheckinSession, TriageAnswer, TriageSummaryView } from "./checkin.api";
+
+// Only symptom answers belong in this label. Timing, severity, and negative
+// warning-sign answers remain part of the assessment, not the symptom list.
+export function recordedCheckinSymptoms({
+  session, answers, isFine, translate, recordedSymptoms,
+}: {
+  session: CheckinSession | null;
+  answers?: TriageAnswer[];
+  isFine?: boolean;
+  translate?: (key: string) => string;
+  recordedSymptoms?: string[];
+}): string {
+  if (isFine) return translate?.('checkinSymptomsStable') || '';
+
+  const isSymptomAnswer = ({ step, question }: TriageAnswer) => {
+    if (step) return ['symptoms', 'associated', 'followup_detail'].includes(step)
+      || /^detail_.+_associated$/.test(step);
+    // Older clients saved question text without a step. Exclude other facts
+    // before checking symptom wording, since onset questions also say "khó chịu".
+    if (/khi nào|bao lâu|bắt đầu|từ lúc|thời điểm|mức độ|ở đâu|vùng nào|đỡ hơn|nặng hơn|thay đổi thế nào|diễn biến|dễ chịu|đã thử|đã làm|how long|when|where|severity|better|worse|progress|reliev/iu.test(question || '')) return false;
+    return /triệu chứng|symptom|khó chịu|biểu hiện|vấn đề/iu.test(question || '');
+  };
+  const source = Array.isArray(recordedSymptoms)
+    ? recordedSymptoms
+    : (answers?.length ? answers : session?.triage_messages || [])
+      .filter(isSymptomAnswer).map(answer => answer.answer);
+  const found: string[] = [];
+  const seen = new Set<string>();
+  for (const answer of source) {
+    for (const part of String(answer || '').split(/[,;\n]+/)) {
+      const value = part.normalize('NFC').trim();
+      const key = value.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+      const empty = /^(?:không(?: có)?(?: gì)?|không có gì thêm|không có triệu chứng mới|không có dấu hiệu nào|không rõ(?: nữa)?|không biết|không nhớ|khác|bình thường|none|no|nothing(?: else to add)?|unsure|unknown|not sure|normal)$/u.test(key);
+      if (key && !empty && !seen.has(key)) { seen.add(key); found.push(value); }
+    }
+  }
+  if (found.length) return found.join(', ');
+  return translate?.(session?.current_status === 'tired'
+    ? 'checkinSymptomsTired' : 'checkinSymptomsUrgentFallback') || '';
+}
 
 export type StructuredCheckinConclusion = TriageSummaryView & {
   conclusionVersion: 2;

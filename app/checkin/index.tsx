@@ -43,7 +43,7 @@ import { CheckinConclusion } from '../../src/features/checkin/CheckinConclusion'
 import { CheckinConclusionLoading } from '../../src/features/checkin/CheckinConclusionLoading';
 import { CheckinQuestionLoading } from '../../src/features/checkin/CheckinQuestionLoading';
 import { useCheckinQuestionViewport } from '../../src/features/checkin/useCheckinQuestionViewport';
-import { hasDisplayCheckinConclusion, checkinConclusionSpeech } from '../../src/features/checkin/checkin-conclusion';
+import { hasDisplayCheckinConclusion, checkinConclusionSpeech, recordedCheckinSymptoms } from '../../src/features/checkin/checkin-conclusion';
 import { formatTriageOptionLabel, getTriageOptionIcon } from '../../src/features/checkin/triage-option-display';
 import { type BodyLocation } from '../../src/features/checkin/location-details';
 import { CheckinLocationFlow } from '../../src/features/checkin/CheckinLocationFlow';
@@ -430,6 +430,7 @@ function CheckinScreen() {
       if (result.isDone) {
         setTriageSummary({
           summary: result.summary || '',
+          recordedSymptoms: result.recordedSymptoms,
           severity: result.severity || 'medium',
           recommendation: result.recommendation || '',
           needsDoctor: result.needsDoctor ?? false,
@@ -1233,69 +1234,9 @@ function extractRecordedSymptoms(
   answers?: TriageAnswer[],
   isFine?: boolean,
   translate?: (key: string) => string,
+  recordedSymptoms?: string[],
 ): string {
-  if (isFine) {
-    return translate?.('checkinSymptomsStable') || '';
-  }
-
-  const foundSymptoms: string[] = [];
-
-  if (answers && answers.length > 0) {
-    for (const a of answers) {
-      const q = (a.question || '').toLowerCase();
-      if (
-        q.includes('triệu chứng') ||
-        q.includes('symptom') ||
-        q.includes('khó chịu') ||
-        q.includes('vấn đề')
-      ) {
-        const parts = (a.answer || '').split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
-        for (const p of parts) {
-          const lower = p.toLowerCase();
-          if (
-            !foundSymptoms.includes(p) &&
-            !lower.includes('không có gì') &&
-            !lower.includes('không rõ') &&
-            !lower.includes('bình thường')
-          ) {
-            foundSymptoms.push(p);
-          }
-        }
-      }
-    }
-  }
-
-  if (foundSymptoms.length === 0 && session?.triage_messages) {
-    for (const m of session.triage_messages) {
-      const q = (m.question || '').toLowerCase();
-      if (q.includes('triệu chứng') || q.includes('symptom') || q.includes('khó chịu')) {
-        const parts = (m.answer || '').split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
-        for (const p of parts) {
-          const lower = p.toLowerCase();
-          if (
-            !foundSymptoms.includes(p) &&
-            !lower.includes('không có gì') &&
-            !lower.includes('không rõ')
-          ) {
-            foundSymptoms.push(p);
-          }
-        }
-      }
-    }
-  }
-
-  if (foundSymptoms.length > 0) {
-    return stripEmojis(foundSymptoms.join(', '));
-  }
-
-  if (session?.current_status === 'tired') {
-    return translate?.('checkinSymptomsTired') || '';
-  }
-  if (session?.current_status === 'very_tired') {
-    return translate?.('checkinSymptomsUrgentFallback') || '';
-  }
-
-  return translate?.('checkinSymptomsUrgentFallback') || '';
+  return stripEmojis(recordedCheckinSymptoms({ session, answers, isFine, translate, recordedSymptoms }));
 }
 
 function CheckinHeroBadge({
@@ -1419,7 +1360,7 @@ function DoneScreen({
     ? 'information-circle'
     : 'checkmark-circle';
 
-  const recordedSymptoms = extractRecordedSymptoms(session, answers, isFine, t);
+  const recordedSymptoms = extractRecordedSymptoms(session, answers, isFine, t, triageSummary?.recordedSymptoms);
 
   const cleanAdvice = stripEmojis(
     isEmergency
@@ -1654,6 +1595,16 @@ function DoneScreen({
 
           {structuredConclusion ? <CheckinConclusion result={structuredConclusion}
             onConnectExpert={connectConclusionExpert} expertAvailable={isExpertConsultationEnabled} readOnly={readOnly} /> : <>
+          {!isFine && !isEmergency && shouldReadSummary ? (
+            <View testID="checkin-legacy-summary" style={{ gap: 6 }}>
+              <Text allowFontScaling style={[{ fontSize: 15, fontWeight: '700', color: '#0F172A' }, practiceText]}>
+                {t('checkinResultSummaryLabel')}
+              </Text>
+              <Text allowFontScaling style={[{ fontSize: 14, color: '#334155', lineHeight: 22 }, practiceText]}>
+                {cleanSummary}
+              </Text>
+            </View>
+          ) : null}
           {/* Triệu chứng đã ghi nhận */}
           <GuideTarget step="checkin.result_symptoms" enabled={practice}>
           <View style={{ gap: 6 }}>
