@@ -1,12 +1,11 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Image,
-  Modal,
   Pressable,
   StyleSheet,
   View,
+  type ImageSourcePropType,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from 'expo-router';
@@ -23,7 +22,8 @@ import { MissionsTabSkeleton } from '../../../src/components/state/MainScreenSke
 import { useMissionActions } from '../../../src/features/missions/useMissionActions';
 import { MissionProgressBar } from '../../../src/features/missions/MissionProgressBar';
 import type { Mission } from '../../../src/features/missions/missions.store';
-import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
+import { useThemeColors } from '../../../src/hooks/useThemeColors';
+import { getBottomTabBarHeight } from '../../../src/styles';
 
 type MissionKey = 'daily_checkin' | 'log_bp' | 'log_glucose' | 'log_water' | 'log_weight';
 
@@ -46,50 +46,38 @@ const MISSION_ROUTES: Record<MissionKey, string> = {
 const MISSION_CONFIG: Record<
   MissionKey,
   {
-    order: number;
-    badgeBg: string;
-    badgeColor: string;
+    image: ImageSourcePropType;
     defaultGoal: number;
     titleKey: string;
     descKey: string;
   }
 > = {
   daily_checkin: {
-    order: 1,
-    badgeBg: '#dcfce7',
-    badgeColor: '#059669',
+    image: require('../../../assets/images/missions/icons-v2/checkin-v2.png'),
     defaultGoal: 1,
     titleKey: 'dailyCheckIn',
     descKey: 'dailyCheckInDesc',
   },
   log_bp: {
-    order: 2,
-    badgeBg: '#ffe4e6',
-    badgeColor: '#f43f5e',
+    image: require('../../../assets/images/missions/icons-v2/blood-pressure-v2.png'),
     defaultGoal: 2,
     titleKey: 'measureBP',
     descKey: 'measureBPDesc',
   },
   log_glucose: {
-    order: 3,
-    badgeBg: '#ede9fe',
-    badgeColor: '#6366f1',
+    image: require('../../../assets/images/missions/icons-v2/glucose-v2.png'),
     defaultGoal: 2,
     titleKey: 'measureGlucose',
     descKey: 'measureGlucoseDesc',
   },
   log_water: {
-    order: 4,
-    badgeBg: '#e0f2fe',
-    badgeColor: '#0284c7',
+    image: require('../../../assets/images/missions/icons-v2/water-v2.png'),
     defaultGoal: 4,
     titleKey: 'waterIntake',
     descKey: 'waterIntakeDesc',
   },
   log_weight: {
-    order: 5,
-    badgeBg: '#fef3c7',
-    badgeColor: '#d97706',
+    image: require('../../../assets/images/missions/icons-v2/weight-v2.png'),
     defaultGoal: 1,
     titleKey: 'weightMission',
     descKey: 'weightMissionDesc',
@@ -113,20 +101,15 @@ export default function MissionsScreen() {
   const { t } = useTranslation('missions');
   const { t: tc } = useTranslation('common');
   const insets = useSafeAreaInsets();
-  const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
-
-  const [tooltipMission, setTooltipMission] = useState<MissionItem | null>(null);
+  const theme = useThemeColors();
+  const { colors } = theme;
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [refreshing, setRefreshing] = useState(false);
+  const [completedExpanded, setCompletedExpanded] = useState(false);
+  const [helpExpanded, setHelpExpanded] = useState(false);
 
-  const lastFetchRef = useRef(0);
   useFocusEffect(
     useCallback(() => {
-      const now = Date.now();
-      if (now - lastFetchRef.current < 3000) {
-        return;
-      }
-      lastFetchRef.current = now;
       const controller = new AbortController();
       fetchMissions(controller.signal);
       return () => controller.abort();
@@ -135,418 +118,244 @@ export default function MissionsScreen() {
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    const controller = new AbortController();
-    await fetchMissions(controller.signal);
-    setRefreshing(false);
+    try {
+      await fetchMissions();
+    } finally {
+      setRefreshing(false);
+    }
   }, [fetchMissions]);
 
   const orderedMissions: MissionItem[] = useMemo(() => {
-    const map = new Map<string, Mission>();
-    missions.forEach((m) => {
-      map.set(m.missionKey, m);
-    });
-
-    return MISSION_ORDER.map((key) => {
+    const map = new Map<string, Mission>(missions.map((mission) => [mission.missionKey, mission]));
+    // A missing server task is not an unstarted task. Keep the empty state honest.
+    return MISSION_ORDER.flatMap((key) => {
       const existing = map.get(key);
-      const conf = MISSION_CONFIG[key];
-      return {
-        id: existing?.id || key,
+      if (!existing) {
+        return [];
+      }
+      const config = MISSION_CONFIG[key];
+      const goal = Number.isFinite(existing.goal) && existing.goal > 0
+        ? existing.goal : config.defaultGoal;
+      const progress = Number.isFinite(existing.progress)
+        ? Math.min(goal, Math.max(0, existing.progress)) : 0;
+      return [{
+        id: existing.id,
         missionKey: key,
-        title: existing?.title || t(conf.titleKey as any),
-        description: existing?.description || t(conf.descKey as any),
-        progress: existing ? existing.progress : 0,
-        goal: existing?.goal && existing.goal > 0 ? existing.goal : conf.defaultGoal,
-        status: existing?.status || 'active',
-        config: conf,
-      };
+        title: existing.title || t(config.titleKey as any),
+        description: existing.description || t(config.descKey as any),
+        progress,
+        goal,
+        status: existing.status === 'completed' || progress >= goal ? 'completed' : 'active',
+        config,
+      } satisfies MissionItem];
     });
   }, [missions, t]);
+  const remaining = orderedMissions.filter((item) => item.status !== 'completed');
+  const completed = orderedMissions.filter((item) => item.status === 'completed');
+  const showInitialSkeleton = (status === 'idle' || status === 'loading') && missions.length === 0;
+  const showError = errorState === 'no-data' && missions.length === 0 && !showInitialSkeleton;
 
-  const showInitialSkeleton = status === 'loading' && missions.length === 0;
+  const renderGroup = (items: MissionItem[], group: 'remaining' | 'completed') => (
+    <View style={styles.taskGroup} testID={`missions-${group}`}>
+      {items.map((item, index) => {
+        const done = item.status === 'completed';
+        const progressLabel = done ? t('statusCompleted') : item.goal === 1 && item.progress === 0
+          ? t('singlePending') : t('recordedProgress', { progress: item.progress, goal: item.goal });
+        return (
+          <React.Fragment key={item.missionKey}>
+            {index > 0 ? <View style={styles.separator} /> : null}
+            <Pressable
+              testID={`mission-${item.missionKey}`}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.title}. ${progressLabel}`}
+              accessibilityHint={t('openMission')}
+              onPress={() => router.push(MISSION_ROUTES[item.missionKey] as any)}
+              style={({ pressed }) => [styles.taskRow, pressed && styles.pressedRow]}
+            >
+              <View style={styles.missionArtwork}>
+                <Image source={item.config.image} style={styles.missionImage}
+                  resizeMode="contain" resizeMethod="resize" accessible={false} />
+              </View>
+              <View style={styles.taskContent}>
+                <Text allowFontScaling style={styles.taskTitle}>{item.title}</Text>
+                <Text allowFontScaling style={[styles.taskProgress, done && styles.completedText]}>
+                  {progressLabel}
+                </Text>
+                {!done && item.progress > 0 ? (
+                  <MissionProgressBar title={item.title} progress={item.progress}
+                    goal={item.goal} completed={false} />
+                ) : null}
+              </View>
+              <View style={[styles.rowAction, done && styles.completedAction]}>
+                <Ionicons name={done ? 'checkmark' : 'chevron-forward'} size={20}
+                  color={colors.primaryText} />
+              </View>
+            </Pressable>
+          </React.Fragment>
+        );
+      })}
+    </View>
+  );
 
   return (
     <Screen>
-      <View style={styles.root}>
+      <View style={[styles.root, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <ScreenBackButton style={styles.backButton} iconColor={colors.textPrimary} onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/home' as any);
+            }
+          }} />
+          <Text allowFontScaling accessibilityRole="header" style={styles.headerTitle}>
+            {t('missionList')}
+          </Text>
+          <View style={styles.headerSpacer} />
+        </View>
         {errorState === 'remote-failed' ? <OfflineBanner onRetry={() => fetchMissions()} /> : null}
-        {errorState === 'no-data' && missions.length === 0 && !showInitialSkeleton ? (
-          <StateError onRetry={() => fetchMissions()} message={tc('cannotLoadData')} />
-        ) : null}
-
-        {/* Top Header Background Illustration */}
-        <Image
-          source={require('../../../assets/images/missions/header_cross_heart.png')}
-          style={[styles.headerArt, { top: insets.top - 6 }]}
-          resizeMode="contain"
-        />
-
         <RippleRefreshScrollView
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          contentContainerStyle={[
-            styles.scrollContent,
-            {
-              paddingTop: insets.top + 12,
-              paddingBottom: insets.bottom + 90,
-            },
-          ]}
+          contentContainerStyle={[styles.scrollContent, {
+            paddingBottom: getBottomTabBarHeight(insets.bottom) + 24,
+          }]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header Title Section */}
-          <Animated.View entering={FadeIn.duration(350)} style={styles.headerSection}>
-            <View style={styles.headerTopRow}>
-              <ScreenBackButton
-                onPress={() => {
-                  if (router.canGoBack()) {
-                    router.back();
-                  } else {
-                    router.replace('/home' as any);
-                  }
-                }}
-                style={styles.backButton}
-              />
-              <View style={styles.headerTitleWrap}>
-                <Text style={styles.headerTitle}>{t('missionList')}</Text>
-              </View>
-            </View>
-          </Animated.View>
-
-          {showInitialSkeleton ? (
-            <MissionsTabSkeleton />
+          {showInitialSkeleton ? <MissionsTabSkeleton /> : showError ? (
+            <StateError onRetry={() => fetchMissions()} message={tc('cannotLoadData')} />
+          ) : orderedMissions.length === 0 ? (
+            <StateEmpty message={t('noMissionsToday')} />
           ) : (
             <>
-              {status === 'success' && missions.length === 0 ? <StateEmpty /> : null}
-
-              {/* Missions sit directly on the screen background. */}
-              {orderedMissions.map((item, index) => {
-                const isCompleted = item.status === 'completed' || item.progress >= item.goal;
-                const isInProgress = item.progress > 0 && !isCompleted;
-
-                return (
-                  <Animated.View
-                    key={item.missionKey}
-                    entering={FadeInDown.delay(100 + index * 60).duration(400)}
-                  >
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.card,
-                        pressed && { opacity: 0.88, transform: [{ scale: 0.99 }] },
-                      ]}
-                      onPress={() => {
-                        const route = MISSION_ROUTES[item.missionKey];
-                        if (route) {
-                          router.push(route as any);
-                        }
-                      }}
-                    >
-                      {/* Top-Right Info Button */}
-                      <Pressable
-                        style={styles.infoBtn}
-                        hitSlop={12}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          setTooltipMission(item);
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel={tc('info')}
-                      >
-                        <Ionicons
-                          name="information-circle-outline"
-                          size={22}
-                          color="#64748b"
-                        />
-                      </Pressable>
-
-                      {/* Card Content */}
-                      <View style={styles.cardContent}>
-                        {/* Title Row */}
-                        <View style={styles.cardHeaderRow}>
-                          <View
-                            style={[
-                              styles.badgeCircle,
-                              { backgroundColor: item.config.badgeBg },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.badgeNumber,
-                                { color: item.config.badgeColor },
-                              ]}
-                            >
-                              {item.config.order}
-                            </Text>
-                          </View>
-                          <View style={styles.cardTitleWrap}>
-                            <Text style={styles.cardTitle}>{item.title}</Text>
-                          </View>
-                        </View>
-
-                        <MissionProgressBar
-                          title={item.title}
-                          progress={item.progress}
-                          goal={item.goal}
-                          completed={isCompleted}
-                        />
-
-                        {/* Progress count and status stay visible below the bar. */}
-                        <View style={styles.statusRow}>
-                          <Text style={styles.progressText}>
-                            {item.progress}/{item.goal}
-                          </Text>
-                          <View
-                            style={styles.statusPill}
-                          >
-                            <Ionicons
-                              name={
-                                isCompleted
-                                  ? 'checkmark-circle'
-                                  : isInProgress
-                                  ? 'time-outline'
-                                  : 'ellipse-outline'
-                              }
-                              size={13}
-                              color={
-                                isCompleted
-                                  ? '#16a34a'
-                                  : isInProgress
-                                  ? '#ca8a04'
-                                  : '#475569'
-                              }
-                            />
-                            <Text
-                              style={[
-                                styles.statusText,
-                                isCompleted
-                                  ? styles.statusTextCompleted
-                                  : isInProgress
-                                  ? styles.statusTextActive
-                                  : styles.statusTextNotStarted,
-                              ]}
-                            >
-                              {isCompleted
-                                ? t('statusCompleted')
-                                : isInProgress
-                                ? t('statusInProgress')
-                                : t('statusNotStarted')}
-                            </Text>
-                          </View>
-                        </View>
+              <View style={styles.dailySummary} testID="missions-summary">
+                <View style={styles.summaryHeading}>
+                  <Text allowFontScaling accessibilityRole="header" style={styles.todayTitle}>
+                    {t('today')}
+                  </Text>
+                  <Text allowFontScaling style={styles.summaryCount}>
+                    {t('completionSummary', { completed: completed.length, total: orderedMissions.length })}
+                  </Text>
+                </View>
+                <MissionProgressBar title={t('missionList')} progress={completed.length}
+                  goal={orderedMissions.length} completed={remaining.length === 0} />
+              </View>
+              {remaining.length > 0 ? (
+                <View style={styles.section}>
+                  <Text allowFontScaling accessibilityRole="header" style={styles.sectionTitle}>
+                    {t('remainingTitle')}
+                  </Text>
+                  {renderGroup(remaining, 'remaining')}
+                </View>
+              ) : null}
+              {completed.length > 0 ? (
+                <View style={styles.section}>
+                  <Pressable testID="missions-completed-toggle" accessibilityRole="button"
+                    accessibilityState={{ expanded: completedExpanded }}
+                    onPress={() => setCompletedExpanded((value) => !value)}
+                    style={({ pressed }) => [styles.disclosure, pressed && styles.pressedDisclosure]}>
+                    <View style={styles.disclosureLabel}>
+                      <Ionicons name="checkmark-circle-outline" size={22} color={colors.primaryText} />
+                      <Text allowFontScaling style={styles.sectionTitle}>
+                        {t('completedSection', { count: completed.length })}
+                      </Text>
+                    </View>
+                    <Ionicons name={completedExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={20} color={colors.textSecondary} />
+                  </Pressable>
+                  {completedExpanded ? renderGroup(completed, 'completed') : null}
+                </View>
+              ) : null}
+              <View style={styles.helpSection}>
+                <Pressable testID="missions-help-toggle" accessibilityRole="button"
+                  accessibilityState={{ expanded: helpExpanded }}
+                  onPress={() => setHelpExpanded((value) => !value)}
+                  style={({ pressed }) => [styles.disclosure, pressed && styles.pressedDisclosure]}>
+                  <View style={styles.disclosureLabel}>
+                    <Ionicons name="information-circle-outline" size={21} color={colors.textSecondary} />
+                    <Text allowFontScaling style={styles.helpTitle}>{t('howItWorks')}</Text>
+                  </View>
+                  <Ionicons name={helpExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={18} color={colors.textSecondary} />
+                </Pressable>
+                {helpExpanded ? (
+                  <View testID="missions-help" style={styles.helpContent}>
+                    <Text allowFontScaling style={styles.helpText}>{t('instructions')}</Text>
+                    {orderedMissions.map((item) => (
+                      <View key={item.missionKey} style={styles.helpItem}>
+                        <Text allowFontScaling style={styles.helpItemTitle}>{item.title}</Text>
+                        <Text allowFontScaling style={styles.helpText}>{item.description}</Text>
                       </View>
-                    </Pressable>
-                  </Animated.View>
-                );
-              })}
+                    ))}
+                  </View>
+                ) : null}
+              </View>
             </>
           )}
         </RippleRefreshScrollView>
-
-        {/* Info Modal */}
-        <Modal
-          visible={!!tooltipMission}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setTooltipMission(null)}
-        >
-          <Pressable style={styles.modalOverlay} onPress={() => setTooltipMission(null)}>
-            <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.modalHeader}>
-                <View
-                  style={[
-                    styles.modalBadge,
-                    { backgroundColor: tooltipMission?.config.badgeBg },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.modalBadgeText,
-                      { color: tooltipMission?.config.badgeColor },
-                    ]}
-                  >
-                    {tooltipMission?.config.order}
-                  </Text>
-                </View>
-                <Text style={styles.modalTitle}>{tooltipMission?.title}</Text>
-                <Pressable onPress={() => setTooltipMission(null)} hitSlop={12}>
-                  <Ionicons name="close" size={22} color="#64748b" />
-                </Pressable>
-              </View>
-              <Text style={styles.modalDesc}>{tooltipMission?.description}</Text>
-            </Pressable>
-          </Pressable>
-        </Modal>
       </View>
     </Screen>
   );
 }
 
-function createStyles(_typography: ReturnType<typeof useScaledTypography>) {
+function createStyles({ colors, isDark }: ReturnType<typeof useThemeColors>) {
   return StyleSheet.create({
-    root: {
-      flex: 1,
-      backgroundColor: '#f3fbf8',
-      position: 'relative',
+    root: { flex: 1, backgroundColor: isDark ? colors.background : '#F2F7F4' },
+    header: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      paddingHorizontal: 16, paddingTop: 8, paddingBottom: 14,
     },
-    headerArt: {
-      position: 'absolute',
-      right: 0,
-      width: 175,
-      height: 115,
-      zIndex: 1,
-      pointerEvents: 'none',
-      opacity: 0.9,
-    },
-    scrollContent: {
-      paddingHorizontal: 16,
-      gap: 14,
-    },
-
-    // Header
-    headerSection: {
-      marginBottom: 6,
-      zIndex: 2,
-    },
-    headerTopRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 12,
-    },
-    backButton: {
-      marginTop: 2,
-    },
-    headerTitleWrap: {
-      flex: 1,
-      paddingRight: 60,
-    },
+    backButton: { width: 44, height: 44 },
+    headerSpacer: { width: 44 },
     headerTitle: {
-      fontSize: 25,
-      fontWeight: '800',
-      color: '#0f3e36',
-      letterSpacing: -0.3,
+      flex: 1, textAlign: 'center', fontSize: 24, fontWeight: '700', color: colors.textPrimary,
     },
-
-    // Mission rows
-    card: {
-      backgroundColor: 'transparent',
-      paddingVertical: 16,
-      paddingHorizontal: 8,
-      position: 'relative',
+    scrollContent: { paddingHorizontal: 16, paddingTop: 12, gap: 24 },
+    dailySummary: { paddingHorizontal: 4, paddingBottom: 4 },
+    summaryHeading: {
+      flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline',
+      justifyContent: 'space-between', columnGap: 16, rowGap: 4,
     },
-    infoBtn: {
-      position: 'absolute',
-      right: 8,
-      top: 14,
-      zIndex: 6,
+    todayTitle: { fontSize: 22, fontWeight: '700', color: colors.textPrimary },
+    summaryCount: { fontSize: 14, fontWeight: '500', color: colors.primaryText, flexShrink: 1 },
+    section: { gap: 12 },
+    sectionTitle: { fontSize: 16, fontWeight: '600', color: colors.textPrimary, flexShrink: 1 },
+    taskGroup: {
+      borderRadius: 24, overflow: 'hidden', borderWidth: 1,
+      borderColor: isDark ? colors.border : '#E0EAE4',
+      backgroundColor: isDark ? colors.surface : '#FDFFFE',
     },
-    cardContent: {
-      zIndex: 2,
+    taskRow: {
+      minHeight: 104, flexDirection: 'row', alignItems: 'center',
+      gap: 12, paddingHorizontal: 16, paddingVertical: 20,
     },
-    cardHeaderRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      paddingRight: 32,
+    pressedRow: { backgroundColor: colors.primaryLight },
+    separator: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginLeft: 84, marginRight: 16 },
+    missionArtwork: {
+      width: 56, height: 56, borderRadius: 16, flexShrink: 0,
+      backgroundColor: isDark ? colors.surfaceMuted : '#EFF6F1',
+      alignItems: 'center', justifyContent: 'center',
     },
-    badgeCircle: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
+    missionImage: { width: 52, height: 52 },
+    taskContent: { flex: 1, minWidth: 0, gap: 4 },
+    taskTitle: { fontSize: 17, fontWeight: '600', color: colors.textPrimary },
+    taskProgress: { fontSize: 14, color: colors.textSecondary },
+    completedText: { color: colors.primaryText },
+    rowAction: {
+      width: 28, height: 28, flexShrink: 0, alignItems: 'center', justifyContent: 'center',
     },
-    badgeNumber: {
-      fontSize: 18,
-      fontWeight: '800',
+    completedAction: { borderRadius: 14, backgroundColor: colors.primaryLight },
+    disclosure: {
+      minHeight: 48, flexDirection: 'row', alignItems: 'center',
+      justifyContent: 'space-between', gap: 12, paddingVertical: 8, paddingHorizontal: 4,
     },
-    cardTitleWrap: {
-      flex: 1,
-      gap: 2,
-    },
-    cardTitle: {
-      fontSize: 16.5,
-      fontWeight: '700',
-      color: '#0f172a',
-    },
-    progressText: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: '#0f172a',
-      minWidth: 28,
-      textAlign: 'right',
-    },
-
-    // Status Row
-    statusRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginTop: 10,
-    },
-    statusPill: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 5,
-    },
-    statusText: {
-      fontSize: 12,
-      fontWeight: '500',
-    },
-    statusTextNotStarted: {
-      color: '#475569',
-    },
-    statusTextActive: {
-      color: '#a16207',
-      fontWeight: '600',
-    },
-    statusTextCompleted: {
-      color: '#15803d',
-      fontWeight: '600',
-    },
-
-    // Modal
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.45)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 24,
-    },
-    modalCard: {
-      width: '100%',
-      backgroundColor: '#ffffff',
-      borderRadius: 20,
-      padding: 20,
-      gap: 12,
-      shadowColor: '#000',
-      shadowOpacity: 0.15,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 6,
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-    },
-    modalBadge: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    modalBadgeText: {
-      fontSize: 15,
-      fontWeight: '800',
-    },
-    modalTitle: {
-      flex: 1,
-      fontSize: 17,
-      fontWeight: '700',
-      color: '#0f172a',
-    },
-    modalDesc: {
-      fontSize: 14,
-      color: '#475569',
-      lineHeight: 20,
-    },
+    disclosureLabel: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    pressedDisclosure: { opacity: 0.65 },
+    helpSection: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: 8 },
+    helpTitle: { fontSize: 15, fontWeight: '500', color: colors.textSecondary, flexShrink: 1 },
+    helpContent: { paddingHorizontal: 4, paddingTop: 8, gap: 16 },
+    helpText: { fontSize: 14, color: colors.textSecondary },
+    helpItem: { gap: 2 },
+    helpItemTitle: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
   });
 }

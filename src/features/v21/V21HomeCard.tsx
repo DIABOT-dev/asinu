@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { AppState, Pressable, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useGuardedRouter as useRouter } from "../../hooks/useGuardedRouter";
@@ -11,12 +11,16 @@ import { subscribeHealthAction } from "../../lib/health-action-events";
 import { v21Api, CoinToday, V21Flags } from "./v21.api";
 import { ApiError } from "../../lib/apiClient";
 
-export function V21HomeCard({ iconOnly = false }: { iconOnly?: boolean } = {}) {
+export function V21HomeCard({ iconOnly = false, renderShortcuts }: {
+  iconOnly?: boolean;
+  renderShortcuts?: (access: { medicationEnabled: boolean; coinsEnabled: boolean }) => ReactNode;
+} = {}) {
   const { t } = useTranslation("v21"),
     { colors } = useThemeColors(),
     router = useRouter();
   const user = useAuthStore((s) => s.profile?.id);
   const token = useAuthStore((s) => s.token);
+  const accessOnly = Boolean(renderShortcuts);
   const [owner, setOwner] = useState<string | null>(null);
   const [flags, setFlags] = useState<V21Flags | null>(null),
     [today, setToday] = useState<CoinToday | null>(null);
@@ -40,7 +44,7 @@ export function V21HomeCard({ iconOnly = false }: { iconOnly?: boolean } = {}) {
           if (!active || AppState.currentState !== 'active') return;
           setFlags(f);
           setOwner(String(user));
-          if (!f.coins) return;
+          if (!f.coins || accessOnly) return;
           const data = await v21Api.coins();
           if (!active) return;
           setToday(data);
@@ -71,8 +75,12 @@ export function V21HomeCard({ iconOnly = false }: { iconOnly?: boolean } = {}) {
         clearInterval(timer);
         subscription.remove();
       };
-    }, [user, token])
+    }, [user, token, accessOnly])
   );
+  if (renderShortcuts) return renderShortcuts({
+    medicationEnabled: owner === String(user) && Boolean(flags?.medication && flags.patients?.length),
+    coinsEnabled: owner === String(user) && Boolean(flags?.coins),
+  });
   if (owner !== String(user)) return null;
   if (!flags?.coins && !flags?.patients?.length) return null;
   const dailyTasks =

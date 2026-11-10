@@ -281,6 +281,8 @@ PODS:
     - ExpoModulesCore
   - ExpoSpeech (57.0.3):
     - ExpoModulesCore
+  - ExpoSpeechRecognition (57.1.0):
+    - ExpoModulesCore
   - ExpoSplashScreen (57.0.9):
     - ExpoModulesCore
   - ExpoSymbols (57.0.3):
@@ -2705,6 +2707,7 @@ DEPENDENCIES:
   - ExpoRouter (from `../node_modules/expo-router/ios`)
   - ExpoSecureStore (from `../node_modules/expo-secure-store/ios`)
   - ExpoSpeech (from `../node_modules/expo-speech/ios`)
+  - ExpoSpeechRecognition (from `../node_modules/expo-speech-recognition/ios`)
   - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
   - ExpoSymbols (from `../node_modules/expo-symbols/ios`)
   - ExpoSystemUI (from `../node_modules/expo-system-ui/ios`)
@@ -2903,6 +2906,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-secure-store/ios"
   ExpoSpeech:
     :path: "../node_modules/expo-speech/ios"
+  ExpoSpeechRecognition:
+    :path: "../node_modules/expo-speech-recognition/ios"
   ExpoSplashScreen:
     :path: "../node_modules/expo-splash-screen/ios"
   ExpoSymbols:
@@ -3136,6 +3141,7 @@ SPEC CHECKSUMS:
   ExpoRouter: 8f978c2ecb68bfb1f2eeff765ba2ddd8d66c54e0
   ExpoSecureStore: ff1fd5e073957417ba8f9dec0bebcbd55a60e747
   ExpoSpeech: ab83f97ede99c65a23fd4c228122deadc430de01
+  ExpoSpeechRecognition: fd92a178301c067e3a4919396820a8cd5ce7043f
   ExpoSplashScreen: e771da4f26d550ea4fd067d8fb942657e47bb846
   ExpoSymbols: 37a3a6e5847edb08b83a5ee04d3b46525e205f00
   ExpoSystemUI: 05ee8d4aaba1b6af330f3621e19b39ff9f21e718

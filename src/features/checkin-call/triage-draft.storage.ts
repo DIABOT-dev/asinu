@@ -40,4 +40,10 @@ export const triageDraftStorage = {
   }, null),
   setItem: (key: string | null, value: string) => enqueue(key, k => SecureStore.setItemAsync(k, value), undefined),
   removeItem: (key: string | null) => enqueue(key, k => SecureStore.deleteItemAsync(k), undefined),
+  removeItemIf: (key: string | null, matches: (raw: string) => boolean) => enqueue(key, async k => {
+    const raw = await SecureStore.getItemAsync(k);
+    if (raw && matches(raw)) {
+      await SecureStore.deleteItemAsync(k);
+    }
+  }, undefined),
 };

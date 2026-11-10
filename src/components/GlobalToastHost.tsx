@@ -2,6 +2,7 @@ import { useCallback, useId, useLayoutEffect } from 'react';
 import { create } from 'zustand';
 import { useToastStore } from '../stores/toast.store';
 import { Toast } from './Toast';
+import { useCheckinPresentationBlocked } from '../hooks/useCheckinPresentation';
 
 type ToastHosts = {
   modalHosts: string[];
@@ -19,6 +20,7 @@ const useToastHosts = create<ToastHosts>((set) => ({
 }));
 
 function ToastPresentation() {
+  const checkinBlocked = useCheckinPresentationBlocked();
   const { toastId, visible, message, type, duration, lastShownAt, hide } = useToastStore();
   const handleHide = useCallback(() => hide(toastId), [hide, toastId]);
   // Switching between modal and root must not restart the toast's lifetime.
@@ -26,7 +28,7 @@ function ToastPresentation() {
   return (
     <Toast
       key={toastId}
-      visible={visible}
+      visible={visible && !checkinBlocked}
       message={message}
       type={type}
       duration={remaining}

@@ -51,7 +51,7 @@
   "journalSubtitle": "Review your daily check-in status",
   "journalPreviousMonth": "View previous month",
   "journalNextMonth": "View next month",
-  "journalMonthLabel": "Month {{month}}/{{year}}",
+  "journalMonthLabel": "{{month}} {{year}}",
   "journalSummaryAttention": "You felt well on {{fine}} days and needed attention on {{attention}} days.",
   "journalSummaryFine": "You reported feeling well on {{fine}} days this month.",
   "journalLatestStatus": "Latest status: {{status}}",
@@ -117,5 +117,6 @@
   "earlyCallPerson": "Call {{name}}",
   "earlyConsult": "Consult specialist",
   "earlyRetry": "Try again",
-  "earlyOpen": "View your recent health"
+  "earlyOpen": "View your recent health",
+  "journalFutureDayAccessibility": "Day {{day}}, upcoming date."
 }

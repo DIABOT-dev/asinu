@@ -12,6 +12,12 @@
     "settingsFailed": "Chưa mở được quyền cuộc gọi. Vui lòng thử lại."
   },
   "personalization": {
+    "screenTitle": "Cá nhân hoá tổng đài",
+    "sections": {
+      "permissions": "Cấp quyền",
+      "address": "Xưng hô",
+      "weather": "Khu vực thời tiết"
+    },
     "open": "Cá nhân hóa lời nhắc cuộc gọi",
     "title": "Lời nhắc dành cho bạn",
     "description": "Lời giới thiệu Asinu và cách xưng hô phù hợp. Các lựa chọn dưới đây chỉ thay đổi lời thoại, không đổi lịch gọi hay quyền của gói.",
@@ -43,20 +49,26 @@
       "hue": "Huế"
     },
     "useLocation": "Dùng khu vực vị trí hiện tại",
-    "locationSelected": "Đã chọn khu vực gần đúng từ vị trí hiện tại. Bạn có thể lấy lại khi đổi khu vực.",
+    "deviceRegion": "Khu vực từ vị trí hiện tại",
+    "areaNameLoading": "Đang xác định tên khu vực…",
+    "areaNameIssues": {
+      "permission": "Đã lưu vị trí. Cho phép vị trí để xem tên khu vực.",
+      "inactive": "Đã lưu vị trí. Tên khu vực sẽ được tra lại khi mở app.",
+      "timeout": "Đã lưu vị trí. Tra tên khu vực đang chậm, bạn thử lại nhé.",
+      "noAddress": "Đã lưu vị trí nhưng chưa tìm thấy tên địa phương. Bạn có thể chọn khu vực bên dưới.",
+      "unavailable": "Đã lưu vị trí. Dịch vụ tra tên khu vực chưa phản hồi, bạn thử lại nhé."
+    },
+    "retryAreaName": "Thử lại tên khu vực",
     "locationDenied": "Bạn chưa cho phép vị trí. Có thể chọn khu vực thủ công hoặc tắt lời nhắc thời tiết; check-in vẫn hoạt động.",
     "locationFailed": "Chưa lấy được vị trí. Hãy thử lại hoặc chọn khu vực thủ công.",
-    "chooseRegion": "Chọn khu vực trước khi lưu lời nhắc thời tiết.",
+    "chooseRegion": "Chọn khu vực để bật lời nhắc thời tiết.",
     "weatherCredit": "Dự báo từ MET Norway (CC BY 4.0). Asinu chuyển dự báo thành lời nhắc sinh hoạt chung, không phải tư vấn điều trị.",
     "weatherForecastAt": "Thời điểm dự báo: {{time}}",
-    "weatherSource": "Xem nguồn và giấy phép dữ liệu thời tiết",
-    "linkFailed": "Chưa mở được đường dẫn. Vui lòng thử lại.",
-    "privacy": "Không đọc tên hoặc số liệu sức khỏe trên màn hình khóa. Cuộc gọi không thu âm câu trả lời. Tắt các lựa chọn và lưu để ngừng cá nhân hóa ở các lời nhắc tiếp theo.",
     "consentTitle": "Cho phép cá nhân hóa lời nhắc?",
     "voiceConsent": "Khi bật, Asinu dùng thông tin bạn đã chọn để tạo lời nhắc trong app. Chỉ văn bản cần đọc được gửi tới dịch vụ giọng nói VieNeu, không gửi toàn bộ hồ sơ. Bạn có thể tắt và lưu lại bất cứ lúc nào. Không đọc thông tin riêng tư trên màn hình khóa.",
     "weatherConsent": "Asinu gửi tọa độ khu vực gần đúng qua backend tới MET Norway để lấy dự báo, không gửi tên hoặc dữ liệu sức khỏe. Không theo dõi vị trí trong nền. Bạn có thể chọn khu vực thủ công mà không cấp quyền GPS.",
     "agree": "Đồng ý cho lời nhắc này",
-    "save": "Lưu cách cá nhân hóa"
+    "saved": "Đã lưu cá nhân hoá tổng đài"
   },
   "openCheckin": "Mở check-in để cập nhật tình trạng",
   "urgentCallHeading": "Cảnh báo cần hỗ trợ ngay",
@@ -78,18 +90,14 @@
   "savedSettings": "Cấu hình đã lưu",
   "schedulePreview": "Nếu chưa check-in, Asinu bắt đầu liên hệ lúc {{time}} ({{timezone}}){{nextDay}}.",
   "nextDay": ", ngày tiếp theo",
-  "eligibleContacts": "Thứ tự người nhận đủ điều kiện hiện tại",
-  "eligibleContactFallback": "Người thân {{index}}",
-  "noEligibleContacts": "Hiện chưa có người thân đủ điều kiện nhận cảnh báo trong Vòng kết nối.",
-  "contactSetupHint": "Bạn vẫn có thể bật và lưu lịch gọi nhắc cho mình. Để Asinu báo người thân, hãy kết nối họ, cấp quyền nhận và xác nhận cảnh báo, rồi nhờ họ bật thông báo trong app.",
   "noContactsWarning": {
     "title": "Chưa có người thân nhận cảnh báo",
     "body": "Bạn vẫn có thể chỉnh cấu hình. Để bật lịch gọi, hãy kết nối ít nhất một người thân, cấp quyền nhận và xác nhận cảnh báo, rồi nhờ họ bật thông báo trong Asinu."
   },
   "manageCareCircle": "Thiết lập người thân trong Vòng kết nối",
-  "refreshContacts": "Kiểm tra lại người nhận",
   "urgentSettingsNotice": "Cảnh báo cấp bách gọi đồng thời, tiếp tục tối đa 30 phút. Nhận cuộc gọi chưa dừng các cuộc gọi khác; cần bấm Tôi nhận, sẽ kiểm tra. Sau khi nhận cuộc gọi cấp bách, có tối đa 2 phút để xác nhận.",
   "title": "Tổng đài check-in",
+  "settingsTitle": "Cấu hình tổng đài",
   "subtitle": "Asinu sẽ gọi khi bạn chưa check-in sau thời gian cho phép.",
   "enable": "Bật tổng đài check-in",
   "active": "Đang hoạt động",
@@ -437,7 +445,7 @@
       },
       "emergency": {
         "title": "Kết quả: cấp cứu",
-        "description": "Cảnh báo và nút gọi 115 chỉ để xem"
+        "description": "Hướng dẫn và cảnh báo cấp cứu"
       },
       "noCaregiver": {
         "title": "Kết quả: chưa có người thân",

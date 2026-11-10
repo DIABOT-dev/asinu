@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -21,9 +21,9 @@ import { colors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { GuideTarget } from '../features/guidance/GuidanceProvider';
 import { useCheckinPracticeEntry } from '../features/guidance/useCheckinPracticeEntry';
-
-// Cache session across hot reloads to prevent flash
-let _cachedSession: CheckinSession | null | undefined;
+import { useAuthStore } from '../features/auth/auth.store';
+import { isUnfinishedCheckin, readLocationDraft } from '../features/checkin/checkin-progress';
+import { cacheCheckinCardSession, checkinCardRevision, readCheckinCardCache, subscribeCheckinCardInvalidation } from '../features/checkin/checkin-card-cache';
 
 const checkinCardImages = {
   fine: require('../../assets/images/home/checkin-fine-background-v1.png'),
@@ -79,25 +79,38 @@ function CheckinCardBackground({ tone, isDark }: { tone: keyof typeof checkinCar
 
 export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
   const router = useRouter();
+  const accountId = useAuthStore(state => state.profile?.id);
   const practice = useCheckinPracticeEntry();
   const { t } = useTranslation('home');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography, isDark), [scaledTypography, isDark]);
-  const [session, setSession] = useState<CheckinSession | null | undefined>(_cachedSession);
+  const [session, setSession] = useState<CheckinSession | null | undefined>(() => readCheckinCardCache(accountId));
+  const [hasDraft, setHasDraft] = useState(false);
+  useEffect(() => subscribeCheckinCardInvalidation(accountId, () => {
+    setSession(undefined);
+    setHasDraft(false);
+  }), [accountId]);
 
   useFocusEffect(
     useCallback(() => {
+      let active = true;
+      const revision = checkinCardRevision(accountId);
+      setSession(readCheckinCardCache(accountId));
+      setHasDraft(false);
       checkinApi.getToday()
-        .then(res => {
-          _cachedSession = res.session;
+        .then(async res => {
+          if (!res.ok) throw new Error('CHECKIN_LOAD_FAILED');
+          const draft = await readLocationDraft(accountId, res.session);
+          if (!active || !cacheCheckinCardSession(accountId, res.session, revision)) return;
           setSession(res.session);
+          setHasDraft(!!draft);
         })
         .catch(() => {
-          _cachedSession = null;
-          setSession(null);
+          // Keep the last known progress; a failed refresh must not offer a reset.
         });
-    }, [])
+      return () => { active = false; };
+    }, [accountId])
   );
 
   if (session === undefined) {
@@ -105,7 +118,7 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
   }
 
   // Keep the quick positive check-in available alongside the immediate flow.
-  if (!session) {
+  if (!session && !hasDraft) {
     return (
       <GuideTarget step="home.fine">
       <Pressable
@@ -127,33 +140,38 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
     );
   }
 
-  if (session.resolved_at) {
+  if (session?.resolved_at && !hasDraft) {
     return null;
   }
 
   // Triage not completed (user exited mid-flow) → show card to continue
-  const triageIncomplete = session.initial_status !== 'fine' && !session.triage_completed_at;
+  const triageIncomplete = !!session && isUnfinishedCheckin(session);
+  const resume = triageIncomplete || hasDraft;
 
   // The user already responded; wait until the scheduled follow-up.
-  if (!triageIncomplete && session.next_checkin_at && new Date(session.next_checkin_at) > new Date()) {
+  if (!resume && session?.next_checkin_at && new Date(session.next_checkin_at) > new Date()) {
     return null;
   }
 
   // next_checkin_at passed (or null) → time for follow-up
-  const followUpLabel = session.flow_state === 'high_alert'
+  const followUpLabel = session?.flow_state === 'high_alert'
     ? t('checkinFollowHighAlert')
     : t('checkinFollowDefault');
 
   return (
     <Pressable
       style={({ pressed }) => [styles.card, styles.cardFollowUp, pressed && { opacity: 0.9 }]}
-      onPress={() => router.push(`/checkin?mode=followup&checkin_id=${session.id}`)}
+      onPress={() => router.push(triageIncomplete
+        ? `/checkin?mode=resume&checkin_id=${session!.id}`
+        : hasDraft ? '/checkin' : `/checkin?mode=followup&checkin_id=${session!.id}`)}
+      accessibilityRole="button"
+      accessibilityLabel={t(resume ? 'checkinResumeTitle' : 'checkinFollowTitle')}
     >
       <View style={styles.row}>
         <Ionicons name="pulse" size={22} color="#d97706" />
         <View style={styles.textColumn}>
-          <Text style={styles.followTitle}>{t('checkinFollowTitle')}</Text>
-          <Text style={styles.sub}>{followUpLabel}</Text>
+          <Text style={styles.followTitle}>{t(resume ? 'checkinResumeTitle' : 'checkinFollowTitle')}</Text>
+          {!resume && <Text style={styles.sub}>{followUpLabel}</Text>}
         </View>
       </View>
     </Pressable>
@@ -176,7 +194,7 @@ export const InstantCheckinCard = React.memo(function InstantCheckinCard() {
     <GuideTarget step="home.unwell">
     <Pressable
       style={({ pressed }) => [styles.card, styles.cardInstant, pressed && { opacity: 0.9 }]}
-      onPress={() => router.push({ pathname: '/checkin', params: { mode: practice ? 'guide' : 'random' } })}
+      onPress={() => router.push({ pathname: '/checkin', params: { mode: practice ? 'guide' : 'random', ...(practice ? { entry: 'instant' } : {}) } })}
       accessibilityRole="button"
       accessibilityLabel={t('checkinInstantTitle')}
     >

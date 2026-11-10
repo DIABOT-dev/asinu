@@ -168,7 +168,7 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
     { fontScale: 1.5, multiplier: 1 },
     { fontScale: 1, multiplier: 1.25 },
   ]) {
-  await test(`${language}/${mode}/${os}: benefit checkmarks align with the first title line at system scale ${fontScale}, app scale ${multiplier}`, () => {
+  await test(`${language}/${mode}/${os}: compact benefits keep the title, close and action outside scrolling at system scale ${fontScale}, app scale ${multiplier}`, () => {
     theme.applyTheme(mode); const h = hooks(); const t = translate(language); let chosen = 0; let width = 393;
     const preferenceModal = evaluate('src/features/profile/ProfilePreferenceModal.tsx', {
       'react-native': native, '@expo/vector-icons': { Ionicons: 'Icon' },
@@ -176,6 +176,16 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
       'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
       '../../components/ScaledText': { ScaledText: 'Text' },
       '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: theme.colors, isDark: mode === 'dark' }) },
+    });
+    const detailsModule = evaluate('src/features/subscription/components/PlanDetailsModal.tsx', {
+      'react-native': { ...native, Platform: { OS: os }, useWindowDimensions: () => ({ width, fontScale }) },
+      '@expo/vector-icons': { Ionicons: 'Icon' },
+      'react-i18next': { useTranslation: () => ({ t, i18n: { language } }) },
+      '../../../components/ScaledText': { ScaledText: 'Text' },
+      '../../../hooks/useThemeColors': { useThemeColors: () => ({ colors: theme.colors, isDark: mode === 'dark' }) },
+      '../../../hooks/useScaledTypography': { useScaledFontSize: base => Math.round(base * multiplier) },
+      '../../profile/ProfilePreferenceModal': preferenceModal,
+      '../planName': { localizedPlanName },
     });
     const { inspection } = evaluate('app/subscription/index.tsx', {
       react: h.react, 'react-native': { ...native, Platform: { OS: os }, useWindowDimensions: () => ({ width, fontScale }) },
@@ -187,7 +197,7 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
       'react-i18next': { useTranslation: () => ({ t, i18n: { language } }) },
       '../../src/components/ScaledText': { ScaledText: 'Text' }, '../../src/components/Screen': { Screen: 'Screen' },
       '../../src/components/ScreenHeaderButton': { ScreenBackButton: 'Back' }, '../../src/components/SubscriptionFAQ': { SubscriptionFAQ: 'FAQ' },
-      '../../src/features/profile/ProfilePreferenceModal': preferenceModal,
+      '../../src/features/subscription/components/PlanDetailsModal': detailsModule,
       '../../src/features/subscription/planName': { localizedPlanName },
       '../../src/features/subscription/components/SubscriptionScenarioComparison': { SubscriptionScenarioComparison: 'Comparison' },
       '../../src/features/subscription/components/CarePlanBackground': { CarePlanBackground: 'Background' },
@@ -200,18 +210,20 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
       '../../src/lib/apiClient': { apiClient: () => {}, getApiErrorMessage: () => {} },
       '../../src/stores/toast.store': { showToast: () => {} }, '../../src/styles': theme,
       '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({}) },
-    }, '\nexport const inspection = { PlanComparison, CurrentPlanCard, createStyles, FREE_FEATURES, AN_TAM_FEATURES };');
-    assert.equal(inspection.FREE_FEATURES.length, 6); assert.equal(inspection.AN_TAM_FEATURES.length, 6);
-    const freeFeatures = inspection.FREE_FEATURES.map(key => ({ text: t(key), description: t(`${key}Description`) }));
-    const anTamFeatures = inspection.AN_TAM_FEATURES.map(key => ({ text: t(key), description: t(`${key}Description`) }));
-    const renderPlans = (overrides = {}) => h.render(inspection.PlanComparison.type, { freeFeatures, anTamFeatures, freeIsCurrent: true, onChoosePlan: () => { chosen++; }, t, styles: inspection.createStyles(theme.typography, mode === 'dark'), ...overrides });
+    }, '\nexport const inspection = { PlanComparison, CurrentPlanCard, createStyles };');
+    const freeKeys = detailsModule.FREE_PLAN_BENEFITS;
+    const premiumKeys = detailsModule.AN_TAM_PLAN_BENEFITS;
+    assert.equal(freeKeys.length, 6); assert.equal(premiumKeys.length, 6);
+    const status = { planCode: 'free', isAnTam: false, expiresAt: null };
+    const renderPlans = (overrides = {}) => h.render(inspection.PlanComparison.type, { status, freeIsCurrent: true, onChoosePlan: () => { chosen++; }, t, styles: inspection.createStyles(theme.typography, mode === 'dark'), ...overrides });
     const control = (tree, key) => nodes(tree).find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t(key));
-    const dialog = tree => nodes(tree).find(node => node.type === preferenceModal.ProfilePreferenceModal);
+    const dialog = tree => nodes(tree).find(node => node.type === detailsModule.PlanDetailsModal);
+    const expand = detail => preferenceModal.ProfilePreferenceModal(detailsModule.PlanDetailsModal(detail.props).props);
     let tree = renderPlans();
     const largeType = fontScale * Math.round(17 * multiplier) / 17 > 1.2;
     assert.equal(style(tree.props.style).flexDirection, largeType ? 'column' : 'row');
     width = 320;
-    assert.equal(style(renderPlans().props.style).flexDirection, 'column', 'Small phones preserve readable full-width plans');
+    assert.equal(style(renderPlans().props.style).flexDirection, 'column');
     width = 768;
     assert.equal(style(renderPlans().props.style).flexDirection, largeType ? 'column' : 'row');
     width = 393;
@@ -220,93 +232,101 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
     assert.ok(texts(tree).includes(t('v2AnTamOverview')));
     for (const key of ['v2FreePlan', 'v2AnTamPlanName']) {
       const button = control(tree, key);
-      assert.equal(button.props.accessibilityState?.expanded, undefined, 'A modal action is not a dropdown');
+      assert.equal(button.props.accessibilityState?.expanded, undefined);
       assert.ok(style(button.props.style).minHeight >= 56);
       assert.equal(style(button.props.style).flexGrow, 1);
-      assert.equal(style(button.props.style).flexShrink, 0, 'Descriptions retain their natural height above the plan action');
+      assert.equal(style(button.props.style).flexShrink, 0);
       assert.equal(style(button.props.style).minWidth, 0);
     }
     assert.ok(!nodes(tree).some(node => node.type === 'Icon' && /chevron/.test(node.props.name)));
-    assert.ok([...freeFeatures, ...anTamFeatures].every(item => !texts(tree).includes(item.text)), 'Benefits are shown only inside a modal');
+    assert.ok([...freeKeys, ...premiumKeys].every(key => !texts(tree).includes(t(key))));
     assert.equal(dialog(tree), undefined);
-    assert.equal(control(tree, 'iapChooseTitle'), undefined);
     for (const premium of [false, true]) {
       const key = premium ? 'v2AnTamPlanName' : 'v2FreePlan';
       control(tree, key).props.onPress();
       tree = renderPlans();
       const details = dialog(tree);
       assert.equal(details.props.visible, true);
-      assert.equal(details.props.title, t(key));
-      assert.equal(nodes(tree).filter(node => node.type === preferenceModal.ProfilePreferenceModal).length, 1);
-      const included = premium ? anTamFeatures : freeFeatures;
-      const omitted = premium ? freeFeatures : anTamFeatures;
-      for (const item of included) {
-        assert.ok(texts(details).includes(item.text)); assert.ok(texts(details).includes(item.description));
-      }
-      assert.ok(omitted.every(item => !texts(details).includes(item.text)), 'A plan modal cannot show the other plan benefits');
-      for (const label of nodes(tree).filter(node => node.type === 'Text')) {
-        assert.equal(label.props.allowFontScaling, true); assert.equal(label.props.numberOfLines, undefined);
-      }
-      const checkmarks = nodes(details).filter(node => node.type === 'View' && node.props.children?.type === 'Icon' && node.props.children.props.name === 'checkmark-circle');
+      assert.equal(nodes(tree).filter(node => node.type === detailsModule.PlanDetailsModal).length, 1);
+      const nativeDialog = expand(details);
+      const scroll = nodes(nativeDialog).find(node => node.type === 'ScrollView');
+      const included = premium ? premiumKeys : freeKeys;
+      const omitted = premium ? freeKeys : premiumKeys;
+      for (const key of included) assert.ok(texts(scroll).includes(t(key)));
+      assert.ok(omitted.every(key => !texts(scroll).includes(t(key))));
+      assert.ok([...freeKeys, ...premiumKeys].every(key => !texts(nativeDialog).includes(t(`${key}Description`))), 'Quick view omits the long descriptions');
+      const title = nodes(nativeDialog).find(node => node.props.accessibilityRole === 'header');
+      assert.equal(title.props.children, t(key));
+      assert.ok(!nodes(scroll).includes(title), 'The plan title never scrolls away');
+      assert.ok(nodes(nativeDialog).some(node => node.props.accessibilityViewIsModal));
+      assert.equal(nativeDialog.type, 'Modal');
+      assert.equal(nativeDialog.props.transparent, true);
+      assert.equal(style(scroll.props.style).flexShrink, 1);
+      assert.equal(scroll.props.showsVerticalScrollIndicator, true);
+      const close = control(nativeDialog, 'close');
+      assert.ok(close); assert.ok(!nodes(scroll).includes(close));
+      const action = control(nativeDialog, premium ? 'iapChooseTitle' : 'upgradeNow');
+      assert.ok(action); assert.ok(!nodes(scroll).includes(action), 'Action stays outside the benefit scroll area');
+      assert.ok(style(action.props.style).minHeight >= 56);
+      const checkmarks = nodes(scroll).filter(node => node.type === 'View' && node.props.children?.type === 'Icon');
       assert.equal(checkmarks.length, 6);
       const expectedLineHeight = Math.round(Math.round(17 * multiplier) * (os === 'android' ? 1.6 : 1.5)) * fontScale;
       const expectedCheckSize = Math.round(Math.round(16 * multiplier) * fontScale);
       for (const wrapper of checkmarks) {
-        const wrapperStyle = style(wrapper.props.style);
-        assert.equal(wrapperStyle.height, expectedLineHeight);
-        assert.equal(wrapperStyle.width, expectedCheckSize + 2);
-        assert.equal(wrapperStyle.marginTop, undefined);
-        assert.equal(wrapperStyle.justifyContent, 'center');
-        assert.equal(wrapperStyle.alignItems, 'center');
-        assert.equal(wrapperStyle.flexShrink, 0);
-        assert.equal(wrapperStyle.marginRight, 8);
-        const icon = wrapper.props.children;
-        assert.equal(icon.props.size, expectedCheckSize);
-        assert.equal(icon.props.allowFontScaling, false, 'Native text must not scale the icon twice');
-        assert.equal(style(icon.props.style).lineHeight, expectedCheckSize);
-        assert.equal(style(icon.props.style).includeFontPadding, false);
+        assert.equal(style(wrapper.props.style).height, expectedLineHeight);
+        assert.equal(style(wrapper.props.style).width, expectedCheckSize + 2);
+        assert.equal(style(wrapper.props.style).flexShrink, 0);
+        assert.equal(wrapper.props.children.props.size, expectedCheckSize);
+        assert.equal(wrapper.props.children.props.allowFontScaling, false);
         assert.equal(wrapper.props.importantForAccessibility, 'no-hide-descendants');
       }
-      const nativeDialog = preferenceModal.ProfilePreferenceModal(details.props);
-      assert.equal(nativeDialog.type, 'Modal');
-      assert.equal(nativeDialog.props.transparent, true);
-      assert.ok(nodes(nativeDialog).some(node => node.type === 'ScrollView' && style(node.props.style).flexShrink === 1), 'Long benefits can scroll within the modal');
-      assert.ok(nodes(nativeDialog).some(node => node.props.accessibilityViewIsModal));
       if (premium) {
-        assert.ok(texts(details).includes(t('v2AnTamFeature6Description')));
-        const button = control(tree, 'iapChooseTitle');
-        assert.ok(style(button.props.style).minHeight >= 56);
-        button.props.onPress(); button.props.onPress();
-        assert.equal(chosen, 1, 'Repeated selection opens the checkout route once');
-        assert.equal(dialog(renderPlans()), undefined, 'Choosing a plan first dismisses its detail modal');
+        action.props.onPress(); action.props.onPress();
+        assert.equal(chosen, 1, 'Repeated taps navigate once');
+        assert.equal(dialog(renderPlans()), undefined);
       } else {
-        assert.equal(control(tree, 'iapChooseTitle'), undefined);
         nativeDialog.props.onRequestClose();
-        tree = renderPlans(); assert.equal(dialog(tree), undefined, 'The Android back action dismisses details');
-        control(tree, key).props.onPress();
-        tree = renderPlans();
-        const reopened = preferenceModal.ProfilePreferenceModal(dialog(tree).props);
-        nodes(reopened).find(node => node.type === 'Pressable' && node.props.accessibilityLabel === t('close')).props.onPress();
-        tree = renderPlans(); assert.equal(dialog(tree), undefined, 'The backdrop dismisses details');
-        assert.equal(chosen, 0, 'Viewing Free never starts checkout');
+        tree = renderPlans(); assert.equal(dialog(tree), undefined);
+        action.props.onPress(); assert.equal(chosen, 0, 'An action queued after dismissal cannot navigate');
+        control(tree, key).props.onPress(); tree = renderPlans();
+        control(expand(dialog(tree)), 'close').props.onPress();
+        tree = renderPlans(); assert.equal(dialog(tree), undefined);
       }
       tree = renderPlans();
     }
-
+    control(tree, 'v2FreePlan').props.onPress();
+    control(expand(dialog(renderPlans())), 'upgradeNow').props.onPress();
+    assert.equal(chosen, 2, 'Free quick view offers a fixed upgrade action');
     const beforeUpgrade = chosen;
     control(renderPlans(), 'upgradeNow').props.onPress();
-    assert.equal(chosen, beforeUpgrade + 1, 'Upgrade opens the separate plan chooser directly');
+    assert.equal(chosen, beforeUpgrade + 1);
     const disabledUpgrade = control(renderPlans({ purchaseDisabled: true }), 'upgradeNow');
     assert.equal(disabledUpgrade.props.disabled, true);
-    assert.equal(disabledUpgrade.props.accessibilityState.disabled, true);
-    assert.equal(control(renderPlans({ freeIsCurrent: false }), 'upgradeNow'), undefined, 'An active An Tam plan is not presented as a Free plan');
-    assert.equal(texts(renderPlans({ freeIsCurrent: false, purchaseDisabled: true })).includes(t('currentlyUsing')), false, 'Unknown entitlements never display a guessed current plan');
+    assert.equal(control(renderPlans({ freeIsCurrent: false }), 'upgradeNow'), undefined);
     const unavailable = h.render(inspection.CurrentPlanCard.type, {
       status: null, loading: false, language, t, styles: inspection.createStyles(theme.typography, mode === 'dark'),
     });
     assert.ok(texts(unavailable).includes(t('v2LoadError')));
-    assert.equal(texts(unavailable).includes(t('v2FreeMeta')), false, 'A failed request is never described as a lifetime Free subscription');
-
+    assert.equal(texts(unavailable).includes(t('v2FreeMeta')), false);
+    assert.equal(unavailable.props.disabled, true, 'Unknown entitlements cannot open a guessed plan');
+    let currentOpened = 0;
+    const current = h.render(inspection.CurrentPlanCard.type, {
+      status, loading: false, language, t, onPress: () => { currentOpened++; }, styles: inspection.createStyles(theme.typography, mode === 'dark'),
+    });
+    current.props.onPress(); assert.equal(currentOpened, 1);
+    const paid = detailsModule.PlanDetailsModal({ visible: true, premium: true, currentPlanCode: 'antam_4', expiresAt: '2026-12-31T00:00:00Z', onClose() {}, onChoosePlan() {} });
+    assert.equal(paid.props.title, t('planNames.antam4'));
+    assert.ok(texts(paid.props.headerContent).some(value => value.includes('2026')), 'The actual expiry stays in the fixed header');
+    assert.equal(control(paid.props.footer, 'viewPlans').props.disabled, false);
+    const blocked = detailsModule.PlanDetailsModal({ visible: true, premium: false, disabled: true, onClose() {}, onChoosePlan() { throw Error('Disabled action navigated'); } });
+    const blockedAction = control(blocked.props.footer, 'upgradeNow');
+    assert.equal(blockedAction.props.disabled, true); blockedAction.props.onPress();
+    const readOnly = detailsModule.PlanDetailsModal({ visible: true, premium: false, onClose() {} });
+    assert.equal(readOnly.props.footer, undefined);
+    for (const invalidExpiry of [null, 'not-a-date']) {
+      const noExpiry = detailsModule.PlanDetailsModal({ visible: true, premium: true, currentPlanCode: 'antam_2', expiresAt: invalidExpiry, onClose() {} });
+      assert.ok(texts(noExpiry.props.headerContent).includes(t('currentlyUsing')));
+    }
   });
   }
 }

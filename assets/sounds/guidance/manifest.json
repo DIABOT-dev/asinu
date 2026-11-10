@@ -132,6 +132,15 @@
         "integratedLufs": -16.43,
         "truePeakDbtp": -2.24
       },
+      "checkin.intensity": {
+        "file": "vi_checkin_intensity.mp3",
+        "text": "Bạn chọn Hơi mệt hoặc Rất mệt theo cảm nhận lúc này nhé. Sau đó, Asinu sẽ hỏi bạn khó chịu ở đâu.",
+        "textSha256": "ecab3fdd612fe937d1f421ae2509bb605bf3a0df5aeef5c8ed1a2446fc0b4d6b",
+        "audioSha256": "d4bec4498df7a2d087e0be024e4969cc68fbe13b1e4a07ca661b126936b95b67",
+        "bytes": 105645,
+        "integratedLufs": -16.42,
+        "truePeakDbtp": -1.63
+      },
       "checkin.location": {
         "file": "vi_checkin_location.mp3",
         "text": "Bạn khó chịu ở đâu, bấm vào chỗ đó để mình hỏi tiếp nhé.",
@@ -394,6 +403,15 @@
         "bytes": 68013,
         "integratedLufs": -16.17,
         "truePeakDbtp": -2.38
+      },
+      "checkin.intensity": {
+        "file": "en_checkin_intensity.mp3",
+        "text": "Choose A little tired or Very tired to match how you feel now. Next, Asinu will ask where you feel uncomfortable.",
+        "textSha256": "f2756245fdbc548791e6d3ce9e8cc3d027b31848443d3b2885da028eaa543e2e",
+        "audioSha256": "4555c8d66422223fd76be4f0c63c0a1d2b729dd0f509e51d08c0de9b9025b8e3",
+        "bytes": 142893,
+        "integratedLufs": -16.4,
+        "truePeakDbtp": -2.21
       },
       "checkin.voice": {
         "file": "en_checkin_voice.mp3",

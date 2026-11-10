@@ -218,6 +218,6 @@ export const checkinCallApi = {
       method: 'POST',
       body: { text },
       headers: audioHeaders(language),
-      timeoutMs: 30000,
+      timeoutMs: 150000,
     }),
 };

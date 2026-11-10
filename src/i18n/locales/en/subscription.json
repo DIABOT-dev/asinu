@@ -20,6 +20,7 @@
   "premium": "An Tam",
   "expiresAt": "Expires: {{date}}",
   "upgradeNow": "Upgrade Now",
+  "viewPlans": "View plans",
   "priceNote": "Payment through the App Store or Google Play",
   "featuresTitle": "Features",
   "planSelector": "Select subscription period",

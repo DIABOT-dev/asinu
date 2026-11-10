@@ -8,7 +8,8 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import { useGuidanceStore } from './guidance.store';
 import { ScaledText as Text } from '../../components/ScaledText';
 
-export function useReviewGuidance(destination: 'home' | 'checkin' = 'home') {
+export function useReviewGuidance(destination: 'home' | 'checkin' = 'home',
+  checkin: { instant?: boolean; followup?: boolean } = {}) {
   const router = useGuardedRouter();
   const { t } = useTranslation('onboarding');
   const busy = useRef(false);
@@ -18,7 +19,12 @@ export function useReviewGuidance(destination: 'home' | 'checkin' = 'home') {
     const account = useGuidanceStore.getState().account;
     try {
       if (destination === 'checkin') {
-        router.replace({ pathname: '/checkin', params: { mode: 'guide', guide: String(Date.now()) } });
+        // Keep this visit underneath the guide so Back returns to the same
+        // check-in. The two entry points teach their own choices, not Home.
+        router.push({ pathname: '/checkin', params: { mode: 'guide', guide: String(Date.now()),
+          ...(checkin.instant ? { entry: 'instant' } : {}),
+          ...(checkin.followup ? { guide_followup: '1' } : {}),
+        } });
         return;
       }
       await useGuidanceStore.getState().replay();

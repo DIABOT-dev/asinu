@@ -35,6 +35,7 @@
       "infoPlist": {
         "AsinuAPNSEnvironment": "$(APS_ENVIRONMENT)",
         "NSMicrophoneUsageDescription": "Asinu chỉ dùng microphone khi bạn chọn nhập bằng giọng nói, ví dụ chuyển câu \"đường huyết 95 lúc đói\" thành bản ghi sức khỏe hoặc tin nhắn chat. Ứng dụng không ghi âm trong nền.",
+        "NSSpeechRecognitionUsageDescription": "Asinu chuyển lời bạn nói thành chữ ngay khi nhập câu trả lời sức khỏe. Dịch vụ của thiết bị có thể xử lý âm thanh qua Apple hoặc Google.",
         "NSLocationWhenInUseUsageDescription": "Asinu dùng vị trí khi bạn chọn gửi SOS hoặc bật lời nhắc thời tiết theo khu vực. Không theo dõi vị trí trong nền.",
         "NSMotionUsageDescription": "Asinu có thể dùng cảm biến chuyển động để xác định hướng camera khi bạn quét mã QR kết nối người thân. Ứng dụng không theo dõi hoạt động thể chất.",
         "ITSAppUsesNonExemptEncryption": false,
@@ -147,6 +148,9 @@
       "expo-localization",
       "expo-web-browser",
       "expo-audio",
+      ["expo-speech-recognition", {
+        "speechRecognitionPermission": "Asinu chuyển lời bạn nói thành chữ ngay khi nhập câu trả lời sức khỏe. Dịch vụ của thiết bị có thể xử lý âm thanh qua Apple hoặc Google."
+      }],
       "./plugins/withAndroidReleaseQuality"
     ],
     "experiments": {

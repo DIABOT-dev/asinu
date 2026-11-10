@@ -151,6 +151,7 @@ function harness({
     "react-native-safe-area-context": { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
     "@expo/vector-icons": { MaterialCommunityIcons: "Icon" },
     "./ScaledText": { ScaledText: "Text" }, "./QueuedModal": { QueuedModal: "AppModal" },
+    '../hooks/useCheckinPresentation': { useCheckinPresentationBlocked: () => false },
     "../hooks/useScaledTypography": { useScaledTypography: () => typography },
     "../hooks/useThemeColors": { useThemeColors: () => ({ isDark: false }) },
     "react-i18next": { useTranslation: () => ({ t: translations.common }) }, "../styles": styles,
@@ -194,6 +195,7 @@ function harness({
       "../hooks/useGuardedRouter": {
         useGuardedRouter: () => ({ push: (route) => calls.pushes.push(route) }),
       },
+      '../hooks/useCheckinPresentation': { useCheckinPresentationBlocked: () => false },
       "../hooks/useScaledTypography": {
         useScaledTypography: () => typography,
       },
@@ -757,10 +759,10 @@ await test("a queued warning action cannot save or toast for an unmounted accoun
   dismiss(); await flush(); assert.deepEqual(h.calls.saves, []); assert.deepEqual(h.calls.toasts, []);
 });
 
-assert.match(
+assert.doesNotMatch(
   read("app/(tabs)/home/index.tsx"),
-  /<HomeCheckinCallControl key=\{profile\.id\} userId=\{String\(profile\.id\)\}/,
-  "Home must mount account-scoped call controls"
+  /HomeCheckinCallControl/,
+  "Home must not display the removed call shortcut"
 );
 await test("header icon confirms before enabling and never saves on first tap", async () => {
   const h = harness({ iconOnly: true });

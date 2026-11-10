@@ -1,0 +1,248 @@
+{
+  "tool": "built-in image_gen",
+  "createdAt": "2026-11-06",
+  "style": "Bespoke satin ceramic healthcare miniatures; jade, mint and ivory; transparent background",
+  "processing": "Original generated artwork downsampled with macOS sips to 144×144 RGBA PNG. No pictograph font or emoji used.",
+  "assets": [
+    {
+      "name": "bell",
+      "file": "bell-v1.png",
+      "width": 144,
+      "height": 144,
+      "bytes": 16756,
+      "hasTransparency": true,
+      "bounds": {
+        "minX": 22,
+        "minY": 14,
+        "maxX": 112,
+        "maxY": 130
+      },
+      "sourceDimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "sha256": "2e7f0b3013637f3c07073331519dbd28bb8ae2f8aad4ffbdcb70db8fb7267ebe",
+      "prompt": "Use case: stylized-concept. Asset type: production PNG notification icon for Asinu, a calm premium family healthcare mobile app. Primary request: one bespoke miniature healthcare illustration of a small teal reminder bell, single centered object. Style: sophisticated soft 3D product illustration, satin ceramic and gently translucent mint details, clean rounded geometry, restrained depth and realistic soft studio shading, orthographic three-quarter view. Palette: deep jade teal #0f766e, mint #bfe8dc, warm ivory highlights. Composition: square canvas, entire bell including clapper visible, object occupies about 72% of canvas, equal clear padding on all sides, bold simple silhouette legible at 30 pixels. Backdrop: genuinely transparent alpha, no ground plane, no colored square or circle behind the object. No text, lettering, logo, watermark, faces, cartoon expressions, emoji, emoji glyphs, flat outline symbols, sparkles or decorative confetti. This is an original polished image asset, not a Unicode/system emoji or an app icon tile."
+    },
+    {
+      "name": "checkin",
+      "file": "checkin-v1.png",
+      "width": 144,
+      "height": 144,
+      "bytes": 20405,
+      "hasTransparency": true,
+      "bounds": {
+        "minX": 18,
+        "minY": 24,
+        "maxX": 122,
+        "maxY": 125
+      },
+      "sourceDimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "sha256": "793f28e9fc50855e80bd01e28c241efd7cd03a47bac605ebcdc43c62f08551c4",
+      "prompt": "Use case: stylized-concept. Asset type: production PNG notification icon for Asinu, a calm premium family healthcare mobile app. Style: bespoke sophisticated soft 3D product illustration, satin ceramic and gently translucent details, clean rounded geometry, restrained depth and soft studio shading, orthographic three-quarter view, clearly an original rendered image asset, not a Unicode/system emoji. Palette: deep jade teal #0f766e, mint #bfe8dc, warm ivory highlights; gold only for reward coin and muted coral only for warning sign. Composition: one compact centered subject on square canvas, maximum object dimension around 80% of canvas, whole silhouette visible with equal clear padding, bold simple shapes legible at 30 pixels. Backdrop: genuinely transparent alpha, no ground plane, colored tile, circle or card behind the object. Constraints: no words, letters, logo, watermark, faces, cartoon expressions, emoji glyphs, black outlines, flat vector pictographs, sparkles or confetti. Subject: a small upright mint desk calendar with two dark jade binder rings and a single raised jade heart on its clean front page; no numbers or lettering."
+    },
+    {
+      "name": "message",
+      "file": "message-v1.png",
+      "width": 144,
+      "height": 144,
+      "bytes": 16608,
+      "hasTransparency": true,
+      "bounds": {
+        "minX": 23,
+        "minY": 19,
+        "maxX": 119,
+        "maxY": 125
+      },
+      "sourceDimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "sha256": "ccbf8452a2a9ef7ffe4c4f229da8c4ad1b30825e667d28cea99c969e06e892b5",
+      "prompt": "Use case: stylized-concept. Asset type: production PNG notification icon for Asinu, a calm premium family healthcare mobile app. Style: bespoke sophisticated soft 3D product illustration, satin ceramic and gently translucent details, clean rounded geometry, restrained depth and soft studio shading, orthographic three-quarter view, clearly an original rendered image asset, not a Unicode/system emoji. Palette: deep jade teal #0f766e, mint #bfe8dc, warm ivory highlights; gold only for reward coin and muted coral only for warning sign. Composition: one compact centered subject on square canvas, maximum object dimension around 80% of canvas, whole silhouette visible with equal clear padding, bold simple shapes legible at 30 pixels. Backdrop: genuinely transparent alpha, no ground plane, colored tile, circle or card behind the object. Constraints: no words, letters, logo, watermark, faces, cartoon expressions, emoji glyphs, black outlines, flat vector pictographs, sparkles or confetti. Subject: a small softly rounded ivory envelope with a mint letter partly visible and one small raised jade heart seal; professional family care correspondence, no text."
+    },
+    {
+      "name": "medication",
+      "file": "medication-v1.png",
+      "width": 144,
+      "height": 144,
+      "bytes": 12263,
+      "hasTransparency": true,
+      "bounds": {
+        "minX": 25,
+        "minY": 29,
+        "maxX": 118,
+        "maxY": 123
+      },
+      "sourceDimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "sha256": "1f8fa449e7aa42404af8e1ed1133e99487da3b0ca9d681f0b37c842b4b195c77",
+      "prompt": "Use case: stylized-concept. Asset type: production PNG notification icon for Asinu, a calm premium family healthcare mobile app. Style: bespoke sophisticated soft 3D product illustration, satin ceramic and gently translucent details, clean rounded geometry, restrained depth and soft studio shading, orthographic three-quarter view, clearly an original rendered image asset, not a Unicode/system emoji. Palette: deep jade teal #0f766e, mint #bfe8dc, warm ivory highlights; gold only for reward coin and muted coral only for warning sign. Composition: one compact centered subject on square canvas, maximum object dimension around 80% of canvas, whole silhouette visible with equal clear padding, bold simple shapes legible at 30 pixels. Backdrop: genuinely transparent alpha, no ground plane, colored tile, circle or card behind the object. Constraints: no words, letters, logo, watermark, faces, cartoon expressions, emoji glyphs, black outlines, flat vector pictographs, sparkles or confetti. Subject: one simple closed pill capsule, half deep jade and half warm ivory, tilted diagonally, no bottle, no packaging and no dosage marks."
+    },
+    {
+      "name": "family",
+      "file": "family-v1.png",
+      "width": 144,
+      "height": 144,
+      "bytes": 25718,
+      "hasTransparency": true,
+      "bounds": {
+        "minX": 10,
+        "minY": 14,
+        "maxX": 129,
+        "maxY": 135
+      },
+      "sourceDimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "sha256": "3c42a201cfdc96b55bb8139a1c76dc286b846666e2e488f5c721a0f387cb24d9",
+      "prompt": "Use case: stylized-concept. Asset type: production PNG notification icon for Asinu, a calm premium family healthcare mobile app. Style: bespoke sophisticated soft 3D product illustration, satin ceramic and gently translucent details, clean rounded geometry, restrained depth and soft studio shading, orthographic three-quarter view, clearly an original rendered image asset, not a Unicode/system emoji. Palette: deep jade teal #0f766e, mint #bfe8dc, warm ivory highlights; gold only for reward coin and muted coral only for warning sign. Composition: one compact centered subject on square canvas, maximum object dimension around 80% of canvas, whole silhouette visible with equal clear padding, bold simple shapes legible at 30 pixels. Backdrop: genuinely transparent alpha, no ground plane, colored tile, circle or card behind the object. Constraints: no words, letters, logo, watermark, faces, cartoon expressions, emoji glyphs, black outlines, flat vector pictographs, sparkles or confetti. Subject: a compact family connection sculpture of three abstract faceless rounded human busts, two adults and one smaller child, made of coordinated jade, mint and warm ivory ceramic; no faces or expressions."
+    },
+    {
+      "name": "health",
+      "file": "health-v1.png",
+      "width": 144,
+      "height": 144,
+      "bytes": 17211,
+      "hasTransparency": true,
+      "bounds": {
+        "minX": 19,
+        "minY": 30,
+        "maxX": 122,
+        "maxY": 120
+      },
+      "sourceDimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "sha256": "d63d1775e8d772602978686b7199d95174806dedb964e99c2519192cb4a59f83",
+      "prompt": "Use case: stylized-concept. Asset type: production PNG notification icon for Asinu, a calm premium family healthcare mobile app. Style: bespoke sophisticated soft 3D product illustration, satin ceramic and gently translucent details, clean rounded geometry, restrained depth and soft studio shading, orthographic three-quarter view, clearly an original rendered image asset, not a Unicode/system emoji. Palette: deep jade teal #0f766e, mint #bfe8dc, warm ivory highlights; gold only for reward coin and muted coral only for warning sign. Composition: one compact centered subject on square canvas, maximum object dimension around 80% of canvas, whole silhouette visible with equal clear padding, bold simple shapes legible at 30 pixels. Backdrop: genuinely transparent alpha, no ground plane, colored tile, circle or card behind the object. Constraints: no words, letters, logo, watermark, faces, cartoon expressions, emoji glyphs, black outlines, flat vector pictographs, sparkles or confetti. Subject: one sculpted deep jade anatomical-symbol-style heart with a short clean warm ivory heartbeat line embossed across its front; simple non-anatomical health emblem."
+    },
+    {
+      "name": "activity",
+      "file": "activity-v1.png",
+      "width": 144,
+      "height": 144,
+      "bytes": 14705,
+      "hasTransparency": true,
+      "bounds": {
+        "minX": 17,
+        "minY": 28,
+        "maxX": 125,
+        "maxY": 122
+      },
+      "sourceDimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "sha256": "79ff105617f0c7b654239d3a5e2737cd71f4b4a94cddeb285a58d1ad58451a50",
+      "prompt": "Use case: stylized-concept. Asset type: production PNG notification icon for Asinu, a calm premium family healthcare mobile app. Style: bespoke sophisticated soft 3D product illustration, satin ceramic and gently translucent details, clean rounded geometry, restrained depth and soft studio shading, orthographic three-quarter view, clearly an original rendered image asset, not a Unicode/system emoji. Palette: deep jade teal #0f766e, mint #bfe8dc, warm ivory highlights; gold only for reward coin and muted coral only for warning sign. Composition: one compact centered subject on square canvas, maximum object dimension around 80% of canvas, whole silhouette visible with equal clear padding, bold simple shapes legible at 30 pixels. Backdrop: genuinely transparent alpha, no ground plane, colored tile, circle or card behind the object. Constraints: no words, letters, logo, watermark, faces, cartoon expressions, emoji glyphs, black outlines, flat vector pictographs, sparkles or confetti. Subject: a miniature health progress chart of three rounded jade and mint bars of increasing height on one small ivory base; no numbers, letters or floating decorations."
+    },
+    {
+      "name": "plan",
+      "file": "plan-v1.png",
+      "width": 144,
+      "height": 144,
+      "bytes": 19101,
+      "hasTransparency": true,
+      "bounds": {
+        "minX": 22,
+        "minY": 17,
+        "maxX": 121,
+        "maxY": 130
+      },
+      "sourceDimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "sha256": "bfaf4f77e6b3410219c573efa140ffd6507d9f923f444b55d1e4d87d7ae5af2a",
+      "prompt": "Use case: stylized-concept. Asset type: production PNG notification icon for Asinu, a calm premium family healthcare mobile app. Style: bespoke sophisticated soft 3D product illustration, satin ceramic and gently translucent details, clean rounded geometry, restrained depth and soft studio shading, orthographic three-quarter view, clearly an original rendered image asset, not a Unicode/system emoji. Palette: deep jade teal #0f766e, mint #bfe8dc, warm ivory highlights; gold only for reward coin and muted coral only for warning sign. Composition: one compact centered subject on square canvas, maximum object dimension around 80% of canvas, whole silhouette visible with equal clear padding, bold simple shapes legible at 30 pixels. Backdrop: genuinely transparent alpha, no ground plane, colored tile, circle or card behind the object. Constraints: no words, letters, logo, watermark, faces, cartoon expressions, emoji glyphs, black outlines, flat vector pictographs, sparkles or confetti. Subject: one upright softly rounded mint shield with a deep jade check mark inset on its front, professional healthcare protection emblem."
+    },
+    {
+      "name": "alert",
+      "file": "alert-v1.png",
+      "width": 144,
+      "height": 144,
+      "bytes": 15840,
+      "hasTransparency": true,
+      "bounds": {
+        "minX": 21,
+        "minY": 26,
+        "maxX": 121,
+        "maxY": 120
+      },
+      "sourceDimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "sha256": "875ab5355ca9463d3e288801d9dfac29b8eb4b7cb6c9e145f855123ce7fb4ada",
+      "prompt": "Use case: stylized-concept. Asset type: production PNG notification icon for Asinu, a calm premium family healthcare mobile app. Style: bespoke sophisticated soft 3D product illustration, satin ceramic and gently translucent details, clean rounded geometry, restrained depth and soft studio shading, orthographic three-quarter view, clearly an original rendered image asset, not a Unicode/system emoji. Palette: deep jade teal #0f766e, mint #bfe8dc, warm ivory highlights; gold only for reward coin and muted coral only for warning sign. Composition: one compact centered subject on square canvas, maximum object dimension around 80% of canvas, whole silhouette visible with equal clear padding, bold simple shapes legible at 30 pixels. Backdrop: genuinely transparent alpha, no ground plane, colored tile, circle or card behind the object. Constraints: no words, letters, logo, watermark, faces, cartoon expressions, emoji glyphs, black outlines, flat vector pictographs, sparkles or confetti. Subject: one softly rounded coral-red triangular safety sign with a single clearly raised warm ivory exclamation mark, a calm professional health alert object, no alarming effects."
+    },
+    {
+      "name": "reminder",
+      "file": "reminder-v1.png",
+      "width": 144,
+      "height": 144,
+      "bytes": 21759,
+      "hasTransparency": true,
+      "bounds": {
+        "minX": 23,
+        "minY": 17,
+        "maxX": 116,
+        "maxY": 126
+      },
+      "sourceDimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "sha256": "6a46914c4750c0e921017d481aab5fa18d73b2b5a9ab27a35087d4ed3f63b114",
+      "prompt": "Use case: stylized-concept. Asset type: production PNG notification icon for Asinu, a calm premium family healthcare mobile app. Style: bespoke sophisticated soft 3D product illustration, satin ceramic and gently translucent details, clean rounded geometry, restrained depth and soft studio shading, orthographic three-quarter view, clearly an original rendered image asset, not a Unicode/system emoji. Palette: deep jade teal #0f766e, mint #bfe8dc, warm ivory highlights; gold only for reward coin and muted coral only for warning sign. Composition: one compact centered subject on square canvas, maximum object dimension around 80% of canvas, whole silhouette visible with equal clear padding, bold simple shapes legible at 30 pixels. Backdrop: genuinely transparent alpha, no ground plane, colored tile, circle or card behind the object. Constraints: no words, letters, logo, watermark, faces, cartoon expressions, emoji glyphs, black outlines, flat vector pictographs, sparkles or confetti. Subject: one small round mint reminder clock with a jade rim and two clear warm ivory hands, no numerals or lettering, simple thick silhouette."
+    },
+    {
+      "name": "gift",
+      "file": "gift-v1.png",
+      "width": 144,
+      "height": 144,
+      "bytes": 19152,
+      "hasTransparency": true,
+      "bounds": {
+        "minX": 22,
+        "minY": 20,
+        "maxX": 118,
+        "maxY": 124
+      },
+      "sourceDimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "sha256": "ad9714211274ba58eb4ec39226edd36ed06d745f6a520a457ec0cc9be4d1395f",
+      "prompt": "Use case: stylized-concept. Asset type: production PNG notification icon for Asinu, a calm premium family healthcare mobile app. Style: bespoke sophisticated soft 3D product illustration, satin ceramic and gently translucent details, clean rounded geometry, restrained depth and soft studio shading, orthographic three-quarter view, clearly an original rendered image asset, not a Unicode/system emoji. Palette: deep jade teal #0f766e, mint #bfe8dc, warm ivory highlights; gold only for reward coin and muted coral only for warning sign. Composition: one compact centered subject on square canvas, maximum object dimension around 80% of canvas, whole silhouette visible with equal clear padding, bold simple shapes legible at 30 pixels. Backdrop: genuinely transparent alpha, no ground plane, colored tile, circle or card behind the object. Constraints: no words, letters, logo, watermark, faces, cartoon expressions, emoji glyphs, black outlines, flat vector pictographs, sparkles or confetti. Subject: one compact jade care gift box with a thick mint satin ribbon and a clean rounded bow; no tags or lettering."
+    },
+    {
+      "name": "coin",
+      "file": "coin-v1.png",
+      "width": 144,
+      "height": 144,
+      "bytes": 21909,
+      "hasTransparency": true,
+      "bounds": {
+        "minX": 18,
+        "minY": 19,
+        "maxX": 121,
+        "maxY": 125
+      },
+      "sourceDimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "sha256": "f3598806895af204743b7460a7203aa0d47ed89466e4cc091935404c72b6b2d3",
+      "prompt": "Use case: stylized-concept. Asset type: production PNG notification icon for Asinu, a calm premium family healthcare mobile app. Style: bespoke sophisticated soft 3D product illustration, satin ceramic and gently translucent details, clean rounded geometry, restrained depth and soft studio shading, orthographic three-quarter view, clearly an original rendered image asset, not a Unicode/system emoji. Palette: deep jade teal #0f766e, mint #bfe8dc, warm ivory highlights; gold only for reward coin and muted coral only for warning sign. Composition: one compact centered subject on square canvas, maximum object dimension around 80% of canvas, whole silhouette visible with equal clear padding, bold simple shapes legible at 30 pixels. Backdrop: genuinely transparent alpha, no ground plane, colored tile, circle or card behind the object. Constraints: no words, letters, logo, watermark, faces, cartoon expressions, emoji glyphs, black outlines, flat vector pictographs, sparkles or confetti. Subject: one complete round gold health reward coin, warm yellow-gold ceramic-metal finish, a single small raised leaf emblem in its center, gently tilted almost front facing, full circular rim visible with no bite or missing sections; no text or numbers."
+    }
+  ]
+}

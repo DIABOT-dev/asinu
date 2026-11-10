@@ -1,0 +1,97 @@
+{
+  "tool": "built-in image_gen",
+  "createdAt": "2026-11-07",
+  "description": "Satin ceramic healthcare mission icons in jade and ivory, optimized to 256px PNG with the generated transparency preserved.",
+  "icons": [
+    {
+      "id": "checkin",
+      "file": "checkin-v2.png",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single premium healthcare app mission icon for Asinu, clearly recognizable at 64 pixels.\nScene/backdrop: genuinely transparent alpha background, one isolated object only.\nStyle: refined satin ceramic miniature, rounded but precise product geometry, understated 3D depth, crisp clean silhouette. Not a flat emoji, not a scene or banner.\nConsistent set design: jade green #0F756B, pale mint #68C9B8, warm ivory #F5F1E8, restrained aqua #7ECFDF. Soft upper-left studio light, front three-quarter view with a modest 15 degree elevation. Moderate contrast, gentle highlights, very small natural contact shadow. Center subject, similar optical weight to other icons in the set, entire object visible, occupies about 78% of a square canvas with comfortable clear margin.\nNo lettering, numbers, labels, logos, watermark, leaves, sparkles, hearts, decorative background, surrounding square tile, border, or gradient backdrop. The app supplies the tile. Do not crop any part.\nSubject: a compact ivory desk calendar with two jade binder rings and a single large raised jade checkmark on its face. Three softly rounded calendar leaves, no calendar dates or tiny grid. Warm and precise, immediately communicates daily check-in.",
+      "sourceFile": "exec-5cbd4522-6719-4a46-9935-5a27788ee465.png",
+      "bytes": 54099,
+      "dimensions": [
+        256,
+        256
+      ],
+      "visibleBounds": [
+        39,
+        33,
+        220,
+        229
+      ],
+      "sha256": "07373544566c6853a8c67e2769045f114f69110dc6841eaf7494153bd27a264a"
+    },
+    {
+      "id": "blood-pressure",
+      "file": "blood-pressure-v2.png",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single premium healthcare app mission icon for Asinu, clearly recognizable at 64 pixels.\nScene/backdrop: genuinely transparent alpha background, one isolated object only.\nStyle: refined satin ceramic miniature, rounded but precise product geometry, understated 3D depth, crisp clean silhouette. Not a flat emoji, not a scene or banner.\nConsistent set design: jade green #0F756B, pale mint #68C9B8, warm ivory #F5F1E8, restrained aqua #7ECFDF. Soft upper-left studio light, front three-quarter view with a modest 15 degree elevation. Moderate contrast, gentle highlights, very small natural contact shadow. Center subject, similar optical weight to other icons in the set, entire object visible, occupies about 78% of a square canvas with comfortable clear margin.\nNo lettering, numbers, labels, logos, watermark, leaves, sparkles, hearts, decorative background, surrounding square tile, border, or gradient backdrop. The app supplies the tile. Do not crop any part.\nSubject: a compact home blood-pressure monitor: rounded ivory monitor with a jade face surround, simple pale aqua screen containing one clean pulse waveform but no numerical reading, one mint button, with a visibly rolled jade arm cuff and short curved tube directly alongside it. Keep the monitor and cuff as one compact silhouette, not spread apart.",
+      "sourceFile": "exec-fb46cde5-1050-46a9-8bf3-4961fdb71275.png",
+      "bytes": 54344,
+      "dimensions": [
+        256,
+        256
+      ],
+      "visibleBounds": [
+        15,
+        53,
+        232,
+        204
+      ],
+      "sha256": "04abb56d4b62e88b457cd80ea85aeff3d488bfdd43bc28e05ac9ef6ec5072b5a"
+    },
+    {
+      "id": "glucose",
+      "file": "glucose-v2.png",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single premium healthcare app mission icon for Asinu, clearly recognizable at 64 pixels.\nScene/backdrop: genuinely transparent alpha background, one isolated object only.\nStyle: refined satin ceramic miniature, rounded but precise product geometry, understated 3D depth, crisp clean silhouette. Not a flat emoji, not a scene or banner.\nConsistent set design: jade green #0F756B, pale mint #68C9B8, warm ivory #F5F1E8, restrained aqua #7ECFDF. Soft upper-left studio light, front three-quarter view with a modest 15 degree elevation. Moderate contrast, gentle highlights, very small natural contact shadow. Center subject, similar optical weight to other icons in the set, entire object visible, occupies about 78% of a square canvas with comfortable clear margin.\nNo lettering, numbers, labels, logos, watermark, leaves, sparkles, hearts, decorative background, surrounding square tile, border, or gradient backdrop. The app supplies the tile. Do not crop any part.\nSubject: a compact handheld blood glucose meter: small rounded ivory body, jade green edge, simple dark jade screen containing one aqua droplet pictogram instead of any number, and one short ivory test strip inserted into the bottom. No finger, needle, blood or syringe. Emphasize a handheld meter silhouette that is different from a blood-pressure machine.",
+      "sourceFile": "exec-e4361cd5-3f7a-4b97-8087-8c6077e64b31.png",
+      "bytes": 37379,
+      "dimensions": [
+        256,
+        256
+      ],
+      "visibleBounds": [
+        65,
+        29,
+        186,
+        221
+      ],
+      "sha256": "887d273fc18e10b4150248213d89527a62b75caadc1c561f89235836285ea412"
+    },
+    {
+      "id": "water",
+      "file": "water-v2.png",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single premium healthcare app mission icon for Asinu, clearly recognizable at 64 pixels.\nScene/backdrop: genuinely transparent alpha background, one isolated object only.\nStyle: refined satin ceramic miniature, rounded but precise product geometry, understated 3D depth, crisp clean silhouette. Not a flat emoji, not a scene or banner.\nConsistent set design: jade green #0F756B, pale mint #68C9B8, warm ivory #F5F1E8, restrained aqua #7ECFDF. Soft upper-left studio light, front three-quarter view with a modest 15 degree elevation. Moderate contrast, gentle highlights, very small natural contact shadow. Center subject, similar optical weight to other icons in the set, entire object visible, occupies about 78% of a square canvas with comfortable clear margin.\nNo lettering, numbers, labels, logos, watermark, leaves, sparkles, hearts, decorative background, surrounding square tile, border, or gradient backdrop. The app supplies the tile. Do not crop any part.\nSubject: one substantial translucent aqua drinking glass, about three quarters filled with clear pale blue water, thick softly rounded rim and base, one small simple water droplet embossed on the front. Slight ceramic styling and blue edging to keep the glass readable on both white and dark backgrounds. No straw, plant or surrounding drops.",
+      "sourceFile": "exec-2c93b102-ba1e-4c94-a937-671cb7bbb03a.png",
+      "bytes": 44253,
+      "dimensions": [
+        256,
+        256
+      ],
+      "visibleBounds": [
+        51,
+        34,
+        205,
+        219
+      ],
+      "sha256": "c8080b4b35e26a50b90b22299b081598ca92515bd4ebed98324e8f553db4af56"
+    },
+    {
+      "id": "weight",
+      "file": "weight-v2.png",
+      "prompt": "Use case: stylized-concept.\nAsset type: a single premium healthcare app mission icon for Asinu, clearly recognizable at 64 pixels.\nScene/backdrop: genuinely transparent alpha background, one isolated object only.\nStyle: refined satin ceramic miniature, rounded but precise product geometry, understated 3D depth, crisp clean silhouette. Not a flat emoji, not a scene or banner.\nConsistent set design: jade green #0F756B, pale mint #68C9B8, warm ivory #F5F1E8, restrained aqua #7ECFDF. Soft upper-left studio light, front three-quarter view with a modest 15 degree elevation. Moderate contrast, gentle highlights, very small natural contact shadow. Center subject, similar optical weight to other icons in the set, entire object visible, occupies about 78% of a square canvas with comfortable clear margin.\nNo lettering, numbers, labels, logos, watermark, leaves, sparkles, hearts, decorative background, surrounding square tile, border, or gradient backdrop. The app supplies the tile. Do not crop any part.\nSubject: one modern compact bathroom weighing scale with a warm ivory rounded square body, four subtly raised jade foot pads and a small jade display window with only a simple thin dash, no numerals. Recognizable three-quarter view from above, compact silhouette, no feet or person.",
+      "sourceFile": "exec-33d38cf3-c18f-4d3e-892f-a0efcb5d2696.png",
+      "bytes": 50476,
+      "dimensions": [
+        256,
+        256
+      ],
+      "visibleBounds": [
+        27,
+        47,
+        229,
+        219
+      ],
+      "sha256": "7fae6a7a6ed39527cc0bc7e4146253a3ac470a135b78a922328f31e28669fb25"
+    }
+  ]
+}

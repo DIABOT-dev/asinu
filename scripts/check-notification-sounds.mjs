@@ -139,6 +139,7 @@ const native = {
 const appEnv = evaluate('src/lib/appEnv.ts', {});
 const notificationImports = {
   './appEnv': appEnv,
+  './checkin-presentation': { checkinPresentation: { isBlocked: () => false } },
   './native-permissions': { runNativePermission: async (request) => request() },
   'expo-constants': {},
   'expo-notifications': native,
@@ -167,6 +168,12 @@ await test('expert quick replies remain available while legacy Dr.Asinu IVR is h
   assert.ok(calls.categories.includes('health_alert'));
   assert.ok(calls.categories.includes('doctor_message'));
   assert.ok(!calls.removedCategories.includes('doctor_message'));
+});
+await test('specialist quick reply follows the consultation flag while health alert actions remain available', () => {
+  const enabled = evaluate('src/lib/appEnv.ts', {}).isExpertConsultationEnabled;
+  assert.ok(calls.categories.includes('health_alert'));
+  assert.equal(calls.categories.includes('doctor_message'), enabled);
+  assert.equal(calls.removedCategories.includes('doctor_message'), !enabled);
 });
 for (const legacyEnabled of [false, true]) {
   for (const consultationEnabled of [false, true]) {

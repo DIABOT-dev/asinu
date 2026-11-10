@@ -31,7 +31,6 @@ import { ScaledText as Text } from '../../src/components/ScaledText';
 import { CheckinCallContact } from '../../src/features/checkin-call/CheckinCallContact';
 import { CheckinCallSafetyNote, CheckinCallSpeech } from '../../src/features/checkin-call/CheckinCallSpeech';
 import { useCheckinCallAudio } from '../../src/features/checkin-call/useCheckinCallAudio';
-import { CheckinCallPhoneAction } from '../../src/features/checkin-call/CheckinCallPhoneAction';
 import { restoreTriageDraft } from '../../src/features/checkin-call/triage-draft';
 import { triageDraftKey, triageDraftStorage } from '../../src/features/checkin-call/triage-draft.storage';
 import { useAuthStore } from '../../src/features/auth/auth.store';
@@ -866,7 +865,7 @@ function AuthenticatedCheckinCallScreen() {
             {attempt.target_role === 'FAMILY' ? (
               <CheckinCallContact subject={attempt.subject} onBeforeCall={() => stopAudio(false)} />
             ) : <Text style={styles.incomingCardSub}>{t(attempt.trigger_source === 'EARLY_SIGNAL' ? 'earlySignalCallReason' : 'gallery.dailyCheck')}</Text>}
-            {urgent && <CheckinCallPhoneAction phone="115" urgent onBeforeCall={() => stopAudio(false)} />}
+            {urgent && <Text style={styles.emergencyNote}>{t('emergencyNote')}</Text>}
           </View>
 
           <View style={styles.callButtonsRow}>
@@ -917,7 +916,7 @@ function AuthenticatedCheckinCallScreen() {
           {attempt?.target_role === 'FAMILY' && <CheckinCallContact subject={attempt.subject} onBeforeCall={() => stopAudio(false)} />}
           <Text style={styles.resultSub}>{resultCopy.message}</Text>
           {!!episodeProgress?.acknowledged_name && <Text style={styles.resultSub}>{t('familyResponsible', { name: episodeProgress.acknowledged_name })}</Text>}
-          {urgent && <CheckinCallPhoneAction phone="115" urgent onBeforeCall={() => stopAudio(false)} />}
+          {urgent && <Text style={styles.emergencyNote}>{t('emergencyNote')}</Text>}
           {attempt?.target_role === 'USER' && ['statusUserUnreachable', 'statusUserMild', 'statusFamilyUnavailable'].includes(statusKey) && <Pressable accessibilityRole="button" style={styles.triageBackButton} onPress={() => { void stopAudio(); router.replace('/checkin'); }}>
             <Text style={styles.triageBackButtonText}>{t('openCheckin')}</Text>
           </Pressable>}
@@ -997,7 +996,7 @@ function AuthenticatedCheckinCallScreen() {
             <Text style={styles.familyCardSubtitle}>
               {attempt.family_notice?.message || t(familyNotice.messageKey)}
             </Text>
-            {urgent && <CheckinCallPhoneAction phone="115" urgent onBeforeCall={() => stopAudio(false)} />}
+            {urgent && <Text style={styles.emergencyNote}>{t('emergencyNote')}</Text>}
             {!!(attempt.triage_display?.summary || attempt.issue_category) && (
               <View style={styles.reportedIssueBox}>
                 <Text style={styles.reportedIssueLabel}>{t('reportedIssue')}</Text>
@@ -1046,7 +1045,7 @@ function AuthenticatedCheckinCallScreen() {
               />
               <Text style={styles.userCardTitle}>{t('userHeading')}</Text>
               <Text style={styles.userCardSub}>{t(attempt.trigger_source === 'EARLY_SIGNAL' ? 'earlySignalCallReason' : 'gallery.connectedInstruction')}</Text>
-              {urgent && <CheckinCallPhoneAction phone="115" urgent onBeforeCall={() => stopAudio(false)} />}
+              {urgent && <Text style={styles.emergencyNote}>{t('emergencyNote')}</Text>}
 
               {!!error && <Text style={styles.error}>{error}</Text>}
               {processingFeedback}
@@ -1342,6 +1341,7 @@ function AuthenticatedCheckinCallScreen() {
 }
 
 const styles = StyleSheet.create({
+  emergencyNote: { color: '#7f1d1d', fontSize: 15, lineHeight: 23, textAlign: 'center', marginVertical: 10 },
   weatherNotice: { width: '100%', maxWidth: 360, gap: 8, paddingVertical: 12 },
   weatherCopy: { fontSize: 15, lineHeight: 23, color: '#334155' },
   root: { flex: 1, backgroundColor: '#f3fbf8' },

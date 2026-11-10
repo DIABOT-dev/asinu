@@ -3,19 +3,20 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
  * Daily Health Check-in Screen
  * Flows:
  *   fine       → confirm → done (evening check at 21h)
- *   tired      → triage 3-5 questions → summary
+ *   tired      → regional questions → summary
  *   very_tired → triage (more urgent) → summary
  *   followup   → same 3-button screen with context banner
  */
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Audio } from '@/lib/audio';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCheckinPresentationPriority } from '../../src/hooks/useCheckinPresentation';
+import { useCheckinAddressing } from '../../src/features/checkin/useCheckinAddressing';
+import { useCheckinCancellation } from '../../src/features/checkin/useCheckinCancellation';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Image,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -24,7 +25,7 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInLeft } from 'react-native-reanimated';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { AiDataConsentModal, hasAiDataConsent } from '../../src/components/AiDataConsentModal';
@@ -39,72 +40,32 @@ import { checkinApi, type CheckinStatus, type CheckinSession, type TriageAnswer,
 import { useCheckinCallAudio } from '../../src/features/checkin-call/useCheckinCallAudio';
 import { CHECKIN_STATUS_CHOICES, CheckinStatusChoice } from '../../src/features/checkin/CheckinStatusChoice';
 import { CheckinConclusion } from '../../src/features/checkin/CheckinConclusion';
-import { hasStructuredCheckinConclusion, structuredCheckinSpeech } from '../../src/features/checkin/checkin-conclusion';
+import { CheckinConclusionLoading } from '../../src/features/checkin/CheckinConclusionLoading';
+import { CheckinQuestionLoading } from '../../src/features/checkin/CheckinQuestionLoading';
+import { useCheckinQuestionViewport } from '../../src/features/checkin/useCheckinQuestionViewport';
+import { hasDisplayCheckinConclusion, checkinConclusionSpeech, recordedCheckinSymptoms } from '../../src/features/checkin/checkin-conclusion';
 import { formatTriageOptionLabel, getTriageOptionIcon } from '../../src/features/checkin/triage-option-display';
-import { chatApi } from '../../src/features/chat/chat.api';
+import { type BodyLocation } from '../../src/features/checkin/location-details';
+import { CheckinLocationFlow } from '../../src/features/checkin/CheckinLocationFlow';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { showToast } from '../../src/stores/toast.store';
 import { colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+import { StateError } from '../../src/components/state/StateError';
+import { loadCheckinEntry, checkinPhaseId, requiresCheckinFollowUp, saveLocationDraft, clearLocationDraft, savePendingAnswers, clearPendingAnswers, type LocationDraft } from '../../src/features/checkin/checkin-progress';
+import { toggleTriageOption, withoutExclusiveAnswers, composeTriageAnswer } from '../../src/features/checkin/triage-answer-selection';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 import { GuidePracticeScope, GuideScrollScope, GuideTarget, useGuideAcknowledgement } from '../../src/features/guidance/GuidanceProvider';
 import { useReviewGuidance } from '../../src/features/guidance/GuidanceSettings';
 import { useGuidanceStore } from '../../src/features/guidance/guidance.store';
-import { VoiceAnswerButton } from '../../src/features/guidance/VoiceAnswerButton';
+import { VoiceAnswerInput } from '../../src/features/guidance/VoiceAnswerInput';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { createCheckinPractice } from '../../src/features/guidance/checkin.practice';
 import { guidanceAudio } from '../../src/features/guidance/guidance.audio';
 import { guideColors as guideColors } from '../../src/features/guidance/guidance.model';
 
-const MAX_TRIAGE_QUESTIONS = 4;
 const asinuChatSticker = require('../../assets/asinu_chat_sticker.png');
-
-// ─── Local fallback questions (when network itself fails) ────────────────────
-
-const LOCAL_FALLBACK_INITIAL = [
-  { step: 'symptoms', questionKey: 'checkinFallbackInitial2Question', optionsKey: 'checkinFallbackInitial2Options', multiSelect: true },
-  { step: 'onset', questionKey: 'checkinFallbackInitial3Question', optionsKey: 'checkinFallbackInitial3Options', multiSelect: false },
-  { step: 'progression', questionKey: 'checkinFallbackProgressionQuestion', optionsKey: 'checkinFallbackProgressionOptions', multiSelect: false },
-  { step: 'red_flags', questionKey: 'checkinFallbackRedFlagsQuestion', optionsKey: 'checkinFallbackRedFlagsOptions', multiSelect: true },
-];
-
-const LOCAL_FALLBACK_FOLLOWUP = [
-  { step: 'followup_status', questionKey: 'checkinFallbackFollowup1Question', optionsKey: 'checkinFallbackFollowup1Options', multiSelect: false },
-  { step: 'followup_detail', questionKey: 'checkinFallbackFollowup2Question', optionsKey: 'checkinFallbackFollowup2Options', multiSelect: true },
-];
-
-function getLocalFallbackQuestion(
-  answerCount: number,
-  isFollowUp: boolean,
-  translate: (key: string, options?: Record<string, unknown>) => unknown,
-) {
-  const bank = isFollowUp ? LOCAL_FALLBACK_FOLLOWUP : LOCAL_FALLBACK_INITIAL;
-
-  if (answerCount < bank.length) {
-    const q = bank[answerCount];
-    return {
-      isDone: false,
-      step: q.step,
-      question: String(translate(q.questionKey)),
-      options: translate(q.optionsKey, { returnObjects: true }) as string[],
-      multiSelect: q.multiSelect,
-      _fallback: true,
-    };
-  }
-
-  // All exhausted → done
-  return {
-    isDone: true,
-    summary: String(translate('checkinFallbackSummary')),
-    severity: 'medium' as const,
-    recommendation: String(translate('checkinFallbackRecommendation')),
-    needsDoctor: false,
-    _fallback: true,
-  };
-}
-
-// ─── Status options ────────────────────────────────────────────────────────────
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
@@ -132,29 +93,12 @@ const createResultPreviewSession = (question: string, symptoms: string): Checkin
   };
 };
 
-// T2 Body Location options — match backend body-location.js BODY_LOCATIONS enum
-type BodyLocation = 'head' | 'chest' | 'abdomen' | 'limbs' | 'skin' | 'whole_body' | 'mental';
-
-// MaterialCommunityIcons vector — outline style, không có background filled.
-// Mỗi icon match ngữ nghĩa vùng cơ thể.
-type MciName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-const BODY_LOCATION_OPTIONS: Array<{ key: BodyLocation; icon: MciName; labelKey: string; descKey: string }> = [
-  { key: 'head', icon: 'head-outline', labelKey: 'checkinLocationHead', descKey: 'checkinLocationHeadDesc' },
-  { key: 'chest', icon: 'heart-pulse', labelKey: 'checkinLocationChest', descKey: 'checkinLocationChestDesc' },
-  { key: 'abdomen', icon: 'stomach', labelKey: 'checkinLocationAbdomen', descKey: 'checkinLocationAbdomenDesc' },
-  { key: 'limbs', icon: 'arm-flex-outline', labelKey: 'checkinLocationLimbs', descKey: 'checkinLocationLimbsDesc' },
-  { key: 'skin', icon: 'hand-back-right-outline', labelKey: 'checkinLocationSkin', descKey: 'checkinLocationSkinDesc' },
-  { key: 'whole_body', icon: 'human', labelKey: 'checkinLocationWholeBody', descKey: 'checkinLocationWholeBodyDesc' },
-  { key: 'mental', icon: 'brain', labelKey: 'checkinLocationMental', descKey: 'checkinLocationMentalDesc' },
-];
-
 export default function CheckinRoute() {
-  const params = useLocalSearchParams<{ mode?: string; checkin_id?: string; guide?: string }>();
-  return <CheckinScreen key={`${params.mode || 'daily'}:${params.checkin_id || ''}:${params.guide || ''}`} />;
+  const params = useLocalSearchParams<{ mode?: string; checkin_id?: string; guide?: string; entry?: string }>();
+  return <CheckinScreen key={`${params.mode || 'daily'}:${params.checkin_id || ''}:${params.guide || ''}:${params.entry || ''}`} />;
 }
 
 function CheckinScreen() {
-  const reviewGuidance = useReviewGuidance('checkin');
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('home');
@@ -165,30 +109,35 @@ function CheckinScreen() {
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const userId = useAuthStore((state) => state.profile?.id);
   const guidanceReady = useGuidanceStore(state => state.ready);
-  const { language } = useLanguageStore();
   const params = useLocalSearchParams<{
     checkin_id?: string;
     mode?: string;
     preset_status?: string;
     guide?: string;
     guide_followup?: string;
+    entry?: string;
   }>();
   const isPractice = params.mode === 'guide';
+  const addressing = useCheckinAddressing();
   const practiceRunKey = useRef(`checkin-practice:${Date.now()}:${Math.random()}`).current;
-  const checkinClient = useMemo(() => isPractice ? createCheckinPractice(t) : checkinApi, [isPractice, t]);
+  const checkinClient = useMemo(() => isPractice ? createCheckinPractice(t, addressing) : checkinApi,
+    [isPractice, t, addressing.honorific, addressing.Honorific, addressing.CallName]);
   const [practiceFollowup, setPracticeFollowup] = useState(params.guide_followup === '1');
   const [practiceRevision, setPracticeRevision] = useState(0);
   const isFollowUp = isPractice ? practiceFollowup : params.mode === 'followup';
   const isRandom = params.mode === 'random';
+  const isInstantEntry = isPractice
+    ? !isFollowUp && params.entry === 'instant'
+    : isRandom || params.entry === 'instant';
   const isResultPreview = params.mode === 'result_preview';
+  const reviewGuidance = useReviewGuidance('checkin', { instant: isInstantEntry, followup: isFollowUp });
   const existingCheckinId = isPractice ? (practiceFollowup ? -1 : null)
-    : params.checkin_id ? parseInt(params.checkin_id) : null;
+    : params.checkin_id ? parseInt(params.checkin_id, 10) : null;
   const presetStatus = params.preset_status as CheckinStatus | undefined;
 
   const [screen, setScreen] = useState<Screen>(isResultPreview ? 'done' : 'status');
-  const [loading, setLoading] = useState(
-    !isPractice && !isResultPreview && !isFollowUp && !existingCheckinId && !isRandom,
-  );
+  const [loading, setLoading] = useState(!isPractice && !isResultPreview);
+  useCheckinPresentationPriority(!isPractice && (loading || screen === 'done'));
   const [session, setSession] = useState<CheckinSession | null>(() =>
     isResultPreview
       ? createResultPreviewSession(
@@ -208,30 +157,50 @@ function CheckinScreen() {
     }
   }, [guidanceReady, isPractice, userId]);
 
-  // Auto-detect: đã check-in hôm nay chưa? Nếu rồi → redirect đúng mode
-  // Random mode: bỏ qua check, luôn cho check-in
+  const [entryError, setEntryError] = useState(false);
+  const [entryAttempt, setEntryAttempt] = useState(0);
+  const entryRecoveryPhase = useRef<string | undefined>(undefined);
+  const requestEpoch = useRef(0);
+  const cancellation = useCheckinCancellation({
+    account: userId, session,
+    onConfirmed: () => { requestEpoch.current++; },
+    onCancelled: () => { void guidanceAudio.stop(); router.replace('/(tabs)/home'); },
+    onRecover: () => { setLoading(true); setEntryAttempt(value => value + 1); },
+  });
+  const [locationDraft, setLocationDraft] = useState<LocationDraft | null>(null);
+  const locationBackRef = useRef<null | (() => void)>(null);
   useEffect(() => {
-    if (isPractice || isResultPreview || isFollowUp || existingCheckinId || isRandom) { setLoading(false); return; }
+    if (isPractice || isResultPreview) { setLoading(false); return; }
     let mounted = true;
-    checkinClient.getToday()
-      .then(res => {
-        if (!mounted) return;
-        if (res.session) {
-          const s = res.session;
-          if (s.initial_status === 'fine' || s.flow_state === 'resolved') {
-            if (router.canGoBack()) router.back();
-            else router.replace('/(tabs)/home');
-            return;
-          } else if (s.triage_completed_at) {
-            router.replace({ pathname: '/checkin', params: { checkin_id: String(s.id), mode: 'followup' } });
-            return;
-          }
+    const epoch = requestEpoch.current;
+    setLoading(true);
+    setEntryError(false);
+    loadCheckinEntry(checkinClient, userId, params.mode, existingCheckinId, entryRecoveryPhase.current)
+      .then(async entry => {
+        if (!mounted || epoch !== requestEpoch.current) return;
+        if (entry.kind === 'resume') {
+          setSession(entry.session);
+          const saved = entry.answers;
+          setAnswers(saved);
+          setScreen('triage');
+          await fetchNextQuestion(entry.session, saved);
+        } else if (entry.kind === 'location') {
+          setLocationDraft(entry.draft);
+          setPendingStatus(entry.draft.status);
+          setScreen('location');
+        } else if (entry.kind === 'home') {
+          if (router.canGoBack()) router.back();
+          else router.replace('/(tabs)/home');
+          return;
+        } else if (entry.kind === 'followup' && !isFollowUp) {
+          router.replace({ pathname: '/checkin', params: { checkin_id: String(entry.session.id), mode: 'followup', ...(isInstantEntry ? { entry: 'instant' } : {}) } });
+          return;
         }
-        setLoading(false);
+        if (mounted && epoch === requestEpoch.current) setLoading(false);
       })
-      .catch(() => { if (mounted) setLoading(false); });
+      .catch(() => { if (mounted && epoch === requestEpoch.current) { setEntryError(true); setLoading(false); } });
     return () => { mounted = false; };
-  }, [checkinClient, existingCheckinId, isFollowUp, isPractice, isRandom, isResultPreview, router]);
+  }, [checkinClient, existingCheckinId, isPractice, isResultPreview, params.mode, userId, entryAttempt, router]);
 
   useEffect(() => {
     if (screen !== 'done' || isPractice || isResultPreview || !session || session.id <= 0) return;
@@ -244,10 +213,10 @@ function CheckinScreen() {
   // Auto-start nếu có preset_status từ FAB
   const presetHandled = useRef(false);
   useEffect(() => {
-    if (!presetStatus || presetHandled.current || loading) return;
+    if (!presetStatus || presetHandled.current || loading || entryError || screen !== 'status') return;
     presetHandled.current = true;
     handleStatusSelect(presetStatus);
-  }, [presetStatus, loading]);
+  }, [presetStatus, loading, entryError, screen]);
 
   // Triage state
   const [answers, setAnswers] = useState<TriageAnswer[]>(() =>
@@ -260,13 +229,20 @@ function CheckinScreen() {
         ]
       : [],
   );
+  const [triageError, setTriageError] = useState(false);
+  const [triageConflict, setTriageConflict] = useState(false);
+  const triageRetryRef = useRef<null | (() => Promise<void>)>(null);
   const [currentQ, setCurrentQ]    = useState<string>('');
   const [currentStep, setCurrentStep] = useState<string>('');
+  const [questionProgress, setQuestionProgress] = useState<{ current: number; total: number } | undefined>();
+  const [questionGroup, setQuestionGroup] = useState<{ label: string; index: number; total: number } | null>(null);
+  const [exclusiveOptions, setExclusiveOptions] = useState<string[]>([]);
   const [currentOpts, setCurrentOpts] = useState<string[]>([]);
   const [currentOptsGrouped, setCurrentOptsGrouped] = useState<TriageOptionGroup[] | null>(null);
   const [currentMultiSelect, setCurrentMultiSelect] = useState(true);
   const [currentAllowFreeText, setCurrentAllowFreeText] = useState(false);
-  const [customAnswer, setCustomAnswer] = useState('');
+  const [currentFreeTextOption, setCurrentFreeTextOption] = useState<string>();
+  const [currentSkipAnswerLabel, setCurrentSkipAnswerLabel] = useState<string>();
   const mainScrollRef = useRef<ScrollView>(null);
   const guideScrollOffset = useRef(0);
   const [triageSummary, setTriageSummary] = useState<TriageSummaryView | null>(() =>
@@ -279,16 +255,11 @@ function CheckinScreen() {
         }
       : null,
   );
-  // Track user scroll position để chỉ auto scrollToEnd khi user đang ở bottom
-  // (vd: tin AI mới về). KHÔNG đẩy xuống nếu user đang đọc options ở giữa list.
-  const userAtBottomRef = useRef(true);
-  const lastQuestionIdRef = useRef<string>('');
   const handleMainScroll = (e: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    guideScrollOffset.current = contentOffset.y;
-    const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
-    userAtBottomRef.current = distanceFromBottom < 80;
+    guideScrollOffset.current = e.nativeEvent.contentOffset.y;
   };
+  const questionViewport = useCheckinQuestionViewport(mainScrollRef, `${screen}:${currentStep}:${currentQ}`,
+    screen === 'triage' && !isPractice, loading);
 
   // Illusion layer state
   const [currentEmpathy, setCurrentEmpathy] = useState<{ text: string; templateId: string } | null>(null);
@@ -318,7 +289,10 @@ function CheckinScreen() {
   const handleAiConsentDecline = useCallback(() => {
     pendingAiActionRef.current = null;
     setShowAiConsent(false);
-  }, []);
+    if (screen === 'triage' && !currentQ) {
+      if (router.canGoBack()) router.back(); else router.replace('/(tabs)/home');
+    }
+  }, [screen, currentQ, router]);
 
   // ─── Status select ─────────────────────────────────────────────────────────
 
@@ -328,6 +302,7 @@ function CheckinScreen() {
   const [pendingStatus, setPendingStatus] = useState<CheckinStatus | null>(null);
 
   const handleStatusSelect = useCallback(async (status: CheckinStatus) => {
+    if (isInstantEntry && status !== 'tired' && status !== 'very_tired') return;
     // Followup: vẫn flow cũ (đã có session)
     if (isFollowUp && existingCheckinId) {
       if (
@@ -338,14 +313,16 @@ function CheckinScreen() {
       try {
         const res = await checkinClient.followUp(existingCheckinId, status);
         setSession(res.session);
+        if (!isPractice) await clearPendingAnswers(userId, res.session);
         if (status === 'fine') {
           setScreen('done');
           showToast(isPractice ? tg('guidance.practiceSaved') : t('checkinSaved'), 'success');
           setLoading(false);
           return;
         }
+        setAnswers(res.session.triage_messages || []);
         setScreen('triage');
-        await fetchNextQuestion(res.session, [], true);
+        await fetchNextQuestion(res.session, res.session.triage_messages || []);
       } catch (err: any) {
         if (__DEV__) console.warn('[Checkin] handleStatusSelect followup:', err?.message || err);
         showAlert(t('error', { ns: 'common' }), t('checkinError'));
@@ -360,6 +337,7 @@ function CheckinScreen() {
       try {
         const res = await checkinClient.start(status, null, null, isRandom);
         setSession(res.session);
+        if (!isPractice) { await clearPendingAnswers(userId, res.session); await clearLocationDraft(userId); }
         setScreen('done');
         showToast(isPractice ? tg('guidance.practiceSaved') : t('checkinSaved'), 'success');
         setLoading(false);
@@ -380,8 +358,8 @@ function CheckinScreen() {
       try {
         const res = await checkinClient.start(status, null, null, isRandom);
         setSession(res.session);
-        setScreen('triage');
-        await fetchNextQuestion(res.session, [], true);
+        if (!isPractice) { await clearPendingAnswers(userId, res.session); await clearLocationDraft(userId); }
+        await openStartedTriage(res.session);
       } catch (err: any) {
         if (__DEV__) console.warn('[Checkin] handleStatusSelect concern:', err?.message || err);
         showAlert(t('error', { ns: 'common' }), t('checkinError'));
@@ -391,9 +369,12 @@ function CheckinScreen() {
     }
 
     // "Hơi mệt" / "Rất mệt" keep the body-location shortcut.
+    const draft: LocationDraft = { status, selected: [], other: '', details: {}, positionNotes: {}, detailIndex: null };
+    if (!isPractice) await saveLocationDraft(userId, draft);
+    setLocationDraft(draft);
     setPendingStatus(status);
     setScreen('location');
-  }, [checkinClient, isPractice, isFollowUp, existingCheckinId, requestAiConsent]);
+  }, [checkinClient, isPractice, isFollowUp, isInstantEntry, existingCheckinId, requestAiConsent, userId, isRandom, t, tg]);
 
   const handleLocationsConfirm = useCallback(async (locs: BodyLocation[], other: string) => {
     if (!pendingStatus) return;
@@ -411,41 +392,77 @@ function CheckinScreen() {
         isRandom,
       );
       setSession(res.session);
-      setScreen('triage');
-      await fetchNextQuestion(res.session, [], true);
+      if (!isPractice) { await clearPendingAnswers(userId, res.session); await clearLocationDraft(userId); }
+      await openStartedTriage(res.session);
     } catch (err: any) {
       if (__DEV__) console.warn('[Checkin] handleLocationsConfirm:', err?.message || err);
       showAlert(t('error', { ns: 'common' }), t('checkinError'));
       setLoading(false);
     }
-  }, [checkinClient, pendingStatus, language, requestAiConsent]);
+  }, [checkinClient, pendingStatus, requestAiConsent, isPractice, userId, isRandom, t]);
 
   // ─── Triage ────────────────────────────────────────────────────────────────
 
-  const fetchNextQuestion = async (sess: CheckinSession, prevAnswers: TriageAnswer[], skipLoadingStart = false) => {
-    if (!(await requestAiConsent(() => fetchNextQuestion(sess, prevAnswers, skipLoadingStart)))) {
+  async function openStartedTriage(sess: CheckinSession) {
+    // The start response can contain an existing session (for example when
+    // another request completed it after the entry screen loaded).
+    if (!isPractice && requiresCheckinFollowUp(sess)) {
+      router.replace({ pathname: '/checkin', params: { checkin_id: String(sess.id), mode: 'followup', ...(isInstantEntry ? { entry: 'instant' } : {}) } });
       setLoading(false);
       return;
     }
-    if (!skipLoadingStart) setLoading(true);
+    const saved = sess.triage_messages || [];
+    setAnswers(saved);
+    setScreen('triage');
+    await fetchNextQuestion(sess, saved);
+  }
+
+  const fetchNextQuestion = async (sess: CheckinSession, prevAnswers: TriageAnswer[]) => {
+    const epoch = requestEpoch.current;
+    if (!(await requestAiConsent(() => fetchNextQuestion(sess, prevAnswers)))) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setTriageError(false);
+    setTriageConflict(false);
+    triageRetryRef.current = () => fetchNextQuestion(sess, prevAnswers);
     try {
-      const result = await checkinClient.triage(sess.id, prevAnswers);
-      if (__DEV__) console.log('[Checkin] triage completed:', { isDone: result.isDone, step: result.step });
+      if (!isPractice) await savePendingAnswers(userId, sess, prevAnswers);
+      if (epoch !== requestEpoch.current) return;
+      const result = await checkinClient.triage(sess.id, prevAnswers, isPractice ? undefined : checkinPhaseId(sess));
+      if (epoch !== requestEpoch.current) return;
+      if (__DEV__) console.log('[Checkin] triage completed:', {
+        isDone: result.isDone, step: result.step,
+        promptVersion: result.conclusionPromptVersion,
+        renderVersion: result.conclusionRenderVersion,
+        source: result.conclusionSource,
+      });
       if ((result as any).ok === false) {
         throw new Error((result as any).error || 'Triage API error');
       }
+      if (!isPractice) await clearPendingAnswers(userId, sess, prevAnswers);
+      if (epoch !== requestEpoch.current) return;
       if (result.isDone) {
         setTriageSummary({
           summary: result.summary || '',
+          recordedSymptoms: result.recordedSymptoms,
           severity: result.severity || 'medium',
           recommendation: result.recommendation || '',
           needsDoctor: result.needsDoctor ?? false,
           conclusionVersion: result.conclusionVersion,
+          conclusionFormat: result.conclusionFormat,
+          narrative: result.narrative,
+          speechText: result.speechText,
+          conclusionPromptVersion: result.conclusionPromptVersion,
+          conclusionRenderVersion: result.conclusionRenderVersion,
+          conclusionSource: result.conclusionSource,
           personalMessage: result.personalMessage,
           explanation: result.explanation,
           todo: result.todo,
           seeDoctorWhen: result.seeDoctorWhen,
           disclaimer: result.disclaimer,
+          aiNotice: result.aiNotice,
           closeMessage: result.closeMessage,
           followUpHours: result.followUpHours,
           familyAlertResult: result.familyAlertResult,
@@ -462,12 +479,9 @@ function CheckinScreen() {
         setCurrentGreeting(result._greeting || null);
         const newQ = result.question || '';
         setCurrentStep(result.step || `legacy_${prevAnswers.length + 1}`);
-        // Khi câu hỏi MỚI về (khác câu trước) → reset userAtBottom=true để
-        // onContentSizeChange tự scroll xuống tin mới (user thường muốn xem).
-        if (newQ !== lastQuestionIdRef.current) {
-          userAtBottomRef.current = true;
-          lastQuestionIdRef.current = newQ;
-        }
+        setQuestionProgress(result.questionProgress);
+        setQuestionGroup(result.questionGroup || null);
+        setExclusiveOptions(result.exclusiveOptions || []);
         setCurrentQ(newQ);
         setCurrentOpts(result.options || []);
         setCurrentOptsGrouped(result.optionsGrouped || null);
@@ -498,33 +512,26 @@ function CheckinScreen() {
           setCurrentMultiSelect(!isSingleSelect);
         }
         setCurrentAllowFreeText(result.allowFreeText === true);
-        setCustomAnswer('');
+        setCurrentFreeTextOption(result.freeTextOption);
+        setCurrentSkipAnswerLabel(result.skipAnswerLabel);
       }
     } catch (err: any) {
-      if (__DEV__) console.warn('[Checkin] triage fallback:', err?.message || err);
-      const fallback = getLocalFallbackQuestion(prevAnswers.length, isFollowUp, t);
-      if (fallback.isDone) {
-        const retryAnswers = prevAnswers.slice(0, -1);
-        const retryFallback = getLocalFallbackQuestion(retryAnswers.length, isFollowUp, t);
-        setAnswers(retryAnswers);
-        if (!retryFallback.isDone) {
-          setCurrentStep(retryFallback.step || `fallback_${retryAnswers.length + 1}`);
-          setCurrentQ(retryFallback.question || '');
-          setCurrentOpts(retryFallback.options || []);
-          setCurrentOptsGrouped(null);
-          setCurrentMultiSelect(retryFallback.multiSelect ?? false);
-        }
-        showAlert(t('error', { ns: 'common' }), t('checkinSyncError'));
-      } else {
-        setCurrentStep(fallback.step || `fallback_${prevAnswers.length + 1}`);
-        setCurrentQ(fallback.question || '');
-        setCurrentOpts(fallback.options || []);
-        setCurrentOptsGrouped(null);
-        setCurrentMultiSelect(fallback.multiSelect ?? false);
-        setCustomAnswer('');
+      if (epoch !== requestEpoch.current) return;
+      if (__DEV__) console.warn('[Checkin] triage request failed:', err?.message || err);
+      // Keep this exact request, including the last answer. A network failure
+      // must never replace a regional question with an unrelated fallback.
+      setTriageError(true);
+      if (err?.code === 'TRIAGE_CHANGED') {
+        setTriageConflict(true);
+        triageRetryRef.current = async () => {
+          entryRecoveryPhase.current = checkinPhaseId(sess);
+          setLoading(true);
+          setTriageError(false);
+          setEntryAttempt(value => value + 1);
+        };
       }
     } finally {
-      setLoading(false);
+      if (epoch === requestEpoch.current) setLoading(false);
     }
   };
 
@@ -566,7 +573,7 @@ function CheckinScreen() {
       }
     }
 
-    // Backend enforces the question limit and returns the persisted severity.
+    // Backend decides when the assessment is complete and persists its severity.
     // Always await it so an emergency in the final answer cannot be shown as medium.
     await fetchNextQuestion(session, newAnswers);
   };
@@ -613,12 +620,13 @@ function CheckinScreen() {
         }}
       >
         <ScreenBackButton
-          iconColor={screen === 'status' ? colors.textPrimary : "#0F172A"}
-          style={{ width: 44, height: 44 }}
+          disabled={cancellation.busy}
+          iconColor={colors.primaryText}
+          style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1,
+            borderColor: colors.primary + '66', backgroundColor: colors.primaryLight }}
           onPress={() => {
             if (screen === 'location') {
-              setPendingStatus(null);
-              setScreen('status');
+              locationBackRef.current?.();
             } else {
               router.back();
             }
@@ -642,13 +650,17 @@ function CheckinScreen() {
         >
           {isResultPreview
             ? t('checkinResultPreviewHeader')
+            : screen === 'status' && isInstantEntry
+              ? t('checkinSelectIntensityTitle')
             : isFollowUp
               ? t('checkinHeaderFollowUp')
               : screen === 'status'
-                ? t('checkinSelectStatusTitle')
+                ? t(isInstantEntry ? 'checkinSelectIntensityTitle' : 'checkinSelectStatusTitle')
                 : t('checkinHeaderTitle')}
         </Text>}
-        <Pressable
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {screen === 'status' && !isPractice && !isResultPreview ? <Pressable
+          testID="checkin-context-help"
           accessibilityLabel={t('checkinGuide.badge')}
           accessibilityRole="button"
           hitSlop={8}
@@ -662,9 +674,17 @@ function CheckinScreen() {
           }}
         >
           <Ionicons name="help-circle-outline" size={24} color={colors.primaryText} />
-        </Pressable>
+        </Pressable> : null}
+        {!isPractice && !isResultPreview && screen !== 'done' ? <Pressable
+          testID="checkin-cancel" accessibilityRole="button" accessibilityLabel={t('checkinCancel')}
+          disabled={cancellation.busy || (loading && !session)} onPress={cancellation.request}
+          style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 8, justifyContent: 'center', opacity: cancellation.busy || pressed || (loading && !session) ? 0.5 : 1 })}>
+          <Text allowFontScaling style={{ color: colors.danger, fontWeight: '700', fontSize: 14 }}>{t('checkinCancel')}</Text>
+        </Pressable> : <View style={{ width: 44, height: 44 }} />}
+        </View>
       </View>
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
+      <AppAlertModal {...cancellation.alertState} allowDuringCheckin onDismiss={cancellation.dismissAlert} />
       <AiDataConsentModal
         visible={showAiConsent}
         onAgree={handleAiConsentAgree}
@@ -681,38 +701,43 @@ function CheckinScreen() {
         bounces={false}
         overScrollMode="never"
         onScroll={handleMainScroll}
+        onContentSizeChange={questionViewport.onContentSizeChange}
+        onScrollBeginDrag={questionViewport.onScrollBeginDrag}
         scrollEventThrottle={120}
-        onContentSizeChange={() => {
-          // CHỈ auto scrollToEnd khi:
-          //   - đang ở triage screen, VÀ
-          //   - user đang ở gần bottom (vd: AI vừa trả tin mới)
-          // Nếu user đang scroll lên đọc options ở giữa → KHÔNG đẩy xuống.
-          if (screen === 'triage' && userAtBottomRef.current) {
-            mainScrollRef.current?.scrollToEnd({ animated: true });
-          }
-        }}
       >
-        {screen === 'status' && <StatusScreen styles={styles} onSelect={handleStatusSelect} isFollowUp={isFollowUp} practice={isPractice} />}
+        {entryError ? <StateError message={t('checkinResumeError')} onRetry={() => setEntryAttempt(value => value + 1)} /> : null}
+        {!entryError && screen === 'status' && <StatusScreen styles={styles} onSelect={handleStatusSelect} isFollowUp={isFollowUp} instant={isInstantEntry} practice={isPractice} />}
         {screen === 'location' && (
           <LocationScreen
             styles={styles}
+            initialDraft={locationDraft}
+            draftStatus={pendingStatus}
+            draftAccount={isPractice ? undefined : userId}
+            onBackHandlerChange={handler => { locationBackRef.current = handler; }}
+            onQuestionChange={() => mainScrollRef.current?.scrollTo({ y: 0, animated: false })}
             onConfirm={handleLocationsConfirm}
             onBack={() => { setPendingStatus(null); setScreen('status'); }}
-            loading={loading}
+            loading={loading || cancellation.busy}
             onBeforeAi={requestAiConsent}
             practice={isPractice}
           />
         )}
-        {screen === 'triage' && (
+        {screen === 'triage' && triageError ? <StateError message={t(triageConflict ? 'checkinProgressChanged' : 'checkinSyncError')} onRetry={() => { void triageRetryRef.current?.(); }} /> : null}
+        {screen === 'triage' && !entryError && !triageError && (
           <TriageScreen
             styles={styles}
             question={currentQ}
             options={currentOpts}
             optionsGrouped={currentOptsGrouped}
+            questionProgress={questionProgress}
+            questionGroup={questionGroup}
+            exclusiveOptions={exclusiveOptions}
             multiSelect={currentMultiSelect}
             allowFreeText={currentAllowFreeText}
+            freeTextOption={currentFreeTextOption}
+            skipAnswerLabel={currentSkipAnswerLabel}
             answers={answers}
-            loading={loading}
+            loading={loading || cancellation.busy}
             onAnswer={handleAnswer}
             empathy={currentEmpathy}
             continuity={currentContinuity}
@@ -745,6 +770,7 @@ type Styles = ReturnType<typeof createStyles>;
 
 /** Renders the same UI as check-in without mounting its API/consent/guide controller. */
 export function CheckinUiPreview({ id }: { id: CheckinUiPreviewId }) {
+  const addressing = useCheckinAddressing();
   const { t } = useTranslation('home');
   const typography = useScaledTypography();
   const styles = useMemo(() => createStyles(typography), [typography]);
@@ -763,11 +789,11 @@ export function CheckinUiPreview({ id }: { id: CheckinUiPreviewId }) {
   }
   if (['checkin-multiple', 'checkin-grouped', 'checkin-single', 'checkin-text', 'checkin-loading'].includes(id)) {
     if (id === 'checkin-loading') {
-      return <ConclusionLoadingView styles={styles} />;
+      return <ConclusionLoadingView />;
     }
     const single = id === 'checkin-single';
     const textOnly = id === 'checkin-text';
-    const question = t(single ? 'checkinFallbackInitial3Question' : 'checkinFallbackInitial2Question');
+    const question = t(single ? 'checkinFallbackInitial3Question' : 'checkinFallbackInitial2Question', addressing);
     const options = t(single ? 'checkinFallbackInitial3Options' : 'checkinFallbackInitial2Options', { returnObjects: true }) as string[];
     return <TriageScreen
       styles={styles}
@@ -812,271 +838,51 @@ function StatusScreen({
   styles,
   onSelect,
   isFollowUp,
+  instant = false,
   practice = false,
   readOnly = false,
 }: {
   styles: Styles;
   onSelect: (s: CheckinStatus) => void;
   isFollowUp: boolean;
+  instant?: boolean;
   practice?: boolean;
   readOnly?: boolean;
 }) {
   const { t } = useTranslation('home');
+  const addressing = useCheckinAddressing();
   const getGreeting = () => {
-    if (isFollowUp) return t('checkinGreetingFollowUp');
+    if (instant) return t('checkinInstantStatusTitle');
+    if (isFollowUp) return t('checkinGreetingFollowUp', addressing);
     const h = new Date().getHours();
-    if (h < 12) return t('checkinGreetingMorning');
-    if (h < 14) return t('checkinGreetingAfternoon');
-    if (h < 18) return t('checkinGreetingEvening2');
-    return t('checkinGreetingEvening');
+    if (h < 12) return t('checkinGreetingMorning', addressing);
+    if (h < 14) return t('checkinGreetingAfternoon', addressing);
+    if (h < 18) return t('checkinGreetingEvening2', addressing);
+    return t('checkinGreetingEvening', addressing);
   };
 
   return (
     <View style={styles.statusSection} testID="checkin-status-screen">
-      <View style={styles.statusBackdrop} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <Svg width="100%" height="100%" viewBox="0 0 430 760" preserveAspectRatio="none">
-          <Path d="M0 0C125 125 179 133 275 89C338 60 379 5 430 16V186C326 140 280 155 210 175C121 200 54 184 0 142Z" fill={colors.primaryLight} opacity={0.65} />
-          <Path d="M0 161C103 223 143 136 238 147C322 157 373 190 430 159V205C355 162 280 167 225 190C132 229 62 198 0 211Z" fill={colors.surface} opacity={0.6} />
-          <Path d="M0 705C93 731 140 674 236 704C323 732 370 695 430 730V760H0Z" fill={colors.primaryLight} opacity={0.75} />
-          <Path d="M0 62C27 69 26 103 3 115C-3 96-2 78 0 62ZM0 120C27 111 29 130 6 142Z" fill={colors.primary} opacity={0.09} />
-          <Path d="M0 713C13 683 37 694 23 724C15 740 10 742 0 750ZM12 748C10 718 41 716 43 702C54 729 35 746 12 748ZM410 703C394 677 390 715 413 725C430 735 430 722 430 722Z" fill={colors.primary} opacity={0.1} />
-        </Svg>
-      </View>
-      <View style={styles.heroDecorativeRow}>
-        <View style={styles.heroSideWrapLeft}>
-          <Text allowFontScaling style={styles.heroSideText}>{t('checkinHeroSloganLeft')}</Text>
-        </View>
-        <View style={styles.heroCenterBadgeWrap} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <Svg width={130} height={120} viewBox="0 0 130 120" fill="none">
-            <Circle cx={65} cy={60} r={54} fill={colors.primaryLight} />
-            <Path d="M65 92C65 92 32 70 32 46C32 32 43 23 54 26C59 27 63 31 65 35C68 30 72 26 79 26C93 25 100 36 98 48C96 69 65 92 65 92Z" fill={colors.primary} />
-            <Path d="M65 35C58 19 31 23 32 46C32 59 42 72 53 82C38 60 47 37 65 35Z" fill="#b2f0e7" opacity={0.38} />
-            <Path d="M35 60H49L56 43L64 72L71 50L76 61H96" stroke="#f8fffd" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
-            <Path d="M39 108C19 104 9 91 10 76C27 78 38 90 39 108ZM87 109C87 89 107 76 127 78C122 97 108 109 87 109Z" fill={colors.primary} opacity={0.2} />
-            <Path d="M87 107C80 91 91 76 109 69C111 85 100 101 87 107Z" fill={colors.primary} opacity={0.16} />
-          </Svg>
-        </View>
-        <View style={styles.heroSideWrapRight}>
-          <Text allowFontScaling style={[styles.heroSideText, styles.heroSideTextRight]}>{t('checkinHeroSloganRight')}</Text>
-        </View>
-      </View>
-
       <View style={styles.heroHeadingWrap}>
         <Text allowFontScaling accessibilityRole="header" style={styles.heroHeading}>{getGreeting()}</Text>
-        <Text allowFontScaling style={styles.heroSubheading}>{t('checkinSubheading')}</Text>
+        <Text allowFontScaling style={styles.heroSubheading}>{t(instant ? 'checkinInstantStatusHint' : 'checkinSubheading')}</Text>
       </View>
 
       <GuideTarget step="checkin.status" style={styles.optionList} enabled={practice}>
-        {CHECKIN_STATUS_CHOICES.map(choice => (
+        {CHECKIN_STATUS_CHOICES.filter(choice => !instant || choice.status !== 'fine').map(choice => (
           <CheckinStatusChoice key={choice.status} choice={choice} onSelect={readOnly ? undefined : onSelect} />
         ))}
       </GuideTarget>
 
-      {!practice && <Text allowFontScaling style={styles.statusGiftHint}>{t('checkinGift.afterCheckin')}</Text>}
-      <View style={styles.footerBrandWrap}>
-        <View style={styles.footerBrandLeft}>
-          <Text allowFontScaling style={styles.footerBrandWord}>{t('checkinFooterBrand1')}</Text>
-          <Text allowFontScaling style={styles.footerBrandWord}>{t('checkinFooterBrand2')}</Text>
-          <Text allowFontScaling style={styles.footerBrandWord}>{t('checkinFooterBrand3')}</Text>
-        </View>
-        <View style={styles.footerBrandRight}>
-          <Svg width={110} height={36} viewBox="0 0 110 36" fill="none" accessible={false}>
-            <Path d="M26 30C15 22 10 16 10 10C10 4.5 14.5 1 20 1C23.5 1 26.5 3 28 5.5C29.5 3 32.5 1 36 1C41.5 1 46 4.5 46 10C46 16 41 22 30 30Z" stroke={colors.primaryText} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-            <Path d="M45 20H56L61 9L66 29L71 13L75 24L78 20H106" stroke={colors.primaryText} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-          <Text allowFontScaling style={styles.footerBrandTagline}>{t('checkinFooterTagline')}</Text>
-        </View>
-      </View>
+      {!practice && !instant && <Text allowFontScaling style={styles.statusGiftHint}>{t('checkinGift.afterCheckin')}</Text>}
     </View>
   );
 }
 
 // ─── T2 Location screen ──────────────────────────────────────────────────────
 
-function LocationScreen({
-  styles,
-  onConfirm,
-  onBack,
-  loading,
-  onBeforeAi,
-  practice = false,
-  readOnly = false,
-}: {
-  styles: Styles;
-  onConfirm: (locs: BodyLocation[], other: string) => void;
-  onBack: () => void;
-  loading: boolean;
-  onBeforeAi: () => Promise<boolean>;
-  practice?: boolean;
-  readOnly?: boolean;
-}) {
-  const { t } = useTranslation('home');
-  const { t: tg } = useTranslation('onboarding');
-  const acknowledgeGuide = useGuideAcknowledgement();
-  const [selected, setSelected] = useState<Set<BodyLocation>>(
-    readOnly ? new Set([BODY_LOCATION_OPTIONS[0].key]) : new Set()
-  );
-  const [other, setOther] = useState('');
-
-  const toggle = (key: BodyLocation) => {
-    if (readOnly) return;
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  const count = selected.size + (other.trim() ? 1 : 0);
-  const canConfirm = count > 0 && !loading;
-  const confirmLabel = count > 0
-    ? t('checkinLocationContinueCount', { count })
-    : t('checkinLocationContinue');
-
-  return (
-    <View style={styles.section}>
-      {/* Top progress bar & step counter */}
-      <View style={styles.triageProgressRow}>
-        <View style={styles.triageProgressTrack}>
-          <View style={[styles.triageProgressFill, { width: '20%' }]} />
-        </View>
-        <Text style={styles.triageProgressText}>1/5</Text>
-      </View>
-
-      {/* Companion Mascot sticker + Speech bubble */}
-      <Animated.View entering={FadeInLeft.duration(350)} style={styles.mascotRow}>
-        <Image
-          source={asinuChatSticker}
-          style={styles.mascotSticker}
-          resizeMode="contain"
-        />
-        <View style={styles.mascotBubble}>
-          <Text style={styles.mascotBubbleText}>
-            {t('checkinLocationMascotBubble')}
-          </Text>
-        </View>
-      </Animated.View>
-
-      {/* Question section: Pulse icon + Title + Subtitle */}
-      <Animated.View entering={FadeInLeft.duration(400)} style={styles.questionSection}>
-        <View style={styles.questionHeaderRow}>
-          <MaterialCommunityIcons name="pulse" size={26} color="#08b8a2" style={styles.questionPulseIcon} />
-          <Text allowFontScaling style={[styles.questionHeaderTitle, practice && { fontSize: 22, lineHeight: 30 }]}>
-            {t('checkinLocationTitle')}
-          </Text>
-        </View>
-        <Text style={styles.questionSubtitle}>
-          {t('checkinLocationDescription')}
-        </Text>
-      </Animated.View>
-
-      {/* Body location options */}
-      <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.triageOptionsList}>
-        {BODY_LOCATION_OPTIONS.map((opt, optionIndex) => {
-          const isSelected = selected.has(opt.key);
-          return (
-            <GuideTarget key={opt.key} step="checkin.location" enabled={practice && optionIndex === 0 && !loading}>
-              <Pressable
-                key={opt.key}
-                onPress={() => !loading && toggle(opt.key)}
-                disabled={loading || readOnly}
-                style={({ pressed }) => [
-                  styles.triageOptionCard,
-                  isSelected && styles.triageOptionCardSelected,
-                  (pressed || loading) && { opacity: 0.85 },
-                ]}
-              >
-                <View style={[styles.triageCheckbox, isSelected && styles.triageCheckboxSelected]}>
-                  {isSelected && <Ionicons name="checkmark" size={13} color="#ffffff" />}
-                </View>
-                <MaterialCommunityIcons
-                  name={opt.icon}
-                  size={24}
-                  color={isSelected ? '#08b8a2' : '#64748b'}
-                />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text allowFontScaling style={[styles.triageOptionTitle, isSelected && styles.triageOptionTitleSelected]}>
-                    {t(opt.labelKey)}
-                  </Text>
-                  <Text style={styles.triageOptionSubtitle}>
-                    {t(opt.descKey)}
-                  </Text>
-                </View>
-              </Pressable>
-            </GuideTarget>
-          );
-        })}
-      </Animated.View>
-
-      {/* Free-text "Khác" / voice input */}
-      <GuideTarget step="checkin.location_other" enabled={practice && !loading}>
-        <Animated.View entering={FadeInDown.delay(160).duration(400)}>
-          {practice ? (
-            <Text allowFontScaling style={{ color: colors.textPrimary, marginBottom: spacing.xs, fontSize: 18, fontWeight: '700' }}>
-              {tg('guidance.otherAnswer')}
-            </Text>
-          ) : null}
-          <View style={styles.triageInputCard}>
-            <GuideTarget step="checkin.voice" enabled={practice && !loading} acknowledgeOnTouch={false}>
-              <VoiceAnswerButton
-                onText={text => { setOther(previous => `${previous} ${text}`.trim()); acknowledgeGuide('checkin.voice'); }}
-                onBeforeAi={onBeforeAi}
-                disabled={loading || readOnly}
-                practice={practice}
-              />
-            </GuideTarget>
-            <TextInput
-              allowFontScaling
-              value={other}
-              onChangeText={readOnly ? undefined : setOther}
-              placeholder={t('checkinLocationOtherPlaceholder')}
-              placeholderTextColor="#94a3b8"
-              editable={!loading && !readOnly}
-              maxLength={200}
-              style={[styles.triageTextInput, practice && { fontSize: 20 }]}
-            />
-          </View>
-        </Animated.View>
-      </GuideTarget>
-
-      {/* Action / Continue button */}
-      <GuideTarget step="checkin.location_confirm" enabled={practice && canConfirm}>
-        <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-          <Pressable
-            onPress={() => { if (!readOnly) onConfirm(Array.from(selected), other); }}
-            disabled={!canConfirm || readOnly}
-            style={({ pressed }) => [
-              styles.triagePillBtn,
-              !canConfirm && styles.triagePillBtnDisabled,
-              pressed && canConfirm && { opacity: 0.88, transform: [{ scale: 0.98 }] },
-            ]}
-          >
-            <Text allowFontScaling style={[styles.triagePillBtnText, !canConfirm && styles.triagePillBtnTextDisabled, practice && { fontSize: 20 }]}>
-              {confirmLabel}
-            </Text>
-            <Ionicons
-              name="arrow-forward"
-              size={18}
-              color={canConfirm ? '#ffffff' : '#94a3b8'}
-              style={{ marginLeft: 6 }}
-            />
-          </Pressable>
-        </Animated.View>
-      </GuideTarget>
-
-      {/* Bottom watermark decoration */}
-      <View style={styles.bottomWatermarkWrap} pointerEvents="none">
-        <Svg width={200} height={160} viewBox="0 0 200 160" fill="none">
-          <Path d="M0 110 C60 75 120 95 200 55 L200 160 L0 160 Z" fill="#e6faf8" opacity={0.5} />
-          <Path d="M25 130 C85 100 145 115 200 95 L200 160 L25 160 Z" fill="#d8f6f1" opacity={0.4} />
-          <Path d="M165 95 H177 V83 C177 81 178.8 79.5 181 79.5 C183.2 79.5 185 81 185 83 V95 H197 C199 95 200.5 96.8 200.5 99 C200.5 101.2 199 103 197 103 H185 V115 C185 117 183.2 118.5 181 118.5 C178.8 118.5 177 117 177 115 V103 H165 C163 103 161.5 101.2 161.5 99 C161.5 96.8 163 95 165 95 Z" fill="#08b8a2" opacity={0.2} />
-          <Path d="M173 124 C160 129 157 142 163 152 C174 150 182 138 173 124 Z" fill="#08b8a2" opacity={0.2} />
-          <Path d="M185 120 C192 128 194 144 186 151 C177 146 177 133 185 120 Z" fill="#08b8a2" opacity={0.16} />
-        </Svg>
-      </View>
-    </View>
-  );
+function LocationScreen(props: React.ComponentProps<typeof CheckinLocationFlow>) {
+  return <CheckinLocationFlow {...props} />;
 }
 
 // ─── Triage screen ────────────────────────────────────────────────────────────
@@ -1086,8 +892,13 @@ function TriageScreen({
   question,
   options,
   optionsGrouped,
+  questionProgress,
+  questionGroup,
+  exclusiveOptions = [],
   multiSelect,
   allowFreeText,
+  freeTextOption,
+  skipAnswerLabel,
   answers,
   loading,
   onAnswer,
@@ -1102,11 +913,16 @@ function TriageScreen({
   question: string;
   options: string[];
   optionsGrouped?: TriageOptionGroup[] | null;
+  questionProgress?: { current: number; total: number };
+  questionGroup?: { label: string; index: number; total: number } | null;
+  exclusiveOptions?: string[];
   multiSelect: boolean;
   allowFreeText?: boolean;
+  freeTextOption?: string;
+  skipAnswerLabel?: string;
   answers: TriageAnswer[];
   loading: boolean;
-  onAnswer: (a: string) => void;
+  onAnswer: (a: string) => void | Promise<void>;
   onBeforeAi: () => Promise<boolean>;
   empathy?: { text: string; templateId: string } | null;
   continuity?: { text: string; templateId: string } | null;
@@ -1121,119 +937,51 @@ function TriageScreen({
   const [selected, setSelected] = useState<Set<string>>(
     readOnly && !multiSelect && options.length > 0 ? new Set([options[0]]) : new Set()
   );
-  const scrollRef = useRef<ScrollView>(null);
-
-  // Voice recording
-  const { language } = useLanguageStore();
-  const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const recordingRef = useRef<any>(null);
-  const recordingStartRef = useRef<number>(0);
-  const maxMeteringRef = useRef<number>(-160);
-
-  useEffect(() => {
-    return () => {
-      if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync().catch(() => {});
-        recordingRef.current = null;
-      }
-    };
-  }, []);
-
-  const handleMicPress = async () => {
-    if (readOnly) return;
-    await guidanceAudio.stop();
-    if (practice) {
-      if (isRecording) {
-        setIsRecording(false);
-        setCustom(tg('guidance.practiceVoiceExample'));
-        acknowledgeGuide('checkin.voice');
-        showToast(tg('guidance.practiceVoiceNotice'), 'info');
-      } else {
-        setIsRecording(true);
-      }
-      return;
-    }
-    if (isRecording) {
-      // Stop recording
-      setIsRecording(false);
-      try {
-        await recordingRef.current?.stopAndUnloadAsync();
-        const uri = recordingRef.current?.getURI();
-        recordingRef.current = null;
-        if (!uri) return;
-        if (Date.now() - recordingStartRef.current < 1500) return;
-        if (maxMeteringRef.current < -40) return;
-        if (!(await onBeforeAi())) return;
-        setIsTranscribing(true);
-        try {
-          const text = await chatApi.transcribeAudio(uri, language);
-          if (text) setCustom((prev) => (prev ? `${prev} ${text}` : text));
-        } catch {}
-        setIsTranscribing(false);
-      } catch {
-        setIsTranscribing(false);
-      }
-    } else {
-      // Start recording
-      try {
-        if (!(await onBeforeAi())) return;
-        if (recordingRef.current) {
-          try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
-          recordingRef.current = null;
-        }
-        const { granted } = await Audio.requestPermissionsAsync();
-        if (!granted) return;
-        await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-        maxMeteringRef.current = -160;
-        const { recording } = await Audio.Recording.createAsync(
-          Audio.RecordingOptionsPresets.HIGH_QUALITY,
-          (status) => {
-            if (status.metering != null && status.metering > maxMeteringRef.current) {
-              maxMeteringRef.current = status.metering;
-            }
-          },
-          100
-        );
-        recordingRef.current = recording;
-        recordingStartRef.current = Date.now();
-        setIsRecording(true);
-      } catch {}
-    }
+  const [otherActive, setOtherActive] = useState(false);
+  useEffect(() => { if (!readOnly) setOtherActive(false); }, [question, readOnly]);
+  const [showHistory, setShowHistory] = useState(false);
+  useEffect(() => { if (!readOnly) setShowHistory(false); }, [question, readOnly]);
+  const answering = useRef(false);
+  const submitAnswer = (answer: string) => {
+    if (answering.current) return;
+    answering.current = true;
+    void Promise.resolve(onAnswer(answer)).finally(() => { answering.current = false; }).catch(() => {});
   };
 
-  const progress = (answers.length + 1) / MAX_TRIAGE_QUESTIONS;
+  const progressCurrent = questionProgress?.current || answers.length + 1;
+  const progressTotal = questionProgress?.total;
+  const progress = progressTotal ? progressCurrent / progressTotal : 0;
 
   const handleOptionTap = (opt: string) => {
-    if (readOnly) return;
+    if (readOnly || loading || isTranscribing) return;
+    if (freeTextOption && opt === freeTextOption) {
+      setOtherActive(true);
+      setSelected(previous => multiSelect ? withoutExclusiveAnswers(previous, exclusiveOptions) : new Set());
+      return;
+    }
+    setOtherActive(false);
     if (multiSelect) {
-      // Multi-select: toggle selection
-      setSelected((prev) => {
-        const next = new Set(prev);
-        if (next.has(opt)) next.delete(opt);
-        else next.add(opt);
-        return next;
-      });
+      if (exclusiveOptions.includes(opt)) setCustom('');
+      setSelected(previous => toggleTriageOption(previous, opt, exclusiveOptions));
     } else {
       // Single-select: send immediately
-      onAnswer(opt);
+      submitAnswer(opt);
       setSelected(new Set());
       setCustom('');
     }
   };
 
   const handleConfirm = () => {
-    if (readOnly) return;
-    const parts: string[] = [...selected];
-    if (custom.trim()) parts.push(custom.trim());
-    if (parts.length === 0) return;
-    const combined = parts.join(', ');
-    onAnswer(combined);
+    if (readOnly || loading || isTranscribing) return;
+    const combined = composeTriageAnswer(selected, custom, exclusiveOptions);
+    if (!combined) return;
+    submitAnswer(combined);
     setSelected(new Set());
     setCustom('');
   };
 
-  const hasSelection = selected.size > 0 || custom.trim().length > 0;
+  const hasSelection = !loading && !isTranscribing && (selected.size > 0 || custom.trim().length > 0);
   const firstOptionGroupIndex = optionsGrouped?.findIndex(group => group.items.length > 0) ?? -1;
   const hasAnswerChoices = firstOptionGroupIndex >= 0 || options.length > 0;
 
@@ -1251,21 +999,31 @@ function TriageScreen({
     <View style={styles.section}>
       {/* Slim progress bar & step counter */}
       <View style={styles.triageProgressRow}>
-        <View style={styles.triageProgressTrack}>
+        {progressTotal ? <View style={styles.triageProgressTrack}>
           <Animated.View
             entering={FadeIn.duration(300)}
             style={[styles.triageProgressFill, { width: `${Math.min(progress * 100, 100)}%` }]}
           />
-        </View>
+        </View> : null}
         <Text style={styles.triageProgressText}>
-          {`${Math.min(answers.length + 1, MAX_TRIAGE_QUESTIONS)}/${MAX_TRIAGE_QUESTIONS}`}
+          {progressTotal ? `${progressCurrent}/${progressTotal}` : t('checkinQuestionNumber', { count: progressCurrent })}
         </Text>
       </View>
+
+      {questionGroup && <Text allowFontScaling style={styles.groupHeaderText}>
+        {t('checkinQuestionRegion', { region: questionGroup.label, current: questionGroup.index, total: questionGroup.total })}
+      </Text>}
 
       {/* Answered history if any */}
       {answers.length > 0 && (
         <View style={{ marginBottom: 12 }}>
-          {answers.map((a, i) => (
+          <Pressable disabled={readOnly} onPress={() => { if (!readOnly) setShowHistory(value => !value); }}
+            accessibilityRole="button" accessibilityState={{ expanded: showHistory }}
+            style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={styles.historyQuestionText}>{t('checkinAnsweredCount', { count: answers.length })}</Text>
+            <Ionicons name={showHistory ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
+          </Pressable>
+          {showHistory && answers.map((a, i) => (
             <View key={i} style={styles.historyAnswerRow}>
               <View style={styles.historyQuestionTag}>
                 <Text style={styles.historyQuestionText}>{a.question}</Text>
@@ -1280,17 +1038,7 @@ function TriageScreen({
       )}
 
       {loading ? (
-        <Animated.View entering={FadeInLeft.duration(300)} style={styles.mascotRow}>
-          <Image source={asinuChatSticker} style={styles.mascotSticker} resizeMode="contain" />
-          <View style={styles.mascotBubble}>
-            <Text accessibilityLiveRegion="polite" style={styles.mascotBubbleText}>{t('checkinTriageAnalyzing')}</Text>
-            <View style={styles.typingRow}>
-              <View style={[styles.typingDot, { opacity: 0.8 }]} />
-              <View style={[styles.typingDot, { opacity: 0.5 }]} />
-              <View style={[styles.typingDot, { opacity: 0.3 }]} />
-            </View>
-          </View>
-        </Animated.View>
+        <CheckinQuestionLoading key={`question-${answers.length}`} first={answers.length === 0} active={!readOnly} />
       ) : (
         <>
           {/* Companion Mascot sticker + Speech bubble */}
@@ -1328,7 +1076,7 @@ function TriageScreen({
                     <View style={styles.groupHeaderLine} />
                   </View>
                   {group.items.map((opt, optionIndex) => {
-                    const isSelected = selected.has(opt);
+                    const isSelected = selected.has(opt) || (opt === freeTextOption && otherActive);
                     return (
                       <GuideTarget key={`${group.key}-${opt}`} step="checkin.choices" enabled={practice && groupIndex === firstOptionGroupIndex && optionIndex === 0 && !loading}>
                         <GuideTarget step={multiSelect ? 'checkin.multiple' : 'checkin.single'} enabled={practice && groupIndex === firstOptionGroupIndex && optionIndex === 0 && !loading}>
@@ -1339,11 +1087,11 @@ function TriageScreen({
                               isSelected && styles.triageOptionCardSelected,
                               (pressed || loading) && { opacity: 0.85 },
                             ]}
-                            disabled={readOnly}
+                            disabled={readOnly || loading || isTranscribing}
                             onPress={() => handleOptionTap(opt)}
                             accessibilityRole={multiSelect ? 'checkbox' : 'radio'}
                             accessibilityLabel={formatTriageOptionLabel(opt)}
-                            accessibilityState={{ checked: isSelected, disabled: readOnly }}
+                            accessibilityState={{ checked: isSelected, disabled: readOnly || loading || isTranscribing }}
                           >
                             {multiSelect ? (
                               <View style={[styles.triageCheckbox, isSelected && styles.triageCheckboxSelected]}>
@@ -1369,7 +1117,7 @@ function TriageScreen({
           ) : options.length > 0 && (
             <Animated.View entering={FadeInDown.delay(120).duration(400)} style={styles.triageOptionsList}>
               {options.map((opt, optionIndex) => {
-                const isSelected = selected.has(opt);
+                const isSelected = selected.has(opt) || (opt === freeTextOption && otherActive);
                 return (
                   <GuideTarget key={opt} step="checkin.choices" enabled={practice && optionIndex === 0 && !loading}>
                     <GuideTarget step={multiSelect ? 'checkin.multiple' : 'checkin.single'} enabled={practice && optionIndex === 0 && !loading}>
@@ -1380,11 +1128,11 @@ function TriageScreen({
                           isSelected && styles.triageOptionCardSelected,
                           (pressed || loading) && { opacity: 0.85 },
                         ]}
-                        disabled={readOnly}
+                        disabled={readOnly || loading || isTranscribing}
                         onPress={() => handleOptionTap(opt)}
                         accessibilityRole={multiSelect ? 'checkbox' : 'radio'}
                         accessibilityLabel={formatTriageOptionLabel(opt)}
-                        accessibilityState={{ checked: isSelected, disabled: readOnly }}
+                        accessibilityState={{ checked: isSelected, disabled: readOnly || loading || isTranscribing }}
                       >
                         {multiSelect ? (
                           <View style={[styles.triageCheckbox, isSelected && styles.triageCheckboxSelected]}>
@@ -1411,41 +1159,16 @@ function TriageScreen({
           {(multiSelect || allowFreeText || options.length === 0) && (
             <GuideTarget step="checkin.other" enabled={practice && !loading} withoutChoices={!hasAnswerChoices}>
               <Animated.View entering={FadeInDown.delay(180).duration(400)} style={styles.triageInputCard}>
-                <GuideTarget step="checkin.voice" enabled={practice && !loading} acknowledgeOnTouch={false}>
-                  {practice ? (
-                    <VoiceAnswerButton
-                      practice
-                      onBeforeAi={onBeforeAi}
-                      onText={text => { setCustom(text); acknowledgeGuide('checkin.voice'); }}
-                    />
-                  ) : (
-                    <Pressable
-                      onPress={handleMicPress}
-                      style={styles.triageMicBtn}
-                      disabled={isTranscribing || readOnly}
-                    >
-                      {isTranscribing ? (
-                        <ActivityIndicator size="small" color="#08b8a2" />
-                      ) : (
-                        <MaterialCommunityIcons
-                          name={isRecording ? 'stop-circle' : 'microphone'}
-                          size={22}
-                          color={isRecording ? colors.danger : '#08b8a2'}
-                        />
-                      )}
-                    </Pressable>
-                  )}
-                </GuideTarget>
-                <TextInput
-                  allowFontScaling
-                  style={[styles.triageTextInput, { fontSize: practice ? 20 : 15 }]}
-                  placeholder={isTranscribing ? '...' : t('checkinCustomPlaceholder')}
-                  placeholderTextColor="#94a3b8"
-                  value={custom}
-                  onChangeText={readOnly ? undefined : setCustom}
-                  returnKeyType="done"
-                  editable={!isTranscribing && !readOnly}
-                />
+                <VoiceAnswerInput key={question} value={custom} onChangeText={text => {
+                  setCustom(text);
+                  if (text.trim()) setSelected(previous => withoutExclusiveAnswers(previous, exclusiveOptions));
+                }}
+                  onRecognized={() => acknowledgeGuide('checkin.voice')}
+                  onBeforeAi={onBeforeAi} onProcessingChange={setIsTranscribing}
+                  disabled={loading} readOnly={readOnly} practice={practice}
+                  placeholder={t('checkinCustomPlaceholder')}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                  inputStyle={[styles.triageTextInput, { fontSize: practice ? 20 : 15 }]} />
               </Animated.View>
             </GuideTarget>
           )}
@@ -1477,6 +1200,19 @@ function TriageScreen({
             </GuideTarget>
           )}
 
+          {skipAnswerLabel && <Pressable disabled={readOnly || loading || isTranscribing}
+            accessibilityRole="button" accessibilityLabel={skipAnswerLabel}
+            onPress={() => {
+              if (!readOnly && !loading && !isTranscribing) {
+                submitAnswer(skipAnswerLabel);
+                setCustom('');
+                setSelected(new Set());
+              }
+            }}
+            style={{ minHeight: 48, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 18, color: colors.primaryText }}>{skipAnswerLabel}</Text>
+          </Pressable>}
+
           {/* Bottom watermark decoration */}
           <View style={styles.bottomWatermarkWrap} pointerEvents="none">
             <Svg width={200} height={160} viewBox="0 0 200 160" fill="none">
@@ -1495,70 +1231,8 @@ function TriageScreen({
 
 // ─── Conclusion loading screen ──────────────────────────────────────────────
 
-function ConclusionLoadingView({ styles }: { styles: Styles }) {
-  const { t } = useTranslation('home');
-
-  return (
-    <View style={styles.loadingContainer}>
-      {/* Center Aura & Mascot */}
-      <View style={styles.loadingMascotWrap}>
-        <View style={styles.loadingAuraCircle}>
-          <Svg width={250} height={250} viewBox="0 0 250 250" fill="none" style={styles.loadingArcSvg} pointerEvents="none">
-            {/* Guide circle track */}
-            <Path
-              d="M125 15 A110 110 0 1 1 124.9 15"
-              stroke="#bce7df"
-              strokeWidth={1.8}
-              strokeDasharray="4 6"
-              fill="none"
-              opacity={0.45}
-            />
-            {/* Active circular progress arc */}
-            <Path
-              d="M125 15 A110 110 0 0 1 220 70"
-              stroke="#08b8a2"
-              strokeWidth={3}
-              strokeLinecap="round"
-              fill="none"
-            />
-            {/* Glowing dot at the end of arc */}
-            <Circle cx={220} cy={70} r={5.5} fill="#08b8a2" />
-            <Circle cx={220} cy={70} r={2.5} fill="#ffffff" />
-          </Svg>
-          <Image
-            source={asinuChatSticker}
-            style={styles.loadingMascotImage}
-            resizeMode="contain"
-          />
-        </View>
-      </View>
-
-      {/* Main Title & Subtitle */}
-      <Text style={styles.loadingTitle}>{t('checkinSynthesizingTitle')}</Text>
-      <Text style={styles.loadingSubtitle}>{t('checkinSynthesizingSubtitle')}</Text>
-
-      {/* 3 Pulsing dots */}
-      <View style={styles.loadingDotsRow}>
-        <View style={[styles.loadingDot, { opacity: 1 }]} />
-        <View style={[styles.loadingDot, { opacity: 0.65 }]} />
-        <View style={[styles.loadingDot, { opacity: 0.35 }]} />
-      </View>
-
-      {/* Footer Tagline */}
-      <View style={styles.loadingFooterRow}>
-        <Ionicons name="shield-checkmark-outline" size={16} color="#64748b" style={{ marginRight: 6 }} />
-        <Text style={styles.loadingFooterText}>{t('checkinCompanionFooter')}</Text>
-      </View>
-
-      {/* Subtle bottom decorative wave */}
-      <View style={styles.bottomWatermarkWrap} pointerEvents="none">
-        <Svg width={220} height={160} viewBox="0 0 220 160" fill="none">
-          <Path d="M0 120 C70 80 140 100 220 60 L220 160 L0 160 Z" fill="#e6faf8" opacity={0.5} />
-          <Path d="M25 140 C95 105 160 125 220 100 L220 160 L25 160 Z" fill="#d8f6f1" opacity={0.4} />
-        </Svg>
-      </View>
-    </View>
-  );
+function ConclusionLoadingView() {
+  return <CheckinConclusionLoading />;
 }
 
 // ─── Done screen ──────────────────────────────────────────────────────────────
@@ -1579,69 +1253,9 @@ function extractRecordedSymptoms(
   answers?: TriageAnswer[],
   isFine?: boolean,
   translate?: (key: string) => string,
+  recordedSymptoms?: string[],
 ): string {
-  if (isFine) {
-    return translate?.('checkinSymptomsStable') || '';
-  }
-
-  const foundSymptoms: string[] = [];
-
-  if (answers && answers.length > 0) {
-    for (const a of answers) {
-      const q = (a.question || '').toLowerCase();
-      if (
-        q.includes('triệu chứng') ||
-        q.includes('symptom') ||
-        q.includes('khó chịu') ||
-        q.includes('vấn đề')
-      ) {
-        const parts = (a.answer || '').split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
-        for (const p of parts) {
-          const lower = p.toLowerCase();
-          if (
-            !foundSymptoms.includes(p) &&
-            !lower.includes('không có gì') &&
-            !lower.includes('không rõ') &&
-            !lower.includes('bình thường')
-          ) {
-            foundSymptoms.push(p);
-          }
-        }
-      }
-    }
-  }
-
-  if (foundSymptoms.length === 0 && session?.triage_messages) {
-    for (const m of session.triage_messages) {
-      const q = (m.question || '').toLowerCase();
-      if (q.includes('triệu chứng') || q.includes('symptom') || q.includes('khó chịu')) {
-        const parts = (m.answer || '').split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
-        for (const p of parts) {
-          const lower = p.toLowerCase();
-          if (
-            !foundSymptoms.includes(p) &&
-            !lower.includes('không có gì') &&
-            !lower.includes('không rõ')
-          ) {
-            foundSymptoms.push(p);
-          }
-        }
-      }
-    }
-  }
-
-  if (foundSymptoms.length > 0) {
-    return stripEmojis(foundSymptoms.join(', '));
-  }
-
-  if (session?.current_status === 'tired') {
-    return translate?.('checkinSymptomsTired') || '';
-  }
-  if (session?.current_status === 'very_tired') {
-    return translate?.('checkinSymptomsUrgentFallback') || '';
-  }
-
-  return translate?.('checkinSymptomsUrgentFallback') || '';
+  return stripEmojis(recordedCheckinSymptoms({ session, answers, isFine, translate, recordedSymptoms }));
 }
 
 function CheckinHeroBadge({
@@ -1705,10 +1319,15 @@ function DoneScreen({
   const [practiceSeverity, setPracticeSeverity] = useState<'low' | 'medium' | 'high' | 'emergency' | null>(null);
   const conclusionSpeechPlayedRef = useRef<string | null>(null);
   const [speechReplayKey, setSpeechReplayKey] = useState(0);
-  const [audioReady, setAudioReady] = useState(practice || readOnly);
+  const [audioReadyIdentity, setAudioReadyIdentity] = useState<string | null>(null);
+  const [audioTimeoutIdentity, setAudioTimeoutIdentity] = useState<string | null>(null);
+  const activeConclusionIdentityRef = useRef<string | null>(null);
   const language = i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'vi';
   const { audio: conclusionAudio, play: playConclusionAudio, stopAudio: stopConclusionAudio } =
     useCheckinCallAudio(null, language, t, undefined, !readOnly);
+  const audioStateRef = useRef(conclusionAudio);
+  audioStateRef.current = conclusionAudio;
+  const audioBeforeSpeechRef = useRef<typeof conclusionAudio | null>(null);
   const isSpeakingConclusion = ['loading', 'playing'].includes(conclusionAudio.phase);
   const isFine = practice && practiceSeverity ? practiceSeverity === 'low'
     : session?.current_status === 'fine' || (!triageSummary && session?.initial_status === 'fine');
@@ -1719,7 +1338,7 @@ function DoneScreen({
   const isHigh = severity === 'high';
   const isMedium = severity === 'medium';
   const structuredConclusion = !isEmergency && !isFine && triageSummary?.conclusionVersion === 2
-    && hasStructuredCheckinConclusion(triageSummary) ? triageSummary : null;
+    && hasDisplayCheckinConclusion(triageSummary) ? triageSummary : null;
   const connectConclusionExpert = () => {
     if (readOnly) return;
     if (practice) { showToast(tg('guidance.practiceActionNotice'), 'info'); return; }
@@ -1760,13 +1379,7 @@ function DoneScreen({
     ? 'information-circle'
     : 'checkmark-circle';
 
-  const handleCall115 = () => {
-    if (readOnly) return;
-    if (practice) { showToast(tg('guidance.practiceActionNotice'), 'info'); return; }
-    Linking.openURL('tel:115').catch(() => {});
-  };
-
-  const recordedSymptoms = extractRecordedSymptoms(session, answers, isFine, t);
+  const recordedSymptoms = extractRecordedSymptoms(session, answers, isFine, t, triageSummary?.recordedSymptoms);
 
   const cleanAdvice = stripEmojis(
     isEmergency
@@ -1798,7 +1411,12 @@ function DoneScreen({
   const cleanSummary = stripEmojis(triageSummary?.summary || '');
   const shouldReadSummary = cleanSummary && cleanSummary !== recordedSymptoms;
 
-  const conclusionSpeechText = structuredConclusion ? structuredCheckinSpeech(structuredConclusion) : [
+  const aiNotice = triageSummary?.aiNotice?.trim() || t('checkinAiNotice');
+  const aiNoticeParts = aiNotice.match(/^(Asinu là ai và có thể sai|Asinu is AI and can make mistakes)[,.]?\s*([\s\S]*)$/i);
+  const aiNoticeTitle = aiNoticeParts?.[1].replace(/\bai\b/gi, 'AI');
+  const aiNoticeDetail = aiNoticeParts?.[2] || aiNotice;
+  const aiNoticeBody = aiNoticeDetail.charAt(0).toUpperCase() + aiNoticeDetail.slice(1);
+  const conclusionSpeechText = structuredConclusion ? checkinConclusionSpeech(structuredConclusion, aiNotice) : [
     t('checkinDoneNoted'),
     pillText,
     cleanSubtitle,
@@ -1806,18 +1424,30 @@ function DoneScreen({
     `${t('checkinRecordedSymptoms')}: ${recordedSymptoms}`,
     `${t('checkinAdvice')}: ${cleanAdvice}`,
     doctorNoticeText,
+    aiNotice,
   ]
     .map((part) => stripEmojis(String(part)).replace(/[.!?]+$/g, '').trim())
     .filter(Boolean)
     .join('. ') + '.';
 
-  const conclusionSpeechIdentity = JSON.stringify([session?.id, language, conclusionSpeechText, speechReplayKey]);
+  const conclusionIdentity = JSON.stringify([session?.id, language, conclusionSpeechText]);
+  const conclusionSpeechIdentity = JSON.stringify([conclusionIdentity, speechReplayKey]);
+  const audioReady = audioReadyIdentity === conclusionIdentity && activeConclusionIdentityRef.current === conclusionIdentity;
+  const waitForAudio = !practice && !readOnly && !isEmergency;
   useEffect(() => {
     if (practice || readOnly) return; // The bundled coach recordings explain example results offline.
     if (conclusionSpeechPlayedRef.current === conclusionSpeechIdentity || !conclusionSpeechText) {
       return;
     }
     conclusionSpeechPlayedRef.current = conclusionSpeechIdentity;
+    if (activeConclusionIdentityRef.current !== conclusionIdentity) {
+      activeConclusionIdentityRef.current = conclusionIdentity;
+      setAudioReadyIdentity(null);
+      setAudioTimeoutIdentity(null);
+    }
+    // Ignore a previous result's final playback state until this request emits
+    // its own state, even if two sessions happen to have the same transcript.
+    audioBeforeSpeechRef.current = audioStateRef.current;
     void playConclusionAudio('conclusion', conclusionSpeechText);
 
     return () => {
@@ -1828,19 +1458,25 @@ function DoneScreen({
       }
       void stopConclusionAudio();
     };
-  }, [practice, readOnly, conclusionSpeechIdentity, conclusionSpeechText, playConclusionAudio, stopConclusionAudio]);
+  }, [practice, readOnly, conclusionIdentity, conclusionSpeechIdentity, conclusionSpeechText, playConclusionAudio, stopConclusionAudio]);
 
   useEffect(() => {
-    if (practice || readOnly || audioReady) return;
-    if (conclusionAudio.phase === 'playing' || conclusionAudio.phase === 'finished' || conclusionAudio.phase === 'error' || conclusionAudio.fallback) {
-      setAudioReady(true);
-      return;
-    }
+    if (!waitForAudio || audioReady || conclusionAudio === audioBeforeSpeechRef.current) return;
+    if (conclusionAudio.prompt?.text !== conclusionSpeechText || conclusionAudio.prompt.language !== language) return;
+    if (['playing', 'finished', 'error'].includes(conclusionAudio.phase)) setAudioReadyIdentity(conclusionIdentity);
+  }, [waitForAudio, audioReady, conclusionAudio, conclusionIdentity, conclusionSpeechText, language]);
+
+  useEffect(() => {
+    if (!waitForAudio || audioReady) return;
+    // Full narration may require several provider-sized segments. Bound metadata,
+    // file/decoder stalls; a failed narrator must never hide the health result.
     const safetyTimer = setTimeout(() => {
-      setAudioReady(true);
-    }, 4500);
+      setAudioTimeoutIdentity(conclusionIdentity);
+      setAudioReadyIdentity(conclusionIdentity);
+      void stopConclusionAudio();
+    }, 160000);
     return () => clearTimeout(safetyTimer);
-  }, [practice, readOnly, audioReady, conclusionAudio.phase]);
+  }, [waitForAudio, audioReady, conclusionIdentity, stopConclusionAudio]);
 
   const replayConclusionSpeech = () => {
     if (readOnly) return;
@@ -1849,8 +1485,8 @@ function DoneScreen({
     setSpeechReplayKey((value) => value + 1);
   };
 
-  if (forceLoading || (!structuredConclusion && !audioReady && !practice && !readOnly)) {
-    return <ConclusionLoadingView styles={styles} />;
+  if (forceLoading || (waitForAudio && !audioReady)) {
+    return <ConclusionLoadingView key={conclusionIdentity} />;
   }
 
   return (
@@ -1906,7 +1542,7 @@ function DoneScreen({
         </GuideTarget>
       </View>
 
-      {conclusionAudio.phase === 'error' && (
+      {(conclusionAudio.phase === 'error' || (audioTimeoutIdentity === conclusionIdentity && !['playing', 'finished'].includes(conclusionAudio.phase))) && (
         <Text accessibilityLiveRegion="polite" style={{ color: colors.textSecondary }}>
           {t('checkinSpeechUnavailable')}
         </Text>
@@ -1976,46 +1612,18 @@ function DoneScreen({
           </View>
           </GuideTarget>
 
-          {/* Emergency Call Button (Only for Emergency) */}
-          {isEmergency && (
-            <GuideTarget step="checkin.result_emergency" enabled={practice}>
-            <View>
-              <Pressable
-                disabled={readOnly}
-                onPress={handleCall115}
-                style={({ pressed }) => [
-                  {
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    backgroundColor: '#DC2626',
-                    paddingVertical: 14,
-                    paddingHorizontal: 20,
-                    borderRadius: 16,
-                    shadowColor: '#DC2626',
-                    shadowOpacity: 0.35,
-                    shadowRadius: 8,
-                    shadowOffset: { width: 0, height: 4 },
-                    elevation: 5,
-                    opacity: pressed ? 0.88 : 1,
-                  },
-                ]}
-              >
-                <Ionicons name="call" size={22} color="#FFFFFF" />
-                <Text allowFontScaling style={[{ flex: 1, color: '#FFFFFF', fontSize: 18, fontWeight: '800', letterSpacing: 0.4, lineHeight: 24, textAlign: 'center' }, practice && { fontSize: 22, lineHeight: 32 }]}>
-                  {t('checkinCallEmergency')}
-                </Text>
-                <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
-              </Pressable>
-              <Text style={{ textAlign: 'center', color: '#64748B', fontSize: 12, marginTop: 6 }}>
-                {t('checkinCallEmergencyHint')}
-              </Text>
-            </View>
-            </GuideTarget>
-          )}
-
           {structuredConclusion ? <CheckinConclusion result={structuredConclusion}
             onConnectExpert={connectConclusionExpert} expertAvailable={isExpertConsultationEnabled} readOnly={readOnly} /> : <>
+          {!isFine && !isEmergency && shouldReadSummary ? (
+            <View testID="checkin-legacy-summary" style={{ gap: 6 }}>
+              <Text allowFontScaling style={[{ fontSize: 15, fontWeight: '700', color: '#0F172A' }, practiceText]}>
+                {t('checkinResultSummaryLabel')}
+              </Text>
+              <Text allowFontScaling style={[{ fontSize: 14, color: '#334155', lineHeight: 22 }, practiceText]}>
+                {cleanSummary}
+              </Text>
+            </View>
+          ) : null}
           {/* Triệu chứng đã ghi nhận */}
           <GuideTarget step="checkin.result_symptoms" enabled={practice}>
           <View style={{ gap: 6 }}>
@@ -2223,6 +1831,48 @@ function DoneScreen({
           </Pressable>
         </View>
       </GuideTarget>}
+      <View
+        testID="checkin-ai-notice"
+        accessible
+        accessibilityRole="text"
+        accessibilityLabel={[aiNoticeTitle, aiNoticeBody].filter(Boolean).join('. ')}
+        style={{
+          backgroundColor: '#FFF8E8',
+          borderColor: '#DBC48D',
+          borderWidth: 1,
+          borderRadius: 18,
+          padding: 18,
+          gap: 10,
+          marginTop: 4,
+        }}
+      >
+        {aiNoticeTitle && (
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+            <Ionicons
+              name="information-circle-outline"
+              size={24}
+              color="#866014"
+              accessible={false}
+              importantForAccessibility="no"
+              style={{ marginTop: 2 }}
+            />
+            <Text
+              testID="checkin-ai-notice-title"
+              allowFontScaling
+              style={{ flex: 1, fontSize: 19, lineHeight: 28, fontWeight: '700', color: '#60420B' }}
+            >
+              {aiNoticeTitle}
+            </Text>
+          </View>
+        )}
+        <Text
+          testID="checkin-ai-notice-body"
+          allowFontScaling
+          style={{ color: '#594B32', fontSize: 17, lineHeight: 27 }}
+        >
+          {aiNoticeBody}
+        </Text>
+      </View>
       <GuideTarget step="checkin.result_close" enabled={practice}>
       <Animated.View entering={FadeInDown.delay(300).duration(400)}>
         {/* Closing returns to Home; the result never presents a gift itself. */}
@@ -2732,6 +2382,18 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       color: '#0f2942',
       flex: 1,
     },
+    locationOptionIcon: {
+      width: 28,
+      height: 28,
+      flexShrink: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    locationOptionLabel: {
+      minWidth: 0,
+      includeFontPadding: false,
+      textAlignVertical: 'center',
+    },
     triageOptionTitleSelected: {
       color: '#0f3e36',
       fontWeight: '700',
@@ -2809,6 +2471,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     triagePillBtnTextDisabled: {
       color: '#ffffff',
     },
+    triageBackBtn: {
+      backgroundColor: colors.primaryLight,
+      borderWidth: 1,
+      borderColor: colors.primary + '80',
+      marginBottom: 0,
+    },
+    triageBackBtnText: {
+      color: colors.primaryText,
+    },
     historyAnswerRow: {
       marginBottom: 10,
       gap: 4,
@@ -2847,81 +2518,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       marginTop: 20,
       marginBottom: -16,
       overflow: 'hidden',
-    },
-
-    // ── Conclusion Loading / Synthesizing Screen ──
-    loadingContainer: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 24,
-      paddingTop: 36,
-      minHeight: 520,
-    },
-    loadingMascotWrap: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 12,
-    },
-    loadingAuraCircle: {
-      width: 250,
-      height: 250,
-      borderRadius: 125,
-      backgroundColor: '#e6faf8',
-      alignItems: 'center',
-      justifyContent: 'center',
-      position: 'relative',
-    },
-    loadingArcSvg: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-    },
-    loadingMascotImage: {
-      width: 156,
-      height: 168,
-    },
-    loadingTitle: {
-      fontSize: 24,
-      fontWeight: '800',
-      color: '#0f2942',
-      textAlign: 'center',
-      marginTop: 24,
-      lineHeight: 32,
-      letterSpacing: -0.3,
-    },
-    loadingSubtitle: {
-      fontSize: 14.5,
-      fontWeight: '500',
-      color: '#64748b',
-      textAlign: 'center',
-      marginTop: 10,
-      lineHeight: 22,
-    },
-    loadingDotsRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      marginTop: 20,
-      marginBottom: 36,
-    },
-    loadingDot: {
-      width: 9,
-      height: 9,
-      borderRadius: 4.5,
-      backgroundColor: '#08b8a2',
-    },
-    loadingFooterRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: 28,
-      marginBottom: 8,
-    },
-    loadingFooterText: {
-      fontSize: 13,
-      color: '#64748b',
-      fontWeight: '500',
     },
 
     // ── Done screen ──

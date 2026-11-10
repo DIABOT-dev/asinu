@@ -363,7 +363,7 @@ await test("leaving scanner before permission lookup completes cannot trigger a 
   assert.equal(h.calls.settings, 0);
 });
 
-function treeHarness() {
+function treeHarness(options = {}) {
   const r = runtime();
   const auth = { profile: { id: "alice" } };
   const server = {
@@ -395,10 +395,18 @@ function treeHarness() {
     server,
     auth,
     calls,
-    read: () => r.render(useHealthTreeOverview),
-    settle: () => r.settle(useHealthTreeOverview),
+    read: () => r.render(() => useHealthTreeOverview(options)),
+    settle: () => r.settle(() => useHealthTreeOverview(options)),
   };
 }
+await test('calendar-only overview never requests a hidden health score and still refreshes on pull and return', async () => {
+  const h = treeHarness({ includeHealthScore: false }); h.server.error = true;
+  await h.settle(); assert.equal(h.calls.scores, 0); assert.equal(h.read().refreshKey, 0);
+  assert.equal(h.read().loading, false); assert.equal(h.read().error, false);
+  await h.read().refresh(); assert.equal(h.read().refreshKey, 1);
+  h.blur(); h.focus(); await flush(); assert.equal(h.read().refreshKey, 2);
+  assert.equal(h.calls.scores, 0); h.blur();
+});
 await test("initial health-score completion does not invalidate the calendar that is already loading", async () => {
   const h = treeHarness(); let finish;
   h.server.pending = new Promise(resolve => { finish = resolve; });
@@ -1722,6 +1730,616 @@ await test('wallet has no fabricated initial balance and retains the last confir
   assert.equal(r.render(run).balance, '12'); assert.equal(r.render(run).loadingBalance, false);
   waiting = deferred(); pending = r.render(run).fetchBalance(); waiting.reject(new Error('offline')); await pending;
   assert.equal(r.render(run).balance, '12');
+});
+
+function inboxHarness() {
+  const r = runtime();
+  const theme = evaluate("src/styles/theme.ts", {});
+  const backListeners = new Set();
+  const native = {
+    page: { x: 12, y: 24, width: 393, height: 800 },
+    header: { x: 340, y: 82, width: 44, height: 44 },
+    item: { x: 340, y: 320, width: 44, height: 44 },
+    defer: false,
+    pending: [],
+  };
+  const host = (kind) => ({
+    measureInWindow(callback) {
+      const finish = () => {
+        const { x, y, width, height } = native[kind];
+        callback(x, y, width, height);
+      };
+      if (native.defer) native.pending.push(finish);
+      else finish();
+    },
+  });
+  const calls = {
+    reads: 0,
+    marked: [],
+    routes: [],
+    all: 0,
+    removed: [],
+    alerts: [],
+    clear: 0,
+    pages: [],
+  };
+  const store = {
+    notifications: [
+      {
+        id: "checkin",
+        type: "morning_checkin",
+        title: "Check-in reminder",
+        body: "Full reminder text",
+        timestamp: new Date(),
+        read: false,
+        data: { route: "/checkin" },
+      },
+      {
+        id: "general",
+        type: "general",
+        title: "Account update",
+        body: "Full account update",
+        timestamp: new Date(),
+        read: true,
+      },
+    ],
+    unreadCount: 1,
+    loading: false,
+    loadingMore: false,
+    hasMore: true,
+    page: 1,
+    error: null,
+    fetchFromBackend: async (options) => {
+      calls.reads++;
+      if (options) calls.pages.push(options);
+    },
+    markAsRead: async (id) => {
+      calls.marked.push(id);
+      store.notifications = store.notifications.map((item) =>
+        item.id === id ? { ...item, read: true } : item,
+      );
+      store.unreadCount = 0;
+      return true;
+    },
+    markAllAsRead: async () => {
+      calls.all++;
+      store.unreadCount = 0;
+      return true;
+    },
+    removeNotification: async (id) => {
+      calls.removed.push(id);
+      return true;
+    },
+    clearAll: async () => {
+      calls.clear++;
+      return true;
+    },
+  };
+  const { NotificationsPage } = evaluate(
+    "src/components/NotificationsPage.tsx",
+    {
+      react: r.hooks,
+      "expo-router": r.router,
+      "@/hooks/useGuardedRouter": {
+        useGuardedRouter: () => ({
+          back() {},
+          push: (route) => calls.routes.push(route),
+        }),
+      },
+      "react-i18next": {
+        useTranslation: (namespace) => ({
+          t: (key, args = {}) => {
+            const copy = JSON.parse(
+              fs.readFileSync(`src/i18n/locales/vi/${namespace}.json`, "utf8"),
+            );
+            return String(copy[key] ?? key).replace(
+              /\{\{(\w+)\}\}/g,
+              (_, name) => String(args[name] ?? ""),
+            );
+          },
+          i18n: { language: "vi" },
+        }),
+      },
+      "react-native": {
+        ...Object.fromEntries(
+          [
+            "View",
+            "Pressable",
+            "FlatList",
+            "ScrollView",
+            "RefreshControl",
+            "ActivityIndicator",
+          ].map((name) => [name, name]),
+        ),
+        StyleSheet: {
+          create: (styles) => styles,
+          absoluteFillObject: {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+          },
+        },
+        BackHandler: {
+          addEventListener: (_event, listener) => {
+            backListeners.add(listener);
+            return { remove: () => backListeners.delete(listener) };
+          },
+        },
+      },
+      "react-native-safe-area-context": {
+        useSafeAreaInsets: () => ({ top: 44, bottom: 24 }),
+      },
+      "@expo/vector-icons": { Ionicons: "Icon" },
+      "./ScaledText": { ScaledText: "Text" },
+      "./NotificationIcon": { NotificationIcon: "NotificationIcon" },
+      "./state/Skeleton": { SkeletonBlock: "Skeleton" },
+      "./Screen": { Screen: "Screen" },
+      "./ScreenHeaderButton": { ScreenBackButton: "Back" },
+      "./AppAlertModal": {
+        AppAlertModal: "Alert",
+        useAppAlert: () => ({
+          alertState: {},
+          dismissAlert() {},
+          showAlert: (...args) => calls.alerts.push(args),
+        }),
+      },
+      "../hooks/useScaledTypography": {
+        useScaledTypography: () => theme.typography,
+      },
+      "../hooks/useThemeColors": {
+        useThemeColors: () => ({ colors: theme.lightColors, isDark: false }),
+      },
+      "../styles": theme,
+      "../stores/notification.store": {
+        useNotificationStore: (select) => select(store),
+      },
+      "../stores/toast.store": { showToast() {} },
+      "../lib/notifications": {
+        routeFromNotificationData: (data) => data.route ?? null,
+      },
+    },
+  );
+  const mountRefs = (tree, row = false) => {
+    for (const node of journeyNodes(tree)) {
+      const ref = node.props.ref;
+      if (typeof ref === "function") ref(host("item"));
+      else if (ref && typeof ref === "object")
+        ref.current = host(
+          row ? "item" : node.props.collapsable === false ? "page" : "header",
+        );
+    }
+    return tree;
+  };
+  const read = () => mountRefs(r.render(NotificationsPage));
+  const list = () =>
+    journeyNodes(read()).find((node) => node.type === "FlatList").props;
+  const row = (id) => {
+    const props = list();
+    const item = props.data.find((item) => item.notification?.id === id);
+    return journeyNodes(mountRefs(props.renderItem({ item }), true)).find(
+      (node) => node.type === "Pressable",
+    );
+  };
+  return {
+    ...r,
+    store,
+    calls,
+    read,
+    list,
+    row,
+    native,
+    back: () => [...backListeners].at(-1)?.(),
+    resolveMeasurements: () => {
+      while (native.pending.length) native.pending.shift()();
+    },
+    settle: async () => {
+      await r.settle(NotificationsPage);
+      return read();
+    },
+    panel: () =>
+      journeyNodes(read()).find((node) => node.props.accessibilityViewIsModal),
+  };
+}
+await test("the restyled inbox reads once on focus and still opens and marks the chosen notification", async () => {
+  const h = inboxHarness();
+  await h.settle();
+  await h.settle();
+  assert.equal(h.calls.reads, 1);
+  const row = h.row("checkin");
+  assert.ok(row.props.accessibilityLabel.includes("Chưa đọc"));
+  row.props.onPress();
+  await flush();
+  assert.deepEqual(h.calls.marked, ["checkin"]);
+  assert.deepEqual(h.calls.routes, ["/checkin"]);
+  h.row("checkin").props.onPress();
+  await flush();
+  assert.deepEqual(h.calls.marked, ["checkin"]);
+  h.blur();
+});
+await test("inbox item actions do not open or mark a notification and deletion still requires confirmation", async () => {
+  const h = inboxHarness();
+  await h.settle();
+  let stopped = false;
+  const button = journeyNodes(h.row("checkin")).find(
+    (node) => node.props.accessibilityLabel === "Thao tác khác",
+  );
+  button.props.onPress({
+    stopPropagation: () => {
+      stopped = true;
+    },
+  });
+  assert.equal(stopped, true);
+  assert.deepEqual(h.calls.marked, []);
+  assert.deepEqual(h.calls.routes, []);
+  const nodes = journeyNodes(h.read());
+  const remove = nodes.find(
+    (node) =>
+      node.type === "Pressable" &&
+      journeyNodes(node).some((child) => child.props.children === "Xóa"),
+  );
+  remove.props.onPress();
+  assert.deepEqual(h.calls.removed, []);
+  assert.equal(h.calls.alerts.length, 1);
+  const actions = h.calls.alerts[0][2];
+  actions.find((action) => action.style === "destructive").onPress();
+  await flush();
+  assert.deepEqual(h.calls.removed, ["checkin"]);
+  h.blur();
+});
+await test("the inbox omits read-all and unread-count summaries while its overflow action still marks all read", async () => {
+  const h = inboxHarness();
+  await h.settle();
+  const assertRemovedLabels = () => {
+    assert.ok(
+      !journeyNodes(h.read()).some((node) =>
+        ["Đã đọc tất cả", "Đọc tất cả", "1 chưa đọc"].includes(node.props.children),
+      ),
+    );
+  };
+  const openActions = () =>
+    journeyNodes(h.read())
+      .find(
+        (node) =>
+          node.type === "Pressable" &&
+          node.props.accessibilityLabel === "Thao tác khác",
+      )
+      .props.onPress();
+  const markAllButton = () =>
+    journeyNodes(h.read()).find(
+      (node) =>
+        node.type === "Pressable" &&
+        journeyNodes(node).some(
+          (child) => child.props.children === "Đánh dấu tất cả đã đọc",
+        ),
+    );
+  assertRemovedLabels();
+  assert.equal(markAllButton(), undefined);
+  openActions();
+  const button = markAllButton();
+  assert.equal(button.props.disabled, false);
+  button.props.onPress();
+  await flush();
+  assert.equal(h.calls.all, 1);
+  assert.equal(h.calls.clear, 0);
+  assertRemovedLabels();
+  assert.ok(
+    !journeyNodes(h.read()).some(
+      (node) => node.props.children === "0 chưa đọc",
+    ),
+  );
+  assert.equal(markAllButton(), undefined);
+  openActions();
+  assert.equal(markAllButton().props.disabled, true);
+  h.blur();
+});
+await test("the inbox retains filtering, expansion, pagination and honest loading/error states", async () => {
+  const h = inboxHarness();
+  await h.settle();
+  h.row("general").props.onPress();
+  assert.equal(h.row("general").props.accessibilityState.expanded, true);
+  assert.equal(
+    journeyNodes(h.row("general")).find(
+      (node) => node.props.children === "Full account update",
+    ).props.numberOfLines,
+    undefined,
+  );
+  h.row("general").props.onPress();
+  assert.equal(h.row("general").props.accessibilityState.expanded, false);
+  assert.deepEqual(h.calls.routes, []);
+  assert.deepEqual(h.calls.marked, []);
+  const reminder = journeyNodes(h.read()).find(
+    (node) =>
+      node.type === "Pressable" &&
+      journeyNodes(node).some((child) => child.props.children === "Nhắc nhở"),
+  );
+  reminder.props.onPress();
+  assert.deepEqual(
+    h
+      .list()
+      .data.filter((item) => item.kind === "notification")
+      .map((item) => item.notification.id),
+    ["checkin"],
+  );
+  h.list().onEndReached();
+  await flush();
+  assert.deepEqual(h.calls.pages, [{ page: 2, append: true }]);
+  h.store.loadingMore = true;
+  h.list().onEndReached();
+  assert.equal(h.calls.pages.length, 1);
+  h.store.notifications = [];
+  h.store.loading = true;
+  h.store.unreadCount = 0;
+  assert.ok(
+    journeyNodes(h.list().ListEmptyComponent).some(
+      (node) => node.props.accessibilityState?.busy,
+    ),
+  );
+  h.store.loading = false;
+  h.store.error = "offline";
+  assert.ok(
+    journeyNodes(h.list().ListEmptyComponent).some(
+      (node) => node.props.children === "Chưa tải được thông báo",
+    ),
+  );
+  assert.ok(
+    !journeyNodes(h.read()).some(
+      (node) => node.props.children === "Đã đọc tất cả",
+    ),
+  );
+  h.blur();
+});
+
+const menuStyle = (node) =>
+  Object.assign({}, ...[node.props.style].flat(Infinity).filter(Boolean));
+const headerMenuButton = (h) =>
+  journeyNodes(h.read()).find(
+    (node) =>
+      node.type === "Pressable" &&
+      node.props.accessibilityLabel === "Thao tác khác",
+  );
+await test("notification menus float outside the list and dismiss without reading or navigating", async () => {
+  const h = inboxHarness();
+  await h.settle();
+  const data = h.list().data.map((item) => item.key);
+  headerMenuButton(h).props.onPress();
+  const panel = h.panel();
+  assert.ok(panel);
+  panel.props.onLayout({ nativeEvent: { layout: { height: 112 } } });
+  assert.equal(menuStyle(h.panel()).position, "absolute");
+  assert.deepEqual(
+    h.list().data.map((item) => item.key),
+    data,
+  );
+  assert.equal(headerMenuButton(h).props.accessibilityState.expanded, true);
+  assert.ok(
+    !journeyNodes(
+      h
+        .list()
+        .renderItem({
+          item: h
+            .list()
+            .data.find((item) => item.notification?.id === "checkin"),
+        }),
+    ).some((node) => node.props.accessibilityViewIsModal),
+  );
+  journeyNodes(h.read())
+    .find(
+      (node) =>
+        node.type === "Pressable" && node.props.accessibilityLabel === "Đóng",
+    )
+    .props.onPress();
+  assert.equal(h.panel(), undefined);
+  assert.equal(h.calls.reads, 1);
+  assert.deepEqual(h.calls.marked, []);
+  assert.deepEqual(h.calls.routes, []);
+  h.blur();
+});
+await test("notification menus near the bottom flip above the trigger and fit narrow screens with large text", async () => {
+  const h = inboxHarness();
+  h.native.page.width = 320;
+  h.native.page.height = 568;
+  h.native.item = { x: 272, y: 494, width: 44, height: 44 };
+  await h.settle();
+  journeyNodes(h.row("checkin"))
+    .find((node) => node.props.accessibilityLabel === "Thao tác khác")
+    .props.onPress({ stopPropagation() {} });
+  h.panel().props.onLayout({ nativeEvent: { layout: { height: 240 } } });
+  const style = menuStyle(h.panel());
+  assert.ok(style.left >= 0 && style.left + style.width <= h.native.page.width);
+  assert.ok(style.top >= 44 && style.top + 240 <= h.native.page.height - 24);
+  assert.ok(style.top + 240 <= h.native.item.y - h.native.page.y);
+  journeyNodes(h.read())
+    .find((node) => node.props.collapsable === false)
+    .props.onLayout();
+  assert.equal(
+    h.panel(),
+    undefined,
+    "changing the screen layout closes an outdated anchor",
+  );
+  h.blur();
+});
+await test("a delayed menu measurement cannot reopen a blurred notification screen", async () => {
+  const h = inboxHarness();
+  await h.settle();
+  h.native.defer = true;
+  headerMenuButton(h).props.onPress();
+  assert.ok(h.native.pending.length);
+  h.blur();
+  h.resolveMeasurements();
+  assert.equal(h.panel(), undefined);
+  assert.deepEqual(h.calls.marked, []);
+  assert.deepEqual(h.calls.routes, []);
+});
+await test("Android Back closes only the notification menu, and removing its target restores the page", async () => {
+  const h = inboxHarness();
+  await h.settle();
+  headerMenuButton(h).props.onPress();
+  await h.settle();
+  assert.equal(h.back(), true);
+  assert.equal(h.panel(), undefined);
+  assert.deepEqual(h.calls.routes, []);
+  journeyNodes(h.row("checkin"))
+    .find((node) => node.props.accessibilityLabel === "Thao tác khác")
+    .props.onPress({ stopPropagation() {} });
+  assert.ok(h.panel());
+  h.store.notifications = [];
+  await h.settle();
+  assert.equal(h.panel(), undefined);
+  assert.ok(
+    !journeyNodes(h.read()).some(
+      (node) => node.props.importantForAccessibility === "no-hide-descendants",
+    ),
+  );
+  assert.equal(h.calls.reads, 1);
+  h.blur();
+});
+
+
+// Daily missions: exercise the production screen with controlled API/native adapters.
+function missionsScreenHarness({ language = 'vi', dark = false } = {}) {
+  const r = runtime(), routes = [], requests = [];
+  const catalog = JSON.parse(fs.readFileSync(`src/i18n/locales/${language}/missions.json`, 'utf8'));
+  const t = (key, args = {}) => {
+    assert.equal(typeof catalog[key], 'string', `${language}: ${key}`);
+    return catalog[key].replace(/\{\{(\w+)\}\}/g, (_, name) => String(args[name] ?? ''));
+  };
+  const store = { status: 'success', errorState: 'none', missions: [],
+    fetchMissions: async signal => { requests.push(signal); } };
+  const theme = evaluate('src/styles/theme.ts', {});
+  const colors = dark ? theme.darkColors : theme.lightColors;
+  const screenFile = 'app/(tabs)/missions/index.tsx';
+  const assets = Object.fromEntries([...fs.readFileSync(screenFile, 'utf8').matchAll(/require\('([^']+)'\)/g)]
+    .map(match => [match[1], match[1]]));
+  const { default: Screen } = evaluate(screenFile, {
+    ...assets, react: { ...r.hooks, default: { Fragment: 'Fragment' } },
+    'react-native': { Image: 'Image', Pressable: 'Pressable', View: 'View',
+      StyleSheet: { create: value => value, hairlineWidth: 0.5 } },
+    'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
+    'react-i18next': { useTranslation: namespace => ({ t: namespace === 'missions' ? t : key => key }) },
+    'expo-router': r.router, '@expo/vector-icons': { Ionicons: 'Icon' },
+    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({
+      push: route => routes.push(route), canGoBack: () => false, replace: route => routes.push(route),
+    }) },
+    '../../../src/components/RippleRefresh': { RippleRefreshScrollView: 'Scroll' },
+    '../../../src/components/OfflineBanner': { OfflineBanner: 'OfflineBanner' },
+    '../../../src/components/ScaledText': { ScaledText: 'Text' },
+    '../../../src/components/Screen': { Screen: 'Screen' },
+    '../../../src/components/ScreenHeaderButton': { ScreenBackButton: 'Back' },
+    '../../../src/components/state/StateEmpty': { StateEmpty: 'Empty' },
+    '../../../src/components/state/StateError': { StateError: 'Error' },
+    '../../../src/components/state/MainScreenSkeletons': { MissionsTabSkeleton: 'Skeleton' },
+    '../../../src/features/missions/useMissionActions': { useMissionActions: () => store },
+    '../../../src/features/missions/MissionProgressBar': { MissionProgressBar: 'Progress' },
+    '../../../src/hooks/useThemeColors': { useThemeColors: () => ({ colors, isDark: dark }) },
+    '../../../src/styles': { getBottomTabBarHeight: theme.getBottomTabBarHeight },
+  });
+  const read = () => r.render(Screen);
+  return { ...r, store, requests, routes, colors, t, read, settle: () => r.settle(Screen),
+    nodes: () => journeyNodes(read()),
+    find: id => journeyNodes(read()).find(node => node.props?.testID === id),
+  };
+}
+const missionFixtures = () => [
+  { missionKey: 'log_weight', progress: 0, goal: 1 },
+  { missionKey: 'log_water', progress: 1, goal: 4 },
+  { missionKey: 'log_glucose', progress: 0, goal: 2 },
+  { missionKey: 'log_bp', progress: 1, goal: 2 },
+  { missionKey: 'daily_checkin', progress: 1, goal: 1 },
+].map(item => ({ ...item, id: item.missionKey, title: '', description: '', status: 'active' }));
+const flattenMissionStyle = style => Array.isArray(style)
+  ? Object.assign({}, ...style.filter(Boolean).map(flattenMissionStyle)) : style ?? {};
+for (const language of ['vi', 'en']) {
+  for (const dark of [false, true]) {
+    await test(`${language}/${dark ? 'dark' : 'light'}: missions group real progress, preserve every destination and expose scalable text`, async () => {
+      const h = missionsScreenHarness({ language, dark }); h.store.missions = missionFixtures();
+      await h.settle();
+      assert.equal(h.requests.length, 1);
+      assert.equal(h.find('missions-completed'), undefined);
+      const rows = journeyNodes(h.find('missions-remaining')).filter(node => node.props?.testID?.startsWith('mission-'));
+      assert.deepEqual(rows.map(row => row.props.testID), ['mission-log_bp', 'mission-log_glucose', 'mission-log_water', 'mission-log_weight']);
+      assert.ok(journeyNodes(h.find('missions-summary')).some(node => node.props.children === h.t('completionSummary', { completed: 1, total: 5 })));
+      for (const row of rows) {
+        assert.equal(row.props.accessibilityRole, 'button');
+        assert.ok(row.props.accessibilityLabel && row.props.accessibilityHint);
+        assert.ok(flattenMissionStyle(row.props.style({ pressed: false })).minHeight >= 44);
+        row.props.onPress();
+      }
+      h.find('missions-completed-toggle').props.onPress();
+      assert.equal(h.find('missions-completed-toggle').props.accessibilityState.expanded, true);
+      h.find('mission-daily_checkin').props.onPress();
+      assert.deepEqual(h.routes, ['/logs/blood-pressure', '/logs/glucose', '/logs/water', '/logs/weight', '/checkin']);
+      assert.ok(h.nodes().filter(node => node.type === 'Text').every(node => node.props.allowFontScaling && !node.props.numberOfLines));
+      assert.ok(h.nodes().filter(node => node.type === 'Image').every(node => node.props.resizeMode === 'contain' && node.props.accessible === false));
+      const group = flattenMissionStyle(h.find('missions-remaining').props.style);
+      assert.equal(group.backgroundColor, dark ? h.colors.surface : '#FDFFFE');
+      h.blur();
+    });
+  }
+  await test(`${language}: missing missions and empty/error/loading responses never fabricate tasks or progress`, async () => {
+    const h = missionsScreenHarness({ language });
+    for (const status of ['idle', 'loading']) {
+      h.store.status = status;
+      assert.equal(h.nodes().filter(node => node.type === 'Skeleton').length, 1);
+      assert.equal(h.find('missions-summary'), undefined);
+    }
+    h.store.status = 'success';
+    assert.equal(h.nodes().find(node => node.type === 'Empty').props.message, h.t('noMissionsToday'));
+    assert.equal(h.find('missions-remaining'), undefined);
+    h.store.status = 'error'; h.store.errorState = 'no-data';
+    assert.equal(h.nodes().filter(node => node.type === 'Error').length, 1);
+    assert.equal(h.nodes().filter(node => node.type === 'Empty').length, 0);
+    h.store.status = 'success'; h.store.errorState = 'none';
+    h.store.missions = [missionFixtures()[0]];
+    assert.equal(h.nodes().filter(node => node.props?.testID?.startsWith('mission-')).length, 1);
+    assert.ok(journeyNodes(h.find('missions-summary')).some(node => node.props.children === h.t('completionSummary', { completed: 0, total: 1 })));
+    h.store.errorState = 'remote-failed';
+    assert.equal(h.nodes().filter(node => node.type === 'OfflineBanner').length, 1);
+    assert.ok(h.find('mission-log_weight')); h.blur();
+  });
+}
+await test('mission disclosures neither navigate nor refetch, and completed tasks stay discoverable', async () => {
+  const h = missionsScreenHarness(); h.store.missions = missionFixtures(); await h.settle();
+  h.find('missions-help-toggle').props.onPress();
+  assert.ok(h.find('missions-help'));
+  assert.equal(h.find('missions-help-toggle').props.accessibilityState.expanded, true);
+  h.find('missions-help-toggle').props.onPress(); assert.equal(h.find('missions-help'), undefined);
+  for (let i = 0; i < 2; i++) h.find('missions-completed-toggle').props.onPress();
+  assert.equal(h.find('missions-completed'), undefined);
+  await h.settle(); assert.deepEqual(h.routes, []); assert.equal(h.requests.length, 1);
+  h.store.missions = missionFixtures().map(item => ({ ...item, status: 'completed' }));
+  assert.equal(h.find('missions-remaining'), undefined);
+  assert.ok(h.find('missions-completed-toggle')); h.blur();
+});
+await test('returning immediately from a health log reloads missions once and aborts the previous focus', async () => {
+  const h = missionsScreenHarness(); h.store.missions = missionFixtures(); await h.settle();
+  const first = h.requests[0]; await h.settle(); assert.equal(h.requests.length, 1);
+  h.blur(); assert.equal(first.aborted, true);
+  h.focus(); await h.settle(); assert.equal(h.requests.length, 2);
+  assert.equal(h.requests[1].aborted, false); h.blur();
+});
+await test('mission refresh clears its spinner even when the request rejects', async () => {
+  const h = missionsScreenHarness(); h.store.missions = missionFixtures(); await h.settle();
+  const pending = deferred(); h.store.fetchMissions = () => pending.promise;
+  const refresh = h.nodes().find(node => node.type === 'Scroll').props.onRefresh();
+  assert.equal(h.nodes().find(node => node.type === 'Scroll').props.refreshing, true);
+  pending.reject(new Error('offline')); await assert.rejects(refresh, /offline/);
+  assert.equal(h.nodes().find(node => node.type === 'Scroll').props.refreshing, false); h.blur();
+});
+await test('mission progress is bounded and only actual completion moves a row into the completed group', () => {
+  const h = missionsScreenHarness();
+  h.store.missions = [
+    { ...missionFixtures()[0], progress: -2 },
+    { ...missionFixtures()[1], progress: Number.NaN, goal: 0 },
+    { ...missionFixtures()[2], progress: 99 },
+  ];
+  assert.ok(h.find('mission-log_weight')); assert.ok(h.find('mission-log_water'));
+  assert.equal(h.find('mission-log_glucose'), undefined);
+  h.find('missions-completed-toggle').props.onPress();
+  assert.ok(h.find('mission-log_glucose'));
+  const summary = journeyNodes(h.find('missions-summary')).find(node => node.type === 'Progress');
+  assert.equal(summary.props.progress, 1); assert.equal(summary.props.goal, 3); h.blur();
 });
 
 console.log(`UI feature state: ${checks} runtime checks passed.`);

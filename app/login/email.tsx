@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,11 +16,6 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeInUp,
-} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScaledTextInput as RNTextInput } from '../../src/components/ScaledTextInput';
@@ -32,8 +28,8 @@ import { showToast, setPendingToast, useToastStore } from '../../src/stores/toas
 import { FontSizeScale, useFontSizeStore } from '../../src/stores/font-size.store';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { MedicalAuthBackdrop } from '../../src/components/MedicalAuthBackdrop';
-
-const appLogo = require('../../assets/icon.png');
+import { authScreenLogo as appLogo, useAuthScreenReady } from '../../src/features/auth/useAuthScreenReady';
+import { AuthScreenLoading } from '../../src/features/auth/AuthScreenLoading';
 
 function GoogleMark({ size = 20 }: { size?: number }) {
   return (
@@ -53,6 +49,7 @@ const SOCIAL_PROVIDERS_BY_PLATFORM: Record<string, SocialProvider[]> = {
 };
 
 export default function LoginEmailScreen() {
+  const screenReady = useAuthScreenReady();
   const flushPending = useToastStore((s) => s.flushPending);
   React.useEffect(() => {
     flushPending();
@@ -183,6 +180,8 @@ export default function LoginEmailScreen() {
   const inlineLoginError = error ? getLoginErrorMessage(error) : undefined;
   const visibleIdentifierError = identifier.trim() ? undefined : identifierError;
 
+  if (!screenReady) return <AuthScreenLoading />;
+
   return (
     <>
       <KeyboardAvoidingView
@@ -233,7 +232,7 @@ export default function LoginEmailScreen() {
             showsVerticalScrollIndicator={false}
           >
             {/* Top Bar: Pill Font Size Button [Tt Nhỏ] & Pill Language Toggle [🇻🇳 VI | 🇬🇧 EN] */}
-            <Animated.View entering={FadeIn.duration(400)} style={styles.topBarRow}>
+            <View style={styles.topBarRow}>
               <Pressable
                 style={styles.fontSizeTopBtn}
                 onPress={() => setShowFontModal(true)}
@@ -244,23 +243,17 @@ export default function LoginEmailScreen() {
                 <Text style={styles.fontSizeTopLabel}>{getFontSizeLabel(scale)}</Text>
               </Pressable>
               <LanguageToggle />
-            </Animated.View>
+            </View>
 
-            {/* Logo + Title + Subtitle */}
+            {/* Logo */}
             <View style={styles.heroSection}>
-              <Animated.View entering={FadeInDown.duration(500)} style={styles.logoWrap}>
+              <View style={styles.logoWrap}>
                 <Image source={appLogo} style={styles.logo} resizeMode="cover" />
-              </Animated.View>
-              <Animated.View entering={FadeIn.delay(200).duration(400)} style={{ alignSelf: 'stretch' }}>
-                <Text style={styles.title}>{t('welcomeTitle')}</Text>
-              </Animated.View>
-              <Animated.View entering={FadeIn.delay(300).duration(400)} style={{ alignSelf: 'stretch' }}>
-                <Text style={styles.subtitle}>{t('welcomeSubtitle')}</Text>
-              </Animated.View>
+              </View>
             </View>
 
             {/* Main Form Card */}
-            <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+            <View>
               <View style={styles.formCard}>
                 {/* Email / Phone Input */}
                 <View style={styles.inputGroup}>
@@ -363,17 +356,17 @@ export default function LoginEmailScreen() {
                   </LinearGradient>
                 </Pressable>
               </View>
-            </Animated.View>
+            </View>
 
             {/* Divider: Hoặc đăng nhập bằng */}
-            <Animated.View entering={FadeIn.delay(350).duration(400)} style={styles.dividerRow}>
+            <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
               <Text style={styles.dividerText}>{t('orContinueWith')}</Text>
               <View style={styles.dividerLine} />
-            </Animated.View>
+            </View>
 
             {/* Social Login: 2 Side-by-Side Cards (Google & Apple / Zalo) */}
-            <Animated.View entering={FadeInUp.delay(450).duration(500)} style={styles.socialRow}>
+            <View style={styles.socialRow}>
               {(SOCIAL_PROVIDERS_BY_PLATFORM[Platform.OS] ?? SOCIAL_PROVIDERS_BY_PLATFORM.default)
                 .slice(0, 2)
                 .map((provider) => {
@@ -420,10 +413,10 @@ export default function LoginEmailScreen() {
                     </Pressable>
                   );
                 })}
-            </Animated.View>
+            </View>
 
             {/* Legal Links */}
-            <Animated.View entering={FadeIn.delay(550).duration(400)} style={styles.legal}>
+            <View style={styles.legal}>
               <View style={styles.legalHelperRow}>
                 <Ionicons name="shield-checkmark-outline" size={18} color="#1AB6AE" />
                 <Text style={styles.legalHelperText}>{t('agreeTerms')}</Text>
@@ -437,15 +430,15 @@ export default function LoginEmailScreen() {
                   <Text style={styles.legalLink}>{t('privacyPolicy')}</Text>
                 </Pressable>
               </View>
-            </Animated.View>
+            </View>
 
             {/* Register Prompt */}
-            <Animated.View entering={FadeInUp.delay(650).duration(400)} style={styles.registerPrompt}>
+            <View style={styles.registerPrompt}>
               <Text style={styles.registerText}>{t('noAccount')}</Text>
-              <Pressable onPress={() => router.replace('/register')}>
+              <Pressable onPress={() => { Keyboard.dismiss(); router.replace('/register'); }}>
                 <Text style={styles.registerLink}>{t('registerNow')}</Text>
               </Pressable>
-            </Animated.View>
+            </View>
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -570,21 +563,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       width: '100%',
       height: '100%',
     },
-    title: {
-      fontSize: 27,
-      fontWeight: '800',
-      color: isDark ? '#F1F5F9' : '#0B1E48',
-      textAlign: 'center',
-      letterSpacing: -0.5,
-    },
-    subtitle: {
-      color: isDark ? '#94A3B8' : '#64748B',
-      textAlign: 'center',
-      fontSize: 14,
-      lineHeight: 20,
-      marginTop: 2,
-    },
-
     // ── Form Card ──
     formCard: {
       backgroundColor: isDark ? '#1E293B' : '#FFFFFF',

@@ -122,6 +122,7 @@ function queuedAlert(h) {
     '@expo/vector-icons': { MaterialCommunityIcons: 'Icon' },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
     './ScaledText': { ScaledText: 'Text' }, './QueuedModal': { QueuedModal: 'QueuedModal' },
+    '../hooks/useCheckinPresentation': { useCheckinPresentationBlocked: () => false },
     '../hooks/useScaledTypography': { useScaledTypography: () => theme.typography },
     '../styles': theme, '../hooks/useThemeColors': { useThemeColors: () => ({ isDark: false }) },
     'react-i18next': { useTranslation: () => ({ t: key => key }) },

@@ -156,6 +156,8 @@ function hostHarness(os = 'ios') {
     'react/jsx-runtime': jsxRuntime,
     'react-native': { Modal: 'NativeModal', Platform: { OS: os } },
     '../lib/modalQueue': { ModalQueue },
+    '../lib/checkin-presentation': { checkinPresentation: { isBlocked: () => false } },
+    '../hooks/useCheckinPresentation': { useCheckinPresentationBlocked: () => false },
     '../lib/native-permissions': { attachNativePermissionPresenter: () => () => {} },
   };
   const components = evaluate(read('src/components/QueuedModal.tsx'), imports);
@@ -201,7 +203,7 @@ await test('Android closes without waiting for an iOS-only onDismiss callback', 
   cleanup();
 });
 
-function alertHarness() {
+function alertHarness(checkinBlocked = false) {
   const refs = []; let index = 0;
   const native = { Modal: 'NativeModal', Pressable: 'Pressable', ScrollView: 'ScrollView', View: 'View', StyleSheet: { create: value => value } };
   const imports = {
@@ -209,6 +211,7 @@ function alertHarness() {
     'react/jsx-runtime': jsxRuntime, 'react-native': native,
     '@expo/vector-icons': { MaterialCommunityIcons: 'Icon' }, './ScaledText': { ScaledText: 'Text' },
     './QueuedModal': { QueuedModal: 'QueuedModal' },
+    '../hooks/useCheckinPresentation': { useCheckinPresentationBlocked: () => checkinBlocked },
     '../hooks/useScaledTypography': { useScaledTypography: () => ({ size: { md: 17, sm: 14 } }) },
     '../hooks/useThemeColors': { useThemeColors: () => ({ isDark: false }) },
     'react-i18next': { useTranslation: () => ({ t: key => key }) },
@@ -223,6 +226,13 @@ function nodes(tree) {
   if (Array.isArray(tree)) return tree.flatMap(nodes);
   return [tree, ...nodes(tree.props?.children)];
 }
+await test('automatic dialogs wait during check-in; only an explicit owned confirmation can be shown', () => {
+  const render=alertHarness(true);
+  const props={visible:true,title:'Synthetic cancellation',onDismiss(){}};
+  assert.equal(render(props).props.visible,false);
+  assert.equal(render({...props,allowDuringCheckin:true}).props.visible,true);
+  assert.equal(render(props).props.visible,false);
+});
 for (const queued of [true, false]) await test(`actual AppAlert ${queued ? 'defers OS permission until dismissed' : 'preserves existing non-startup action behavior'}`, () => {
   let closes = 0, actions = 0;
   const render = alertHarness();

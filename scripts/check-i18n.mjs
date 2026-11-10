@@ -38,7 +38,10 @@ const flattenValues = (value, prefix = "") => {
 
 const placeholders = (value) =>
   typeof value === "string"
-    ? [...value.matchAll(/\{\{([^{}]+)\}\}/g)].map((match) => match[1]).sort()
+    ? [...value.matchAll(/\{\{([^{}]+)\}\}/g)].map((match) => match[1])
+        // Match the backend's language-specific addressing policy. English
+        // questions do not inflect age/gender honorifics as Vietnamese does.
+        .filter(name => !['CallName', 'callName', 'Honorific', 'honorific', 'SelfRef', 'selfRef'].includes(name)).sort()
     : [];
 
 const errors = [];

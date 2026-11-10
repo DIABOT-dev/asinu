@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
+import { randomUUID } from "expo-crypto";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../auth/auth.store";
 import { useToastStore } from "../../stores/toast.store";
@@ -54,12 +55,14 @@ export function useMedicationOverview() {
       setDoses(value.items);
       setTodayLoading(false);
     },
-    [],
+    []
   );
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<MedSchedule | null>(null);
-  const [mode, setMode] = useState<"menu" | "edit" | "remove">("menu");
+  const [mode, setMode] = useState<"menu" | "edit" | "remove" | "move">("menu");
+  const [movingItem, setMovingItem] = useState<string | null>(null);
+  const moveRequest = useRef<{ fingerprint: string; id: string } | null>(null);
   const [time, setTime] = useState("");
   const [items, setItems] = useState<string[]>([]);
   const [note, setNote] = useState("");
@@ -76,7 +79,7 @@ export function useMedicationOverview() {
       version.current === expected &&
       patientScope.current === patient &&
       useAuthStore.getState().token === token,
-    [token, patient],
+    [token, patient]
   );
 
   const refresh = useCallback(
@@ -124,7 +127,7 @@ export function useMedicationOverview() {
               setTodayLoading(false);
             }
             throw error;
-          },
+          }
         );
         // Optional statistics must never hold back saved schedules or today's doses.
         void v21Api.weekly(id).then(
@@ -133,7 +136,7 @@ export function useMedicationOverview() {
           },
           () => {
             if (valid()) setWeekly(null);
-          },
+          }
         );
         const core = await Promise.allSettled([overview, today]);
         if (!valid()) return;
@@ -147,7 +150,7 @@ export function useMedicationOverview() {
         if (valid()) setLoading(false);
       }
     },
-    [current, patient, acceptToday],
+    [current, patient, acceptToday]
   );
 
   useFocusEffect(
@@ -174,7 +177,7 @@ export function useMedicationOverview() {
       setSelected(null);
       setBusy(false);
       lastDay.current = medicationCalendar.format(
-        new Date(Date.now() + serverOffset.current),
+        new Date(Date.now() + serverOffset.current)
       );
       const expected = version.current;
       const timer = setInterval(() => {
@@ -188,7 +191,7 @@ export function useMedicationOverview() {
           return;
         }
         const nearDose = latestDoses.current.some((dose) =>
-          medicationDoseNeedsRefresh(dose, instant),
+          medicationDoseNeedsRefresh(dose, instant)
         );
         if (
           nearDose &&
@@ -221,7 +224,7 @@ export function useMedicationOverview() {
         doseReads.current++;
         operation.current = null;
       };
-    }, [refresh, token, patient, current, acceptToday]),
+    }, [refresh, token, patient, current, acceptToday])
   );
 
   const viewVersion = version.current;
@@ -257,6 +260,8 @@ export function useMedicationOverview() {
     )
       return;
     setSelected(schedule);
+    setMovingItem(null);
+    moveRequest.current = null;
     setMode("menu");
     setTime(schedule.time_local.slice(0, 5));
     setItems(schedule.item_ids);
@@ -306,6 +311,63 @@ export function useMedicationOverview() {
       if (current(viewVersion)) setNote(value);
     },
     canSave,
+    movingItem,
+    canMove:
+      current(viewVersion) &&
+      !busy &&
+      !loading &&
+      mode === "move" &&
+      !!movingItem &&
+      !!selected?.item_ids.includes(movingItem) &&
+      /^([01]\d|2[0-3]):[0-5]\d$/.test(time) &&
+      time !== selected.time_local.slice(0, 5),
+    openMove: (itemId: string) => {
+      if (
+        !current(viewVersion) ||
+        busy ||
+        !selected?.active ||
+        selected.consent_state === "DECLINED" ||
+        !selected.item_ids.includes(itemId)
+      )
+        return;
+      setMovingItem(itemId);
+      setTime("");
+      moveRequest.current = null;
+      setMode("move");
+    },
+    move: () => {
+      if (
+        !current(viewVersion) ||
+        busy ||
+        loading ||
+        !selected ||
+        !data ||
+        mode !== "move" ||
+        !movingItem ||
+        !selected.item_ids.includes(movingItem) ||
+        !/^([01]\d|2[0-3]):[0-5]\d$/.test(time) ||
+        time === selected.time_local.slice(0, 5)
+      )
+        return;
+      const fingerprint = JSON.stringify([
+        data.patientId,
+        selected.id,
+        movingItem,
+        time,
+      ]);
+      if (moveRequest.current?.fingerprint !== fingerprint)
+        moveRequest.current = { fingerprint, id: randomUUID() };
+      const request = moveRequest.current;
+      return mutate(
+        () =>
+          v21Api.moveItem(data.patientId, selected.id, {
+            item_id: movingItem,
+            time_local: time,
+            request_id: request.id,
+          }),
+        "doseMoved"
+      );
+    },
     refresh,
     removeDraft: (id?: string) => {
       const drafts = data?.drafts || (data?.draft ? [data.draft] : []);
@@ -313,7 +375,7 @@ export function useMedicationOverview() {
       if (draft && data)
         return mutate(
           () => v21Api.removeDraft(data.patientId, draft.id, draft.revision),
-          "draftDeleted",
+          "draftDeleted"
         );
     },
     openSchedule,
@@ -329,7 +391,7 @@ export function useMedicationOverview() {
     toggleItem: (id: string) => {
       if (current(viewVersion))
         setItems((old) =>
-          old.includes(id) ? old.filter((x) => x !== id) : [...old, id],
+          old.includes(id) ? old.filter((x) => x !== id) : [...old, id]
         );
     },
     save: () => {
@@ -343,7 +405,7 @@ export function useMedicationOverview() {
               meal_anchor: selected.meal_anchor,
               active: selected.active,
             }),
-          "saved",
+          "saved"
         );
     },
     setScheduleActive: (schedule: MedSchedule, active: boolean) => {
@@ -367,22 +429,22 @@ export function useMedicationOverview() {
         active && schedule.consent_state === "PENDING"
           ? "scheduleAwaitingConsent"
           : active
-            ? "scheduleResumed"
-            : "schedulePaused",
+          ? "scheduleResumed"
+          : "schedulePaused"
       );
     },
     remove: () => {
       if (selected && data && mode === "remove")
         return mutate(
           () => v21Api.remove(data.patientId, selected.id),
-          "saved",
+          "saved"
         );
     },
     setProblemsOnly: (value: boolean) => {
       if (data)
         return mutate(
           () => v21Api.preferences(data.patientId, value),
-          value ? "preferenceOn" : "preferenceOff",
+          value ? "preferenceOn" : "preferenceOff"
         );
     },
   };

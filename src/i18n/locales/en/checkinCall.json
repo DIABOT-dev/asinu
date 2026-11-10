@@ -12,6 +12,12 @@
     "settingsFailed": "Could not open call permissions. Please try again."
   },
   "personalization": {
+    "screenTitle": "Personalize check-in calls",
+    "sections": {
+      "permissions": "Permissions",
+      "address": "How to address you",
+      "weather": "Weather area"
+    },
     "open": "Personalize call reminders",
     "title": "Reminders for you",
     "description": "An Asinu introduction and a suitable form of address. These choices only change the script, not your schedule or plan permissions.",
@@ -43,20 +49,26 @@
       "hue": "Hue"
     },
     "useLocation": "Use my current approximate area",
-    "locationSelected": "An approximate area has been selected from your current location. You can update it when you move.",
+    "deviceRegion": "Area from your current location",
+    "areaNameLoading": "Finding the area name…",
+    "areaNameIssues": {
+      "permission": "Location saved. Allow location access to see the area name.",
+      "inactive": "Location saved. The area name will be checked when you return to the app.",
+      "timeout": "Location saved. The area name lookup is taking longer than expected. Please retry.",
+      "noAddress": "Location saved, but no local area name was found. You can select an area below.",
+      "unavailable": "Location saved. The area name service has not responded. Please retry."
+    },
+    "retryAreaName": "Retry the area name",
     "locationDenied": "Location was not permitted. Choose a region manually or turn off weather reminders; check-in still works.",
     "locationFailed": "Could not get your location. Retry or choose a region manually.",
-    "chooseRegion": "Choose a region before saving weather reminders.",
+    "chooseRegion": "Choose an area to turn on weather reminders.",
     "weatherCredit": "Forecast from MET Norway (CC BY 4.0). Asinu turns it into general daily-life reminders, not treatment advice.",
     "weatherForecastAt": "Forecast time: {{time}}",
-    "weatherSource": "View the weather data source and license",
-    "linkFailed": "Could not open the link. Please try again.",
-    "privacy": "Names and health measurements are not spoken on the lock screen. Calls do not record your answers. Turn options off and save to stop personalization in subsequent reminders.",
     "consentTitle": "Allow reminder personalization?",
     "voiceConsent": "When enabled, Asinu uses your selected information to create in-app reminders. Only the text to be spoken is sent to the VieNeu speech service, not your full profile. You can turn this off and save at any time. Private information is not read on the lock screen.",
     "weatherConsent": "Asinu sends approximate regional coordinates through its backend to MET Norway for a forecast, not your name or health data. There is no background location tracking. You can choose a region manually without granting GPS permission.",
     "agree": "Agree for this reminder",
-    "save": "Save personalization"
+    "saved": "Call personalization saved"
   },
   "openCheckin": "Open check-in to update your condition",
   "urgentCallHeading": "Immediate support alert",
@@ -78,18 +90,14 @@
   "savedSettings": "Saved settings",
   "schedulePreview": "If you have not checked in, Asinu starts contacting at {{time}} ({{timezone}}){{nextDay}}.",
   "nextDay": ", the next day",
-  "eligibleContacts": "Current eligible contact order",
-  "eligibleContactFallback": "Family member {{index}}",
-  "noEligibleContacts": "No relative in your Care Circle is currently eligible to receive alerts.",
-  "contactSetupHint": "You can still enable and save your own reminder schedule. For Asinu to alert a relative, connect them, grant alert and confirmation permissions, and ask them to enable notifications in the app.",
   "noContactsWarning": {
     "title": "No relative can receive alerts yet",
     "body": "You can still configure settings. To enable the call schedule, connect at least one family member, grant permission to receive and confirm alerts, and ask them to turn on notifications in Asinu."
   },
   "manageCareCircle": "Set up relatives in Care Circle",
-  "refreshContacts": "Check recipients again",
   "urgentSettingsNotice": "Urgent alerts contact relatives simultaneously for up to 30 minutes. Picking up does not stop other calls; select I will check on them. After accepting an urgent call, you have up to 2 minutes to confirm.",
   "title": "Check-in calls",
+  "settingsTitle": "Check-in call settings",
   "subtitle": "Asinu will call if you have not checked in after the allowed time.",
   "enable": "Enable check-in calls",
   "active": "Active",
@@ -437,7 +445,7 @@
       },
       "emergency": {
         "title": "Result: emergency",
-        "description": "Emergency guidance and a display-only call button"
+        "description": "Emergency guidance and warnings"
       },
       "noCaregiver": {
         "title": "Result: no caregiver",

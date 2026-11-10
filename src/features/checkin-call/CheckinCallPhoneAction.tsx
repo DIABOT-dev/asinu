@@ -7,18 +7,16 @@ import { ScaledText as Text } from "../../components/ScaledText";
 
 export function CheckinCallPhoneAction({
   phone,
-  urgent = false,
   onBeforeCall,
 }: {
   phone: string;
-  urgent?: boolean;
   onBeforeCall?: () => Promise<unknown>;
 }) {
   const { t } = useTranslation("checkinCall");
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const normalized = phone.trim().replace(/[\s().-]/g, "");
   if (!/^\+?\d{3,15}$/.test(normalized)) return null;
-  const label = t(urgent ? "callEmergency" : "contact.callPerson");
+  const label = t("contact.callPerson");
   const call = async () => {
     await onBeforeCall?.();
     showAlert(label, t("phoneConfirmation", { phone: normalized }), [
@@ -39,16 +37,15 @@ export function CheckinCallPhoneAction({
         accessibilityRole="button"
         accessibilityLabel={label}
         onPress={() => void call()}
-        style={[styles.button, urgent && styles.urgent]}
+        style={styles.button}
       >
         <Ionicons
           name="call-outline"
           size={22}
-          color={urgent ? "#b91c1c" : "#087f6d"}
+          color="#087f6d"
         />
-        <Text style={[styles.label, urgent && styles.urgentText]}>{label}</Text>
+        <Text style={styles.label}>{label}</Text>
       </Pressable>
-      {urgent && <Text style={styles.note}>{t("emergencyNote")}</Text>}
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
     </View>
   );
@@ -67,7 +64,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   label: { fontSize: 17, fontWeight: "700", color: "#087f6d", flexShrink: 1 },
-  urgent: { borderColor: "#f4b8b8" },
-  urgentText: { color: "#b91c1c" },
-  note: { color: "#7f1d1d", fontSize: 13, textAlign: "center" },
 });

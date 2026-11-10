@@ -18,7 +18,7 @@ const parse = (file) =>
       ? ts.ScriptKind.TS
       : ts.ScriptKind.JS
   );
-const sourceRoots = ["app", "src", "asinu-brain-extension"];
+const sourceRoots = ["app", "src"];
 function sourceFiles(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     if (entry.name.startsWith(".")) {
@@ -333,6 +333,7 @@ function filteredRoutes(enabled, consultationEnabled = true) {
       isExpertConsultationEnabled: consultationEnabled,
       screenOptions: {},
       legalScreenOptions: {},
+      authScreenOptions: {},
     }
   );
   // SDK 57's Stack first maps its public children into navigator screens.
@@ -556,6 +557,7 @@ const { routeFromNotificationData, registerNotificationCategories } = evaluate(
   read("src/lib/notifications.ts"),
   {
     "./appEnv": flags,
+    "./checkin-presentation": { checkinPresentation: { isBlocked: () => false } },
     "./native-permissions": {},
     "expo-constants": {},
     "expo-notifications": {

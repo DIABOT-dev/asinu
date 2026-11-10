@@ -308,14 +308,13 @@ for (const language of ["vi", "en"]) {
       assert.ok(!h.text().includes(h.t("bpReadingReference")), "Routine explanations belong behind the information button");
     }
     assert.ok(h.text().includes(h.t("bpHighReadingGuide")));
-    assert.ok(h.emergency());
+    assert.equal(h.emergency(), undefined, "The emergency guide remains text without a call button");
     assert.deepEqual(
       h.calls.phones,
       [],
       "Rendering a warning must not place a call"
     );
-    await h.emergency().props.onPress();
-    assert.deepEqual(h.calls.phones, ["tel:115"]);
+    assert.deepEqual(h.calls.phones, [], "The high-reading screen must not expose a 115 call action");
   });
   await test(`${language}: invalid pairs and pulse cannot save; correcting them saves unchanged`, async () => {
     const h = harness({ language });
@@ -330,9 +329,10 @@ for (const language of ["vi", "en"]) {
     await h.save();
     assert.ok(h.text().includes(h.t("errBpRange")));
     assert.ok(
-      h.emergency(),
+      h.text().includes(h.t("bpHighReadingGuide")),
       "Out-of-range high readings still need safety guidance"
     );
+    assert.equal(h.emergency(), undefined);
     h.input(120, 80, "72abc");
     await h.save();
     assert.equal(h.pulse().props.error, h.t("bpPulseInvalid"));

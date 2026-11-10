@@ -1,4 +1,5 @@
 import { runNativePermission } from "./native-permissions";
+import { checkinPresentation } from './checkin-presentation';
 import { isDoctorFeaturesEnabled, isExpertConsultationEnabled } from "./appEnv";
 // Push notification service for care circle invitations
 // Note: This requires expo-notifications to be installed
@@ -30,7 +31,7 @@ export function setupNotificationHandler(): void {
         const data = (notification?.request?.content?.data || {}) as any;
         // Local re-emit (đã alert ở lần đầu) → KHÔNG show banner/sound nữa,
         // chỉ giữ trong notification list. Tránh double-banner trong foreground.
-        const isLocalReemit = !!data?._isLocalReemit;
+        const isLocalReemit = !!data?._isLocalReemit || checkinPresentation.isBlocked();
         return {
           shouldShowAlert: !isLocalReemit,
           shouldPlaySound: !isLocalReemit,

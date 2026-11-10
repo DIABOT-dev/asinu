@@ -21,14 +21,20 @@ export interface CheckinSession {
   flow_state: FlowState;
   triage_messages: Array<TriageAnswer & { options?: string[] }>;
   triage_summary: string | null;
+  body_location?: string | null;
+  body_locations?: string[] | null;
+  body_location_other?: string | null;
   triage_severity: TriageSeverity | null;
   triage_completed_at: string | null;
+  triage_state?: { phase?: 'initial' | 'followup'; phase_id?: string; revision?: string; completed?: { finalized?: boolean } };
   next_checkin_at: string | null;
   no_response_count: number;
   family_alerted: boolean;
   emergency_triggered: boolean;
   resolved_at: string | null;
   created_at: string;
+  occurrence_started_at?: string | null;
+  last_response_at?: string | null;
 }
 
 export interface TriageOptionGroup {
@@ -46,17 +52,27 @@ export interface TriageResult {
   step?: string;
   options?: string[];
   optionsGrouped?: TriageOptionGroup[] | null; // T3 group theo body location
+  questionProgress?: { current: number; total: number };
+  questionGroup?: { key: string; label: string; index: number; total: number } | null;
+  exclusiveOptions?: string[];
   multiSelect?: boolean;
   // when done
   summary?: string;
+  recordedSymptoms?: string[];
   severity?: TriageSeverity;
   recommendation?: string;
   conclusionVersion?: 2;
+  conclusionFormat?: 'structured' | 'narrative';
+  narrative?: string;
+  conclusionPromptVersion?: string;
+  conclusionRenderVersion?: number;
+  conclusionSource?: 'ai' | 'partial_fallback' | 'fallback';
   personalMessage?: string;
   explanation?: string;
   todo?: string[];
   seeDoctorWhen?: string[];
   disclaimer?: string;
+  aiNotice?: string;
   closeMessage?: string;
   followUpHours?: number;
   speechText?: string;
@@ -74,6 +90,8 @@ export interface TriageResult {
   needs_caregiver_cta?: boolean;
   show_urgent_caregiver_warning?: boolean;
   allowFreeText?: boolean;
+  freeTextOption?: string;
+  skipAnswerLabel?: string;
   // set when AI was unavailable and fallback questions were used
   _fallback?: boolean;
   // Illusion Layer fields (Phase 3+4)
@@ -91,17 +109,25 @@ export interface TriageResult {
  */
 export type TriageSummaryView = {
   summary: string;
+  recordedSymptoms?: string[];
   severity: 'low' | 'medium' | 'high' | string;
   recommendation: string;
   needsDoctor: boolean;
   conclusionVersion?: 2;
+  conclusionFormat?: 'structured' | 'narrative';
+  narrative?: string;
+  conclusionPromptVersion?: string;
+  conclusionRenderVersion?: number;
+  conclusionSource?: 'ai' | 'partial_fallback' | 'fallback';
   personalMessage?: string;
   explanation?: string;
   todo?: string[];
   seeDoctorWhen?: string[];
   disclaimer?: string;
+  aiNotice?: string;
   closeMessage?: string;
   followUpHours?: number;
+  speechText?: string;
   _progress?: { text: string; templateId: string };
   familyAlertResult?: TriageResult['familyAlertResult'];
   // Pass-through of the backend FIX #4 caregiver fields so the done screen
@@ -164,6 +190,9 @@ export interface PendingCaregiverAlert {
 }
 
 export const checkinApi = {
+  cancel: (checkinId: number, phaseId: string) => apiClient<{ ok: boolean; cancelled: boolean }>('/api/mobile/checkin/cancel', {
+    method: 'POST', body: { checkin_id: checkinId, phase_id: phaseId },
+  }),
   getToday: () =>
     apiClient<{ ok: boolean; session: CheckinSession | null }>('/api/mobile/checkin/today'),
 
@@ -193,11 +222,11 @@ export const checkinApi = {
       body: { checkin_id, status },
     })),
 
-  triage: (checkin_id: number, previous_answers: TriageAnswer[]) =>
+  triage: (checkin_id: number, previous_answers: TriageAnswer[], phaseId?: string) =>
     apiClient<TriageResult>('/api/mobile/checkin/triage', {
       method: 'POST',
-      body: { checkin_id, previous_answers },
-      timeoutMs: 30000,
+      body: { checkin_id, previous_answers, conclusion_format: 'narrative', assessment_version: 2, adaptive_questions: true, ...(phaseId ? { phase_id: phaseId } : {}) },
+      timeoutMs: 90000,
     }),
 
   emergency: (location?: { lat: number; lng: number; accuracy?: number }) =>
