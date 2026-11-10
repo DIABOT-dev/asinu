@@ -47,7 +47,6 @@ import { useAppUpdateStore } from "../../../src/features/app-update/app-update.s
 import { ProfileHealthcareBackground } from "../../../src/features/profile/ProfileHealthcareBackground";
 import { PlanDetailsModal } from "../../../src/features/subscription/components/PlanDetailsModal";
 import { useProfileCoins } from "../../../src/features/v21/useProfileCoins";
-import { HealthCoinIcon } from "../../../src/features/v21/HealthCoinIcon";
 import DeleteAccountModal from "../../../src/components/DeleteAccountModal";
 import { FontSizePickerModal } from "../../../src/features/profile/FontSizePickerModal";
 import { LanguagePickerModal } from "../../../src/features/profile/LanguagePickerModal";
@@ -820,15 +819,6 @@ export default function ProfileScreen() {
                       })}
                     </Text>
                   </TouchableOpacity>
-                {coinSummary.enabled && coinSummary.balance !== null && (
-                  <View style={styles.coinSummary}>
-                    <HealthCoinIcon size={20} />
-                    <View style={styles.coinCopy}>
-                      <Text allowFontScaling style={styles.coinBalance}>{t('healthCoinsBalance', { count: coinSummary.balance })}</Text>
-                      {coinSummary.earnedToday !== null && <Text allowFontScaling style={styles.coinLabel}>{t('healthCoinsToday', { count: coinSummary.earnedToday })}</Text>}
-                    </View>
-                  </View>
-                )}
                   </View>
                 </View>
 
@@ -836,6 +826,10 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.dropdownPanel}>
+            <View style={styles.profileGroup} testID="profile-group-personal">
+              <Text allowFontScaling accessibilityRole="header" style={styles.profileGroupTitle}>
+                {t("groupPersonalHealth")}
+              </Text>
             {/* ==================== THÔNG TIN CÁ NHÂN SECTION ==================== */}
             <View>
               <View style={[styles.sectionHeaderRow, styles.personalInfoHeader]}>
@@ -1183,6 +1177,11 @@ export default function ProfileScreen() {
               )}
             </View>
 
+            </View>
+            <View style={styles.profileGroup} testID="profile-group-benefits">
+              <Text allowFontScaling accessibilityRole="header" style={styles.profileGroupTitle}>
+                {t("groupBenefits")}
+              </Text>
             <View>
               {renderSectionHeader(
                 "rewards",
@@ -1202,18 +1201,6 @@ export default function ProfileScreen() {
                     <Text allowFontScaling style={styles.rowLabel}>{t("missions")}</Text>
                   </TouchableOpacity>
 
-                  {coinSummary.enabled && <TouchableOpacity
-                    style={styles.actionCard}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('healthCoins')}
-                    onPress={() => router.push('/coins')}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <HealthCoinIcon size={24} />
-                    </View>
-                    <Text allowFontScaling style={styles.rowLabel}>{t('healthCoins')}</Text>
-                  </TouchableOpacity>}
                   <TouchableOpacity
                     style={styles.actionCard}
                     onPress={() => router.push("/checkin-rewards")}
@@ -1304,6 +1291,11 @@ export default function ProfileScreen() {
               )}
             </View>
 
+            </View>
+            <View style={styles.profileGroup} testID="profile-group-app">
+              <Text allowFontScaling accessibilityRole="header" style={styles.profileGroupTitle}>
+                {t("groupApplication")}
+              </Text>
             {/* ==================== 02 MIDDLE: CÀI ĐẶT ==================== */}
             <View>
               {renderSectionHeader(
@@ -1559,7 +1551,37 @@ export default function ProfileScreen() {
               )}
 
             </View>
+            </View>
 
+            {coinSummary.enabled && (
+              <TouchableOpacity
+                testID="profile-health-coins"
+                style={styles.coinEntry}
+                accessibilityRole="button"
+                accessibilityLabel={t("healthCoins")}
+                onPress={() => router.push("/coins")}
+                activeOpacity={0.7}
+              >
+                <View style={styles.coinHeading}>
+                  <View style={styles.sectionIcon}>
+                    <MaterialCommunityIcons name="database-outline" size={24} color={colors.primaryText} />
+                  </View>
+                  <Text allowFontScaling style={styles.sectionHeading}>{t("healthCoins")}</Text>
+                </View>
+                {coinSummary.balance !== null && (
+                  <View style={styles.coinCopy}>
+                    <Text allowFontScaling style={styles.coinBalance}>
+                      {t("healthCoinsBalance", { count: coinSummary.balance })}
+                    </Text>
+                    {coinSummary.earnedToday !== null && (
+                      <Text allowFontScaling style={styles.coinLabel}>
+                        {t("healthCoinsToday", { count: coinSummary.earnedToday })}
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </TouchableOpacity>
+            )}
             </View>
             <View style={styles.profileFooter}>
               <TouchableOpacity
@@ -2304,9 +2326,14 @@ function createStyles(
     profileFooter: { minHeight: 52, marginHorizontal: 20, marginTop: 10, paddingBottom: 8 },
     personalInfoHeader: { paddingHorizontal: 0, paddingVertical: 0, gap: 0 },
     identityMeta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 4, marginTop: 4 },
-    coinSummary: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, flexShrink: 1 },
-    coinCopy: { minWidth: 0, gap: 1 },
-    coinBalance: { fontSize: 13, fontWeight: '600', color: textPrimaryCol },
+    profileGroup: { marginBottom: 24 },
+    profileGroupTitle: { marginHorizontal: 14, marginBottom: 8, fontSize: 13,
+      fontWeight: '600', letterSpacing: 0.7, textTransform: 'uppercase', color: textSecondaryCol },
+    coinEntry: { minHeight: 72, paddingHorizontal: 14, paddingVertical: 12,
+      flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 8 },
+    coinHeading: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+    coinCopy: { minWidth: 0, gap: 2, flexShrink: 1, alignItems: 'flex-end', marginLeft: 'auto' },
+    coinBalance: { fontSize: 16, fontWeight: '700', color: textPrimaryCol },
     coinLabel: { fontSize: 12, color: textSecondaryCol },
     personalInfoToggle: {
       flex: 1,
@@ -2450,8 +2477,8 @@ function createStyles(
     },
     sectionHeading: {
       flexShrink: 1,
-      fontSize: 15,
-      fontWeight: "600",
+      fontSize: 16,
+      fontWeight: "700",
       color: textPrimaryCol,
     },
     // Care Banner

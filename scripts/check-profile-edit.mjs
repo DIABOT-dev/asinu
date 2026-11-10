@@ -35,7 +35,7 @@ class ApiError extends Error {
   constructor(statusCode) { super('Fixture API failure'); this.statusCode = statusCode; }
 }
 
-function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multiplier = 1, isDark = false, doctorEnabled = false, profile: profileOverrides = {} } = {}) {
+function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multiplier = 1, isDark = false, doctorEnabled = false, profile: profileOverrides = {}, coins: coinOverrides = {} } = {}) {
   const slots = [];
   let cursor = 0;
   let pendingEffects = [];
@@ -45,9 +45,15 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
   const profile = { id: 'profile-fixture', name: 'Demo', phone: '', age: 40, gender: 'Nam',
     heightCm: 170, weightKg: 70, bloodType, chronicDiseases: [], ...profileOverrides };
   const auth = { profile, logout: async () => {} };
+  const coinSummary = { enabled: true, balance: 12, earnedToday: 10, ...coinOverrides };
   const translate = ns => {
     const catalog = JSON.parse(read(`src/i18n/locales/${language}/${ns}.json`));
-    return key => key.split('.').reduce((value, part) => value?.[part], catalog) ?? key;
+    return (key, values = {}) => {
+      const value = key.split('.').reduce((entry, part) => entry?.[part], catalog) ?? key;
+      return typeof value === 'string'
+        ? value.replace(/\{\{(\w+)\}\}/g, (match, name) => values[name] ?? match)
+        : value;
+    };
   };
   const hooks = {
     useState(initial) {
@@ -153,8 +159,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/features/profile/TaskReminderPermission': { TaskReminderPermission: 'TaskReminderPermission' },
     '../../../src/features/profile/SpecialistSharingPermission': { SpecialistSharingPermission: 'SpecialistSharingPermission' },
     '../../../src/features/profile/ReminderSettingsEntry': { ReminderSettingsEntry: 'ReminderSettingsEntry' },
-    '../../../src/features/v21/useProfileCoins': { useProfileCoins: () => ({ enabled: true, balance: 12, earnedToday: 10 }) },
-    '../../../src/features/v21/HealthCoinIcon': { HealthCoinIcon: 'HealthCoinIcon' },
+    '../../../src/features/v21/useProfileCoins': { useProfileCoins: () => coinSummary },
     '../../../src/features/care-circle/components/QrCameraPermissionRow': { QrCameraPermissionRow: 'CameraPermissionRow' },
     '../../../src/lib/native-permissions': { runNativePermission: operation => operation() },
     '../../../src/styles': theme,
@@ -249,12 +254,60 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
   };
   return { render, modal, fontModal, languageModal, input, saveButton, open, selectGender, bloodField, bloodValue, bloodChoices, selectBloodType,
     openDiseasePicker, diseaseChoice, toggleDisease, customInput, addDiseaseButton, addDisease, cancel,
-    avatarButton, updateProfile, toggleSection, calls, t: translate('profile'), tc: translate('common'), ts: translate('settings') };
+    avatarButton, updateProfile, updateCoins: patch => Object.assign(coinSummary, patch), toggleSection, calls, t: translate('profile'), tc: translate('common'), ts: translate('settings') };
 }
 
 let checks = 0;
 async function test(label, run) { await run(); checks++; console.log(`PASS ${label}`); }
 for (const language of ['vi', 'en']) {
+  await test(`${language}: three named groups organize the seven existing dropdowns`, () => {
+    const h = harness({ language });
+    const tree = h.render();
+    const groups = nodes(tree).filter(node => /^profile-group-/.test(node.props?.testID || ''));
+    assert.deepEqual(groups.map(group => nodes(group).find(node => node.props.accessibilityRole === 'header').props.children),
+      [h.t('groupPersonalHealth'), h.t('groupBenefits'), h.t('groupApplication')]);
+    const dropdowns = group => nodes(group).filter(node => node.props.accessibilityRole === 'button'
+      && 'expanded' in (node.props.accessibilityState || {})).map(node => node.props.accessibilityLabel);
+    assert.deepEqual(groups.map(dropdowns), [
+      [h.t('personalInfo'), h.t('sectionHealth')],
+      [h.t('sectionRewards'), h.t('sectionAccount')],
+      [h.t('sectionSettings'), h.ts('appPermissions'), h.t('sectionSystem')],
+    ]);
+  });
+  await test(`${language}: the bottom coin entry uses live values, stays reachable with dropdowns closed and opens the coin screen`, () => {
+    const h = harness({ language, coins: { balance: 80, earnedToday: 0 } });
+    const tree = h.render();
+    const content = nodes(tree).find(node => node.type === 'ScrollView');
+    const all = nodes(content);
+    const entry = all.find(node => node.props?.testID === 'profile-health-coins');
+    assert.ok(entry);
+    assert.ok(text(entry).includes(h.t('healthCoinsBalance', { count: 80 })));
+    assert.ok(text(entry).includes(h.t('healthCoinsToday', { count: 0 })), 'A zero daily earning is real data, not missing data');
+    const lastGroup = all.find(node => node.props?.testID === 'profile-group-app');
+    const logout = all.find(node => node.type === 'TouchableOpacity' && text(node).trim() === h.t('logout'));
+    assert.ok(all.indexOf(entry) > all.indexOf(lastGroup));
+    assert.ok(all.indexOf(entry) < all.indexOf(logout));
+    assert.equal(all.filter(node => node.props?.testID === 'profile-health-coins').length, 1);
+    assert.ok(!nodes(entry).some(node => node.type === 'Icon' && /chevron/.test(node.props.name)), 'Only dropdowns have chevrons');
+    entry.props.onPress();
+    assert.deepEqual(h.calls.routes, ['/coins']);
+    h.updateCoins({ balance: 90, earnedToday: 10 });
+    const refreshed = nodes(h.render()).find(node => node.props?.testID === 'profile-health-coins');
+    assert.ok(text(refreshed).includes(h.t('healthCoinsBalance', { count: 90 })));
+    assert.ok(text(refreshed).includes(h.t('healthCoinsToday', { count: 10 })));
+    assert.ok(!text(refreshed).includes(h.t('healthCoinsBalance', { count: 80 })));
+  });
+  await test(`${language}: coin feature off hides its entry without hiding profile groups or inventing a balance`, () => {
+    const disabled = harness({ language, coins: { enabled: false, balance: null, earnedToday: null } }).render();
+    assert.ok(!nodes(disabled).some(node => node.props?.testID === 'profile-health-coins'));
+    assert.equal(nodes(disabled).filter(node => /^profile-group-/.test(node.props?.testID || '')).length, 3);
+    const unknown = harness({ language, coins: { balance: null, earnedToday: null } });
+    const entry = nodes(unknown.render()).find(node => node.props?.testID === 'profile-health-coins');
+    assert.ok(entry);
+    assert.equal(text(entry).trim(), unknown.t('healthCoins'));
+    entry.props.onPress();
+    assert.deepEqual(unknown.calls.routes, ['/coins']);
+  });
   await test(`${language}: healthcare backdrop stays behind content without blocking profile controls`, () => {
     const tree = harness({ language }).render();
     const screen = nodes(tree).find(node => node.type === 'Screen');
@@ -303,7 +356,8 @@ for (const language of ['vi', 'en']) {
       assert.ok(!hasRow(bothOpen, 'reminderSchedule'));
       assert.ok(hasRow(bothOpen, 'logEntry'));
       assert.ok(hasRow(bothOpen, 'missions'));
-      assert.ok(hasRow(bothOpen, 'healthCoins'));
+      assert.ok(nodes(bothOpen).some(node => node.props?.testID === 'profile-health-coins'));
+      assert.ok(!nodes(nodes(bothOpen).find(node => node.props?.testID === 'profile-group-benefits')).some(node => node.props?.accessibilityLabel === h.t('healthCoins')), 'Coins remain outside the rewards dropdown');
       const giftEntries = nodes(bothOpen).filter(node => node.props.accessibilityLabel === h.t('dailyGifts'));
       assert.equal(giftEntries.length, 1, 'Daily gifts have their own profile entry');
       const collectionEntries = nodes(bothOpen).filter(node => node.props.accessibilityLabel === h.t('giftCollection'));
@@ -346,7 +400,7 @@ for (const language of ['vi', 'en']) {
       assert.ok(hasLabel(account, h.t('wallet')));
       assert.ok(hasLabel(account, h.t('changePassword')));
       assert.ok(hasLabel(account, h.ts('deleteAccountForever')));
-      assert.ok(!hasLabel(account, h.t('healthCoins')));
+      assert.ok(!nodes(nodes(account).find(node => node.props?.testID === 'profile-group-benefits')).some(node => node.props?.accessibilityLabel === h.t('healthCoins')));
       const expandedRewards = h.toggleSection(h.t('sectionRewards'));
       assert.ok(!nodes(expandedRewards).some(node => node.type === 'Icon' && ['chevron-forward', 'chevron-right'].includes(node.props.name)), 'Actions without an inline dropdown do not show a right arrow');
       for (const section of [h.t('sectionHealth'), h.t('sectionRewards'), h.t('sectionAccount'), h.ts('appPermissions'), h.t('sectionSystem')]) {
