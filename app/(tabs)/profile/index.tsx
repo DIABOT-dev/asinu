@@ -47,6 +47,7 @@ import { useAppUpdateStore } from "../../../src/features/app-update/app-update.s
 import { ProfileHealthcareBackground } from "../../../src/features/profile/ProfileHealthcareBackground";
 import { PlanDetailsModal } from "../../../src/features/subscription/components/PlanDetailsModal";
 import { useProfileCoins } from "../../../src/features/v21/useProfileCoins";
+import { HealthCoinIcon } from "../../../src/features/v21/HealthCoinIcon";
 import DeleteAccountModal from "../../../src/components/DeleteAccountModal";
 import { FontSizePickerModal } from "../../../src/features/profile/FontSizePickerModal";
 import { LanguagePickerModal } from "../../../src/features/profile/LanguagePickerModal";
@@ -771,7 +772,7 @@ export default function ProfileScreen() {
         ) : (
           <>
             {/* ==================== USER PROFILE CARD ==================== */}
-            <View>
+            <View testID="profile-identity">
               <View style={styles.userCard}>
                 {/* Avatar */}
                 <View style={styles.avatarWrap}>
@@ -826,6 +827,35 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.dropdownPanel}>
+            {coinSummary.enabled && (
+              <TouchableOpacity
+                testID="profile-health-coins"
+                style={styles.coinEntry}
+                accessibilityRole="button"
+                accessibilityLabel={t("healthCoins")}
+                onPress={() => router.push("/coins")}
+                activeOpacity={0.7}
+              >
+                <View style={styles.coinHeading}>
+                  <View style={styles.sectionIcon}>
+                    <HealthCoinIcon size={30} />
+                  </View>
+                  <Text allowFontScaling style={styles.sectionHeading}>{t("healthCoins")}</Text>
+                </View>
+                {coinSummary.balance !== null && (
+                  <View style={styles.coinCopy}>
+                    <Text allowFontScaling style={styles.coinBalance}>
+                      {t("healthCoinsBalance", { count: coinSummary.balance })}
+                    </Text>
+                    {coinSummary.earnedToday !== null && (
+                      <Text allowFontScaling style={styles.coinLabel}>
+                        {t("healthCoinsToday", { count: coinSummary.earnedToday })}
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </TouchableOpacity>
+            )}
             <View style={styles.profileGroup} testID="profile-group-personal">
               <Text allowFontScaling accessibilityRole="header" style={styles.profileGroupTitle}>
                 {t("groupPersonalHealth")}
@@ -1553,35 +1583,7 @@ export default function ProfileScreen() {
             </View>
             </View>
 
-            {coinSummary.enabled && (
-              <TouchableOpacity
-                testID="profile-health-coins"
-                style={styles.coinEntry}
-                accessibilityRole="button"
-                accessibilityLabel={t("healthCoins")}
-                onPress={() => router.push("/coins")}
-                activeOpacity={0.7}
-              >
-                <View style={styles.coinHeading}>
-                  <View style={styles.sectionIcon}>
-                    <MaterialCommunityIcons name="database-outline" size={24} color={colors.primaryText} />
-                  </View>
-                  <Text allowFontScaling style={styles.sectionHeading}>{t("healthCoins")}</Text>
-                </View>
-                {coinSummary.balance !== null && (
-                  <View style={styles.coinCopy}>
-                    <Text allowFontScaling style={styles.coinBalance}>
-                      {t("healthCoinsBalance", { count: coinSummary.balance })}
-                    </Text>
-                    {coinSummary.earnedToday !== null && (
-                      <Text allowFontScaling style={styles.coinLabel}>
-                        {t("healthCoinsToday", { count: coinSummary.earnedToday })}
-                      </Text>
-                    )}
-                  </View>
-                )}
-              </TouchableOpacity>
-            )}
+
             </View>
             <View style={styles.profileFooter}>
               <TouchableOpacity
@@ -2329,7 +2331,7 @@ function createStyles(
     profileGroup: { marginBottom: 24 },
     profileGroupTitle: { marginHorizontal: 14, marginBottom: 8, fontSize: 13,
       fontWeight: '600', letterSpacing: 0.7, textTransform: 'uppercase', color: textSecondaryCol },
-    coinEntry: { minHeight: 72, paddingHorizontal: 14, paddingVertical: 12,
+    coinEntry: { minHeight: 72, marginBottom: 24, paddingHorizontal: 14, paddingVertical: 12,
       flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 8 },
     coinHeading: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
     coinCopy: { minWidth: 0, gap: 2, flexShrink: 1, alignItems: 'flex-end', marginLeft: 'auto' },

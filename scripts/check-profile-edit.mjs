@@ -160,6 +160,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/features/profile/SpecialistSharingPermission': { SpecialistSharingPermission: 'SpecialistSharingPermission' },
     '../../../src/features/profile/ReminderSettingsEntry': { ReminderSettingsEntry: 'ReminderSettingsEntry' },
     '../../../src/features/v21/useProfileCoins': { useProfileCoins: () => coinSummary },
+    '../../../src/features/v21/HealthCoinIcon': { HealthCoinIcon: 'HealthCoinIcon' },
     '../../../src/features/care-circle/components/QrCameraPermissionRow': { QrCameraPermissionRow: 'CameraPermissionRow' },
     '../../../src/lib/native-permissions': { runNativePermission: operation => operation() },
     '../../../src/styles': theme,
@@ -274,7 +275,7 @@ for (const language of ['vi', 'en']) {
       [h.t('sectionSettings'), h.ts('appPermissions'), h.t('sectionSystem')],
     ]);
   });
-  await test(`${language}: the bottom coin entry uses live values, stays reachable with dropdowns closed and opens the coin screen`, () => {
+  await test(`${language}: the golden coin entry sits below identity, uses live values and opens the coin screen`, () => {
     const h = harness({ language, coins: { balance: 80, earnedToday: 0 } });
     const tree = h.render();
     const content = nodes(tree).find(node => node.type === 'ScrollView');
@@ -283,10 +284,11 @@ for (const language of ['vi', 'en']) {
     assert.ok(entry);
     assert.ok(text(entry).includes(h.t('healthCoinsBalance', { count: 80 })));
     assert.ok(text(entry).includes(h.t('healthCoinsToday', { count: 0 })), 'A zero daily earning is real data, not missing data');
-    const lastGroup = all.find(node => node.props?.testID === 'profile-group-app');
-    const logout = all.find(node => node.type === 'TouchableOpacity' && text(node).trim() === h.t('logout'));
-    assert.ok(all.indexOf(entry) > all.indexOf(lastGroup));
-    assert.ok(all.indexOf(entry) < all.indexOf(logout));
+    const identity = all.find(node => node.props?.testID === 'profile-identity');
+    const firstGroup = all.find(node => node.props?.testID === 'profile-group-personal');
+    assert.ok(all.indexOf(entry) > all.indexOf(identity));
+    assert.ok(all.indexOf(entry) < all.indexOf(firstGroup));
+    assert.equal(nodes(entry).filter(node => node.type === 'HealthCoinIcon').length, 1, 'Use the existing golden health coin artwork');
     assert.equal(all.filter(node => node.props?.testID === 'profile-health-coins').length, 1);
     assert.ok(!nodes(entry).some(node => node.type === 'Icon' && /chevron/.test(node.props.name)), 'Only dropdowns have chevrons');
     entry.props.onPress();
