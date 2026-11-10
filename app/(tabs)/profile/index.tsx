@@ -46,18 +46,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAppUpdateStore } from "../../../src/features/app-update/app-update.store";
 import { ProfileHealthcareBackground } from "../../../src/features/profile/ProfileHealthcareBackground";
 import { PlanDetailsModal } from "../../../src/features/subscription/components/PlanDetailsModal";
-import { useProfileCoins } from "../../../src/features/v21/useProfileCoins";
-import { HealthCoinIcon } from "../../../src/features/v21/HealthCoinIcon";
 import DeleteAccountModal from "../../../src/components/DeleteAccountModal";
 import { FontSizePickerModal } from "../../../src/features/profile/FontSizePickerModal";
 import { LanguagePickerModal } from "../../../src/features/profile/LanguagePickerModal";
-import { ProfileDevicePermissions } from "../../../src/features/profile/ProfileDevicePermissions";
 import { TaskReminderPermission } from "../../../src/features/profile/TaskReminderPermission";
 import { SpecialistSharingPermission } from "../../../src/features/profile/SpecialistSharingPermission";
 import { ReminderSettingsEntry } from "../../../src/features/profile/ReminderSettingsEntry";
 
 const LOGOUT_ART = require("../../../assets/images/profile/logout_art.png");
-const CHECKIN_ACCESS_ART = require("../../../assets/images/subscription/checkin_access_shield.png");
 
 const STORAGE_KEY_NOTIFICATIONS = "@app/notifications_enabled";
 const STORAGE_KEY_REMINDERS = "@app/reminders_enabled";
@@ -92,7 +88,6 @@ import {
   categoryColors,
   colors,
   iconColors,
-  lightColors,
   radius,
   spacing,
 } from "../../../src/styles";
@@ -136,11 +131,10 @@ type ProfileEditValues = {
 
 type ProfileSection =
   | "personal"
-  | "rewards"
   | "health"
   | "account"
   | "settings"
-  | "permissions"
+  | "preferences"
   | "system";
 
 function getProfileEditValues(profile: Profile | null): ProfileEditValues {
@@ -204,7 +198,6 @@ export default function ProfileScreen() {
     }
   };
   const profile = useAuthStore((state) => state.profile);
-  const coinSummary = useProfileCoins();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scaledTypography = useScaledTypography();
@@ -236,11 +229,10 @@ export default function ProfileScreen() {
     Record<ProfileSection, boolean>
   >({
     personal: false,
-    rewards: false,
     health: false,
     account: false,
     settings: false,
-    permissions: false,
+    preferences: false,
     system: false,
   });
 
@@ -716,42 +708,6 @@ export default function ProfileScreen() {
     }
   };
 
-  const hasCheckinCallAccess =
-    subStatus?.callCenterEnabled ?? subStatus?.isAnTam ?? false;
-
-  const handleCheckinCallPress = useCallback(() => {
-    if (hasCheckinCallAccess) {
-      router.push("/checkin-call/settings" as any);
-      return;
-    }
-    showAlert(
-      t("premiumFeatureLockedTitle"),
-      t("checkinCallLockedDesc"),
-      [
-        { text: tc("later"), style: "cancel" },
-        {
-          text: t("chooseAnTam"),
-          variant: "primary",
-          onPress: () => router.push("/subscription"),
-        },
-      ],
-      { name: "lock-outline", color: colors.premiumDark },
-      {
-        appearance: "access",
-        heroImage: CHECKIN_ACCESS_ART,
-        primaryButtonBackground: (
-          <LinearGradient
-            pointerEvents="none"
-            colors={["#00847d", lightColors.primaryText]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-        ),
-      },
-    );
-  }, [hasCheckinCallAccess, router, showAlert, t, tc]);
-
   return (
     <Screen>
       <ProfileHealthcareBackground />
@@ -827,35 +783,6 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.dropdownPanel}>
-            {coinSummary.enabled && (
-              <TouchableOpacity
-                testID="profile-health-coins"
-                style={styles.coinEntry}
-                accessibilityRole="button"
-                accessibilityLabel={t("healthCoins")}
-                onPress={() => router.push("/coins")}
-                activeOpacity={0.7}
-              >
-                <View style={styles.coinHeading}>
-                  <View style={styles.sectionIcon}>
-                    <HealthCoinIcon size={30} />
-                  </View>
-                  <Text allowFontScaling style={styles.sectionHeading}>{t("healthCoins")}</Text>
-                </View>
-                {coinSummary.balance !== null && (
-                  <View style={styles.coinCopy}>
-                    <Text allowFontScaling style={styles.coinBalance}>
-                      {t("healthCoinsBalance", { count: coinSummary.balance })}
-                    </Text>
-                    {coinSummary.earnedToday !== null && (
-                      <Text allowFontScaling style={styles.coinLabel}>
-                        {t("healthCoinsToday", { count: coinSummary.earnedToday })}
-                      </Text>
-                    )}
-                  </View>
-                )}
-              </TouchableOpacity>
-            )}
             <View style={styles.profileGroup} testID="profile-group-personal">
               <Text allowFontScaling accessibilityRole="header" style={styles.profileGroupTitle}>
                 {t("groupPersonalHealth")}
@@ -1069,7 +996,7 @@ export default function ProfileScreen() {
             )}
 
             {/* ==================== 02 MIDDLE: SỨC KHỎE ==================== */}
-            <View>
+            {(isDoctorFeaturesEnabled || (__DEV__ && isDevBuild && isCheckinUiGalleryEnabled)) && <View>
               {renderSectionHeader(
                 "health",
                 t("sectionHealth"),
@@ -1077,60 +1004,6 @@ export default function ProfileScreen() {
               )}
               {expandedSections.health && (
                 <View style={styles.cardsStack}>
-                  <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={() => router.push("/logs")}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <Ionicons
-                        name="journal-outline"
-                        size={22}
-                        color="#f43f5e"
-                      />
-                    </View>
-                    <Text allowFontScaling style={styles.rowLabel}>{t("logEntry")}</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.actionCard,
-                      !hasCheckinCallAccess && styles.actionCardLocked,
-                    ]}
-                    onPress={handleCheckinCallPress}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      hasCheckinCallAccess
-                        ? t("checkinCall")
-                        : `${t("checkinCall")}. ${t("requiresAnTam")}`
-                    }
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <Ionicons
-                        name={hasCheckinCallAccess ? "call-outline" : "lock-closed-outline"}
-                        size={22}
-                        color={hasCheckinCallAccess ? "#07846d" : "#94a3b8"}
-                      />
-                    </View>
-                    <Text allowFontScaling
-                      style={[
-                        styles.rowLabel,
-                        !hasCheckinCallAccess && styles.rowLabelLocked,
-                      ]}
-                    >
-                      {t("checkinCall")}
-                    </Text>
-                    {!hasCheckinCallAccess && (
-                      <View style={styles.lockedBadge}>
-                        <Text allowFontScaling style={styles.lockedBadgeText}>{t("requiresAnTam")}</Text>
-                      </View>
-                    )}
-                    {!hasCheckinCallAccess && (
-                      <Ionicons name="lock-closed" size={16} color="#94a3b8" />
-                    )}
-                  </TouchableOpacity>
-
                   {__DEV__ && isDevBuild && isCheckinUiGalleryEnabled && (
                     <TouchableOpacity
                       style={styles.actionCard}
@@ -1143,26 +1016,6 @@ export default function ProfileScreen() {
                         <Ionicons name="eye-outline" size={22} color="#07846d" />
                       </View>
                       <Text allowFontScaling style={styles.rowLabel}>{t("checkinCallGallery")}</Text>
-                    </TouchableOpacity>
-                  )}
-                  {isDoctorFeaturesEnabled && (
-                    <TouchableOpacity
-                      accessibilityRole="button"
-                      accessibilityLabel={ts('doctorConsultation')}
-                      style={styles.actionCard}
-                      onPress={() => router.push('/doctor-consultation')}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.rowIconWrap}>
-                        <Ionicons
-                          name="medical-outline"
-                          size={22}
-                          color={colors.primary}
-                        />
-                      </View>
-                      <Text allowFontScaling style={styles.rowLabel}>
-                        {ts('doctorConsultation')}
-                      </Text>
                     </TouchableOpacity>
                   )}
                   {isDoctorFeaturesEnabled && <TouchableOpacity
@@ -1205,60 +1058,13 @@ export default function ProfileScreen() {
                   </TouchableOpacity>}
                 </View>
               )}
-            </View>
+            </View>}
 
             </View>
             <View style={styles.profileGroup} testID="profile-group-benefits">
               <Text allowFontScaling accessibilityRole="header" style={styles.profileGroupTitle}>
                 {t("groupBenefits")}
               </Text>
-            <View>
-              {renderSectionHeader(
-                "rewards",
-                t("sectionRewards"),
-                <Ionicons name="gift-outline" size={20} color={colors.primaryText} />,
-              )}
-              {expandedSections.rewards && (
-                <View style={styles.cardsStack}>
-                  <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={() => router.push("/(tabs)/missions" as any)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <Ionicons name="flag-outline" size={22} color="#10b981" />
-                    </View>
-                    <Text allowFontScaling style={styles.rowLabel}>{t("missions")}</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={() => router.push("/checkin-rewards")}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("dailyGifts")}
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <Ionicons name="gift-outline" size={22} color={colors.primary} />
-                    </View>
-                    <Text allowFontScaling style={styles.rowLabel}>{t("dailyGifts")}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.actionCard}
-                    onPress={() => router.push("/checkin-rewards/history")}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("giftCollection")}
-                  >
-                    <View style={styles.rowIconWrap}>
-                      <Ionicons name="archive-outline" size={22} color={colors.primary} />
-                    </View>
-                    <Text allowFontScaling style={styles.rowLabel}>{t("giftCollection")}</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-
             {/* ==================== 02 MIDDLE: TÀI KHOẢN ==================== */}
             <View>
               {renderSectionHeader(
@@ -1380,23 +1186,23 @@ export default function ProfileScreen() {
 
             <View>
               {renderSectionHeader(
-                "permissions",
-                ts("appPermissions"),
+                "preferences",
+                t("sectionData"),
                 <Ionicons name="shield-checkmark-outline" size={20} color={colors.primaryText} />,
               )}
-              {/* Preserve permission state between expands; only visibility changes. */}
+              {/* Keep data preferences mounted while the dropdown is collapsed. */}
               <View
                 key={profile?.id ?? "signed-out"}
-                testID="profile-permission-controls"
+                testID="profile-data-controls"
                 style={[
                   styles.cardsStack,
-                  !expandedSections.permissions && styles.collapsedSection,
+                  !expandedSections.preferences && styles.collapsedSection,
                 ]}
-                accessibilityElementsHidden={!expandedSections.permissions}
+                accessibilityElementsHidden={!expandedSections.preferences}
                 importantForAccessibility={
-                  expandedSections.permissions ? "auto" : "no-hide-descendants"
+                  expandedSections.preferences ? "auto" : "no-hide-descendants"
                 }
-                pointerEvents={expandedSections.permissions ? "auto" : "none"}
+                pointerEvents={expandedSections.preferences ? "auto" : "none"}
               >
                   {isDoctorFeaturesEnabled && <SpecialistSharingPermission />}
 
@@ -1423,7 +1229,6 @@ export default function ProfileScreen() {
                     />
                   </View>
 
-                  <ProfileDevicePermissions />
                   <TaskReminderPermission />
                   <View style={styles.actionCard}>
                     <View style={styles.rowIconWrap}>
@@ -2331,12 +2136,6 @@ function createStyles(
     profileGroup: { marginBottom: 24 },
     profileGroupTitle: { marginHorizontal: 14, marginBottom: 8, fontSize: 13,
       fontWeight: '600', letterSpacing: 0.7, textTransform: 'uppercase', color: textSecondaryCol },
-    coinEntry: { minHeight: 72, marginBottom: 24, paddingHorizontal: 14, paddingVertical: 12,
-      flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 8 },
-    coinHeading: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
-    coinCopy: { minWidth: 0, gap: 2, flexShrink: 1, alignItems: 'flex-end', marginLeft: 'auto' },
-    coinBalance: { fontSize: 16, fontWeight: '700', color: textPrimaryCol },
-    coinLabel: { fontSize: 12, color: textSecondaryCol },
     personalInfoToggle: {
       flex: 1,
       minHeight: 56,
@@ -2531,9 +2330,6 @@ function createStyles(
       flexDirection: "row",
       alignItems: "center",
     },
-    actionCardLocked: {
-      backgroundColor: "transparent",
-    },
     rowIconWrap: {
       width: 28,
       height: 28,
@@ -2546,23 +2342,6 @@ function createStyles(
       fontSize: 15,
       fontWeight: "600",
       color: textPrimaryCol,
-    },
-    rowLabelLocked: {
-      color: textSecondaryCol,
-    },
-    lockedBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      marginRight: 8,
-      borderRadius: 999,
-      backgroundColor: isDark ? "#422006" : "#fff7ed",
-      borderWidth: 1,
-      borderColor: isDark ? "#78350f" : "#fed7aa",
-    },
-    lockedBadgeText: {
-      color: isDark ? "#fdba74" : "#c2410c",
-      fontSize: 11,
-      fontWeight: "700",
     },
     rowMeta: {
       fontSize: 13,

@@ -14,6 +14,7 @@ const actions = [
   { id: 'healthHistory', route: '/(tabs)/tree', image: require('../../assets/images/notifications/checkin-v1.png') },
   { id: 'medication', route: '/medication', image: require('../../assets/images/notifications/medication-v1.png') },
   { id: 'journal', route: '/logs', image: require('../../assets/images/notifications/checkin-v1.png') },
+  { id: 'expert', route: '/doctor-consultation', image: require('../../assets/images/notifications/expert-consultation-v1.png') },
   { id: 'calls', route: '/checkin-call/settings', icon: 'options-outline' },
   { id: 'callPersonalization', route: '/checkin-call/voice-settings', icon: 'person-circle-outline' },
   { id: 'permissions', icon: 'shield-checkmark-outline' },

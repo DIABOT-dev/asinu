@@ -110,14 +110,14 @@ for (const language of ['vi', 'en']) {
   await test(`${language}: Home shortcuts expose the real destinations with labels and a gold coin`, () => {
     const h = featureGridHarness({ language }), tree = h.render(), nodes = h.nodes(tree);
     const buttons = h.tiles();
-    assert.equal(buttons.length, 11);
+    assert.equal(buttons.length, 12);
     assert.equal(buttons[0].props.testID, 'home-feature-healthHistory');
     for (const button of buttons) {
       assert.equal(button.props.accessibilityRole, 'button'); assert.ok(button.props.accessibilityLabel);
       assert.ok(flatten(button.props.style({ pressed: false })).minHeight >= 44);
       button.props.onPress();
     }
-    assert.deepEqual(h.pushes, ['/(tabs)/tree', '/medication', '/logs', '/checkin-call/settings', '/checkin-call/voice-settings', '/care-circle',
+    assert.deepEqual(h.pushes, ['/(tabs)/tree', '/medication', '/logs', '/doctor-consultation', '/checkin-call/settings', '/checkin-call/voice-settings', '/care-circle',
       '/(tabs)/missions', '/coins', '/checkin-rewards', '/checkin-rewards/history']);
     const dialog = h.nodes(h.render()).find(node => node.type === 'PermissionModal');
     assert.equal(dialog.props.visible, true);
@@ -130,8 +130,9 @@ for (const language of ['vi', 'en']) {
   await test(`${language}: disabled medication and coin features have no Home shortcuts`, () => {
     const h = featureGridHarness({ language, medicationEnabled: false, coinsEnabled: false });
     const ids = h.tiles().map(node => node.props.testID);
-    assert.equal(ids.length, 9);
-    assert.equal(ids[0], 'home-feature-healthHistory'); assert.ok(!ids.includes('home-feature-medication')); assert.ok(!ids.includes('home-feature-coins'));
+    assert.equal(ids.length, 10); assert.ok(!ids.includes('home-feature-medication')); assert.ok(!ids.includes('home-feature-coins'));
+    assert.equal(ids[0], 'home-feature-healthHistory');
+    assert.ok(ids.includes('home-feature-expert'));
   });
 }
 for (const [width, multiplier, fontScale, columns] of [[393, 1, 1, 4], [430, 1, 1, 4],
@@ -145,7 +146,7 @@ for (const [width, multiplier, fontScale, columns] of [[393, 1, 1, 4], [430, 1, 
   });
 }
 
-for (const [width, multiplier, expected] of [[393, 1, [8, 3]], [320, 1, [6, 5]], [393, 1.6, [4, 4, 3]]]) {
+for (const [width, multiplier, expected] of [[393, 1, [8, 4]], [320, 1, [6, 6]], [393, 1.6, [4, 4, 4]]]) {
   await test(`Home shortcuts paginate at ${width}px/font ${multiplier} and expose only the active page to accessibility`, () => {
     const h = featureGridHarness({ width, multiplier });
     const nodes = h.nodes(h.render());
@@ -173,15 +174,17 @@ await test('changing screen width resets a paged shortcut grid to a valid positi
   assert.equal(nodes.find(node => node.props?.testID === 'home-feature-page-0').props.accessibilityState.selected, true);
   assert.deepEqual(h.scrolls.at(-1), { x: 0, animated: false });
 });
-await test('health history remains the first shortcut when optional features are disabled', () => {
+await test('expert consultation stays on the first page with its doctor portrait when optional shortcuts are disabled', () => {
   const h = featureGridHarness({ medicationEnabled: false, coinsEnabled: false });
   const nodes = h.nodes(h.render());
   const scroller = nodes.find(node => node.props?.testID === 'home-feature-pages');
   assert.equal(scroller.props.scrollEnabled, true);
-  const history = h.nodes(scroller.props.children[0]).find(node => node.props?.testID === 'home-feature-healthHistory');
-  assert.ok(history);
-  history.props.onPress();
-  assert.equal(h.pushes.at(-1), '/(tabs)/tree');
+  const firstPage = h.nodes(scroller.props.children[0]);
+  const expert = firstPage.find(node => node.props?.testID === 'home-feature-expert');
+  assert.ok(expert);
+  assert.ok(firstPage.some(node => node.type === 'Image' && node.props.source.endsWith('expert-consultation-v1.png')));
+  expert.props.onPress();
+  assert.equal(h.pushes.at(-1), '/doctor-consultation');
 });
 
 await test('health history leaves the bottom bar and stays available through its existing route', () => {

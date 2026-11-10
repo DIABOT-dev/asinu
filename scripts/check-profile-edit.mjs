@@ -40,7 +40,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
   let cursor = 0;
   let pendingEffects = [];
   let needsRender = false;
-  const calls = { saves: [], uploads: [], toasts: [], profileWrites: [], focus: 0, routes: [], fontSizes: [], languages: [] };
+  const calls = { saves: [], uploads: [], toasts: [], profileWrites: [], focus: 0, routes: [], fontSizes: [], languages: [], coinReads: 0 };
   const preferences = { fontScale: 'normal', language };
   const profile = { id: 'profile-fixture', name: 'Demo', phone: '', age: 40, gender: 'Nam',
     heightCm: 170, weightKg: 70, bloodType, chronicDiseases: [], ...profileOverrides };
@@ -159,7 +159,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/features/profile/TaskReminderPermission': { TaskReminderPermission: 'TaskReminderPermission' },
     '../../../src/features/profile/SpecialistSharingPermission': { SpecialistSharingPermission: 'SpecialistSharingPermission' },
     '../../../src/features/profile/ReminderSettingsEntry': { ReminderSettingsEntry: 'ReminderSettingsEntry' },
-    '../../../src/features/v21/useProfileCoins': { useProfileCoins: () => coinSummary },
+    '../../../src/features/v21/useProfileCoins': { useProfileCoins: () => { calls.coinReads++; return coinSummary; } },
     '../../../src/features/v21/HealthCoinIcon': { HealthCoinIcon: 'HealthCoinIcon' },
     '../../../src/features/care-circle/components/QrCameraPermissionRow': { QrCameraPermissionRow: 'CameraPermissionRow' },
     '../../../src/lib/native-permissions': { runNativePermission: operation => operation() },
@@ -261,8 +261,8 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
 let checks = 0;
 async function test(label, run) { await run(); checks++; console.log(`PASS ${label}`); }
 for (const language of ['vi', 'en']) {
-  await test(`${language}: three named groups organize the seven existing dropdowns`, () => {
-    const h = harness({ language });
+  await test(`${language}: three named groups organize only profile, account and app preferences`, () => {
+    const h = harness({ language, doctorEnabled: true });
     const tree = h.render();
     const groups = nodes(tree).filter(node => /^profile-group-/.test(node.props?.testID || ''));
     assert.deepEqual(groups.map(group => nodes(group).find(node => node.props.accessibilityRole === 'header').props.children),
@@ -271,44 +271,35 @@ for (const language of ['vi', 'en']) {
       && 'expanded' in (node.props.accessibilityState || {})).map(node => node.props.accessibilityLabel);
     assert.deepEqual(groups.map(dropdowns), [
       [h.t('personalInfo'), h.t('sectionHealth')],
-      [h.t('sectionRewards'), h.t('sectionAccount')],
-      [h.t('sectionSettings'), h.ts('appPermissions'), h.t('sectionSystem')],
+      [h.t('sectionAccount')],
+      [h.t('sectionSettings'), h.t('sectionData'), h.t('sectionSystem')],
     ]);
   });
-  await test(`${language}: the golden coin entry sits below identity, uses live values and opens the coin screen`, () => {
-    const h = harness({ language, coins: { balance: 80, earnedToday: 0 } });
-    const tree = h.render();
-    const content = nodes(tree).find(node => node.type === 'ScrollView');
-    const all = nodes(content);
-    const entry = all.find(node => node.props?.testID === 'profile-health-coins');
-    assert.ok(entry);
-    assert.ok(text(entry).includes(h.t('healthCoinsBalance', { count: 80 })));
-    assert.ok(text(entry).includes(h.t('healthCoinsToday', { count: 0 })), 'A zero daily earning is real data, not missing data');
-    const identity = all.find(node => node.props?.testID === 'profile-identity');
-    const firstGroup = all.find(node => node.props?.testID === 'profile-group-personal');
-    assert.ok(all.indexOf(entry) > all.indexOf(identity));
-    assert.ok(all.indexOf(entry) < all.indexOf(firstGroup));
-    assert.equal(nodes(entry).filter(node => node.type === 'HealthCoinIcon').length, 1, 'Use the existing golden health coin artwork');
-    assert.equal(all.filter(node => node.props?.testID === 'profile-health-coins').length, 1);
-    assert.ok(!nodes(entry).some(node => node.type === 'Icon' && /chevron/.test(node.props.name)), 'Only dropdowns have chevrons');
-    entry.props.onPress();
-    assert.deepEqual(h.calls.routes, ['/coins']);
-    h.updateCoins({ balance: 90, earnedToday: 10 });
-    const refreshed = nodes(h.render()).find(node => node.props?.testID === 'profile-health-coins');
-    assert.ok(text(refreshed).includes(h.t('healthCoinsBalance', { count: 90 })));
-    assert.ok(text(refreshed).includes(h.t('healthCoinsToday', { count: 10 })));
-    assert.ok(!text(refreshed).includes(h.t('healthCoinsBalance', { count: 80 })));
+  await test(`${language}: opening Profile never reads coins or shows a duplicate coin entry`, () => {
+    for (const coins of [{ enabled: true, balance: 80, earnedToday: 0 }, { enabled: false, balance: null, earnedToday: null }]) {
+      const h = harness({ language, coins });
+      const tree = h.render();
+      assert.ok(!nodes(tree, true).some(node => node.props?.testID === 'profile-health-coins'));
+      assert.equal(h.calls.coinReads, 0, 'A removed shortcut must not keep fetching its balance');
+      assert.equal(nodes(tree).filter(node => /^profile-group-/.test(node.props?.testID || '')).length, 3);
+    }
   });
-  await test(`${language}: coin feature off hides its entry without hiding profile groups or inventing a balance`, () => {
-    const disabled = harness({ language, coins: { enabled: false, balance: null, earnedToday: null } }).render();
-    assert.ok(!nodes(disabled).some(node => node.props?.testID === 'profile-health-coins'));
-    assert.equal(nodes(disabled).filter(node => /^profile-group-/.test(node.props?.testID || '')).length, 3);
-    const unknown = harness({ language, coins: { balance: null, earnedToday: null } });
-    const entry = nodes(unknown.render()).find(node => node.props?.testID === 'profile-health-coins');
-    assert.ok(entry);
-    assert.equal(text(entry).trim(), unknown.t('healthCoins'));
-    entry.props.onPress();
-    assert.deepEqual(unknown.calls.routes, ['/coins']);
+  await test(`${language}: all quick-action destinations stay out of expanded Profile menus`, () => {
+    const h = harness({ language, doctorEnabled: true });
+    for (const section of ['personalInfo', 'sectionHealth', 'sectionAccount', 'sectionSettings', 'sectionData', 'sectionSystem']) h.toggleSection(h.t(section));
+    const quickActions = read('src/components/HomeFeatureGrid.tsx');
+    const quickRoutes = [...quickActions.matchAll(/route:\s*['"]([^'"]+)['"]/g)].map(match => match[1]);
+    for (const required of ['/logs', '/doctor-consultation', '/checkin-call/settings', '/coins', '/(tabs)/missions', '/checkin-rewards', '/checkin-rewards/history']) assert.ok(quickRoutes.includes(required), required);
+    const tree = h.render();
+    const profileRoutes = nodes(tree, true).flatMap(node => [...String(node.props?.onPress || '').matchAll(/router\.push\(['"]([^'"]+)['"]/g)].map(match => match[1]));
+    assert.deepEqual(profileRoutes.filter(route => quickRoutes.includes(route)), [], 'Features are opened through Quick actions');
+    assert.ok(!nodes(tree, true).some(node => node.type === 'DevicePermissions'));
+    assert.ok(!nodes(tree).some(node => node.props.accessibilityLabel === h.ts('appPermissions')));
+    assert.ok(!nodes(tree).some(node => node.props.accessibilityLabel === h.t('sectionRewards')));
+  });
+  await test(`${language}: an unavailable specialist feature leaves no empty Health dropdown`, () => {
+    const h = harness({ language, doctorEnabled: false });
+    assert.ok(!nodes(h.render()).some(node => node.props.accessibilityLabel === h.t('sectionHealth')));
   });
   await test(`${language}: healthcare backdrop stays behind content without blocking profile controls`, () => {
     const tree = harness({ language }).render();
@@ -337,41 +328,24 @@ for (const language of ['vi', 'en']) {
     assert.deepEqual(h.calls.saves, []);
   });
   for (const isDark of [false, true]) {
-    await test(`${language}/${isDark ? 'dark' : 'light'}: profile groups expand inline and independently without removing their actions`, async () => {
-      const h = harness({ language, isDark });
+    await test(`${language}/${isDark ? 'dark' : 'light'}: remaining dropdowns expand independently without restoring duplicate shortcuts`, () => {
+      const h = harness({ language, isDark, doctorEnabled: true });
       const tree = h.render();
       const all = nodes(tree);
-      assert.ok(!all.some(node => node.type === 'Text' && [h.t('careBannerTitle'), h.t('careBannerSubtitle')].includes(node.props.children)));
-      const mainContent = all.find(node => node.type === 'ScrollView');
-      const headings = nodes(mainContent).filter(node => node.props.accessibilityRole === 'button' && 'expanded' in (node.props.accessibilityState || {})).map(node => node.props.accessibilityLabel);
-      assert.deepEqual(headings, [h.t('personalInfo'), h.t('sectionHealth'), h.t('sectionRewards'), h.t('sectionAccount'), h.t('sectionSettings'), h.ts('appPermissions'), h.t('sectionSystem')]);
-      const hasRow = (tree, key) => nodes(tree).some(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && text(node).trim() === h.t(key));
-      assert.equal(all.filter(node => node.type === 'TouchableOpacity' && node.props.accessibilityState?.expanded === false).length, 7);
-      assert.ok(!nodes(mainContent).some(node => node.type === 'Text' && node.props.children === h.t('bloodType')), 'Personal details stay hidden until expanded');
-      assert.ok(!hasRow(tree, 'reminderSchedule'));
-      assert.ok(!hasRow(tree, 'logEntry'));
-      const healthOpen = h.toggleSection(h.t('sectionHealth'));
-      assert.ok(hasRow(healthOpen, 'logEntry'));
-      assert.ok(!hasRow(healthOpen, 'missions'));
-      assert.ok(!hasRow(healthOpen, 'dailyGifts'));
-      const bothOpen = h.toggleSection(h.t('sectionRewards'));
-      assert.ok(!hasRow(bothOpen, 'reminderSchedule'));
-      assert.ok(hasRow(bothOpen, 'logEntry'));
-      assert.ok(hasRow(bothOpen, 'missions'));
-      assert.ok(nodes(bothOpen).some(node => node.props?.testID === 'profile-health-coins'));
-      assert.ok(!nodes(nodes(bothOpen).find(node => node.props?.testID === 'profile-group-benefits')).some(node => node.props?.accessibilityLabel === h.t('healthCoins')), 'Coins remain outside the rewards dropdown');
-      const giftEntries = nodes(bothOpen).filter(node => node.props.accessibilityLabel === h.t('dailyGifts'));
-      assert.equal(giftEntries.length, 1, 'Daily gifts have their own profile entry');
-      const collectionEntries = nodes(bothOpen).filter(node => node.props.accessibilityLabel === h.t('giftCollection'));
-      assert.equal(collectionEntries.length, 1, 'The gift collection has a separate profile entry');
-      giftEntries[0].props.onPress();
-      collectionEntries[0].props.onPress();
-      assert.deepEqual(h.calls.routes, ['/checkin-rewards', '/checkin-rewards/history']);
-      const rewardsClosed = h.toggleSection(h.t('sectionRewards'));
-      assert.ok(!hasRow(rewardsClosed, 'missions'));
-      assert.ok(!hasRow(rewardsClosed, 'dailyGifts'));
-      assert.ok(!hasRow(rewardsClosed, 'giftCollection'));
-      assert.ok(hasRow(rewardsClosed, 'logEntry'));
+      const main = all.find(node => node.type === 'ScrollView');
+      const headings = nodes(main).filter(node => node.props.accessibilityRole === 'button' && 'expanded' in (node.props.accessibilityState || {})).map(node => node.props.accessibilityLabel);
+      assert.deepEqual(headings, [h.t('personalInfo'), h.t('sectionHealth'), h.t('sectionAccount'), h.t('sectionSettings'), h.t('sectionData'), h.t('sectionSystem')]);
+      assert.equal(all.filter(node => node.type === 'TouchableOpacity' && node.props.accessibilityState?.expanded === false).length, 6);
+      assert.ok(!nodes(main).some(node => node.type === 'Text' && node.props.children === h.t('bloodType')));
+      const health = h.toggleSection(h.t('sectionHealth'));
+      assert.ok(text(health).includes(h.ts('doctorConsultationHistory')));
+      assert.ok(!text(health).includes(h.t('logEntry')));
+      const both = h.toggleSection(h.t('sectionAccount'));
+      assert.ok(text(both).includes(h.ts('doctorConsultationHistory')));
+      assert.ok(text(both).includes(h.t('subscription')));
+      const closed = h.toggleSection(h.t('sectionHealth'));
+      assert.ok(!text(closed).includes(h.ts('doctorConsultationHistory')));
+      assert.ok(text(closed).includes(h.t('subscription')));
       h.open(); assert.ok(h.modal());
     });
     await test(`${language}/${isDark ? 'dark' : 'light'}: care, account security and support each contain the appropriate actions`, () => {
@@ -381,7 +355,7 @@ for (const language of ['vi', 'en']) {
       assert.ok(!hasLabel(settings, h.ts('doctorConsultation')));
       assert.ok(!hasLabel(settings, h.ts('doctorConsultationHistory')));
       const health = h.toggleSection(h.t('sectionHealth'));
-      assert.ok(hasLabel(health, h.ts('doctorConsultation')));
+      assert.ok(!hasLabel(health, h.ts('doctorConsultation')));
       assert.ok(hasLabel(health, h.ts('doctorConsultationHistory')));
       assert.ok(!hasLabel(health, h.ts('specialistSharing')));
       assert.ok(hasLabel(health, h.ts('privacyCenterTitle')));
@@ -389,7 +363,7 @@ for (const language of ['vi', 'en']) {
       assert.ok(privacyEntry, 'Consultation data tools belong to Health care');
       privacyEntry.props.onPress();
       assert.deepEqual(h.calls.routes, ['/privacy-center']);
-      const permissions = h.toggleSection(h.ts('appPermissions'));
+      const permissions = h.toggleSection(h.t('sectionData'));
       assert.equal(nodes(permissions).filter(node => node.type === 'SpecialistSharingPermission').length, 1, 'App permissions contains the inline specialist sharing control');
       assert.ok(!nodes(permissions).some(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && node.props.accessibilityLabel === h.ts('specialistSharing')), 'Specialist sharing is a switch rather than navigation to consultation data tools');
       const help = h.toggleSection(h.t('sectionSystem'));
@@ -403,15 +377,15 @@ for (const language of ['vi', 'en']) {
       assert.ok(hasLabel(account, h.t('changePassword')));
       assert.ok(hasLabel(account, h.ts('deleteAccountForever')));
       assert.ok(!nodes(nodes(account).find(node => node.props?.testID === 'profile-group-benefits')).some(node => node.props?.accessibilityLabel === h.t('healthCoins')));
-      const expandedRewards = h.toggleSection(h.t('sectionRewards'));
-      assert.ok(!nodes(expandedRewards).some(node => node.type === 'Icon' && ['chevron-forward', 'chevron-right'].includes(node.props.name)), 'Actions without an inline dropdown do not show a right arrow');
-      for (const section of [h.t('sectionHealth'), h.t('sectionRewards'), h.t('sectionAccount'), h.ts('appPermissions'), h.t('sectionSystem')]) {
-        const header = nodes(expandedRewards).find(node => node.props.accessibilityRole === 'button' && node.props.accessibilityLabel === section && node.props.accessibilityState?.expanded);
+      const expandedMenus = h.render();
+      assert.ok(!nodes(expandedMenus).some(node => node.type === 'Icon' && ['chevron-forward', 'chevron-right'].includes(node.props.name)), 'Actions without an inline dropdown do not show a right arrow');
+      for (const section of [h.t('sectionHealth'), h.t('sectionAccount'), h.t('sectionData'), h.t('sectionSystem')]) {
+        const header = nodes(expandedMenus).find(node => node.props.accessibilityRole === 'button' && node.props.accessibilityLabel === section && node.props.accessibilityState?.expanded);
         assert.ok(header, `Expanded section ${section} remains available`);
         assert.ok(nodes(header).some(node => node.type === 'Icon' && node.props.name === 'chevron-up'), 'Dropdowns keep their expand/collapse indicator');
       }
     });
-    await test(`${language}/${isDark ? 'dark' : 'light'}: permission controls share their own section instead of Settings or System`, () => {
+    await test(`${language}/${isDark ? 'dark' : 'light'}: data preferences stay separate from device permissions and reminder time settings`, () => {
       const h = harness({ language, isDark });
       const deviceControls = tree => nodes(tree).filter(node => node.type === 'DevicePermissions');
       const taskReminderControls = tree => nodes(tree).filter(node => node.type === 'TaskReminderPermission');
@@ -424,37 +398,32 @@ for (const language of ['vi', 'en']) {
       assert.equal(reminderControls(settingsOpen).length, 1, 'Reminder times belong to app settings');
       assert.equal(reminderControls(h.toggleSection(h.t('sectionSettings'))).length, 0);
       assert.equal(deviceControls(h.toggleSection(h.t('sectionSystem'))).length, 0);
-      const health = h.toggleSection(h.t('sectionHealth'));
-      assert.equal(taskReminderControls(health).length, 0);
-      assert.ok(!nodes(health).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')));
-      assert.equal(nodes(health).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings')).length, 0, 'AI consent is grouped with permissions');
-      h.toggleSection(h.t('sectionHealth'));
-      const expanded = h.toggleSection(h.ts('appPermissions'));
-      assert.equal(deviceControls(expanded).length, 1);
-      assert.equal(taskReminderControls(expanded).length, 1, 'Task reminders can be enabled from App permissions');
+      const expanded = h.toggleSection(h.t('sectionData'));
+      assert.equal(deviceControls(expanded).length, 0, 'Device access belongs to the Quick actions permission dialog');
+      assert.equal(taskReminderControls(expanded).length, 1, 'The task reminder preference remains available');
       assert.equal(reminderControls(expanded).length, 0, 'Permissions grant access without duplicating reminder settings');
       assert.equal(nodes(expanded).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')).length, 1);
       const aiSwitches = nodes(expanded).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings'));
-      assert.equal(aiSwitches.length, 1, 'AI consent is grouped with device and data access permissions');
+      assert.equal(aiSwitches.length, 1, 'AI data consent remains an explicit preference');
       assert.ok(!nodes(expanded).some(node => node.props.accessibilityLabel === h.ts('specialistSharing')), 'Specialist sharing follows the existing feature flag');
       aiSwitches[0].props.onValueChange(true);
       assert.equal(nodes(h.render()).find(node => node.type === 'AiDataConsentModal').props.visible, true, 'Allowing AI still requires its explicit consent dialog');
-      const closed = h.toggleSection(h.ts('appPermissions'));
+      const closed = h.toggleSection(h.t('sectionData'));
       assert.equal(deviceControls(closed).length, 0);
       assert.equal(taskReminderControls(closed).length, 0);
       assert.ok(!nodes(closed).some(node => node.type === 'ReminderSettingsEntry'));
       assert.ok(!nodes(closed).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')));
       assert.ok(!nodes(closed).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings')));
     });
-    await test(`${language}/${isDark ? 'dark' : 'light'}: reopening permissions preserves mounted controls while collapsed rows are hidden and inaccessible`, () => {
+    await test(`${language}/${isDark ? 'dark' : 'light'}: reopening data preferences preserves mounted controls while collapsed rows are hidden and inaccessible`, () => {
       const h = harness({ language, isDark, doctorEnabled: true });
-      const panel = tree => nodes(tree, true).find(node => node.props.testID === 'profile-permission-controls');
+      const panel = tree => nodes(tree, true).find(node => node.props.testID === 'profile-data-controls');
       const first = panel(h.render());
       assert.ok(first, 'Permission status can load before opening the dropdown');
-      const controlTypes = ['DevicePermissions', 'TaskReminderPermission', 'SpecialistSharingPermission'];
+      const controlTypes = ['TaskReminderPermission', 'SpecialistSharingPermission'];
       for (let cycle = 0; cycle < 5; cycle++) {
         for (const expanded of [true, false]) {
-          const tree = h.toggleSection(h.ts('appPermissions'));
+          const tree = h.toggleSection(h.t('sectionData'));
           const current = panel(tree);
           assert.ok(current, 'Closing the dropdown must not unmount permission controls');
           assert.equal(current.props.key, first.props.key);
@@ -532,13 +501,12 @@ for (const language of ['vi', 'en']) {
     h.toggleSection(h.t('personalInfo'));
     assert.ok(!nodes(h.render()).some(node => node.props.onPress?.name === 'handleEditProfile'));
     h.toggleSection(h.t('personalInfo'));
-    h.toggleSection(h.t('sectionHealth'));
     const controls = nodes(h.render()).filter(node => ['Pressable', 'TouchableOpacity'].includes(node.type));
     const editors = controls.filter(node => node.props.onPress?.name === 'handleEditProfile');
     assert.equal(editors.length, 1, 'Exactly one profile edit entry must remain');
     assert.equal(editors[0].props.accessibilityLabel, h.t('editProfile'));
     assert.equal(text(editors[0]).trim(), h.t('edit'));
-    assert.ok(controls.some(node => node.props.accessibilityLabel?.startsWith(h.t('checkinCall'))), 'Other actions must remain');
+    assert.ok(controls.some(node => node.props.accessibilityLabel === h.t('sectionAccount')), 'Account settings remain available');
     editors[0].props.onPress(); assert.ok(h.modal());
   });
   await test(`${language}: opening an unchanged profile leaves Save muted, accessible, and unable to submit`, async () => {
