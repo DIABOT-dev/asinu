@@ -920,7 +920,7 @@ for (const status of ['tired','specific_concern']) for (const completed of [fals
       assert.deepEqual(answers,saved,'Never send an empty conversation after start returns saved answers');
       return {ok:true,isDone:false,step:'onset',question:'Bắt đầu khi nào?',options:['Hôm nay','Hôm qua'],multiSelect:false};
     }}};
-    const h=routeHarness('vi',{mode:'random'},{},entry);
+    const h=routeHarness('vi',{mode:status==='tired'?'random':'daily'},{},entry);
     let tree=await h.settle();await nodes(tree).find(n=>n.type==='Status').props.onSelect(status);tree=await h.settle();
     if(status==='tired'){
       await nodes(tree).find(n=>n.type==='Location').props.onConfirm(['abdomen'],'');tree=await h.settle();
