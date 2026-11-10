@@ -18,7 +18,7 @@ const parse = (file) =>
       ? ts.ScriptKind.TS
       : ts.ScriptKind.JS
   );
-const sourceRoots = ["app", "src", "asinu-brain-extension"];
+const sourceRoots = ["app", "src"];
 function sourceFiles(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     if (entry.name.startsWith(".")) {

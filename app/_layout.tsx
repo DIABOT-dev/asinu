@@ -24,7 +24,6 @@ import {
   initialWindowMetrics,
   SafeAreaProvider,
 } from "react-native-safe-area-context";
-import { AsinuBrainOverlayHost } from "../asinu-brain-extension/AsinuBrainOverlayHost";
 import { useAuthStore } from "../src/features/auth/auth.store";
 import { GlobalToastHost } from "../src/components/GlobalToastHost";
 import { CareCircleInvitationModal } from "../src/components/CareCircleInvitationModal";
@@ -202,7 +201,6 @@ export default function RootLayout() {
                       <CareCircleInvitationModal />
                       <AppUpdateGate />
                       <QueuedModalHost />
-                      <AsinuBrainOverlayHost />
                     </CarePulseProvider>
                   </WellnessProvider>
                 </GuidanceProvider>

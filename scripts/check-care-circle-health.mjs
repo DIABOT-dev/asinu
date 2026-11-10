@@ -450,10 +450,6 @@ for (const language of ['vi', 'en']) {
   });
 }
 
-await test('global green plus launcher renders nothing and has no hidden interaction or API effects', () => {
-  const { AsinuEmergencyFAB } = evaluate(read('asinu-brain-extension/ui/AsinuEmergencyFAB.tsx'), {});
-  assert.equal(AsinuEmergencyFAB({ onInteraction: () => assert.fail('Hidden launcher must not interact') }), null);
-});
 for (const file of ['app/(tabs)/missions/index.tsx', 'app/(tabs)/tree/index.tsx', 'app/reminder-config/index.tsx']) {
   await test(`${file}: screen-specific green plus launcher and decorative remnants are removed`, () => {
     const source = read(file);
