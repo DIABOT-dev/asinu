@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { ScreenBackButton } from "../../components/ScreenHeaderButton";
 import { useThemeColors } from "../../hooks/useThemeColors";
+import { useScaledFontSize } from "../../hooks/useScaledTypography";
 import { HealthFeedThumbnail } from "./HealthFeedThumbnail";
 import {
   articleBlocks,
@@ -75,6 +76,7 @@ export function HealthArticleReading({
   const { t } = useTranslation("common");
   const { colors } = useThemeColors();
   const insets = useSafeAreaInsets();
+  const markerWidth = useScaledFontSize(24);
   const ink = { color: colors.textPrimary },
     muted = { color: colors.textSecondary };
   const blocks = articleBlocks(article.body).filter(
@@ -86,7 +88,16 @@ export function HealthArticleReading({
       )
   );
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <View
+      style={[
+        styles.root,
+        {
+          backgroundColor: colors.background,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+      ]}
+    >
       <View
         style={[
           styles.header,
@@ -201,7 +212,7 @@ export function HealthArticleReading({
                       <Text
                         style={[
                           styles.listMarker,
-                          { color: colors.primaryText },
+                          { color: colors.primaryText, width: markerWidth },
                         ]}
                         accessible={false}
                       >
@@ -227,10 +238,13 @@ export function HealthArticleReading({
               {article.checklist.map((item, index) => (
                 <View key={index} style={styles.takeaway}>
                   <Text
-                    style={[styles.pointNumber, { color: colors.primaryText }]}
+                    style={[
+                      styles.listMarker,
+                      { color: colors.primaryText, width: markerWidth },
+                    ]}
                     accessible={false}
                   >
-                    {String(index + 1).padStart(2, "0")}
+                    {index + 1}.
                   </Text>
                   <Text style={[styles.body, styles.listCopy, ink]}>
                     <ChecklistText text={item} />
@@ -240,20 +254,12 @@ export function HealthArticleReading({
             </View>
           )}
           <View style={[styles.references, { borderColor: colors.border }]}>
-            <View style={styles.referenceHeading}>
-              <Ionicons
-                name="book-outline"
-                size={20}
-                color={colors.primaryText}
-                accessible={false}
-              />
-              <Text
-                accessibilityRole="header"
-                style={[styles.referenceTitle, ink]}
-              >
-                {t("healthSourcesTitle")}
-              </Text>
-            </View>
+            <Text
+              accessibilityRole="header"
+              style={[styles.referenceTitle, ink]}
+            >
+              {t("healthSourcesTitle")}
+            </Text>
             <Text style={[styles.referenceNote, muted]}>
               {t("feedArticleSourcesNote")}
             </Text>
@@ -339,8 +345,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerButton: {
-    minWidth: 44,
-    minHeight: 44,
+    width: 44,
+    height: 44,
+    flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -389,25 +396,23 @@ const styles = StyleSheet.create({
   subheading: { fontSize: 20, lineHeight: 29, fontWeight: "700", marginTop: 4 },
   list: { gap: 14 },
   listRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  listMarker: { minWidth: 24, fontSize: 18, lineHeight: 30, fontWeight: "600" },
-  listCopy: { flex: 1, minWidth: 0 },
-  takeaways: { gap: 20, marginTop: 24 },
-  takeaway: { flexDirection: "row", alignItems: "flex-start", gap: 14 },
-  pointNumber: {
-    minWidth: 28,
+  listMarker: {
+    flexShrink: 0,
     fontSize: 18,
     lineHeight: 30,
-    fontWeight: "700",
+    fontWeight: "600",
     fontVariant: ["tabular-nums"],
   },
+  listCopy: { flex: 1, minWidth: 0 },
+  takeaways: { gap: 20, marginTop: 24 },
+  takeaway: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   references: {
     marginTop: 32,
     paddingTop: 24,
     borderTopWidth: StyleSheet.hairlineWidth,
     gap: 10,
   },
-  referenceHeading: { flexDirection: "row", alignItems: "center", gap: 10 },
-  referenceTitle: { flex: 1, fontSize: 16, lineHeight: 24, fontWeight: "700" },
+  referenceTitle: { fontSize: 16, lineHeight: 24, fontWeight: "700" },
   referenceNote: { fontSize: 14, lineHeight: 23 },
   sourceAction: {
     minHeight: 44,
