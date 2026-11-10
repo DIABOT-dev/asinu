@@ -53,7 +53,7 @@ import { showToast } from '../../src/stores/toast.store';
 import { colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { StateError } from '../../src/components/state/StateError';
-import { loadCheckinEntry, checkinPhaseId, saveLocationDraft, clearLocationDraft, savePendingAnswers, clearPendingAnswers, type LocationDraft } from '../../src/features/checkin/checkin-progress';
+import { loadCheckinEntry, checkinPhaseId, requiresCheckinFollowUp, saveLocationDraft, clearLocationDraft, savePendingAnswers, clearPendingAnswers, type LocationDraft } from '../../src/features/checkin/checkin-progress';
 import { toggleTriageOption, withoutExclusiveAnswers, composeTriageAnswer } from '../../src/features/checkin/triage-answer-selection';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 import { GuidePracticeScope, GuideScrollScope, GuideTarget, useGuideAcknowledgement } from '../../src/features/guidance/GuidanceProvider';
@@ -318,8 +318,9 @@ function CheckinScreen() {
           setLoading(false);
           return;
         }
+        setAnswers(res.session.triage_messages || []);
         setScreen('triage');
-        await fetchNextQuestion(res.session, []);
+        await fetchNextQuestion(res.session, res.session.triage_messages || []);
       } catch (err: any) {
         if (__DEV__) console.warn('[Checkin] handleStatusSelect followup:', err?.message || err);
         showAlert(t('error', { ns: 'common' }), t('checkinError'));
@@ -356,8 +357,7 @@ function CheckinScreen() {
         const res = await checkinClient.start(status, null, null, isRandom);
         setSession(res.session);
         if (!isPractice) { await clearPendingAnswers(userId, res.session); await clearLocationDraft(userId); }
-        setScreen('triage');
-        await fetchNextQuestion(res.session, []);
+        await openStartedTriage(res.session);
       } catch (err: any) {
         if (__DEV__) console.warn('[Checkin] handleStatusSelect concern:', err?.message || err);
         showAlert(t('error', { ns: 'common' }), t('checkinError'));
@@ -391,8 +391,7 @@ function CheckinScreen() {
       );
       setSession(res.session);
       if (!isPractice) { await clearPendingAnswers(userId, res.session); await clearLocationDraft(userId); }
-      setScreen('triage');
-      await fetchNextQuestion(res.session, []);
+      await openStartedTriage(res.session);
     } catch (err: any) {
       if (__DEV__) console.warn('[Checkin] handleLocationsConfirm:', err?.message || err);
       showAlert(t('error', { ns: 'common' }), t('checkinError'));
@@ -401,6 +400,20 @@ function CheckinScreen() {
   }, [checkinClient, pendingStatus, requestAiConsent, isPractice, userId, isRandom, t]);
 
   // ─── Triage ────────────────────────────────────────────────────────────────
+
+  async function openStartedTriage(sess: CheckinSession) {
+    // The start response can contain an existing session (for example when
+    // another request completed it after the entry screen loaded).
+    if (!isPractice && requiresCheckinFollowUp(sess)) {
+      router.replace({ pathname: '/checkin', params: { checkin_id: String(sess.id), mode: 'followup' } });
+      setLoading(false);
+      return;
+    }
+    const saved = sess.triage_messages || [];
+    setAnswers(saved);
+    setScreen('triage');
+    await fetchNextQuestion(sess, saved);
+  }
 
   const fetchNextQuestion = async (sess: CheckinSession, prevAnswers: TriageAnswer[]) => {
     const epoch = requestEpoch.current;

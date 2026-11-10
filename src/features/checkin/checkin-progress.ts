@@ -204,6 +204,11 @@ export function isUnfinishedCheckin(session: CheckinSession) {
   return session.initial_status !== 'fine' && !session.triage_completed_at;
 }
 
+export function requiresCheckinFollowUp(session: CheckinSession) {
+  return session.flow_state === 'high_alert' && !session.resolved_at &&
+    session.current_status !== 'fine' && !isUnfinishedCheckin(session);
+}
+
 export async function cancelCheckinProgress(
   client: { cancel: (id: number, phaseId: string) => Promise<{ ok: boolean; cancelled: boolean }> },
   account: string | number | undefined,
@@ -264,6 +269,11 @@ export async function loadCheckinEntry(
       return { kind: 'home' };
     }
     throw new Error('CHECKIN_SESSION_UNAVAILABLE');
+  }
+  // The server preserves active alerts when restart=true. Starting an empty
+  // interview here would conflict with that alert's saved answers.
+  if (s && mode === 'random' && requiresCheckinFollowUp(s)) {
+    return { kind: 'followup', session: s };
   }
   const draft = await readLocationDraft(account, s);
   if (draft) {

@@ -146,6 +146,17 @@ test('account mismatch, stale session links and HTTP logical failures never rest
     /LOAD_FAILED/,
   );
 });
+
+test('an instant check-in follows up an unresolved high alert instead of restarting its saved interview', async () => {
+  const {progress:p}=progressHarness();
+  const active={...session,flow_state:'high_alert',triage_severity:'high',
+    triage_completed_at:'2026-11-10T06:53:00Z',triage_state:{phase:'initial',phase_id:'prior-phase',completed:{finalized:true}}};
+  const entry=await p.loadCheckinEntry(client(active),7,'random');
+  assert.equal(entry.kind,'followup');
+  assert.deepEqual(entry.session.triage_messages,session.triage_messages);
+  assert.equal((await p.loadCheckinEntry(client({...active,triage_completed_at:null,triage_state:{phase:'initial'}}),7,'random')).kind,'resume');
+  assert.equal((await p.loadCheckinEntry(client({...active,flow_state:'monitoring'}),7,'random')).kind,'new');
+});
 test('PostgreSQL bigint session IDs resume through numeric route params without losing saved answers', async () => {
   const { progress: p } = progressHarness();
   const stored = { ...session, id: String(session.id), user_id: String(session.user_id) };

@@ -900,6 +900,41 @@ await test('Continue Check-in restores a server bigint ID and resumes the latest
   assert.deepEqual(question.props.answers, saved);
   assert.deepEqual(h.calls.network.at(-1), ['triage', '500', saved, 'phase-a']);
 });
+
+await test('instant entry routes a completed high alert to the existing follow-up screen without starting over', async () => {
+  const session={id:500,user_id:7,initial_status:'tired',current_status:'tired',flow_state:'high_alert',
+    triage_messages:[{step:'symptoms',question:'Biểu hiện?',answer:'Đau bụng'}],
+    triage_completed_at:'2026-11-10T06:53:00Z',triage_state:{phase:'initial',phase_id:'prior',completed:{finalized:true}}};
+  const h=routeHarness('vi',{mode:'random'},{},{session});await h.settle();
+  assert.deepEqual(h.calls.routes,[{pathname:'/checkin',params:{checkin_id:'500',mode:'followup'}}]);
+  assert.deepEqual(h.calls.network.map(c=>c[0]),['getToday']);
+});
+
+for (const status of ['tired','specific_concern']) for (const completed of [false,true]) {
+  await test(`${status}: start preserves server answers when another request already updated it (completed: ${completed})`, async () => {
+    const saved=[{step:'symptoms',question:'Biểu hiện?',answer:'Đau bụng'}];
+    const session={id:500,user_id:7,initial_status:'tired',current_status:'tired',flow_state:'high_alert',
+      triage_messages:saved,triage_completed_at:completed?'2026-11-10T06:53:00Z':null,
+      triage_state:{phase:'initial',phase_id:'prior',...(completed?{completed:{finalized:true}}:{})}};
+    const entry={api:{start:async()=>({ok:true,session}),triage:async(id,answers)=>{
+      assert.deepEqual(answers,saved,'Never send an empty conversation after start returns saved answers');
+      return {ok:true,isDone:false,step:'onset',question:'Bắt đầu khi nào?',options:['Hôm nay','Hôm qua'],multiSelect:false};
+    }}};
+    const h=routeHarness('vi',{mode:'random'},{},entry);
+    let tree=await h.settle();await nodes(tree).find(n=>n.type==='Status').props.onSelect(status);tree=await h.settle();
+    if(status==='tired'){
+      await nodes(tree).find(n=>n.type==='Location').props.onConfirm(['abdomen'],'');tree=await h.settle();
+    }
+    if(completed){
+      assert.deepEqual(h.calls.routes,[{pathname:'/checkin',params:{checkin_id:'500',mode:'followup'}}]);
+      assert.ok(!h.calls.network.some(c=>c[0]==='triage'));
+    }else{
+      assert.deepEqual(nodes(tree).find(n=>n.type==='Question').props.answers,saved);
+      assert.deepEqual(h.calls.network.at(-1),['triage',500,saved,'prior']);
+    }
+    assert.deepEqual(h.calls.alerts,[]);
+  });
+}
 await test('live result preparation and the resulting conclusion both request foreground priority', async () => {
   let resolve;
   const response = new Promise(done => { resolve = done; });
