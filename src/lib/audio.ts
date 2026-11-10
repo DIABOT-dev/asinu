@@ -56,6 +56,8 @@ class LegacyRecording {
   private readonly nativeRecorder: any;
   private readonly statusSubscription?: { remove: () => void };
   private readonly statusTimer?: ReturnType<typeof setInterval>;
+  private recordingUri: string | null = null;
+  private stopPromise?: Promise<void>;
 
   constructor(options: RecordingOptions, listener?: RecordingStatusListener) {
     const Recorder = (AudioModule as any).AudioRecorder ?? (AudioModule as any).AudioRecorderWeb;
@@ -75,18 +77,34 @@ class LegacyRecording {
   async startAsync() {
     await this.nativeRecorder.prepareToRecordAsync();
     this.nativeRecorder.record();
+    // Native record() may return without throwing when the audio session
+    // cannot start. Do not present an idle recorder as a live microphone.
+    if (this.nativeRecorder.isRecording === false) {
+      throw new Error('RECORDING_NOT_STARTED');
+    }
   }
 
-  async stopAndUnloadAsync() {
-    await this.nativeRecorder.stop();
-    if (this.statusTimer) clearInterval(this.statusTimer);
-    this.statusSubscription?.remove();
-    this.nativeRecorder.remove?.();
-    this.nativeRecorder.clearTimeouts?.();
+  stopAndUnloadAsync() {
+    if (!this.stopPromise) {
+      this.stopPromise = (async () => {
+        try {
+          await this.nativeRecorder.stop();
+          // SharedObject properties are no longer readable after remove().
+          // Keep the finalized file URL for the caller's subsequent upload.
+          this.recordingUri = this.nativeRecorder.uri ?? this.recordingUri;
+        } finally {
+          if (this.statusTimer) clearInterval(this.statusTimer);
+          this.statusSubscription?.remove();
+          this.nativeRecorder.clearTimeouts?.();
+          this.nativeRecorder.remove?.();
+        }
+      })();
+    }
+    return this.stopPromise;
   }
 
   getURI() {
-    return this.nativeRecorder.uri ?? null;
+    return this.stopPromise ? this.recordingUri : this.nativeRecorder.uri ?? null;
   }
 }
 
@@ -140,7 +158,12 @@ export const Audio = {
       _progressUpdateInterval?: number,
     ) {
       const recording = new LegacyRecording(options, listener);
-      await recording.startAsync();
+      try {
+        await recording.startAsync();
+      } catch (error) {
+        await recording.stopAndUnloadAsync().catch(() => {});
+        throw error;
+      }
       return { recording };
     },
   },

@@ -22,12 +22,13 @@ function harness() {
     flags: async () => { if (server.fail) throw Error('offline'); return { medication: true, patients: [{ id: 1, name: 'Tôi' }, { id: 2, name: 'Người thân' }] }; },
     overview: async (id, includePaused) => { calls.push(['read', id, includePaused]); if (server.late && id === 1) return server.late; return {...overview(id),draft:server.draft,drafts:server.drafts}; },
     doses: async () => {server.doseReadCount=(server.doseReadCount||0)+1;const value={items:server.doses||[],serverTime:server.serverTime};if(server.dosesPending)await server.dosesPending;if(server.dosesFail)throw Error('doses unavailable');return value;}, weekly: async () => {if(server.weekPending)await server.weekPending;if(server.weekFail)throw Error('weekly unavailable');return { report: { taken: 2, total: 3, skipped: 1, coins: 10 } };},
+    moveItem: async (...args) => { calls.push(['move', ...args]); if (server.pending) await server.pending; if (server.writeFail) throw Error('offline'); return {}; },
     saveSchedule: async (...args) => { calls.push(['save', ...args]); if (server.pending) await server.pending; if (server.writeFail) throw Error('offline'); Object.assign(schedule, args[2]); },
     remove: async (...args) => { calls.push(['remove', ...args]); },
     removeDraft: async (...args) => { calls.push(['removeDraft', ...args]); if(server.pending)await server.pending;if(server.writeFail)throw Error('offline');server.drafts=server.drafts?.filter(d=>d.id!==args[1]);server.draft=server.drafts?.[0]||null; },
     preferences: async (...args) => { calls.push(['preference', ...args]); },
   };
-  const deps = {
+  const deps = { 'expo-crypto': { randomUUID: require('node:crypto').randomUUID },
     react, 'expo-router': { useFocusEffect(callback) { focusCallback=callback;const i = cursor++, old = slots[i]; if (!old || old.callback !== callback) { slots[i] = { callback }; effects.push(() => { old?.cleanup?.(); slots[i].cleanup = callback(); }); } } },
     'react-i18next': { useTranslation: () => ({ t: key => key }) }, '../auth/auth.store': { useAuthStore },
     '../../stores/toast.store': { useToastStore: { getState: () => ({ show: (...args) => toasts.push(args) }) } },
@@ -74,15 +75,31 @@ function answerActions(med) {
     './MedicationBackground': { MedicationBackground: 'Background' },
     './MedicationDraftEntry': { MedicationDraftEntry: 'Draft' },
     './medication-dose-display': display.exports,
+    './MedicationTimeField': { MedicationTimeField: 'TimeField' },
   };
   const module = { exports: {} };
   const code = ts.transpileModule(fs.readFileSync('src/features/v21/MedicationOverviewScreen.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText;
   new Function('module', 'exports', 'require', code)(module, module.exports, id => { assert.ok(id in adapters, id); return adapters[id]; });
   const tree = module.exports.MedicationOverviewPanel({ med, tab: 'today', onAnswer: id => calls.push(id) });
   const nodes = value => !value || typeof value !== 'object' ? [] : Array.isArray(value) ? value.flatMap(nodes) : [value, ...nodes(value.props?.children)];
-  return { calls, actions: nodes(tree).filter(node => node.type === 'Pressable' && node.props.accessibilityLabel?.startsWith('medicationAnswerAction ')) };
+  return { calls, actions: nodes(tree).filter(node => node.type === 'Pressable' && node.props.accessibilityLabel?.startsWith('medicationAnswerAction ')),
+    sheet: () => nodes(module.exports.MedicationScheduleSheet({ med })) };
 }
 (async () => {
+  await test('editing and moving a medicine use the time picker while notes remain editable', async () => {
+    const h = harness(); (await h.settle()).openSchedule(h.schedule);
+    h.read().setMode('edit');
+    const edited = answerActions(h.read()).sheet();
+    const time = edited.find(node => node.type === 'TimeField');
+    assert.equal(time.props.value, '07:30'); assert.equal(time.props.disabled, false);
+    assert.ok(!edited.some(node => node.type === 'Input' && node.props.keyboardType === 'numbers-and-punctuation'));
+    assert.ok(edited.some(node => node.type === 'Input' && node.props.accessibilityLabel === 'medicationNoteLabel'));
+    time.props.onChange('08:17'); assert.equal(h.read().time, '08:17'); assert.equal(h.read().canSave, true);
+    h.read().openMove('item-1');
+    const moving = answerActions(h.read()).sheet().find(node => node.type === 'TimeField');
+    moving.props.onChange('23:59'); assert.equal(h.read().time, '23:59'); assert.equal(h.read().canMove, true);
+    assert.ok(h.calls.every(row => row[0] === 'read'), 'Picking a time must not submit a schedule'); h.blur();
+  });
   await test('today exposes missed-call answers only within the server two-hour window and never changes a final answer', async () => {
     const h = harness(); h.clock.now = Date.parse('2020-01-01T00:00:00Z'); h.server.serverTime = '2026-11-06T07:00:00+07:00';
     h.server.doses = [
@@ -108,6 +125,20 @@ function answerActions(med) {
     assert.equal(answerActions({ ...h.read(), data: { ...h.read().data, self: false } }).actions.length, 0);
     h.auth.token = 'other-account'; h.auth.profile.id = 2;
     assert.equal(answerActions(h.read()).actions.length, 0); h.blur();
+  });
+  await test('moving one medicine requires an explicit new time and sends one request under repeated presses', async () => {
+    const h=harness();(await h.settle()).openSchedule(h.schedule);h.read().openMove('item-1');assert.equal(h.read().mode,'move');assert.equal(h.read().canMove,false);
+    h.read().setTime('07:30');assert.equal(h.read().canMove,false);h.read().setTime('19:00');assert.equal(h.read().canMove,true);
+    const done=defer();h.server.pending=done.promise;const old=h.read(),first=old.move();await old.move();
+    assert.equal(h.calls.filter(row=>row[0]==='move').length,1);assert.deepEqual(h.calls.find(row=>row[0]==='move').slice(1,3),[1,'schedule-1']);
+    done.resolve();await first;assert.equal(h.read().selected,null);h.blur();
+  });
+  await test('move retries preserve the request ID until the destination changes, and stale patient actions cannot move', async () => {
+    const h=harness();(await h.settle()).openSchedule(h.schedule);h.read().openMove('item-1');h.read().setTime('19:00');h.server.writeFail=true;
+    await h.read().move();await h.read().move();const attempts=()=>h.calls.filter(row=>row[0]==='move');
+    assert.equal(attempts()[0][3].request_id,attempts()[1][3].request_id);assert.equal(h.read().selected.id,'schedule-1');
+    h.read().setTime('18:30');await h.read().move();assert.notEqual(attempts()[1][3].request_id,attempts()[2][3].request_id);
+    const old=h.read();h.read().selectPatient(2);await h.settle();await old.move();assert.equal(attempts().length,3);h.blur();
   });
   await test('opening medication only loads data; schedule actions never write without a chosen action', async () => {
     const h = harness(); const view = await h.settle(); assert.equal(view.data.patientId, 1);

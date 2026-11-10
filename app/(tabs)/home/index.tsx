@@ -10,12 +10,12 @@ import Animated, { Extrapolation, FadeIn, FadeInUp, interpolate, SharedValue, us
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image as ExpoImage } from 'expo-image';
 import { DailyCheckinCard, InstantCheckinCard } from '../../../src/components/DailyCheckinCard';
-import { HomeCheckinCallControl } from '../../../src/components/HomeCheckinCallControl';
 import { EarlySignalCard } from '../../../src/components/EarlySignalCard';
-import { HealthTreeStatusCard } from '../../../src/components/HealthTreeStatusCard';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
+import { isUnfinishedCheckin, readLocationDraft } from '../../../src/features/checkin/checkin-progress';
 import { V21HomeCard } from '../../../src/features/v21/V21HomeCard';
+import { HomeFeatureGrid } from '../../../src/components/HomeFeatureGrid';
 import { HomeGiftCard } from '../../../src/features/checkin-rewards/HomeGiftCard';
 import { HealthFeedThumbnail } from '../../../src/features/health-feed/HealthFeedThumbnail';
 import { apiClient } from '../../../src/lib/apiClient';
@@ -48,8 +48,8 @@ import React from 'react';
 const GlucoseTrendChart = React.lazy(() => import('../../../src/ui-kit/GlucoseTrendChart').then(m => ({ default: m.GlucoseTrendChart })));
 // Temporarily hide the missions section on the home screen.
 const SHOW_HOME_MISSIONS = false;
-// Temporarily hide the health tree and every section below it on the home screen.
-const SHOW_HOME_BELOW_TREE = false;
+// Metrics and recent logs remain hidden on the home screen.
+const SHOW_HOME_METRICS = false;
 
 
 function InfoButton({ text, styles }: { text: string; styles: any }) {
@@ -469,24 +469,20 @@ export default function HomeScreen() {
   const {
     quickMetrics,
     missions,
-    treeSummary,
-    treeHistory,
     glucoseTrendData,
     logs,
     healthScore,
     logsStatus,
     missionsStatus,
-    treeStatus,
     logsError,
     missionsError,
-    treeError,
     hasRefreshError,
     isOffline,
     refreshAll
   } = useHomeViewModel({
-    logs: SHOW_HOME_BELOW_TREE,
+    logs: SHOW_HOME_METRICS,
     missions: SHOW_HOME_MISSIONS,
-    tree: SHOW_HOME_BELOW_TREE,
+    tree: false,
   });
   const profile = useAuthStore((state) => state.profile);
   const sessionToken = useAuthStore((state) => state.token);
@@ -539,14 +535,15 @@ export default function HomeScreen() {
       const res = await checkinApi.getToday();
       if (res.session) {
         const s = res.session;
-        if (s.initial_status === 'fine' || s.flow_state === 'resolved') {
+        if (!isUnfinishedCheckin(s) && !(await readLocationDraft(profileId, s))
+          && (s.current_status === 'fine' || s.flow_state === 'resolved')) {
           setShowAlreadyDoneModal(true);
           return;
         }
       }
     } catch {}
     router.push('/checkin');
-  }, []);
+  }, [profileId, router]);
 
   const handleMissionOpen = useCallback((mission: Mission) => {
     if (mission.missionKey === 'daily_checkin') {
@@ -674,11 +671,11 @@ export default function HomeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, refreshHealthFeed]); // refreshAll/fetchFromBackend are stable store actions
 
-  const hasData = Boolean(treeSummary || missions.length || logs.length || healthScore);
-  const loading = (logsStatus === 'loading' || missionsStatus === 'loading' || treeStatus === 'loading') && !hasData;
+  const hasData = Boolean(missions.length || logs.length || healthScore);
+  const loading = (logsStatus === 'loading' || missionsStatus === 'loading') && !hasData;
   const showInitialSkeleton = useInitialLoadingGate(!loading, 650, hasData);
   const noDataError =
-    (logsError === 'no-data' || missionsError === 'no-data' || treeError === 'no-data') && !hasData;
+    (logsError === 'no-data' || missionsError === 'no-data') && !hasData;
 
   const renderHealthFeedBlock = () => {
     if (!healthFeedVisible) return null;
@@ -833,8 +830,6 @@ export default function HomeScreen() {
       {/* Notification Bell — chỉ hiện khi đã đăng nhập */}
       {profile && (
         <View style={[styles.headerActions, { top: insets.top + spacing.sm }]}>
-          <V21HomeCard iconOnly />
-          <HomeCheckinCallControl key={profile.id} userId={String(profile.id)} iconOnly />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={tt('earlyTitle')}
@@ -878,6 +873,8 @@ export default function HomeScreen() {
 
         {renderHealthFeedBlock()}
 
+        {profile && <V21HomeCard renderShortcuts={access => <HomeFeatureGrid {...access} />} />}
+
         {/* Missions section is temporarily hidden on the home screen. */}
         {SHOW_HOME_MISSIONS && (
           <Animated.View entering={FadeIn.delay(210).duration(350)}>
@@ -899,44 +896,8 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
-        {SHOW_HOME_BELOW_TREE && (
+        {SHOW_HOME_METRICS && (
         <>
-        {/* Tree Section */}
-        <Animated.View entering={FadeIn.delay(260).duration(350)}>
-        <View style={styles.sectionHeaderRow}>
-            <Ionicons name="leaf" size={20} color={iconColors.emerald} />
-          <Text style={styles.sectionTitle}>{t('healthTree')}</Text>
-          <View style={{ flex: 1 }} />
-          <InfoButton text={t('treeFormula')} styles={styles} />
-        </View>
-        <View style={styles.healthTreeCard}>
-          <HealthTreeStatusCard score={healthScore} compact />
-
-          <View style={styles.healthTreeMetricsRow}>
-            <View style={styles.healthTreeMetric}>
-              <Ionicons name="checkmark-circle-outline" size={18} color={iconColors.emerald} />
-              <Text style={styles.healthTreeMetricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                {healthScore ? (healthScore.checkinDone ? t('healthTreeCheckinDone') : t('healthTreeCheckinNeeded')) : '--'}
-              </Text>
-              <Text style={styles.healthTreeMetricLabel} numberOfLines={1}>{t('healthTreeCheckinLabel')}</Text>
-            </View>
-            <View style={styles.healthTreeMetricDivider} />
-            <View style={styles.healthTreeMetric}>
-              <Ionicons name="alert-circle-outline" size={18} color={healthScore?.factors.length ? iconColors.warning : iconColors.emerald} />
-              <Text style={styles.healthTreeMetricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                {healthScore?.checkinDone ? healthScore.factors.length : '--'}
-              </Text>
-              <Text style={styles.healthTreeMetricLabel} numberOfLines={1}>{t('healthTreeSignalsLabel')}</Text>
-            </View>
-          </View>
-
-          <Pressable style={styles.treeBtn} onPress={() => router.push('/tree')}>
-            <Text style={styles.treeBtnText}>{tc('viewDetails')}</Text>
-            <Ionicons name="chevron-forward" size={18} color={iconColors.primary} />
-          </Pressable>
-        </View>
-        </Animated.View>
-
         {/* Metrics Row */}
         <Animated.View entering={FadeIn.delay(300).duration(350)}>
           <HomeMetricCarousel
@@ -1427,64 +1388,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     borderRadius: 10,
   },
   seeMoreText: {
-    color: colors.primary,
-    fontWeight: '600',
-    fontSize: typography.size.md,
-  },
-  healthTreeCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: spacing.lg,
-  },
-  healthTreeMetricsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    paddingTop: spacing.md,
-    gap: spacing.md,
-  },
-  healthTreeMetric: {
-    flex: 1,
-    alignItems: 'center',
-    gap: spacing.xs,
-    minWidth: 0,
-  },
-  healthTreeMetricValue: {
-    fontSize: typography.size.md,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-  healthTreeMetricLabel: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  healthTreeMetricDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: 34,
-    backgroundColor: colors.border,
-  },
-  treeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginTop: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.primaryLight,
-    borderRadius: 10,
-  },
-  treeBtnText: {
     color: colors.primary,
     fontWeight: '600',
     fontSize: typography.size.md,

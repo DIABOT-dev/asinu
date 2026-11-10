@@ -101,8 +101,18 @@ expectCall(health.calls, {
   body: {
     checkin_id: 123,
     previous_answers: [{ step: 'progression', question: 'Mức độ?', answer: 'Nhẹ' }],
+    conclusion_format: 'narrative',
+    assessment_version: 2,
+    adaptive_questions: true,
   },
-  timeoutMs: 30000,
+  timeoutMs: 90000,
+});
+
+checkinApi.triage(123, [], 'current-interview-phase');
+expectCall(health.calls, {
+  path: '/api/mobile/checkin/triage', method: 'POST',
+  body: {checkin_id:123,previous_answers:[],conclusion_format:'narrative',assessment_version:2,adaptive_questions:true,phase_id:'current-interview-phase'},
+  timeoutMs:90000,
 });
 
 checkinApi.emergency({ lat: 10.7769, lng: 106.7009, accuracy: 12 });

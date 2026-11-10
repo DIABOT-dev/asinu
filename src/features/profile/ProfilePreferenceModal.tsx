@@ -11,6 +11,8 @@ type Props = {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  headerContent?: ReactNode;
+  footer?: ReactNode;
 };
 
 export function ProfilePreferenceModal({
@@ -18,6 +20,8 @@ export function ProfilePreferenceModal({
   title,
   onClose,
   children,
+  headerContent,
+  footer,
 }: Props) {
   const { t } = useTranslation("common");
   const { colors, isDark } = useThemeColors();
@@ -66,12 +70,15 @@ export function ProfilePreferenceModal({
               <Ionicons name="close" size={24} color={colors.textSecondary} />
             </Pressable>
           </View>
+          {headerContent && <View style={styles.headerContent}>{headerContent}</View>}
           <ScrollView
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator
+            bounces={false}
             style={styles.scroll}
           >
             {children}
           </ScrollView>
+          {footer && <View style={styles.footer}>{footer}</View>}
         </View>
       </View>
     </Modal>
@@ -109,6 +116,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   header: {
+    flexShrink: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
@@ -122,4 +130,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   scroll: { flexGrow: 0, flexShrink: 1 },
+  headerContent: { flexShrink: 0, paddingBottom: 12 },
+  footer: { flexShrink: 0, paddingTop: 12 },
 });

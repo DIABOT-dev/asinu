@@ -166,15 +166,6 @@ export default function FamilyEarlySignalScreen() {
             <View style={styles.redFlagBox} accessibilityRole="alert">
               <Text style={styles.redFlagTitle}>{t("earlyRedFlagTitle")}</Text>
               <Text style={styles.redFlagBody}>{assessment.summary}</Text>
-              <Pressable
-                style={styles.emergencyButton}
-                onPress={() => void Linking.openURL("tel:115")}
-              >
-                <Ionicons name="call" size={20} color="#fff" />
-                <Text style={styles.primaryActionText}>
-                  {t("earlyCall115")}
-                </Text>
-              </Pressable>
               <Text
                 style={
                   assessment.family_notified_at
@@ -358,16 +349,6 @@ const styles = StyleSheet.create({
     color: "#7f1d1d",
     fontSize: typography.size.sm,
     lineHeight: 22,
-  },
-  emergencyButton: {
-    marginTop: spacing.md,
-    minHeight: 52,
-    borderRadius: radius.lg,
-    backgroundColor: "#dc2626",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
   },
   familySent: {
     marginTop: spacing.sm,

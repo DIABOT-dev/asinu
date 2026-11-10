@@ -6,7 +6,6 @@ import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -289,10 +288,6 @@ export default function BloodPressureLogScreen() {
                   {assessment.repeatHigh && <View style={styles.bpHighGuidance}>
                     <Text style={[styles.bpHighTitle, { color: colors.danger }]}>{t('bpHighReadingTitle')}</Text>
                     <Text style={[styles.bpReference, { color: colors.textPrimary }]}>{t('bpHighReadingGuide')}</Text>
-                    <Pressable accessibilityRole="button" accessibilityLabel={t('bpCallEmergency')} onPress={() => { void Linking.openURL('tel:115').catch(() => showToast(t('bpCallFailed'), 'error')); }} style={styles.bpEmergencyButton}>
-                      <Ionicons name="call-outline" size={20} color={colors.danger} />
-                      <Text style={[styles.bpHighTitle, { color: colors.danger }]}>{t('bpCallEmergency')}</Text>
-                    </Pressable>
                   </View>}
                 </View>
               </Animated.View>
@@ -386,7 +381,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, colors
     bpReference: { fontSize: 13, lineHeight: 19, marginTop: spacing.sm },
     bpHighGuidance: { gap: spacing.xs, marginTop: spacing.md },
     bpHighTitle: { fontSize: 15, fontWeight: '700' },
-    bpEmergencyButton: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44, alignSelf: 'flex-start' },
     loadingContainer: {
       flex: 1,
       justifyContent: 'center',

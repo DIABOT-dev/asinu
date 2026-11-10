@@ -119,7 +119,7 @@ export function HealthTreeStatusCard({ score, compact = false, showDetails = tru
     <Pressable {...interactionProps} style={({ pressed }) => [styles.card, { backgroundColor: background, borderColor: `${color}30` }, pressed && styles.pressed]}>
       <View style={styles.headerRow}>
         <View style={styles.iconWrap}>
-          <MaterialCommunityIcons name="tree-outline" size={28} color={color} />
+          <MaterialCommunityIcons name="heart-pulse" size={28} color={color} />
         </View>
         <View style={styles.copy}>
           <Text style={[styles.title, { color: colors.textPrimary, fontSize: typography.size.md }]}>

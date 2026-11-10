@@ -5,7 +5,7 @@
   "greeting": "Xin chào,",
   "mascotGreeting": "Xin chào",
   "healthCoins": "Xu sức khỏe",
-  "healthCoinsBalance": "{{count}} xu sức khỏe",
+  "healthCoinsBalance": "{{count}} xu",
   "healthCoinsToday": "Hôm nay +{{count}} xu",
   "headerTitle": "Cá nhân",
   "headerSubtitle": "Quản lý hồ sơ và cài đặt của bạn",
@@ -147,5 +147,8 @@
   "checkinCallLockedDesc": "Cấu hình Tổng đài check-in thuộc gói An Tâm. Hãy nâng cấp để Asinu có thể gọi kiểm tra khi bạn bỏ lỡ check-in.",
   "requiresAnTam": "Cần gói An Tâm",
   "chooseAnTam": "Chọn gói An Tâm",
+  "groupPersonalHealth": "Cá nhân & sức khỏe",
+  "groupBenefits": "Quyền lợi",
+  "groupApplication": "Ứng dụng",
   "sectionRewards": "Nhiệm vụ & quà tặng"
 }

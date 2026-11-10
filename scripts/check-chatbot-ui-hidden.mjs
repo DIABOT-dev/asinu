@@ -237,20 +237,21 @@ await test("both subscription catalogs and FAQs contain no chatbot benefits", ()
 });
 
 await test("rendered package descriptions retain voice logging, check-in, and AI call center", () => {
-  const ast = parse("app/subscription/index.tsx");
+  const ast = parse("src/features/subscription/components/PlanDetailsModal.tsx");
+  const benefitNames = { FREE_PLAN_BENEFITS: "FREE_FEATURES", AN_TAM_PLAN_BENEFITS: "AN_TAM_FEATURES" };
   const selected = new Map();
   const inspect = (node) => {
     if (
       ts.isVariableDeclaration(node) &&
       ts.isIdentifier(node.name) &&
-      ["FREE_FEATURES", "AN_TAM_FEATURES"].includes(node.name.text)
+      Object.hasOwn(benefitNames, node.name.text)
     ) {
-      assert.ok(
-        node.initializer && ts.isArrayLiteralExpression(node.initializer)
-      );
+      const initializer = node.initializer && ts.isAsExpression(node.initializer)
+        ? node.initializer.expression : node.initializer;
+      assert.ok(initializer && ts.isArrayLiteralExpression(initializer));
       selected.set(
-        node.name.text,
-        node.initializer.elements.map((element) => {
+        benefitNames[node.name.text],
+        initializer.elements.map((element) => {
           assert.ok(ts.isStringLiteral(element));
           return element.text;
         })

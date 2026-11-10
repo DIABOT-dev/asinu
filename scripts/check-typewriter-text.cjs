@@ -260,6 +260,14 @@ for (const language of ["vi", "en"]) {
     const profile = evaluate("src/features/profile/ProfileMascotGreeting.tsx", {
       react: { useCallback: (work) => work },
       "react-native": native,
+      "react-native-svg": {
+        __esModule: true,
+        default: "Svg",
+        Defs: "Defs",
+        LinearGradient: "LinearGradient",
+        Path: "Path",
+        Stop: "Stop",
+      },
       "react-i18next": i18n,
       "expo-router": { useFocusEffect: (work) => work() },
       "react-native-reanimated": {

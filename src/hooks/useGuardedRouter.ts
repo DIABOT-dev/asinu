@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useNavigationContainerRef, useRouter as useExpoRouter } from 'expo-router';
 import { focusedNavigationDestination, navigationDestination, navigationGuard } from '../lib/navigation.guard';
+import { checkinPresentation } from '../lib/checkin-presentation';
 
 type ExpoRouter = ReturnType<typeof useExpoRouter>;
 
@@ -23,6 +24,13 @@ export function useGuardedRouter({ external = false }: { external?: boolean } = 
     const target = navigationDestination(href);
     const current = focusedNavigationDestination(state);
     const isCall = target.call;
+    const incomingCall = isCall || /^\/(doctor-call|medication\/call)\//.test(target.path);
+    // Automatic notification/call navigation yields to check-in. Resolve the
+    // current stack again on replay; never execute an old captured state.
+    if (external || isCall) {
+      if (checkinPresentation.defer('external-navigation', () => open(action, href, options),
+        incomingCall ? 30_000 : 5 * 60_000, incomingCall ? target.attemptId : undefined)) return;
+    }
     navigationGuard.run(action, href, state, () => {
       if (isCall && current?.path === target.path) {
         if (current.key === target.key) {

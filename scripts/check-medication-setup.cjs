@@ -18,7 +18,7 @@ function harness({self=true}={}) {
   class PhotoError extends Error { constructor(code){super(code);this.code=code;} }
   class ApiError extends Error {}
   class NativeForm { constructor(){this.parts=[];} append(...args){this.parts.push(args);} }
-  const data={self,conditions:[],flags:{scan:true},meals:{breakfast:'06:30',lunch:'11:30',dinner:'18:00',bedtime:'21:30'}};
+  const data={self,items:[],schedules:[],conditions:[],flags:{scan:true},meals:{breakfast:'06:30',lunch:'11:30',dinner:'18:00',bedtime:'21:30'}};
   const t=key=>key;
   const deps={react,'react-native':{Platform:{OS:'ios'},AppState:{addEventListener:(_event,fn)=>{appStates.add(fn);return {remove:()=>appStates.delete(fn)};}},Alert:{alert:(...args)=>calls.push(['alert',...args])}},
     'expo-router':{useLocalSearchParams:()=>route,useFocusEffect:fn=>{focusCallback=fn;return react.useEffect(fn,[fn]);},useRouter:()=>({back:()=>navigation.push('back'),replace:path=>navigation.push(path)})},
@@ -46,48 +46,125 @@ function harness({self=true}={}) {
   new Function('module','exports','require','FormData',source)(module,module.exports,key=>{assert.ok(key in deps,key);return deps[key];},NativeForm);
   const read=()=>{cursor=0;return module.exports.useMedicationSetup();};
   const settle=async()=>{read();effects.splice(0).forEach(fn=>fn());await flush();return read();};
-  const toReview=async()=>{read().addManual();read().update(0,{display_name:'Tên đã kiểm tra',confirmed:true,anchors:['after_breakfast']});read().next();read().next();await flush();return read();};
-  return {read,settle,toReview,calls,toasts,errors,server,navigation,auth,route,refocus:()=>focusCallback(),background:()=>appStates.forEach(fn=>fn('background')),makeApiError:code=>Object.assign(new ApiError('fixture'),{code}),blur:()=>slots.forEach(x=>x?.cleanup?.())};
+  const toReview=async()=>{if(!read().slots.length)read().toggleTime('07:00','after_breakfast');read().next();read().addManual();read().update(0,{display_name:'Tên đã kiểm tra',confirmed:true});read().next();await flush();return read();};
+  return {read,settle,toReview,data,calls,toasts,errors,server,navigation,auth,route,refocus:()=>focusCallback(),background:()=>appStates.forEach(fn=>fn('background')),makeApiError:code=>Object.assign(new ApiError('fixture'),{code}),blur:()=>slots.forEach(x=>x?.cleanup?.())};
 }
 let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+name);}
+function timeUIHarness(file, exportName, props) {
+  let cursor = 0;
+  const slots = [], effects = [], changes = [];
+  const jsx = (type, props) => ({ type, props });
+  const inputs = { exports: {} };
+  new Function('module', 'exports', ts.transpileModule(fs.readFileSync('src/features/v21/medication-input.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(inputs, inputs.exports);
+  const react = {
+    useState: initial => { const i = cursor++; slots[i] ??= { value: initial }; return [slots[i].value, value => { slots[i].value = typeof value === 'function' ? value(slots[i].value) : value; }]; },
+    useEffect: (work, deps) => { const i = cursor++, old = slots[i]; if (!old || deps.some((value, n) => value !== old.deps[n])) { slots[i] = { deps }; effects.push(work); } },
+  };
+  const dependencies = {
+    react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
+    'react-native': { View: 'View', Pressable: 'Pressable', TextInput: 'Input', ActivityIndicator: 'Spinner', Image: 'Image', KeyboardAvoidingView: 'View', ScrollView: 'Scroll', Platform: { OS: 'ios' }, StyleSheet: { create: value => value } },
+    '@expo/vector-icons': { Ionicons: 'Icon' },
+    'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    'expo-router': { Stack: {} },
+    'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
+    '../../components/ScaledText': { ScaledText: 'Text' },
+    '../../components/AiDataConsentModal': { AiDataConsentModal: 'Consent' },
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
+    '../checkin-call/CallSettingPicker': { CallSettingPicker: 'Picker' },
+    './medication-input': inputs.exports,
+    './useMedicationSetup': { medicationAnchors: [], validMedicationTime: inputs.exports.validMedicationTime, medicationNameHasNoDose: inputs.exports.medicationTextHasNoDose },
+    './medication-setup.styles': { medicationSetupStyles: {} },
+    './MedicationPhotoPreview': { MedicationPhotoPreview: 'Photo' },
+    './MedicationScanOverlay': { MedicationScanOverlay: 'Scan' },
+    './MedicationBackground': { MedicationBackground: 'Background' },
+    './MedicationDosePicker': { MedicationDosePicker: 'Doses' },
+    './MedicationTimeField': { MedicationTimeField: 'TimeField' },
+    './MedicationPurposeTags': { MedicationPurposeTags: 'Tags', MedicationPurposeReview: 'Purpose' },
+  };
+  const module = { exports: {} };
+  const output = ts.transpileModule(fs.readFileSync(`src/features/v21/${file}.tsx`, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+  new Function('module', 'exports', 'require', output)(module, module.exports, name => { assert.ok(name in dependencies, name); return dependencies[name]; });
+  props = { onChange: value => changes.push(value), ...props };
+  const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes) : [tree, ...nodes(tree.props?.children)];
+  const render = () => { cursor = 0; const tree = module.exports[exportName](props); effects.splice(0).forEach(work => work()); return nodes(tree); };
+  return { props, changes, render, open: () => render().find(node => node.type === 'Pressable').props.onPress(), picker: () => render().find(node => node.type === 'Picker') };
+}
 (async()=>{
-  await test('opening setup only reads; continuing requires names, kind and explicit confirmation',async()=>{
-    const h=harness();await h.settle();assert.equal(h.calls.length,0);h.read().addManual();assert.equal(h.read().canContinue,false);h.read().next();assert.equal(h.read().step,2);
-    h.read().update(0,{display_name:'Tên trên hộp'});assert.equal(h.read().canContinue,false);
-    h.read().update(0,{confirmed:true});assert.equal(h.read().canContinue,true);
-    h.read().update(0,{display_name:'Thuốc 500 mg',confirmed:true});assert.equal(h.read().canContinue,false);
+  await test('medication time is chosen explicitly, cancel preserves it, and invalid picker results cannot update it', () => {
+    const h = timeUIHarness('MedicationTimeField', 'MedicationTimeField', { label: 'Giờ nhắc', value: '' });
+    assert.ok(!h.render().some(node => node.type === 'Input')); assert.deepEqual(h.changes, []);
+    h.open(); assert.equal(h.picker().props.inline, true); assert.equal(h.picker().props.value, '07:00');
+    h.picker().props.onClose(); assert.deepEqual(h.changes, []); assert.equal(h.picker(), undefined);
+    h.props.value = '08:17'; h.open(); assert.equal(h.picker().props.value, '08:17');
+    h.picker().props.onConfirm('24:00'); h.picker().props.onConfirm(8.5); assert.deepEqual(h.changes, []);
+    h.picker().props.onConfirm('00:01'); assert.deepEqual(h.changes, ['00:01']); assert.equal(h.picker(), undefined);
   });
-  await test('meal times and selected slots are required before review',async()=>{
-    const h=harness();await h.settle();h.read().addManual();h.read().update(0,{display_name:'Tên đã kiểm tra',confirmed:true});h.read().next();assert.equal(h.read().step,3);assert.equal(h.read().canContinue,false);
-    h.read().update(0,{anchors:['after_breakfast']});h.read().setMeals(old=>({...old,breakfast:'29:00'}));assert.equal(h.read().canContinue,false);
-    h.read().setMeals(old=>({...old,breakfast:'06:30'}));h.read().next();assert.equal(h.read().step,4);assert.equal(h.read().slots[0].time_local,'07:00');
+  await test('a busy medication time field never opens the picker or reopens an interrupted selection', () => {
+    const h = timeUIHarness('MedicationTimeField', 'MedicationTimeField', { label: 'Giờ nhắc', value: '07:30', disabled: true });
+    h.open(); assert.equal(h.picker(), undefined); assert.deepEqual(h.changes, []);
+    h.props.disabled = false; h.open(); assert.ok(h.picker());
+    h.props.disabled = true; assert.equal(h.picker(), undefined);
+    h.props.disabled = false; assert.equal(h.picker(), undefined); assert.deepEqual(h.changes, []);
   });
-  await test('items at the same time produce one reminder and each item is listed once',async()=>{
-    const h=harness();await h.settle();h.read().addManual();h.read().update(0,{display_name:'Tên một',confirmed:true,anchors:['after_dinner','bedtime']});
-    h.read().addItem('Tên hai');h.read().update(1,{confirmed:true,anchors:['after_dinner']});h.read().setMeals(old=>({...old,dinner:'21:00',bedtime:'21:30'}));h.read().next();h.read().next();
-    assert.equal(h.read().slots.length,1);assert.deepEqual(h.read().slots[0].item_indexes,[0,1]);
+  await test('custom dose time and all four meal times use the picker without creating a default schedule', async () => {
+    const h = harness(); await h.settle();
+    const ui = timeUIHarness('MedicationDosePicker', 'MedicationDosePicker', { setup: h.read() });
+    let tree = ui.render(); assert.ok(!tree.some(node => node.type === 'Input'));
+    tree.find(node => node.type === 'TimeField').props.onChange('06:17');
+    ui.render().find(node => node.type === 'Pressable' && node.props.accessibilityLabel === 'doseAddTime').props.onPress();
+    assert.equal(h.read().slots[0].time_local, '06:17');
+    ui.render().find(node => node.type === 'Pressable' && node.props.accessibilityLabel === 'step3').props.onPress();
+    const fields = ui.render().filter(node => node.type === 'TimeField'); assert.equal(fields.length, 5);
+    for (const meal of ['breakfast', 'lunch', 'dinner', 'bedtime']) {
+      fields.find(node => node.props.label === meal).props.onChange('23:59'); assert.equal(h.read().meals[meal], '23:59');
+    }
+    assert.ok(!ui.render().some(node => node.type === 'Input')); assert.ok(!h.calls.some(row => row[0] === 'setup')); h.blur();
   });
-  await test('more than four distinct daily times cannot reach save',async()=>{
-    const h=harness();await h.settle();h.read().addManual();h.read().update(0,{display_name:'Tên đã kiểm tra',confirmed:true,anchors:['before_breakfast','after_breakfast','after_lunch','after_dinner','bedtime']});h.read().next();
-    assert.equal(h.read().selectedTimeCount,5);assert.equal(h.read().timingLimitExceeded,true);assert.equal(h.read().canContinue,false);
-    h.read().next();assert.equal(h.read().step,3);assert.equal(h.toasts.length,0);assert.ok(!h.calls.some(x=>x[0]==='setup'));
-    h.read().update(0,{anchors:['after_breakfast','after_lunch','after_dinner','bedtime']});assert.equal(h.read().selectedTimeCount,4);assert.equal(h.read().canContinue,true);h.read().next();assert.equal(h.read().step,4);h.blur();
+  await test('review time uses a picker and updates only its own dose without submitting the schedule', async () => {
+    const h = harness(); await h.settle(); await h.toReview();
+    h.read().setSlots(old => [{ ...old[0], note: 'Sau ăn' }, { time_local: '19:00', item_indexes: [0], note: 'Buổi tối' }]);
+    const ui = timeUIHarness('MedicationSetupScreen', 'MedicationSetupPanel', { setup: h.read() });
+    const tree = ui.render(), fields = tree.filter(node => node.type === 'TimeField'); assert.equal(fields.length, 2);
+    assert.ok(!tree.some(node => node.type === 'Input' && node.props.keyboardType === 'numbers-and-punctuation'));
+    fields[0].props.onChange('08:17');
+    assert.equal(h.read().slots[0].time_local, '08:17'); assert.equal(h.read().slots[0].note, 'Sau ăn');
+    assert.equal(h.read().slots[1].time_local, '19:00'); assert.ok(!h.calls.some(row => row[0] === 'setup')); h.blur();
   });
-  await test('the timing limit counts grouped clock times rather than the number of selected chips',async()=>{
-    const h=harness();await h.settle();h.read().addManual();h.read().update(0,{display_name:'Tên đã kiểm tra',confirmed:true,anchors:['before_breakfast','after_breakfast','after_lunch','after_dinner','bedtime']});
-    h.read().setMeals(old=>({...old,dinner:'21:00',bedtime:'21:30'}));h.read().next();
-    assert.equal(h.read().selectedTimeCount,4);assert.equal(h.read().timingLimitExceeded,false);assert.equal(h.read().canContinue,true);h.read().next();assert.equal(h.read().slots.length,4);h.blur();
+  await test('new setup requires an explicit time before adding medicines and never creates a default reminder',async()=>{
+    const h=harness();await h.settle();assert.equal(h.calls.length,0);assert.equal(h.read().step,1);assert.equal(h.read().canContinue,false);
+    h.read().next();assert.equal(h.read().step,1);assert.deepEqual(h.read().slots,[]);
+    h.read().toggleTime('07:00','after_breakfast');assert.equal(h.read().canContinue,true);h.read().next();assert.equal(h.read().step,2);
+    h.read().addManual();assert.equal(h.read().step,3);assert.equal(h.read().canContinue,false);
+    h.read().update(0,{display_name:'Tên trên hộp',confirmed:true});assert.equal(h.read().canContinue,true);
+    h.read().update(0,{display_name:'Thuốc 500 mg',confirmed:true});assert.equal(h.read().canContinue,false);h.blur();
   });
-  await test('four routine fields generate five explicitly displayed anchor times using the same review calculation',async()=>{
-    const h=harness();await h.settle();h.read().setMeals(old=>({...old,bedtime:'00:00'}));
-    assert.deepEqual(h.read().anchorTimes,{before_breakfast:'06:00',after_breakfast:'07:00',after_lunch:'12:00',after_dinner:'18:30',bedtime:'00:00'});
-    h.read().addManual();h.read().update(0,{display_name:'Tên đã kiểm tra',confirmed:true,anchors:['after_breakfast','after_lunch','after_dinner','bedtime']});h.read().next();h.read().next();
-    assert.deepEqual(h.read().slots.map(s=>s.time_local),['00:00','07:00','12:00','18:30']);h.blur();
+  await test('two medicines in one chosen group share one reminder and one medicine can belong to multiple groups',async()=>{
+    const h=harness();await h.settle();h.read().toggleTime('07:00');h.read().toggleTime('19:00');h.read().next();h.read().addManual();
+    h.read().update(0,{display_name:'Thuốc A',confirmed:true});h.read().addItem('Thuốc B');h.read().update(1,{confirmed:true});
+    assert.equal(h.read().canContinue,false);h.read().assignItem(0,0);h.read().assignItem(0,1);h.read().assignItem(1,0);
+    assert.equal(h.read().canContinue,true);h.read().next();assert.equal(h.read().step,4);h.read().next();await flush();
+    const body=h.calls.find(row=>row[0]==='setup')[2];assert.equal(body.merge_existing,true);
+    assert.deepEqual(body.slots.map(row=>row.item_indexes),[[0,1],[0]]);h.blur();
   });
-  await test('overlapping times for several medicines share the same timing count',async()=>{
-    const h=harness();await h.settle();h.read().addManual();h.read().update(0,{display_name:'Tên một',confirmed:true,anchors:['after_breakfast','after_dinner']});h.read().addItem('Tên hai');h.read().update(1,{confirmed:true,anchors:['after_breakfast','after_dinner']});h.read().next();
-    assert.equal(h.read().selectedTimeCount,2);assert.equal(h.read().canContinue,true);
-    h.read().setMeals(old=>({...old,breakfast:'2:'}));assert.equal(h.read().selectedTimeCount,null);assert.equal(h.read().canContinue,false);h.blur();
+  await test('existing active groups count toward the cap but selecting the same time never counts twice',async()=>{
+    const h=harness();h.data.schedules=['07:00','11:00','15:00','19:00'].map(time_local=>({time_local,active:true,consent_state:'ACTIVE'}));await h.settle();
+    h.read().toggleTime('07:00');assert.equal(h.read().selectedTimeCount,4);assert.equal(h.read().canContinue,true);
+    h.read().toggleTime('21:00');assert.equal(h.read().timingLimitExceeded,true);assert.equal(h.read().canContinue,false);
+    h.read().toggleTime('21:00');assert.equal(h.read().canContinue,true);h.blur();
+  });
+  await test('reusing a saved medicine sends only its identifier and cannot duplicate or rename it',async()=>{
+    const h=harness();h.data.items=[{id:'saved-item',display_name:'Thuốc đã lưu',kind:'MEDICINE',source:'CHIP'}];await h.settle();
+    h.read().toggleTime('07:30');h.read().next();h.read().selectExisting('saved-item');h.read().selectExisting('saved-item');
+    assert.equal(h.read().draft.length,1);h.read().next();h.read().update(0,{display_name:'Đổi tên'});assert.equal(h.read().draft[0].display_name,'Thuốc đã lưu');
+    h.read().next();h.read().next();await flush();assert.deepEqual(h.calls.find(row=>row[0]==='setup')[2].items,[{id:'saved-item'}]);h.blur();
+  });
+  await test('removing one medicine remaps every group without changing other assignments',async()=>{
+    const h=harness();await h.settle();h.read().toggleTime('07:00');h.read().next();h.read().addManual();h.read().addItem('A');h.read().addItem('B');
+    assert.deepEqual(h.read().slots[0].item_indexes,[0,1]);h.read().removeItem(0);assert.deepEqual(h.read().slots[0].item_indexes,[0]);assert.equal(h.read().draft[0].display_name,'B');h.blur();
+  });
+  await test('routine time hints remain editable and never create a schedule by themselves',async()=>{
+    const h=harness();await h.settle();assert.deepEqual(h.read().anchorTimes,{before_breakfast:'06:00',after_breakfast:'07:00',after_lunch:'12:00',after_dinner:'18:30',bedtime:'21:30'});
+    assert.deepEqual(h.read().slots,[]);h.read().setMeals(old=>({...old,breakfast:'29:00'}));assert.equal(h.read().anchorTimes,null);assert.equal(h.read().canContinue,false);h.blur();
   });
   await test('saving for a relative uses the existing consent path and sends confirmed items without UI-only anchors',async()=>{
     const h=harness({self:false});await h.settle();await h.toReview();h.read().next();await flush();
@@ -107,13 +184,13 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
   });
   await test('an expired purpose confirmation returns to review instead of losing the schedule', async()=>{
     const h=harness();await h.settle();await h.toReview();h.server.setupError=h.makeApiError('MED_TAG_CONFIRMATION_EXPIRED');
-    h.read().next();await flush();assert.equal(h.read().step,2);assert.equal(h.read().draft.length,1);assert.equal(h.read().busy,false);
+    h.read().next();await flush();assert.equal(h.read().step,3);assert.equal(h.read().draft.length,1);assert.equal(h.read().busy,false);
   });
   await test('rapid final presses send only one pending save',async()=>{
     const h=harness();await h.settle();await h.toReview();let release;h.server.pending=new Promise(r=>{release=r;});const old=h.read();old.next();old.next();await flush();assert.equal(h.calls.filter(x=>x[0]==='setup').length,1);release();await flush();
   });
   await test('photo reading waits for AI consent; extracted names still need confirmation',async()=>{
-    const h=harness();await h.settle();await h.read().pick(true);assert.equal(h.read().consent,true);assert.ok(!h.calls.some(x=>x[0]==='scan'));h.read().agreeAi();await flush();assert.equal(h.read().step,2);assert.equal(h.read().draft[0].confirmed,false);assert.equal(h.read().canContinue,false);assert.equal(h.calls.find(x=>x[0]==='picker')[1].base64,true);assert.equal(h.calls.filter(x=>x[0]==='dispose').length,1);
+    const h=harness();await h.settle();await h.read().pick(true);assert.equal(h.read().consent,true);assert.ok(!h.calls.some(x=>x[0]==='scan'));h.read().agreeAi();await flush();assert.equal(h.read().step,3);assert.equal(h.read().draft[0].confirmed,false);assert.equal(h.read().canContinue,false);assert.equal(h.calls.find(x=>x[0]==='picker')[1].base64,true);assert.equal(h.calls.filter(x=>x[0]==='dispose').length,1);
   });
   await test('an unreadable local image never calls scan and reports an actionable photo error',async()=>{
     const h=harness();await h.settle();h.server.aiConsent=true;h.server.photoError='MED_LOCAL_PHOTO_UNREADABLE';await h.read().pick(true);
@@ -135,7 +212,7 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
   await test('selecting an existing library photo requests a JPEG export and reaches name confirmation',async()=>{
     const h=harness();await h.settle();h.server.aiConsent=true;await h.read().pick(false);
     assert.equal(h.calls.find(x=>x[0]==='library')[1].base64,true);assert.equal(h.calls.filter(x=>x[0]==='scan').length,1);
-    assert.equal(h.read().step,2);assert.equal(h.read().draft[0].confirmed,false);assert.equal(h.calls.filter(x=>x[0]==='dispose').length,1);
+    assert.equal(h.read().step,3);assert.equal(h.read().draft[0].confirmed,false);assert.equal(h.calls.filter(x=>x[0]==='dispose').length,1);
   });
   await test('canceling the library picker does not upload or show an error',async()=>{
     const h=harness();await h.settle();h.server.pickerCanceled=true;await h.read().pick(false);
@@ -149,20 +226,15 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
   await test('reading a medicine name uploads a File compatible with Expo 57 and still requires name confirmation',async()=>{
     const h=harness();await h.settle();h.server.aiConsent=true;h.read().voice();await flush();assert.equal(h.read().listening,true);h.read().voice();await flush();
     const form=h.calls.find(x=>x[0]==='transcribe')[2];assert.equal(form.parts[0][0],'audio');const file=form.parts[0][1];assert.equal(file.name,'name.m4a');assert.equal(typeof file.bytes,'function');
-    assert.equal(h.read().step,2);assert.equal(h.read().draft[0].display_name,'Tên đã đọc');assert.equal(h.read().draft[0].confirmed,false);assert.equal(h.read().busy,false);
+    assert.equal(h.read().step,3);assert.equal(h.read().draft[0].display_name,'Tên đã đọc');assert.equal(h.read().draft[0].confirmed,false);assert.equal(h.read().busy,false);
   });
-  await test('printed time-of-day hints survive OCR without inventing before/after-meal instructions', async()=>{
-    const h=harness();await h.settle();h.server.aiConsent=true;
-    h.server.scanItems=[{display_name:'Tên đã đọc',printed_name:'Tên in trên hộp',kind:'MEDICINE',suggested_slots:['morning','evening']}];
-    await h.read().pick(false);
-    assert.deepEqual(h.read().draft[0].timeHints,['morning','evening']);assert.deepEqual(h.read().draft[0].anchors,[]);
-    assert.equal(h.read().draft[0].printed_name,'Tên in trên hộp');assert.equal(h.read().draft[0].confirmed,false);
-    h.read().update(0,{confirmed:true});h.read().next();assert.equal(h.read().step,3);assert.equal(h.read().canContinue,false);
-    h.read().update(0,{anchors:['after_breakfast']});h.read().next();
-    h.read().setSlots(old=>old.map(s=>({...s,note:'Sau ăn'})));h.read().next();await flush();
-    const sent=h.calls.find(x=>x[0]==='setup')[2];
-    assert.equal(sent.slots[0].note,'Sau ăn');assert.equal(sent.items[0].printed_name,'Tên in trên hộp');
-    assert.equal(sent.items[0].timeHints,undefined);assert.equal(sent.items[0].photo_uri,undefined);assert.equal(sent.items[0].anchors,undefined);
+  await test('recognition appends names, keeps selected times and never replaces earlier medicines',async()=>{
+    const h=harness();await h.settle();h.read().toggleTime('07:00');h.read().next();h.read().addManual();h.read().update(0,{display_name:'Thuốc cũ',confirmed:true});
+    h.server.aiConsent=true;h.server.scanItems=[{display_name:'Tên đã đọc',printed_name:'Tên in trên hộp',kind:'MEDICINE',suggested_slots:['morning','evening']}];await h.read().pick(false);
+    assert.equal(h.read().draft.length,2);assert.equal(h.read().draft[0].display_name,'Thuốc cũ');assert.deepEqual(h.read().draft[1].timeHints,['morning','evening']);
+    assert.deepEqual(h.read().slots[0].item_indexes,[0,1]);assert.equal(h.read().slots[0].time_local,'07:00');assert.equal(h.read().canContinue,false);
+    h.read().update(1,{confirmed:true});h.read().next();h.read().setSlots(old=>old.map(slot=>({...slot,note:'Sau ăn'})));h.read().next();await flush();
+    const sent=h.calls.find(x=>x[0]==='setup')[2];assert.equal(sent.slots[0].note,'Sau ăn');assert.equal(sent.items[1].printed_name,'Tên in trên hộp');assert.equal(sent.items[1].timeHints,undefined);assert.equal(sent.items[1].anchors,undefined);h.blur();
   });
   await test('review notes survive going back and cannot contain dosage or exceed 60 characters',async()=>{
     const h=harness();await h.settle();await h.toReview();
@@ -180,9 +252,9 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
     assert.ok(!module.exports.medicationQuickNames(['hypertension']).includes('medicine_lipids'));
   });
   await test('a manual quick choice fills the initial empty item without typing or leaving a hidden required blank',async()=>{
-    const h=harness();await h.settle();h.read().addManual();h.read().addItem('Thuốc mỡ máu');
+    const h=harness();await h.settle();h.read().toggleTime('07:00');h.read().addManual();h.read().addItem('Thuốc mỡ máu');
     assert.equal(h.read().draft.length,1);assert.equal(h.read().draft[0].display_name,'Thuốc mỡ máu');assert.equal(h.read().canContinue,false);
-    h.read().update(0,{confirmed:true});assert.equal(h.read().canContinue,true);h.read().next();assert.equal(h.read().step,3);
+    h.read().update(0,{confirmed:true});assert.equal(h.read().canContinue,true);h.read().next();assert.equal(h.read().step,4);
   });
   await test('old setup handlers cannot submit after an account change',async()=>{
     const h=harness();await h.settle();await h.toReview();const old=h.read();h.auth.token='account-b';h.auth.profile.id=2;old.next();await flush();
@@ -208,18 +280,10 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
     const pending=h.read().pick(false);await flush();h.route.patientId='2';await h.settle();finish();await pending;
     assert.equal(h.read().draft.length,0);assert.equal(h.read().photo,null);assert.equal(h.calls.filter(x=>x[0]==='dispose').length,1);h.blur();
   });
-  await test('notes follow the dose identity rather than the clock when meal times swap',async()=>{
-    const h=harness();await h.settle();h.read().addManual();h.read().update(0,{display_name:'Thuốc A',confirmed:true,anchors:['after_breakfast']});h.read().addItem('Thuốc B');h.read().update(1,{confirmed:true,anchors:['after_dinner']});
-    h.read().next();h.read().next();h.read().setSlots(old=>old.map(s=>({...s,note:s.meal_anchor==='after_breakfast'?'Ghi chú sáng':'Ghi chú tối'})));
-    h.read().leave();h.read().setMeals({...h.read().meals,breakfast:'18:00',dinner:'06:30'});h.read().next();
-    assert.deepEqual(Object.fromEntries(h.read().slots.map(s=>[s.meal_anchor,s.note])),{after_dinner:'Ghi chú tối',after_breakfast:'Ghi chú sáng'});h.blur();
-  });
-  await test('merging two times preserves both notes and UI identity fields never reach the API',async()=>{
-    const h=harness();await h.settle();h.read().addManual();h.read().update(0,{display_name:'Thuốc A',confirmed:true,anchors:['after_breakfast']});h.read().addItem('Thuốc B');h.read().update(1,{confirmed:true,anchors:['after_dinner']});
-    h.read().next();h.read().next();h.read().setSlots(old=>old.map(s=>({...s,note:s.meal_anchor==='after_breakfast'?'Ghi chú sáng':'Ghi chú tối'})));
-    h.read().leave();h.read().setMeals({...h.read().meals,dinner:'06:30'});h.read().next();assert.equal(h.read().slots.length,1);
-    assert.equal(h.read().slots[0].note,'Ghi chú sáng; Ghi chú tối');h.read().next();await flush();const sent=h.calls.find(x=>x[0]==='setup')[2];
-    assert.equal(sent.items[0].clientId,undefined);assert.equal(sent.slots[0].sourceKeys,undefined);h.blur();
+  await test('merging edited times keeps both notes, deduplicates item membership and omits UI fields',async()=>{
+    const h=harness();await h.settle();await h.toReview();h.read().setSlots(old=>[old[0],{...old[0],time_local:'19:00',note:'Buổi tối'}]);
+    h.read().setSlots(old=>old.map(slot=>({...slot,time_local:'07:00',sourceKeys:['ui-only']})));h.read().next();await flush();
+    const sent=h.calls.find(x=>x[0]==='setup')[2];assert.equal(sent.slots.length,1);assert.deepEqual(sent.slots[0].item_indexes,[0]);assert.equal(sent.slots[0].sourceKeys,undefined);assert.equal(sent.items[0].clientId,undefined);h.blur();
   });
   await test('removing the token hides the previous draft immediately even if the profile is not cleared yet',async()=>{
     const h=harness();await h.settle();await h.toReview();h.auth.token=null;
@@ -230,7 +294,7 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
     h.server.scanPending=new Promise(r=>{release=r;});
     const pending=h.read().pick(false);await flush();
     assert.equal(h.read().scanning,true);assert.equal(h.read().canContinue,false);
-    release();await pending;assert.equal(h.read().scanning,false);assert.equal(h.read().step,2);
+    release();await pending;assert.equal(h.read().scanning,false);assert.equal(h.read().step,3);
     assert.equal(h.read().draft[0].confirmed,false);h.blur();
   });
   await test('scan overlay never claims success for failed or unreadable photos and does not show for consent or voice',async()=>{
@@ -292,7 +356,7 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
   });
   await test('backgrounding the app flushes the latest edit before the autosave debounce',async()=>{
     const h=harness();h.server.draft=savedDraft();await h.settle();h.read().update(0,{display_name:'Tên cần giữ khi đóng app'});await h.settle();h.background();await flush();
-    assert.equal(h.calls.find(x=>x[0]==='draft')[2].snapshot.items[0].display_name,'Tên cần giữ khi đóng app');h.blur();
+    assert.equal(h.calls.filter(x=>x[0]==='draft').at(-1)[2].snapshot.items[0].display_name,'Tên cần giữ khi đóng app');h.blur();
   });
   await test('creating a new plan starts empty and never deletes or resumes another unfinished draft',async()=>{
     const h=harness();h.server.draft=savedDraft();h.server.drafts=[h.server.draft];h.route.newPlan='1';await h.settle();
@@ -308,16 +372,16 @@ let count=0;async function test(name,fn){await fn();count++;console.log('PASS '+
   await test('a selected draft always opens its editable names and types even when saved at another step',async()=>{
     for(const step of [1,2,3,4]){
       const h=harness(),saved=savedDraft({step});h.server.draft=saved;h.route.draftId=saved.id;await h.settle();
-      assert.equal(h.read().step,2);assert.equal(h.read().draft[0].display_name,'Tên đã đọc trước');assert.equal(h.read().draft[0].kind,'MEDICINE');
+      assert.equal(h.read().step,3);assert.equal(h.read().draft[0].display_name,'Tên đã đọc trước');assert.equal(h.read().draft[0].kind,'MEDICINE');
       assert.equal(h.calls.some(x=>x[0]==='scan'||x[0]==='setup'),false);h.blur();
     }
   });
   await test('a legacy draft at the photo step cannot hide already entered medicine fields',async()=>{
-    const h=harness();h.server.draft=savedDraft({step:1});await h.settle();assert.equal(h.read().step,2);assert.equal(h.read().draft.length,1);h.blur();
+    const h=harness();h.server.draft=savedDraft({step:1});await h.settle();assert.equal(h.read().step,3);assert.equal(h.read().draft.length,1);h.blur();
   });
   await test('reviewing names and types preserves previously edited reminder times and notes',async()=>{
     const h=harness(),saved=savedDraft();saved.snapshot.slots[0].time_local='08:15';h.server.draft=saved;h.route.draftId=saved.id;await h.settle();
-    h.read().update(0,{display_name:'Tên đã sửa'});h.read().update(0,{confirmed:true});h.read().next();assert.equal(h.read().step,3);h.read().next();
+    h.read().update(0,{display_name:'Tên đã sửa'});h.read().update(0,{confirmed:true});h.read().next();
     assert.equal(h.read().step,4);assert.equal(h.read().slots[0].time_local,'08:15');assert.equal(h.read().slots[0].note,'Sau ăn');h.blur();
   });
   await test('discarding one draft resets to an independent blank editor without loading another draft',async()=>{

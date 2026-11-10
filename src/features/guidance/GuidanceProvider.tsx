@@ -74,7 +74,7 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const path = usePathname();
-  const { mode } = useGlobalSearchParams<{ mode?: string }>();
+  const { mode, entry } = useGlobalSearchParams<{ mode?: string; entry?: string }>();
   const checkinGuide = path === '/checkin' && mode === 'guide';
   const router = useGuardedRouter();
   const profile = useAuthStore(state => state.profile);
@@ -220,11 +220,13 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
     return () => { active = false; clearInterval(timer); };
   }, [account, candidate, height, insets.bottom, insets.top, path, progress.epoch, target, width]);
 
-  const text = candidate ? String(t(`guidance.steps.${candidate.replace('.', '_')}`, { name: target?.name || '' })) : '';
+  const coachClip = candidate === 'checkin.status' && checkinGuide && entry === 'instant'
+    ? 'checkin.intensity' : candidate;
+  const text = coachClip ? String(t(`guidance.steps.${coachClip.replace('.', '_')}`, { name: target?.name || '' })) : '';
   // A suspended coach resumes visually without repeating an already-read phrase.
   const spoken = useRef(new Set<string>());
   const audioScope = welcome ? `welcome:${account}:${progress.epoch}`
-    : candidate ? `${account}:${progress.epoch}:${practicing ? practice?.key : 'account'}:${candidate}` : null;
+    : candidate ? `${account}:${progress.epoch}:${practicing ? practice?.key : 'account'}:${coachClip}` : null;
   const presentationKey = welcome || rect ? audioScope : null;
   // Stop when the actual step/session changes, not when its layout is remeasured.
   useEffect(() => {
@@ -234,9 +236,9 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!presentationKey || !progress.readAloud || spoken.current.has(presentationKey)) return;
     spoken.current.add(presentationKey);
-    const clip = welcome ? 'welcome' : candidate;
+    const clip = welcome ? 'welcome' : coachClip;
     if (clip) void guidanceAudio.speak(clip, i18n.language);
-  }, [candidate, i18n.language, presentationKey, progress.readAloud, welcome]);
+  }, [coachClip, i18n.language, presentationKey, progress.readAloud, welcome]);
   useEffect(() => { if (suspended) void guidanceAudio.stop(); }, [suspended]);
 
   const chooseRole = async (role: GuideRole) => {
@@ -287,7 +289,7 @@ export function GuidanceProvider({ children }: { children: React.ReactNode }) {
           <ScrollView contentContainerStyle={styles.bubbleContent} bounces={false}>
             <Text allowFontScaling style={styles.sentence}>{text}</Text>
             <View style={styles.coachActions}>
-              <GuideReplay style={styles.coachReplayButton} onPress={() => void guidanceAudio.speak(candidate, i18n.language, true)} />
+              <GuideReplay style={styles.coachReplayButton} onPress={() => { if (coachClip) void guidanceAudio.speak(coachClip, i18n.language, true); }} />
               <GuideButton label={t('guidance.understood')} style={styles.understoodButton} onPress={() => acknowledgeTarget(candidate)} />
             </View>
           </ScrollView>

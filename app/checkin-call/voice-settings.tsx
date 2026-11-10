@@ -2,11 +2,12 @@ import { runNativePermission } from '../../src/lib/native-permissions';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
+  AppState,
   Pressable,
   ScrollView,
   StyleSheet,
   Switch,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,9 @@ import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { AppAlertModal } from '../../src/components/AppAlertModal';
+import { QuickActionTile } from '../../src/components/QuickActionTile';
+import { useFontSizeStore } from '../../src/stores/font-size.store';
+import { showToast } from '../../src/stores/toast.store';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import {
   checkinCallApi,
@@ -32,6 +36,22 @@ import {
 import { getApiErrorMessage } from '../../src/lib/apiClient';
 import { colors } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
+import {
+  resolveWeatherArea,
+  type WeatherAreaIssue,
+} from '../../src/features/checkin-call/weather-area';
+
+type PersonalizationSection = 'permissions' | 'address' | 'weather';
+type ConsentChoice = {
+  field: 'use_name' | 'use_health' | 'weather_enabled';
+  region?: CheckinVoicePreferences['region'];
+  deviceLocation?: boolean;
+};
+const PERSONALIZATION_ACTIONS = [
+  { id: 'permissions', icon: 'shield-checkmark-outline' },
+  { id: 'address', icon: 'person-outline' },
+  { id: 'weather', icon: 'partly-sunny-outline' },
+] as const;
 
 export default function VoiceSettingsRoute() {
   const token = useAuthStore((state) => state.token);
@@ -49,14 +69,26 @@ export function VoiceSettings({ userId }: { userId: string }) {
   const { t: tc } = useTranslation('common');
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { width, fontScale } = useWindowDimensions();
+  const multiplier = useFontSizeStore((state) => state.multiplier);
+  const actionColumns = width < 360 || fontScale * multiplier >= 1.2 ? 2 : 3;
+  const actionWidth = (width - 40 - 12 * (actionColumns - 1)) / actionColumns;
+  const [section, setSection] = useState<PersonalizationSection | null>(null);
   const [value, setValue] = useState<CheckinVoicePreferences | null>(null);
-  const [saved, setSaved] = useState<CheckinVoicePreferences | null>(null);
+  const [failedChoice, setFailedChoice] =
+    useState<CheckinVoicePreferences | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
-  const [consent, setConsent] = useState<
-    'use_name' | 'use_health' | 'weather_enabled' | null
-  >(null);
+  const [areaRetry, setAreaRetry] = useState(0);
+  const [deviceArea, setDeviceArea] = useState<{
+    key: string;
+    label: string | null;
+    loading: boolean;
+    issue: WeatherAreaIssue | null;
+  } | null>(null);
+  const [consent, setConsent] = useState<ConsentChoice | null>(null);
+  const weatherConsentGranted = useRef(false);
   const mounted = useRef(true);
   const initialized = useRef(false);
   const inFlight = useRef(false);
@@ -83,7 +115,7 @@ export function VoiceSettings({ userId }: { userId: string }) {
           if (!active || !current()) return;
           const loaded = { ...VOICE_DEFAULTS, ...result.preferences };
           setValue(loaded);
-          setSaved(loaded);
+          weatherConsentGranted.current = loaded.weather_enabled;
           initialized.current = true;
           setError('');
         })
@@ -96,30 +128,90 @@ export function VoiceSettings({ userId }: { userId: string }) {
     }, [current, reload, tc])
   );
 
+  const writePreferences = async (next: CheckinVoicePreferences) => {
+    const result = await checkinCallApi.saveVoicePreferences(next);
+    if (!current()) return;
+    setValue(result.preferences);
+    weatherConsentGranted.current = result.preferences.weather_enabled;
+    setFailedChoice(null);
+    showToast(t('personalization.saved'), 'success');
+  };
+  const writeFailed = (next: CheckinVoicePreferences, reason: unknown) => {
+    if (!current()) return;
+    const message = getApiErrorMessage(reason, tc);
+    setFailedChoice(next);
+    setError(message);
+    showToast(message, 'error');
+  };
+  const persistSelection = async (next: CheckinVoicePreferences) => {
+    if (!value || inFlight.current || !current()) return;
+    if (!weatherRegionReady(next)) {
+      setSection('weather');
+      return;
+    }
+    setError('');
+    setFailedChoice(null);
+    if (JSON.stringify(next) === JSON.stringify(value)) return;
+    inFlight.current = true;
+    setBusy(true);
+    try {
+      await writePreferences(next);
+    } catch (reason) {
+      writeFailed(next, reason);
+    } finally {
+      inFlight.current = false;
+      if (current()) setBusy(false);
+    }
+  };
   const changeConsent = (
     field: 'use_name' | 'use_health' | 'weather_enabled',
     enabled: boolean
   ) => {
-    if (!value || inFlight.current) return;
+    if (!value || inFlight.current || !current()) return;
     setError('');
-    if (enabled) setConsent(field);
-    else
-      setValue({
-        ...value,
-        [field]: false,
-        ...(field === 'weather_enabled'
-          ? { region: null, location: null }
-          : {}),
-      });
+    if (enabled) {
+      if (
+        field === 'weather_enabled' &&
+        !weatherRegionReady({ ...value, weather_enabled: true })
+      ) {
+        setSection('weather');
+        return;
+      }
+      setConsent({ field });
+      return;
+    }
+    return persistSelection({
+      ...value,
+      [field]: false,
+      ...(field === 'weather_enabled' ? { region: null, location: null } : {}),
+    });
+  };
+  const selectRegion = (region: (typeof REGION_OPTIONS)[number]) => {
+    if (!value || inFlight.current || !current()) return;
+    if (!value.weather_enabled && !weatherConsentGranted.current) {
+      setConsent({ field: 'weather_enabled', region });
+      return;
+    }
+    return persistSelection({
+      ...value,
+      weather_enabled: true,
+      region,
+      location: null,
+    });
   };
 
   const locate = async () => {
-    if (!value || !value.weather_enabled || inFlight.current) return;
+    if (!value || inFlight.current || !current()) return;
     inFlight.current = true;
     setBusy(true);
     setError('');
+    setFailedChoice(null);
+    let selection: CheckinVoicePreferences | null = null;
     try {
-      const permission = await runNativePermission(() => Location.requestForegroundPermissionsAsync(), { key: 'location', canRun: current });
+      const permission = await runNativePermission(
+        () => Location.requestForegroundPermissionsAsync(),
+        { key: 'location', canRun: current }
+      );
       if (!current()) return;
       if (permission.status !== 'granted') {
         setError(t('personalization.locationDenied'));
@@ -137,21 +229,17 @@ export function VoiceSettings({ userId }: { userId: string }) {
         Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }),
         timeout,
       ]);
-      if (current())
-        setValue((previous) =>
-          previous
-            ? {
-                ...previous,
-                region: 'device',
-                location: coarsePoint(
-                  point.coords.latitude,
-                  point.coords.longitude
-                ),
-              }
-            : previous
-        );
-    } catch {
-      if (current()) setError(t('personalization.locationFailed'));
+      if (!current()) return;
+      selection = {
+        ...value,
+        weather_enabled: true,
+        region: 'device',
+        location: coarsePoint(point.coords.latitude, point.coords.longitude),
+      };
+      await writePreferences(selection);
+    } catch (reason) {
+      if (selection) writeFailed(selection, reason);
+      else if (current()) setError(t('personalization.locationFailed'));
     } finally {
       if (timeoutTimer.current) clearTimeout(timeoutTimer.current);
       inFlight.current = false;
@@ -166,28 +254,84 @@ export function VoiceSettings({ userId }: { userId: string }) {
     []
   );
 
-  const dirty = value && JSON.stringify(value) !== JSON.stringify(saved);
-  const save = async () => {
-    if (!value || !dirty || inFlight.current || !weatherRegionReady(value) || !current()) {
+  const selectDeviceRegion = () => {
+    if (!value || inFlight.current || !current()) return;
+    if (!value.weather_enabled && !weatherConsentGranted.current) {
+      setConsent({ field: 'weather_enabled', deviceLocation: true });
       return;
     }
-    inFlight.current = true;
-    setBusy(true);
-    setError('');
-    try {
-      const result = await checkinCallApi.saveVoicePreferences(value);
-      if (!current()) return;
-      setSaved(result.preferences);
-      setValue(result.preferences);
-      router.back();
-    } catch (reason) {
-      if (current()) setError(getApiErrorMessage(reason, tc));
-    } finally {
-      inFlight.current = false;
-      if (current()) setBusy(false);
-    }
+    return locate();
   };
   const ready = value && weatherRegionReady(value);
+  const areaLatitude =
+    value?.region === 'device' ? value.location?.latitude : undefined;
+  const areaLongitude =
+    value?.region === 'device' ? value.location?.longitude : undefined;
+  const areaKey =
+    areaLatitude !== undefined && areaLongitude !== undefined
+      ? `${areaLatitude},${areaLongitude}`
+      : '';
+  const selectedDeviceArea = deviceArea?.key === areaKey ? deviceArea : null;
+  const areaLoading = Boolean(areaKey) && selectedDeviceArea?.loading !== false;
+  useEffect(() => {
+    // iOS temporarily becomes inactive while a system permission sheet is open.
+    // Revisit saved area metadata when it returns; never start GPS on resume.
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && current()) setAreaRetry((count) => count + 1);
+    });
+    return () => subscription.remove();
+  }, [current]);
+  useEffect(() => {
+    if (
+      section !== 'weather' ||
+      areaLatitude === undefined ||
+      areaLongitude === undefined ||
+      !current()
+    )
+      return;
+    let active = true;
+    const key = `${areaLatitude},${areaLongitude}`;
+    setDeviceArea((previous) => ({
+      key,
+      label: previous?.key === key ? previous.label : null,
+      loading: true,
+      issue: null,
+    }));
+    void resolveWeatherArea(
+      { latitude: areaLatitude, longitude: areaLongitude },
+      userId
+    ).then(({ label, issue }) => {
+      if (active && current())
+        setDeviceArea((previous) => ({
+          key,
+          label: label || (previous?.key === key ? previous.label : null),
+          loading: false,
+          issue,
+        }));
+    });
+    return () => {
+      active = false;
+    };
+  }, [areaLatitude, areaLongitude, areaRetry, current, section, userId]);
+  const permissionSwitch = (
+    field: 'use_name' | 'use_health' | 'weather_enabled'
+  ) =>
+    value && (
+      <View key={field} style={styles.toggleRow}>
+        <View style={styles.toggleCopy}>
+          <Text style={styles.subheading}>{t(`personalization.${field}`)}</Text>
+        </View>
+        <Switch
+          accessibilityLabel={t(`personalization.${field}`)}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: value[field], disabled: busy }}
+          value={value[field]}
+          disabled={busy}
+          onValueChange={(enabled) => changeConsent(field, enabled)}
+          trackColor={{ false: colors.border, true: colors.primaryDark }}
+        />
+      </View>
+    );
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -200,7 +344,13 @@ export function VoiceSettings({ userId }: { userId: string }) {
         >
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.heading}>{t('personalization.title')}</Text>
+        <Text style={styles.heading}>{t('personalization.screenTitle')}</Text>
+        {busy && (
+          <ActivityIndicator
+            color={colors.primaryDark}
+            accessibilityLabel={tc('saving')}
+          />
+        )}
       </View>
       <ScrollView
         contentContainerStyle={[
@@ -208,178 +358,268 @@ export function VoiceSettings({ userId }: { userId: string }) {
           { paddingBottom: insets.bottom + 24 },
         ]}
       >
-        <Text style={styles.copy}>{t('personalization.description')}</Text>
         {!value && !error && <ActivityIndicator color={colors.primaryDark} />}
         {!!value && (
           <>
-            <Text style={styles.subheading}>
-              {t('personalization.addressTitle')}
-            </Text>
-            <Text style={styles.copy}>{t('personalization.addressHint')}</Text>
-            <View style={styles.options}>
-              {ADDRESS_OPTIONS.map((address) => (
-                <Pressable
-                  key={address}
-                  accessibilityRole="radio"
-                  accessibilityLabel={t(`personalization.address.${address}`)}
-                  accessibilityState={{
-                    checked: value.address === address,
-                    disabled: busy,
-                  }}
-                  disabled={busy}
-                  style={[
-                    styles.option,
-                    value.address === address && styles.selected,
-                  ]}
-                  onPress={() => setValue({ ...value, address })}
-                >
-                  <Ionicons
-                    name={
-                      value.address === address
-                        ? 'radio-button-on'
-                        : 'radio-button-off'
-                    }
-                    size={22}
-                    color={colors.primaryDark}
-                  />
-                  <Text style={styles.optionText}>
-                    {t(`personalization.address.${address}`)}
-                  </Text>
-                </Pressable>
+            <View style={styles.actions}>
+              {PERSONALIZATION_ACTIONS.map((action) => (
+                <QuickActionTile
+                  key={action.id}
+                  testID={`voice-action-${action.id}`}
+                  label={t(`personalization.sections.${action.id}`)}
+                  expanded={section === action.id}
+                  style={{ width: actionWidth }}
+                  icon={
+                    <Ionicons
+                      name={action.icon}
+                      size={32}
+                      color={colors.primaryText}
+                      accessible={false}
+                    />
+                  }
+                  onPress={() =>
+                    setSection((current) =>
+                      current === action.id ? null : action.id
+                    )
+                  }
+                />
               ))}
             </View>
-            {(['use_name', 'use_health', 'weather_enabled'] as const).map(
-              (field) => (
-                <View key={field} style={styles.toggleRow}>
-                  <View style={styles.toggleCopy}>
-                    <Text style={styles.subheading}>
-                      {t(`personalization.${field}`)}
-                    </Text>
-                    <Text style={styles.copy}>
-                      {t(`personalization.${field}Hint`)}
-                    </Text>
-                  </View>
-                  <Switch
-                    accessibilityLabel={t(`personalization.${field}`)}
-                    accessibilityRole="switch"
-                    accessibilityState={{
-                      checked: value[field],
-                      disabled: busy,
-                    }}
-                    value={value[field]}
-                    disabled={busy}
-                    onValueChange={(enabled) => changeConsent(field, enabled)}
-                    trackColor={{
-                      false: colors.border,
-                      true: colors.primaryDark,
-                    }}
-                  />
-                </View>
-              )
-            )}
-            {value.weather_enabled && (
-              <>
+            {section === 'address' && (
+              <View style={styles.panel}>
                 <Text style={styles.subheading}>
-                  {t('personalization.regionTitle')}
-                </Text>
-                <Text style={styles.copy}>
-                  {t('personalization.regionHint')}
+                  {t('personalization.addressTitle')}
                 </Text>
                 <View style={styles.options}>
-                  {REGION_OPTIONS.map((region) => (
+                  {ADDRESS_OPTIONS.map((address) => (
                     <Pressable
-                      key={region}
+                      key={address}
                       accessibilityRole="radio"
                       accessibilityLabel={t(
-                        `personalization.regions.${region}`
+                        `personalization.address.${address}`
                       )}
                       accessibilityState={{
-                        checked: value.region === region,
+                        checked: value.address === address,
                         disabled: busy,
                       }}
                       disabled={busy}
                       style={[
                         styles.option,
-                        value.region === region && styles.selected,
+                        value.address === address && styles.selected,
                       ]}
-                      onPress={() =>
-                        setValue({ ...value, region, location: null })
-                      }
+                      onPress={() => persistSelection({ ...value, address })}
                     >
+                      <Ionicons
+                        name={
+                          value.address === address
+                            ? 'radio-button-on'
+                            : 'radio-button-off'
+                        }
+                        size={22}
+                        color={colors.primaryDark}
+                      />
                       <Text style={styles.optionText}>
-                        {t(`personalization.regions.${region}`)}
+                        {t(`personalization.address.${address}`)}
                       </Text>
                     </Pressable>
                   ))}
                 </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('personalization.useLocation')}
-                  disabled={busy}
-                  accessibilityState={{ busy, disabled: busy }}
-                  onPress={locate}
-                  style={styles.action}
-                >
-                  <Ionicons
-                    name="location-outline"
-                    size={22}
-                    color={colors.primaryDark}
-                  />
-                  <Text style={styles.optionText}>
-                    {t('personalization.useLocation')}
-                  </Text>
-                </Pressable>
-                {value.region === 'device' && (
-                  <Text style={styles.copy}>
-                    {t('personalization.locationSelected')}
-                  </Text>
-                )}
-                {!ready && (
-                  <Text style={styles.error}>
-                    {t('personalization.chooseRegion')}
-                  </Text>
-                )}
-                <Text style={styles.copy}>
-                  {t('personalization.weatherCredit')}
-                </Text>
-                <Pressable
-                  accessibilityRole="link"
-                  accessibilityLabel={t('personalization.weatherSource')}
-                  style={styles.action}
-                  onPress={() => {
-                    void Linking.openURL(
-                      'https://api.met.no/doc/License'
-                    ).catch(() => setError(t('personalization.linkFailed')));
-                  }}
-                >
-                  <Text style={styles.optionText}>
-                    {t('personalization.weatherSource')}
-                  </Text>
-                </Pressable>
-              </>
+              </View>
             )}
-            <Text style={styles.copy}>{t('personalization.privacy')}</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('personalization.save')}
-              onPress={save}
-              disabled={busy || !dirty || !ready}
-              accessibilityState={{ disabled: busy || !dirty || !ready, busy }}
-              style={[
-                styles.action,
-                styles.selected,
-                (busy || !dirty || !ready) && styles.disabled,
-              ]}
-            >
-              {busy && <ActivityIndicator color={colors.primaryDark} />}
-              <Text style={styles.optionText}>{t('personalization.save')}</Text>
-            </Pressable>
+            {section === 'permissions' && (
+              <View style={styles.panel}>
+                {(['use_name', 'use_health', 'weather_enabled'] as const).map(
+                  permissionSwitch
+                )}
+              </View>
+            )}
+            {section === 'weather' && (
+              <View style={styles.panel}>
+                <>
+                  {!value.weather_enabled && (
+                    <Text style={styles.copy}>
+                      {t('personalization.chooseRegion')}
+                    </Text>
+                  )}
+                  <Text style={styles.subheading}>
+                    {t('personalization.regionTitle')}
+                  </Text>
+                  <View style={styles.options}>
+                    {value.region === 'device' && (
+                      <View
+                        testID="weather-device-selected"
+                        style={[styles.option, styles.selected]}
+                      >
+                        <View
+                          accessible
+                          accessibilityRole="radio"
+                          accessibilityState={{ checked: true }}
+                          accessibilityLabel={
+                            selectedDeviceArea?.label ||
+                            t('personalization.deviceRegion')
+                          }
+                          style={styles.selectedArea}
+                        >
+                          <Ionicons
+                            name="radio-button-on"
+                            size={22}
+                            color={colors.primaryDark}
+                            accessible={false}
+                          />
+                          <View style={styles.areaCopy}>
+                            <Text style={styles.optionText}>
+                              {selectedDeviceArea?.label ||
+                                t('personalization.deviceRegion')}
+                            </Text>
+                            {!selectedDeviceArea?.label && (
+                              <Text style={styles.copy}>
+                                {t(
+                                  areaLoading
+                                    ? 'personalization.areaNameLoading'
+                                    : `personalization.areaNameIssues.${selectedDeviceArea?.issue || 'unavailable'}`
+                                )}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                        {areaLoading ? (
+                          <ActivityIndicator color={colors.primaryDark} />
+                        ) : (
+                          !selectedDeviceArea?.label && (
+                            <Pressable
+                              testID="weather-area-retry"
+                              accessibilityRole="button"
+                              accessibilityLabel={t(
+                                selectedDeviceArea?.issue === 'permission'
+                                  ? 'personalization.useLocation'
+                                  : 'personalization.retryAreaName'
+                              )}
+                              style={styles.back}
+                              disabled={busy}
+                              accessibilityState={{ disabled: busy }}
+                              onPress={() =>
+                                selectedDeviceArea?.issue === 'permission'
+                                  ? selectDeviceRegion()
+                                  : setAreaRetry((count) => count + 1)
+                              }
+                            >
+                              <Ionicons
+                                name="refresh-outline"
+                                size={22}
+                                color={colors.primaryDark}
+                              />
+                            </Pressable>
+                          )
+                        )}
+                      </View>
+                    )}
+                    {REGION_OPTIONS.map((region) => (
+                      <Pressable
+                        key={region}
+                        accessibilityRole="radio"
+                        accessibilityLabel={t(
+                          `personalization.regions.${region}`
+                        )}
+                        accessibilityState={{
+                          checked: value.region === region,
+                          disabled: busy,
+                        }}
+                        disabled={busy}
+                        style={[
+                          styles.option,
+                          value.region === region && styles.selected,
+                        ]}
+                        onPress={() => selectRegion(region)}
+                      >
+                        <Ionicons
+                          name={
+                            value.region === region
+                              ? 'radio-button-on'
+                              : 'radio-button-off'
+                          }
+                          size={22}
+                          color={colors.primaryDark}
+                          accessible={false}
+                        />
+                        <Text style={styles.optionText}>
+                          {t(`personalization.regions.${region}`)}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('personalization.useLocation')}
+                    disabled={busy}
+                    accessibilityState={{ busy, disabled: busy }}
+                    onPress={selectDeviceRegion}
+                    style={styles.action}
+                  >
+                    <Ionicons
+                      name="location-outline"
+                      size={22}
+                      color={colors.primaryDark}
+                    />
+                    <Text style={styles.optionText}>
+                      {t('personalization.useLocation')}
+                    </Text>
+                  </Pressable>
+                  {!ready && (
+                    <Text style={styles.error}>
+                      {t('personalization.chooseRegion')}
+                    </Text>
+                  )}
+                  <Text style={styles.copy}>
+                    {t('personalization.weatherCredit')}
+                  </Text>
+                </>
+              </View>
+            )}
+            {!ready && value.weather_enabled && section !== 'weather' && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('personalization.chooseRegion')}
+                style={styles.action}
+                onPress={() => setSection('weather')}
+              >
+                <Ionicons
+                  name="location-outline"
+                  size={22}
+                  color={colors.primaryDark}
+                />
+                <Text style={styles.error}>
+                  {t('personalization.chooseRegion')}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={colors.primaryDark}
+                />
+              </Pressable>
+            )}
           </>
         )}
         {!!error && (
           <Text style={styles.error} accessibilityLiveRegion="polite">
             {error}
           </Text>
+        )}
+        {!!value && failedChoice && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={tc('retry')}
+            disabled={busy}
+            accessibilityState={{ disabled: busy, busy }}
+            style={styles.action}
+            onPress={() => persistSelection(failedChoice)}
+          >
+            <Ionicons
+              name="refresh-outline"
+              size={22}
+              color={colors.primaryDark}
+            />
+            <Text style={styles.optionText}>{tc('retry')}</Text>
+          </Pressable>
         )}
         {!value && !!error && (
           <Pressable
@@ -402,7 +642,7 @@ export function VoiceSettings({ userId }: { userId: string }) {
         stackButtons
         scrollable
         message={t(
-          consent === 'weather_enabled'
+          consent?.field === 'weather_enabled'
             ? 'personalization.weatherConsent'
             : 'personalization.voiceConsent'
         )}
@@ -410,11 +650,22 @@ export function VoiceSettings({ userId }: { userId: string }) {
           { text: tc('cancel'), style: 'cancel' },
           {
             text: t('personalization.agree'),
-            onPress: () => {
-              if (consent && current())
-                setValue((previous) =>
-                  previous ? { ...previous, [consent]: true } : previous
-                );
+            onPress: async () => {
+              if (!consent || !value || inFlight.current || !current()) return;
+              if (consent.field === 'weather_enabled') {
+                weatherConsentGranted.current = true;
+                if (consent.deviceLocation) {
+                  await locate();
+                  return;
+                }
+              }
+              await persistSelection({
+                ...value,
+                [consent.field]: true,
+                ...(consent.region
+                  ? { region: consent.region, location: null }
+                  : {}),
+              });
             },
           },
         ]}
@@ -448,8 +699,24 @@ function createStyles() {
       color: colors.textPrimary,
     },
     body: { padding: 20, gap: 16 },
+    actions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      columnGap: 12,
+      rowGap: 20,
+      paddingVertical: 8,
+    },
+    panel: { gap: 12, paddingTop: 8, paddingBottom: 4 },
     subheading: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
     copy: { fontSize: 16, color: colors.textSecondary },
+    areaCopy: { flex: 1, minWidth: 0, gap: 4 },
+    selectedArea: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
     options: { gap: 8 },
     option: {
       minHeight: 52,
@@ -488,6 +755,5 @@ function createStyles() {
       borderRadius: 12,
     },
     error: { color: colors.danger, fontSize: 16 },
-    disabled: { opacity: 0.55 },
   });
 }

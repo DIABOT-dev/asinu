@@ -12,6 +12,7 @@ type ActiveModal<T> = {
   presentation: number;
   phase: 'opening' | 'open' | 'closing' | 'settling';
   request: ModalRequest<T>;
+  interrupted?: boolean;
 };
 type NativeRequest = {
   operation: () => Promise<unknown>;
@@ -29,6 +30,7 @@ export class ModalQueue<T> {
   private nativeRequests: NativeRequest[] = [];
   private runningNative = false;
   private foreground: boolean;
+  private suspended = false;
   private snapshot: { active: ActiveModal<T> | null; nativeBusy: boolean } = { active: null, nativeBusy: false };
 
   constructor(foreground = true) { this.foreground = foreground; }
@@ -36,6 +38,17 @@ export class ModalQueue<T> {
   setForeground(foreground: boolean) {
     this.foreground = foreground;
     if (foreground) { this.pumpNative(); this.advance(); }
+  }
+
+  setSuspended(suspended: boolean) {
+    this.suspended = suspended;
+    const active = this.snapshot.active;
+    if (suspended && active && (active.phase === 'opening' || active.phase === 'open')) {
+      // UIKit must finish opening before it can dismiss safely.
+      this.publish({ ...active, interrupted: true,
+        phase: active.phase === 'open' ? 'closing' : active.phase });
+    }
+    if (!suspended) { this.pumpNative(); this.advance(); }
   }
 
   /** OS sheets share the presenter slot with app dialogs, including dismissal actions. */
@@ -82,7 +95,7 @@ export class ModalQueue<T> {
   didShow(presentation: number) {
     const active = this.snapshot.active;
     if (!active || active.presentation !== presentation || active.phase !== 'opening') return;
-    const stillRequested = this.requests.has(active.id) && !this.shouldYield(active);
+    const stillRequested = !this.suspended && !active.interrupted && this.requests.has(active.id) && !this.shouldYield(active);
     this.publish({ ...active, phase: stillRequested ? 'open' : 'closing' });
     if (stillRequested) active.request.onShow?.();
   }
@@ -100,7 +113,8 @@ export class ModalQueue<T> {
       this.advance();
     };
     try {
-      const action = active.request.onDismiss?.();
+      // Pausing an update/consent prompt is not the user's confirmation.
+      const action = active.interrupted ? undefined : active.request.onDismiss?.();
       if (action) {
         void action.then(finish, finish);
         this.pumpNative();
@@ -114,7 +128,7 @@ export class ModalQueue<T> {
   }
 
   private advance() {
-    if (!this.foreground || this.snapshot.active || this.runningNative) return;
+    if (this.suspended || !this.foreground || this.snapshot.active || this.runningNative) return;
     const next = [...this.requests.entries()].sort(([, a], [, b]) =>
       (b.priority ?? 0) - (a.priority ?? 0) || a.order - b.order
     )[0];
@@ -137,7 +151,7 @@ export class ModalQueue<T> {
   }
 
   private pumpNative() {
-    if (!this.foreground || this.runningNative || !this.nativeRequests.length || (this.snapshot.active && this.snapshot.active.phase !== 'settling')) return;
+    if (this.suspended || !this.foreground || this.runningNative || !this.nativeRequests.length || (this.snapshot.active && this.snapshot.active.phase !== 'settling')) return;
     // Consent and safety dialogs come first; optional startup prompts wait.
     if (!this.snapshot.active && [...this.requests.values()].some(request => (request.priority ?? 0) >= nativePermissionPriority)) {
       this.advance();

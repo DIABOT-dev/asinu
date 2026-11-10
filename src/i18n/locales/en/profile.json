@@ -5,7 +5,7 @@
   "greeting": "Hello,",
   "mascotGreeting": "Hello",
   "healthCoins": "Health coins",
-  "healthCoinsBalance": "{{count}} health coins",
+  "healthCoinsBalance": "{{count}} coins",
   "healthCoinsToday": "+{{count}} coins today",
   "headerTitle": "Profile",
   "headerSubtitle": "Manage your profile and settings",
@@ -147,5 +147,8 @@
   "checkinCallLockedDesc": "Check-in call settings are included with An Tam. Upgrade so Asinu can call to check on you after a missed check-in.",
   "requiresAnTam": "An Tam required",
   "chooseAnTam": "Choose An Tam",
+  "groupPersonalHealth": "Personal & health",
+  "groupBenefits": "Benefits",
+  "groupApplication": "App",
   "sectionRewards": "Tasks & rewards"
 }

@@ -43,7 +43,7 @@ import {
 } from '../../src/features/care-circle/family-relationships';
 import { getConnectionEditChanges, type ConnectionEditValues } from '../../src/features/care-circle/connection-edit';
 import { CareCircleQrActions } from '../../src/features/care-circle/components/CareCircleQrActions';
-import { CareCircleScanSpeech } from '../../src/features/care-circle/components/CareCircleScanSpeech';
+import { CareCircleQuickActions } from '../../src/features/care-circle/components/CareCircleQuickActions';
 import { GuideScrollScope, GuideTarget } from '../../src/features/guidance/GuidanceProvider';
 
 export default function CareCircleScreen() {
@@ -80,6 +80,7 @@ export default function CareCircleScreen() {
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [membersExpanded, setMembersExpanded] = useState(false);
+  const scrollToMembersPending = useRef(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editConnection, setEditConnection] = useState<{
     id: string;
@@ -280,44 +281,7 @@ export default function CareCircleScreen() {
     <>
       <AppAlertModal {...alertState} queued onDismiss={dismissAlert} />
       <Stack.Screen options={{ headerShown: false }} />
-      <Screen style={styles.screen}>
-        {/* Custom Header matching design */}
-        <View style={[styles.topHeader, { paddingTop: Math.max(insets.top, 20) + 10 }]}>
-          <View style={styles.connectionHeader}>
-            <View style={styles.scanSpeech}>
-              <CareCircleScanSpeech />
-            </View>
-            <View style={styles.scanPrompt}>
-              <GuideTarget step="circle.add" style={styles.headerAction}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('addManually')}
-                  onPress={() => router.push('/care-circle/invite')}
-                  style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.75 }]}
-                >
-                  <Ionicons name="add" size={30} color={colors.primaryDark} />
-                </Pressable>
-              </GuideTarget>
-              <View style={styles.scanPromptContent}>
-                <Image
-                  source={require('../../assets/images/care-circle/asinu-pointing-both-sides-v2.png')}
-                  style={styles.scanMascot}
-                  resizeMode="contain"
-                  accessible={false}
-                />
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('scanQr')}
-                onPress={() => router.push('/care-circle/scan')}
-                style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.75 }]}
-              >
-                <Ionicons name="qr-code-outline" size={30} color={colors.primaryDark} />
-              </Pressable>
-            </View>
-          </View>
-        </View>
-
+      <Screen style={[styles.screen, { paddingTop: Math.max(insets.top, 20) }]}>
         <GuideScrollScope scrollRef={guideScrollRef} offset={guideScrollOffset}>
         <RippleRefreshScrollView
           nativeScrollRef={guideScrollRef}
@@ -327,12 +291,22 @@ export default function CareCircleScreen() {
           onRefresh={refresh}
           style={styles.container}
           contentContainerStyle={{
-            paddingTop: spacing.xs,
+            paddingTop: 10,
             paddingBottom: getBottomTabBarHeight(insets.bottom) + spacing.lg,
           }}
           showsVerticalScrollIndicator={false}
         >
           <CareCircleQrActions />
+          <View style={styles.quickActionsSection} testID="care-circle-actions-section">
+            <Text allowFontScaling accessibilityRole="header" style={styles.quickActionsTitle}>{t('actions')}</Text>
+            <CareCircleQuickActions count={connections.length} expanded={membersExpanded}
+              onInvite={() => router.push('/care-circle/invite')}
+              onScan={() => router.push('/care-circle/scan')}
+              onToggleMembers={() => {
+                scrollToMembersPending.current = !membersExpanded;
+                setMembersExpanded(expanded => !expanded);
+              }} />
+          </View>
           {showInitialSkeleton ? (
             <CareCircleTabSkeleton />
           ) : (
@@ -484,20 +458,19 @@ export default function CareCircleScreen() {
               )}
 
               {/* Active Connections Section */}
-              <View style={styles.activeSection}>
-                <Pressable
-                  style={({ pressed }) => [styles.activeSectionHeader, pressed && { opacity: 0.75 }]}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('activeConnections', { count: connections.length })}
-                  accessibilityState={{ expanded: membersExpanded }}
-                  onPress={() => setMembersExpanded((expanded) => !expanded)}
-                >
+              <View style={styles.activeSection} testID="care-circle-member-list"
+                onLayout={event => {
+                  if (membersExpanded && scrollToMembersPending.current) {
+                    scrollToMembersPending.current = false;
+                    guideScrollRef.current?.scrollTo({ y: Math.max(0, event.nativeEvent.layout.y - 12), animated: true });
+                  }
+                }}>
+                {membersExpanded && <View style={styles.activeSectionHeader}>
                   <Ionicons name="people-outline" size={24} color={colors.primaryDark} />
                   <Text style={styles.activeSectionTitle}>
                     {t('activeConnections', { count: connections.length })}
                   </Text>
-                  <Ionicons name={membersExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={colors.textSecondary} />
-                </Pressable>
+                </View>}
 
                 {membersExpanded && ((loading || refreshing) && connections.length === 0 ? (
                   <ActivityIndicator size="large" color="#0D9488" style={styles.loader} />
@@ -877,25 +850,15 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       flex: 1,
       backgroundColor: 'transparent',
     },
-    // Top Header matching design
-    topHeader: {
-      alignItems: 'center',
-      justifyContent: 'center',
+    quickActionsSection: {
+      width: '100%',
+      maxWidth: 452,
+      alignSelf: 'center',
       paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.lg,
-      backgroundColor: 'transparent',
+      marginBottom: spacing.lg,
+      gap: 16,
     },
-    connectionHeader: { width: '100%', maxWidth: 420 },
-    scanSpeech: { paddingHorizontal: 48 },
-    scanPrompt: { flexDirection: 'row', alignItems: 'center', width: '100%' },
-    scanPromptContent: { flex: 1, minWidth: 0, alignItems: 'center' },
-    headerAction: {
-      width: 48,
-      height: 48,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    scanMascot: { width: 128, height: 128 },
+    quickActionsTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
     // Hero Banner Card
     heroCardShadowWrap: {
       marginHorizontal: spacing.lg,

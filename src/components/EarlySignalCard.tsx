@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
-  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -170,13 +169,6 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
               ))}
             </View>
           )}
-          <Pressable
-            style={styles.emergencyButton}
-            onPress={() => Linking.openURL("tel:115")}
-          >
-            <Ionicons name="call" size={20} color="#fff" />
-            <Text style={styles.emergencyText}>{t("earlyCall115")}</Text>
-          </Pressable>
           <Text
             style={
               assessment.family_notified_at
@@ -299,13 +291,6 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
             <View style={styles.redFlagBox}>
               <Text style={styles.redFlagTitle}>{t("earlyRedFlagTitle")}</Text>
               <Text style={styles.redFlagBody}>{assessment.summary}</Text>
-              <Pressable
-                style={styles.emergencyButton}
-                onPress={() => Linking.openURL("tel:115")}
-              >
-                <Ionicons name="call" size={20} color="#fff" />
-                <Text style={styles.emergencyText}>{t("earlyCall115")}</Text>
-              </Pressable>
               {assessment.family_notified_at && (
                 <Text style={styles.familySent}>{t("earlyFamilySent")}</Text>
               )}
@@ -554,21 +539,6 @@ const styles = StyleSheet.create({
     color: "#7f1d1d",
     fontSize: typography.size.sm,
     lineHeight: 21,
-  },
-  emergencyButton: {
-    marginTop: spacing.md,
-    minHeight: 50,
-    borderRadius: radius.lg,
-    backgroundColor: "#dc2626",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-  emergencyText: {
-    color: "#fff",
-    fontWeight: "900",
-    fontSize: typography.size.md,
   },
   familySent: {
     marginTop: spacing.sm,

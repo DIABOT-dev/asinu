@@ -196,7 +196,7 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
   const h = hooks();
   const t = translate(language, 'careCircle');
   const tc = translate(language, 'common');
-  const calls = { alerts: [], writes: [], toasts: [], routes: [] };
+  const calls = { alerts: [], writes: [], toasts: [], routes: [], scrolls: [] };
   const connection = {
     id: 'connection', requester_id: 'me', addressee_id: 'relative', status: 'accepted',
     addressee_name: 'Family Display', addressee_full_name: 'Family Member', addressee_avatar_url: 'https://example.invalid/avatar.jpg',
@@ -241,22 +241,29 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     '../../src/features/care-circle/connection-edit': connectionEdit,
     '../../src/features/care-circle/components/CareCircleQrActions': { CareCircleQrActions: 'QrActions' },
     '../../src/features/care-circle/components/CareCircleScanSpeech': { CareCircleScanSpeech: 'ScanSpeech' },
+    '../../src/features/care-circle/components/CareCircleQuickActions': { CareCircleQuickActions: 'QuickActions' },
     '../../src/features/care-circle/components/CareCircleInviteBanner': { CareCircleInviteBanner: 'InviteBanner' },
     '../../src/features/care-circle/components/CareCircleHeroBanner': { CareCircleHeroBanner: 'HeroBanner' },
     '../../src/features/care-circle/components/CareCircleEmptyState': { CareCircleEmptyState: 'EmptyState' },
     '../../src/features/guidance/GuidanceProvider': { GuideScrollScope: 'GuideScrollScope', GuideTarget: 'GuideTarget' },
   });
-  const render = () => h.render(Screen);
+  const render = () => {
+    const tree = h.render(Screen);
+    const scroll = nodes(tree).find(node => node.props?.nativeScrollRef);
+    if (scroll) scroll.props.nativeScrollRef.current = { scrollTo: options => calls.scrolls.push(options) };
+    return tree;
+  };
   const modal = () => nodes(render()).find(node => node.type === 'Modal' && node.props.visible);
-  const membersToggle = () => nodes(render()).find(node => typeof node.props?.accessibilityState?.expanded === 'boolean');
+  const membersToggle = () => nodes(render()).find(node => node.type === 'QuickActions');
   const menu = () => {
-    if (!membersToggle().props.accessibilityState.expanded) membersToggle().props.onPress();
+    if (!membersToggle().props.expanded) membersToggle().props.onToggleMembers();
     nodes(render()).find(node => node.type === 'Button' && node.props.accessibilityLabel === tc('notificationMoreActions')).props.onPress();
     return calls.alerts.at(-1)[2];
   };
   return { calls, connection, modal, render, menu,
-    toggleMembers: () => membersToggle().props.onPress(),
-    membersExpanded: () => membersToggle().props.accessibilityState.expanded,
+    toggleMembers: () => membersToggle().props.onToggleMembers(),
+    membersExpanded: () => membersToggle().props.expanded,
+    membersLayout: y => nodes(render()).find(node => node.props?.testID === 'care-circle-member-list').props.onLayout({ nativeEvent: { layout: { y } } }),
     open: () => {
       menu().find(button => button.text === t('editConnection')).onPress();
     },
@@ -271,9 +278,17 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
 for (const language of ['vi', 'en']) {
   await test(`${language}: connected members expand inline and collapse without changing saved connections`, () => {
     const h = connectionHarness({ language });
+    const initial = nodes(h.render());
+    const qrIndex = initial.findIndex(node => node.type === 'QrActions');
+    assert.ok(qrIndex >= 0 && qrIndex < initial.findIndex(node => node.type === 'QuickActions'));
+    assert.ok(flatten(initial.find(node => node.type === 'Screen').props.style).paddingTop >= 59);
+    assert.ok(initial.some(node => node.type === 'Text' && node.props.children === translate(language, 'careCircle')('actions')));
+    assert.ok(!initial.some(node => node.type === 'ScanSpeech' || node.type === 'Image' && String(node.props.source).includes('asinu-pointing-both-sides')));
     const more = () => nodes(h.render()).some(node => node.props?.accessibilityLabel === translate(language, 'common')('notificationMoreActions'));
     assert.equal(h.membersExpanded(), false); assert.equal(more(), false);
     h.toggleMembers(); assert.equal(h.membersExpanded(), true); assert.equal(more(), true);
+    h.membersLayout(480); assert.deepEqual(h.calls.scrolls, [{ y: 468, animated: true }]);
+    h.membersLayout(500); assert.equal(h.calls.scrolls.length, 1, 'A layout refresh cannot repeatedly move the member list');
     h.toggleMembers(); assert.equal(h.membersExpanded(), false); assert.equal(more(), false);
     assert.deepEqual(h.calls.writes, []); assert.deepEqual(h.calls.toasts, []);
   });

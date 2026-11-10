@@ -2,12 +2,13 @@ import { apiClient } from "../../lib/apiClient";
 import type { MedicationDraft } from "./useMedicationSetup";
 export type MedDraftSnapshot = {
   version: 1;
+  setupFlow?: "dose_first";
   step: number;
   items: Omit<MedicationDraft, "photo_uri">[];
   meals: Meals;
   slots: {
     time_local: string;
-    meal_anchor: Anchor;
+    meal_anchor: Anchor | null;
     item_indexes: number[];
     note?: string;
     sourceKeys?: string[];
@@ -279,6 +280,14 @@ export const v21Api = {
       }`,
       { method: "DELETE" },
     ),
+  moveItem: (
+    patient: number,
+    id: string,
+    body: { item_id: string; time_local: string; request_id: string },
+  ) => apiClient(
+    `/api/mobile/med-schedules/${encodeURIComponent(id)}/move-item?patientId=${patient}`,
+    { method: "POST", body },
+  ),
   consent: (id: string, accept: boolean) =>
     apiClient(
       "/api/mobile/med-schedules/" + encodeURIComponent(id) + "/consent",

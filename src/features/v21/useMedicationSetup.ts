@@ -35,14 +35,18 @@ import type { MedDraftSnapshot, MedSetupDraft } from "./v21.api";
 import {
   medicationTextHasNoDose,
   validMedicationNote,
+  validMedicationTime,
 } from "./medication-input";
 import {
   MedicationPhotoError,
   prepareMedicationPhoto,
   type MedicationPhotoUpload,
 } from "./medication-photo";
+export { validMedicationTime } from "./medication-input";
+
 export type MedicationDraft = {
   clientId: string;
+  existingItemId?: string;
   display_name: string;
   printed_name?: string;
   kind: MedKind | null;
@@ -67,8 +71,6 @@ export const medicationAnchors: Anchor[] = [
   "after_dinner",
   "bedtime",
 ];
-export const validMedicationTime = (s: string) =>
-  /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
 export const medicationNameHasNoDose = medicationTextHasNoDose;
 const blank = (): MedicationDraft => ({
   clientId: randomUUID(),
@@ -121,7 +123,9 @@ export function useMedicationSetup() {
     { t } = useTranslation("v21");
   const token = useAuthStore((s) => s.token);
   const user = String(useAuthStore((s) => s.profile?.id) ?? "");
-  const scopeKey = `${user}:${patient}:${draftId || (newPlan === "1" ? "new" : "latest")}`;
+  const scopeKey = `${user}:${patient}:${
+    draftId || (newPlan === "1" ? "new" : "latest")
+  }`;
   const translate = useRef(t);
   translate.current = t;
   const generation = useRef(0),
@@ -142,7 +146,7 @@ export function useMedicationSetup() {
         String(auth.profile?.id ?? "") === user
       );
     },
-    [token, user, scopeKey],
+    [token, user, scopeKey]
   );
   const [data, setData] = useState<MedOverview | null>(null),
     [step, setStep] = useState(1),
@@ -156,7 +160,7 @@ export function useMedicationSetup() {
     [slots, setSlots] = useState<
       {
         time_local: string;
-        meal_anchor: Anchor;
+        meal_anchor: Anchor | null;
         item_indexes: number[];
         note?: string;
         sourceKeys?: string[];
@@ -183,10 +187,9 @@ export function useMedicationSetup() {
     >(null),
     recordTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedBody = useRef<string | null>(null);
-  const reviewInputs = useRef<string | null>(null);
   const saving = useRef<object | null>(null);
   const purposes = useMedicationPurposeLookup({
-    enabled: step === 2 && !busy && !!data,
+    enabled: step === 3 && !busy && !!data,
     patient,
     scopeKey,
     version: viewVersion,
@@ -207,7 +210,7 @@ export function useMedicationSetup() {
             setDraftErrorKey(
               error instanceof ApiError && error.code === "MED_DRAFT_CHANGED"
                 ? "draftConflict"
-                : "draftSaveError",
+                : "draftSaveError"
             );
           }
           if (error)
@@ -216,9 +219,9 @@ export function useMedicationSetup() {
               operation: "draft_save",
             });
         },
-        initial,
+        initial
       ),
-    [patient, token, user, current],
+    [patient, token, user, current]
   );
   const reload = useCallback(
     async (expected = generation.current, background = false) => {
@@ -229,11 +232,11 @@ export function useMedicationSetup() {
         if (!current(expected)) return;
         const resumed = draftId
           ? (d.drafts || (d.draft ? [d.draft] : [])).find(
-              (x) => x.id === draftId,
+              (x) => x.id === draftId
             )
           : newPlan === "1"
-            ? null
-            : d.draft;
+          ? null
+          : d.draft;
         if (draftId && !resumed && !draftLoaded.current)
           throw new ApiError("", 409, { code: "MED_DRAFT_CHANGED" });
         setData(d);
@@ -253,27 +256,24 @@ export function useMedicationSetup() {
                 purposeLookup: item.purposeLookup?.result
                   ? { ...item.purposeLookup, loading: false }
                   : undefined,
-              })),
+              }))
             );
             setPhotoMediaId(snapshot.photoMediaId);
             setPhoto(photoUrl(snapshot.photoMediaId) || null);
             setMeals(snapshot.meals);
             setSlots(snapshot.slots);
-            // A chosen draft opens its editable names/types. Existing items
-            // must also remain reachable when an old draft was left on step 1.
+            // Keep saved times and assignments. Older drafts never infer new dosing times.
             setStep(
-              snapshot.items.length && (draftId || snapshot.step === 1)
-                ? 2
-                : snapshot.step,
+              draftId && snapshot.items.length && snapshot.slots.length
+                ? 3
+                : snapshot.setupFlow === "dose_first"
+                ? snapshot.step
+                : snapshot.slots.length
+                ? snapshot.step === 4
+                  ? 4
+                  : 3
+                : 1
             );
-            if (snapshot.slots.length)
-              reviewInputs.current = JSON.stringify({
-                meals: snapshot.meals,
-                items: snapshot.items.map((item) => ({
-                  clientId: item.clientId,
-                  anchors: item.anchors,
-                })),
-              });
             setDraftStatus("saved");
             mealsLoaded.current = true;
           }
@@ -292,7 +292,7 @@ export function useMedicationSetup() {
         if (current(expected)) setLoading(false);
       }
     },
-    [patient, draftId, newPlan, current, createDraftSession],
+    [patient, draftId, newPlan, current, createDraftSession]
   );
   useFocusEffect(
     useCallback(() => {
@@ -314,7 +314,6 @@ export function useMedicationSetup() {
         setStep(1);
         setScanFailures(0);
         mealsLoaded.current = false;
-        reviewInputs.current = null;
         savedBody.current = null;
         requestId.current = randomUUID();
       }
@@ -342,12 +341,13 @@ export function useMedicationSetup() {
             })
             .catch(() => {});
       };
-    }, [reload, scopeKey]),
+    }, [reload, scopeKey])
   );
   const snapshot = (): MedDraftSnapshot | null => {
-    if (!draft.length && !photoMediaId) return null;
+    if (!draft.length && !photoMediaId && !slots.length) return null;
     return {
       version: 1,
+      setupFlow: "dose_first",
       step,
       items: draft.map(draftItem),
       meals,
@@ -411,11 +411,29 @@ export function useMedicationSetup() {
       if (current(expected)) setBusy(false);
     }
   };
+  const appendDraft = (items: MedicationDraft[]) => {
+    if (draft.length + items.length > 20) {
+      useToastStore.getState().show(t("doseItemLimit"), "error");
+      return false;
+    }
+    setDraft([...draft, ...items]);
+    if (slots.length === 1)
+      setSlots((old) =>
+        old.map((slot) => ({
+          ...slot,
+          item_indexes: [
+            ...slot.item_indexes,
+            ...items.map((_, i) => draft.length + i),
+          ],
+        }))
+      );
+    return true;
+  };
   const update = (i: number, x: Partial<MedicationDraft>) => {
     if (current(viewVersion))
       setDraft((old) =>
         old.map((d, n) => {
-          if (i !== n) return d;
+          if (i !== n || d.existingItemId) return d;
           const identityChanged =
             (x.display_name !== undefined &&
               x.display_name !== d.display_name) ||
@@ -431,7 +449,7 @@ export function useMedicationSetup() {
                 }
               : {}),
           };
-        }),
+        })
       );
   };
   const leave = () => {
@@ -440,7 +458,7 @@ export function useMedicationSetup() {
       setStep((s) => s - 1);
       return;
     }
-    if (!draft.length && !photo) {
+    if (!draft.length && !photo && !slots.length) {
       router.back();
       return;
     }
@@ -515,32 +533,14 @@ export function useMedicationSetup() {
             photo_media_id: scan.mediaId,
             photo_uri: asset.uri,
             timeHints: item.suggested_slots.filter((a) =>
-              ["morning", "noon", "evening"].includes(a),
+              ["morning", "noon", "evening"].includes(a)
             ),
             anchors: item.suggested_slots.filter((a): a is Anchor =>
-              medicationAnchors.includes(a as Anchor),
+              medicationAnchors.includes(a as Anchor)
             ),
           }));
-          setDraft(items);
-          setSlots([]);
-          setStep(2);
-          const session = draftSession.current;
-          if (session) {
-            session.schedule({
-              version: 1,
-              step: 2,
-              items: items.map(draftItem),
-              meals,
-              slots: [],
-              photoMediaId: scan.mediaId,
-            });
-            try {
-              await session.flush();
-            } catch {
-              if (current(expected))
-                useToastStore.getState().show(t("draftSaveError"), "error");
-            }
-          }
+          if (!appendDraft(items)) return;
+          setStep(3);
           if (!current(expected)) return;
           if (scan.partial)
             useToastStore.getState().show(t("partialScan"), "info");
@@ -558,10 +558,10 @@ export function useMedicationSetup() {
                   error.code === "MED_LOCAL_PHOTO_TOO_LARGE"
                     ? "medicationPhotoTooLarge"
                     : error.code === "MED_LOCAL_PHOTO_UNSUPPORTED"
-                      ? "scanPhotoUnsupported"
-                      : "medicationPhotoReadError",
+                    ? "scanPhotoUnsupported"
+                    : "medicationPhotoReadError"
                 ),
-                "error",
+                "error"
               );
           } else {
             v21Error(error, t, "medicationPhotoUploadError");
@@ -602,23 +602,20 @@ export function useMedicationSetup() {
         (form as any).append(
           "audio",
           await (await fetch(uri)).blob(),
-          "name.webm",
+          "name.webm"
         );
       } else form.append("audio", new File(uri));
       const r = await v21Api.transcribe(patient, form);
       if (!current(expected)) return;
-      setDraft((old) => [
-        ...old,
-        { ...blank(), display_name: r.text, source: "VOICE" },
-      ]);
-      setStep(2);
+      if (appendDraft([{ ...blank(), display_name: r.text, source: "VOICE" }]))
+        setStep(3);
     } catch (e) {
       if (current(expected)) v21Error(e, t);
     } finally {
       if (current(expected)) setBusy(false);
       if (!recording.current)
         await Audio.setAudioModeAsync({ allowsRecordingIOS: false }).catch(
-          () => {},
+          () => {}
         );
     }
   };
@@ -643,7 +640,7 @@ export function useMedicationSetup() {
         });
         if (!current(expected)) return;
         const r = await Audio.Recording.createAsync(
-          Audio.RecordingOptionsPresets.HIGH_QUALITY,
+          Audio.RecordingOptionsPresets.HIGH_QUALITY
         );
         if (!current(expected)) {
           await r.recording.stopAndUnloadAsync();
@@ -656,70 +653,7 @@ export function useMedicationSetup() {
         if (current(expected)) v21Error(e, t);
       }
     });
-  const review = () => {
-    if (!Object.values(meals).every(validMedicationTime)) {
-      useToastStore.getState().show(t("timeInvalid"), "error");
-      return;
-    }
-    if (draft.some((x) => !x.anchors.length)) {
-      useToastStore.getState().show(t("whenTake"), "error");
-      return;
-    }
-    const inputs = JSON.stringify({
-      meals,
-      items: draft.map((d) => ({ clientId: d.clientId, anchors: d.anchors })),
-    });
-    if (reviewInputs.current === inputs && slots.length) {
-      setStep(4);
-      return;
-    }
-    const grouped = new Map<
-      string,
-      {
-        time_local: string;
-        meal_anchor: Anchor;
-        item_indexes: number[];
-        sourceKeys: string[];
-      }
-    >();
-    draft.forEach((d, i) =>
-      d.anchors.forEach((a) => {
-        const time = medicationAnchorTime(a, meals);
-        const row = grouped.get(time) || {
-          time_local: time,
-          meal_anchor: a,
-          item_indexes: [],
-          sourceKeys: [],
-        };
-        if (!row.item_indexes.includes(i)) row.item_indexes.push(i);
-        row.sourceKeys.push(`${d.clientId || i}:${a}`);
-        grouped.set(time, row);
-      }),
-    );
-    if (grouped.size > 4) {
-      useToastStore.getState().show(t("scheduleLimit"), "error");
-      return;
-    }
-    reviewInputs.current = inputs;
-    setSlots(
-      [...grouped.values()]
-        .sort((a, b) => a.time_local.localeCompare(b.time_local))
-        .map((slot) => {
-          const note = [
-            ...new Set(
-              slots
-                .filter((old) =>
-                  old.sourceKeys?.some((key) => slot.sourceKeys.includes(key)),
-                )
-                .map((old) => old.note?.trim())
-                .filter(Boolean),
-            ),
-          ].join("; ");
-          return { ...slot, ...(note ? { note } : {}) };
-        }),
-    );
-    setStep(4);
-  };
+  const review = () => setStep(4);
   const save = async () => {
     const expected = viewVersion;
     if (busy || saving.current || !current(expected)) return;
@@ -741,14 +675,14 @@ export function useMedicationSetup() {
               ...existing,
               note: [
                 ...new Set(
-                  [existing.note?.trim(), s.note?.trim()].filter(Boolean),
+                  [existing.note?.trim(), s.note?.trim()].filter(Boolean)
                 ),
               ].join("; "),
               item_indexes: [
                 ...new Set([...existing.item_indexes, ...s.item_indexes]),
               ],
             }
-          : s,
+          : s
       );
     }
     if ([...grouped.values()].some((s) => !validMedicationNote(s.note || ""))) {
@@ -756,6 +690,7 @@ export function useMedicationSetup() {
       return;
     }
     const body = {
+      merge_existing: true,
       items: draft.map(
         ({
           anchors: _,
@@ -764,26 +699,30 @@ export function useMedicationSetup() {
           timeHints: _hints,
           purposeLookup,
           selectedPurposeCodes,
+          existingItemId,
           ...d
-        }) => ({
-          ...d,
-          confirmed: true,
-          ...(purposeLookup?.result?.token && selectedPurposeCodes?.length
-            ? {
-                tag_confirmation: {
-                  token: purposeLookup.result.token,
-                  codes: selectedPurposeCodes,
-                },
+        }) =>
+          existingItemId
+            ? { id: existingItemId }
+            : {
+                ...d,
+                confirmed: true,
+                ...(purposeLookup?.result?.token && selectedPurposeCodes?.length
+                  ? {
+                      tag_confirmation: {
+                        token: purposeLookup.result.token,
+                        codes: selectedPurposeCodes,
+                      },
+                    }
+                  : {}),
               }
-            : {}),
-        }),
       ),
       meals,
       slots: [...grouped.values()].map(
         ({ note, sourceKeys: _keys, ...slot }) => ({
           ...slot,
           ...(note?.trim() ? { note: note.trim() } : {}),
-        }),
+        })
       ),
     };
     const json = JSON.stringify(body);
@@ -822,7 +761,7 @@ export function useMedicationSetup() {
             e.code === "MED_TAG_CONFIRMATION_INVALID")
         ) {
           draft.forEach((item) => purposes.retry(item));
-          setStep(2);
+          setStep(3);
         }
         v21Error(e, t);
       }
@@ -838,48 +777,52 @@ export function useMedicationSetup() {
         medicationAnchors.map((anchor) => [
           anchor,
           medicationAnchorTime(anchor, meals),
-        ]),
+        ])
       ) as Record<Anchor, string>)
     : null;
-  const selectedTimeCount = anchorTimes
-    ? new Set(
-        draft.flatMap((item) =>
-          item.anchors.map((anchor) => anchorTimes[anchor]),
-        ),
-      ).size
-    : null;
-  const timingLimitExceeded =
-    selectedTimeCount !== null && selectedTimeCount > 4;
+  const selectedTimeCount = new Set([
+    ...(data?.schedules || [])
+      .filter((row) => row.active && row.consent_state !== "DECLINED")
+      .map((row) => row.time_local.slice(0, 5)),
+    ...slots.map((slot) => slot.time_local),
+  ]).size;
+  const timingLimitExceeded = selectedTimeCount > 4;
+  const validSlots =
+    !!slots.length &&
+    !timingLimitExceeded &&
+    slots.every(
+      (slot) =>
+        validMedicationTime(slot.time_local) &&
+        validMedicationNote(slot.note || "")
+    );
+  const confirmedItems =
+    !!draft.length &&
+    draft.every(
+      (item) =>
+        !!item.kind &&
+        item.confirmed &&
+        !item.purposeLookup?.loading &&
+        !!item.display_name.trim() &&
+        item.display_name.trim().length <= 30 &&
+        medicationNameHasNoDose(item.display_name)
+    );
+  const assignedItems =
+    !!draft.length &&
+    draft.every((_, index) =>
+      slots.some((slot) => slot.item_indexes.includes(index))
+    ) &&
+    slots.every((slot) => slot.item_indexes.length > 0);
   const canContinue =
     current(viewVersion) &&
     !!data &&
     !busy &&
     !listening &&
     !purposes.pending &&
-    (step === 2
-      ? !!draft.length &&
-        draft.every(
-          (d) =>
-            !!d.kind &&
-            d.confirmed &&
-            !d.purposeLookup?.loading &&
-            !!d.display_name.trim() &&
-            d.display_name.trim().length <= 30 &&
-            medicationNameHasNoDose(d.display_name),
-        )
-      : step === 3
-        ? Object.values(meals).every(validMedicationTime) &&
-          !timingLimitExceeded &&
-          !!draft.length &&
-          draft.every((d) => d.anchors.length > 0)
-        : step === 4
-          ? !!slots.length &&
-            slots.every(
-              (s) =>
-                validMedicationTime(s.time_local) &&
-                validMedicationNote(s.note || ""),
-            )
-          : false);
+    (step === 1
+      ? validSlots && Object.values(meals).every(validMedicationTime)
+      : step === 2
+      ? !!draft.length
+      : confirmedItems && validSlots && assignedItems);
   const owned = !!token && !!user && owner.current === scopeKey;
   return {
     data: owned ? data : null,
@@ -917,7 +860,6 @@ export function useMedicationSetup() {
               setPhotoMediaId(null);
               setScanFailures(0);
               setStep(1);
-              reviewInputs.current = null;
               savedBody.current = null;
               requestId.current = randomUUID();
               if (draftId || newPlan !== "1")
@@ -960,35 +902,97 @@ export function useMedicationSetup() {
     },
     canContinue,
     addManual: () => {
-      if (!current(viewVersion)) return;
-      if (!draft.length) setDraft([blank()]);
-      setStep(2);
+      if (!current(viewVersion) || busy) return;
+      if (!draft.some((item) => !item.display_name.trim()))
+        appendDraft([blank()]);
+      setStep(3);
     },
     addItem: (name = "", supplement = false) => {
-      if (!current(viewVersion)) return;
-      setDraft((old) => {
-        const item = {
+      if (!current(viewVersion) || busy) return;
+      const item = {
+        ...blank(),
+        display_name: name,
+        kind: supplement ? ("SUPPLEMENT" as const) : ("MEDICINE" as const),
+      };
+      const empty = name
+        ? draft.findIndex(
+            (d) =>
+              d.source === "CHIP" &&
+              !d.display_name.trim() &&
+              !d.confirmed &&
+              !d.printed_name
+          )
+        : -1;
+      if (empty >= 0)
+        setDraft((old) => old.map((d, i) => (i === empty ? item : d)));
+      else appendDraft([item]);
+    },
+    selectExisting: (id: string) => {
+      if (!current(viewVersion) || busy) return;
+      const item = data?.items.find((row) => row.id === id);
+      if (!item || draft.some((row) => row.existingItemId === id)) return;
+      appendDraft([
+        {
           ...blank(),
-          display_name: name,
-          kind: supplement ? ("SUPPLEMENT" as const) : ("MEDICINE" as const),
-        };
-        const empty = name
-          ? old.findIndex(
-              (d) =>
-                d.source === "CHIP" &&
-                !d.display_name.trim() &&
-                !d.confirmed &&
-                !d.printed_name,
-            )
-          : -1;
-        if (empty >= 0)
-          return old.map((d, index) => (index === empty ? item : d));
-        return old.length < 20 ? [...old, item] : old;
-      });
+          existingItemId: id,
+          display_name: item.display_name,
+          printed_name: item.printed_name || undefined,
+          kind: item.kind,
+          source: item.source,
+          confirmed: true,
+          photo_media_id: item.photo_media_id || undefined,
+          photo_uri: item.photoUrl
+            ? `${env.apiBaseUrl}${item.photoUrl}`
+            : undefined,
+          selectedPurposeCodes: item.purpose_tags?.codes || [],
+        },
+      ]);
+    },
+    removeItem: (index: number) => {
+      if (!current(viewVersion) || busy) return;
+      setDraft((old) => old.filter((_, i) => i !== index));
+      setSlots((old) =>
+        old.map((slot) => ({
+          ...slot,
+          item_indexes: slot.item_indexes
+            .filter((i) => i !== index)
+            .map((i) => (i > index ? i - 1 : i)),
+        }))
+      );
+    },
+    toggleTime: (time: string, anchor: Anchor | null = null) => {
+      if (!current(viewVersion) || busy || !validMedicationTime(time)) return;
+      setSlots((old) =>
+        old.some((slot) => slot.time_local === time)
+          ? old.filter((slot) => slot.time_local !== time)
+          : [
+              ...old,
+              { time_local: time, meal_anchor: anchor, item_indexes: [] },
+            ].sort((a, b) => a.time_local.localeCompare(b.time_local))
+      );
+    },
+    assignItem: (itemIndex: number, slotIndex: number) => {
+      if (!current(viewVersion) || busy || !draft[itemIndex]) return;
+      setSlots((old) =>
+        old.map((slot, index) =>
+          index !== slotIndex
+            ? slot
+            : {
+                ...slot,
+                item_indexes: slot.item_indexes.includes(itemIndex)
+                  ? slot.item_indexes.filter((i) => i !== itemIndex)
+                  : [...slot.item_indexes, itemIndex],
+              }
+        )
+      );
+    },
+    addMore: () => {
+      if (current(viewVersion) && !busy) setStep(2);
     },
     next: () => {
       if (!canContinue) return;
-      if (step === 2) setStep(3);
+      if (step === 1) setStep(2);
+      else if (step === 2) setStep(3);
       else if (step === 3) review();
       else if (step === 4) void save();
     },

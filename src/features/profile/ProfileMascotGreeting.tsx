@@ -1,7 +1,7 @@
-import React, { useCallback } from "react";
-import { useFocusEffect } from "expo-router";
-import { useTranslation } from "react-i18next";
-import { Image, StyleSheet, View } from "react-native";
+import React, { useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import { Image, StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -11,13 +11,13 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-} from "react-native-reanimated";
-import { ScaledText as Text } from "../../components/ScaledText";
-import { MascotSpeechBubble } from "../../components/MascotSpeechBubble";
-import { useThemeColors } from "../../hooks/useThemeColors";
+} from 'react-native-reanimated';
+import { ScaledText as Text } from '../../components/ScaledText';
+import { MascotSpeechBubble } from '../../components/MascotSpeechBubble';
+import { useThemeColors } from '../../hooks/useThemeColors';
 
 export function ProfileMascotGreeting() {
-  const { t } = useTranslation("profile");
+  const { t } = useTranslation('profile');
   const { colors } = useThemeColors();
   const reducedMotion = useReducedMotion();
   const lift = useSharedValue(0);
@@ -40,27 +40,42 @@ export function ProfileMascotGreeting() {
   }));
   return (
     <View style={styles.brand} pointerEvents="none">
-      <MascotSpeechBubble text={t("mascotGreeting")} />
+      <MascotSpeechBubble text={t('mascotGreeting')} />
       <Animated.View
-        style={animation}
+        style={[styles.foreground, animation]}
         accessible={false}
         accessibilityElementsHidden
       >
         <Image
-          source={require("../../../assets/images/profile/asinu-profile-mascot-v1.webp")}
+          source={require('../../../assets/images/profile/asinu-profile-mascot-v1.webp')}
           style={styles.mascot}
           resizeMode="contain"
         />
       </Animated.View>
-      <Text style={[styles.wordmark, { color: colors.primaryText }]}>
-        {t("brandName")}
+      <Text
+        style={[
+          styles.foreground,
+          styles.wordmark,
+          { color: colors.primaryText },
+        ]}
+      >
+        {t('brandName')}
       </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  brand: { alignSelf: "center", alignItems: "center", gap: 8, paddingTop: 6 },
+  brand: {
+    alignSelf: 'center',
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 360,
+    gap: 8,
+    paddingTop: 18,
+    paddingBottom: 20,
+  },
+  foreground: { zIndex: 1 },
   mascot: { width: 96, height: 96 },
-  wordmark: { fontSize: 18, fontWeight: "800", letterSpacing: 2 },
+  wordmark: { fontSize: 18, fontWeight: '800', letterSpacing: 2 },
 });

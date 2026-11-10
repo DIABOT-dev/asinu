@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../components/ScaledText';
@@ -321,12 +321,6 @@ export function DoctorConsultationIntake(props: IntakeProps) {
               style={[styles.continueButton, { backgroundColor: colors.primaryText }]}>
               <Text style={[styles.continueLabel, { color: colors.surface }]}>{t('doctorScreeningChooseExpert')}</Text>
               <Ionicons accessible={false} name="arrow-forward" size={20} color={colors.surface} />
-            </Pressable>
-          )}
-          {result.status === 'emergency' && (
-            <Pressable accessibilityRole="button" onPress={() => Linking.openURL('tel:115')}
-              style={[styles.continueButton, { backgroundColor: colors.danger }]}>
-              <Text style={[styles.continueLabel, { color: colors.surface }]}>{t('checkinCallEmergency')}</Text>
             </Pressable>
           )}
           {props.answerCount > 0 && (

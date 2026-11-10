@@ -171,4 +171,74 @@ await test('native call recovery and onboarding screens retain their own navigat
     assert.deepEqual(onboardingGate({ ...session, path }), { allowed: true, routes: [] });
   }
 });
-console.log(`Apple sign-in and onboarding gates: ${checks} runtime checks passed.`);
+function authScreenHarness() {
+  const logo = deferred(), fonts = deferred();
+  const calls = { logo: 0, fonts: 0 };
+  let current;
+  const module = evaluate(read('src/features/auth/useAuthScreenReady.ts'), {
+    react: {
+      useState: initial => {
+        const instance = current;
+        if (instance.value === undefined) instance.value = initial();
+        return [instance.value, value => { instance.writes++; instance.value = value; }];
+      },
+      useEffect: effect => { current.effect ??= effect; },
+    },
+    'expo-asset': { Asset: { loadAsync: () => { calls.logo++; return logo.promise; } } },
+    'expo-font': { loadAsync: () => { calls.fonts++; return fonts.promise; } },
+    '@expo/vector-icons': { Ionicons: { font: {} }, MaterialCommunityIcons: { font: {} }, FontAwesome5: { font: {} } },
+    '../../../assets/icon.png': 1,
+  });
+  return {
+    calls, logo, fonts,
+    prepare: module.prepareAuthScreenAssets,
+    screen() {
+      const instance = { value: undefined, writes: 0 };
+      const render = () => { current = instance; return module.useAuthScreenReady(); };
+      render();
+      return {
+        render,
+        mount() { instance.cleanup = instance.effect(); },
+        unmount() { instance.cleanup?.(); },
+        get writes() { return instance.writes; },
+      };
+    },
+  };
+}
+
+await test('auth waits for both logo and icon fonts before showing the form', async () => {
+  const h = authScreenHarness(), screen = h.screen(); screen.mount();
+  assert.equal(screen.render(), false);
+  h.logo.resolve([]); await Promise.resolve();
+  assert.equal(screen.render(), false);
+  h.fonts.resolve(); await h.prepare();
+  assert.equal(screen.render(), true);
+});
+await test('switching auth screens shares pending assets and cached screens appear immediately', async () => {
+  const h = authScreenHarness(), login = h.screen(), register = h.screen();
+  login.mount(); register.mount();
+  assert.equal(h.prepare(), h.prepare());
+  assert.deepEqual(h.calls, { logo: 1, fonts: 1 });
+  h.logo.resolve([]); h.fonts.resolve(); await h.prepare();
+  assert.equal(login.render(), true); assert.equal(register.render(), true);
+  assert.equal(h.screen().render(), true);
+  assert.deepEqual(h.calls, { logo: 1, fonts: 1 });
+});
+await test('a bundled asset failure cannot leave the account behind a permanent spinner', async () => {
+  const h = authScreenHarness(), screen = h.screen(); screen.mount();
+  h.logo.resolve(Promise.reject(new Error('Asset unavailable'))); h.fonts.resolve();
+  await h.prepare(); assert.equal(screen.render(), true);
+});
+await test('an unmounted auth screen is not updated when pending assets finish', async () => {
+  const h = authScreenHarness(), screen = h.screen(); screen.mount(); screen.unmount();
+  h.logo.resolve([]); h.fonts.resolve(); await h.prepare();
+  assert.equal(screen.writes, 0);
+  assert.equal(h.screen().render(), true);
+});
+await test('assets becoming ready between render and effect cannot strand the loading screen', async () => {
+  const h = authScreenHarness(), screen = h.screen();
+  assert.equal(screen.render(), false);
+  const work = h.prepare(); h.logo.resolve([]); h.fonts.resolve(); await work;
+  screen.mount(); assert.equal(screen.render(), true);
+});
+console.log(`Authentication, onboarding and screen readiness: ${checks} runtime checks passed.`);

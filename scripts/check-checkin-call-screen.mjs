@@ -21,7 +21,7 @@ function evaluate(source, dependencies = {}, isDevelopment = true) {
 const state = evaluate(read('src/features/checkin-call/checkin-call.state.ts'));
 let checks = 0;
 function test(label, run) { run(); checks++; console.log(`PASS ${label}`); }
-function render({ lang = 'vi', role = 'USER', triage = false, busy = false, ended = false, hasHistory = false, stopAudio = () => {},
+function render({ lang = 'vi', role = 'USER', triage = false, busy = false, ended = false, joined = true, severity = 'MILD', hasHistory = false, stopAudio = () => {},
   params = { episodeId: 'episode', attemptId: 'attempt', nativeAnswered: '1' },
   auth = { hydrated: true, loading: false, token: 'test-token', profile: { id: 'test-user' } } } = {}) {
   const catalog = JSON.parse(read(`src/i18n/locales/${lang}/checkinCall.json`));
@@ -31,10 +31,10 @@ function render({ lang = 'vi', role = 'USER', triage = false, busy = false, ende
   };
   let index = 0;
   const values = {
-    0: { id: 'attempt', episode_id: 'episode', target_role: role, severity: 'MILD',
+    0: { id: 'attempt', episode_id: 'episode', target_role: role, severity,
       state: 'CONNECTED', episode_state: triage ? 'TRIAGE_USER' : 'CONTACT_USER',
       confirm_deadline: new Date(Date.now() + 90000).toISOString(), next_action_at: new Date(Date.now() + 90000).toISOString() },
-    2: true, 3: busy, 4: ended, 6: triage,
+    2: joined, 3: busy, 4: ended, 6: triage,
   };
   const hooks = {
     createElement: React.createElement, Fragment: React.Fragment,
@@ -69,7 +69,6 @@ function render({ lang = 'vi', role = 'USER', triage = false, busy = false, ende
     '../../src/features/checkin-call/CheckinCallSpeech': { CheckinCallSpeech: 'Speech', CheckinCallSafetyNote: 'SafetyNote' },
     '../../src/features/checkin-call/useCheckinCallAudio': { useCheckinCallAudio: () => ({ audio: { prompt: null }, play: noop,
       stopAudio: clearPrompt => { audioStops.push(clearPrompt); return stopAudio(clearPrompt); }, showPrompt: noop }) },
-    '../../src/features/checkin-call/CheckinCallPhoneAction': { CheckinCallPhoneAction: 'Phone' },
     '../../src/features/checkin-call/triage-draft': { restoreTriageDraft: noop },
     '../../src/features/checkin-call/triage-draft.storage': {
       triageDraftKey: (account, episode) => account == null ? null : `draft-${account}-${episode}`,
@@ -123,6 +122,16 @@ for (const lang of ['vi', 'en']) for (const [role, triage] of [['USER', false], 
       }
     }
   });
+}
+for (const lang of ['vi', 'en']) {
+  for (const variant of [{ joined: false }, { ended: true }, { role: 'FAMILY' }, { role: 'USER' }]) {
+    test(`${lang}: urgent ${JSON.stringify(variant)} retains the warning without a 115 button`, () => {
+      const h = render({ lang, severity: 'URGENT', ...variant });
+      assert.ok(h.nodes.some(node => node.type === 'Text' && node.props.children === h.t('emergencyNote')));
+      assert.ok(!h.nodes.some(node => node.props.phone === '115' || node.props.accessibilityLabel === h.t('callEmergency')));
+      if (variant.role === 'FAMILY') assert.ok(h.nodes.some(node => node.type === 'Contact'));
+    });
+  }
 }
 test('cold-start hydration gates the API/audio component instead of making unauthenticated requests', () => {
   const h = render({ auth: { hydrated: false, loading: true, token: null } });

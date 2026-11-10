@@ -12,6 +12,7 @@ import { colors, iconColors, radius, spacing } from '../styles';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { useTranslation } from 'react-i18next';
 import { QueuedModal } from './QueuedModal';
+import { useCheckinPresentationBlocked } from '../hooks/useCheckinPresentation';
 
 const SafeImage = (Image || View) as any;
 
@@ -48,6 +49,8 @@ type Props = {
   icon?: AlertIcon;
   onDismiss: () => void;
   queued?: boolean;
+  /** Explicit user actions owned by the current check-in only. */
+  allowDuringCheckin?: boolean;
   onShow?: () => void;
   stackButtons?: boolean;
   scrollable?: boolean;
@@ -68,6 +71,7 @@ export function AppAlertModal({
   icon,
   onDismiss,
   queued = false,
+  allowDuringCheckin = false,
   onShow,
   stackButtons = false,
   scrollable = false,
@@ -82,6 +86,7 @@ export function AppAlertModal({
   heroImage,
   primaryButtonBackground,
 }: Props) {
+  const checkinBlocked = useCheckinPresentationBlocked();
   const { t } = useTranslation('common');
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
@@ -226,7 +231,7 @@ export function AppAlertModal({
   );
 
   return (
-    <ModalComponent visible={visible} transparent animationType="fade" onRequestClose={onDismiss} onShow={onShow} onDismiss={handleModalDismiss}>
+    <ModalComponent visible={visible && (!checkinBlocked || allowDuringCheckin)} transparent animationType="fade" onRequestClose={onDismiss} onShow={onShow} onDismiss={handleModalDismiss}>
       <Pressable style={[styles.overlay, boundedContent && {
         paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xl,
       }]} onPress={onDismiss}>

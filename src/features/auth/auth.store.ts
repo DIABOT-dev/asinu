@@ -27,6 +27,7 @@ export type Profile = {
   // Health profile fields
   dateOfBirth?: string | null;
   age?: number | null;
+  checkinAddressing?: { honorific: string; Honorific: string; CallName?: string };
   heightCm?: number | null;
   weightKg?: number | null;
   bloodType?: string | null;

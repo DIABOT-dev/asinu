@@ -391,6 +391,64 @@ await test('speaking status waits for real native playback, not player creation'
   h.sounds[0].listener({ didJustFinish: false, isLoaded: true, playing: true });
   assert.equal(h.states.at(-1).phase, 'playing');
 });
+await test('a finalized microphone recording keeps its URI after the native recorder is released, including duplicate Stop', async () => {
+  let removed = false, stops = 0, prepares = 0;
+  class Recorder {
+    async prepareToRecordAsync() { prepares++; }
+    record() {}
+    async stop() { stops++; }
+    get uri() {
+      if (removed) throw new Error('Native shared object already released');
+      return 'file:///finalized-answer.m4a';
+    }
+    remove() { removed = true; }
+  }
+  const { Audio } = evaluate(fs.readFileSync('src/lib/audio.ts', 'utf8'), id => {
+    if (id === './native-permissions') return {};
+    if (id === 'expo-audio') return { AudioModule: { AudioRecorder: Recorder }, RecordingPresets: { HIGH_QUALITY: {} } };
+    if (id === 'react-native') return { Platform: { OS: 'ios' } };
+    throw new Error(id);
+  });
+  const { recording } = await Audio.Recording.createAsync({});
+  await Promise.all([recording.stopAndUnloadAsync(), recording.stopAndUnloadAsync()]);
+  assert.equal(prepares, 1); assert.equal(stops, 1); assert.equal(removed, true);
+  assert.equal(recording.getURI(), 'file:///finalized-answer.m4a');
+});
+await test('native record returning without starting cannot masquerade as a live microphone', async () => {
+  let removed = false, stopped = 0;
+  class Recorder {
+    isRecording = false;
+    async prepareToRecordAsync() {}
+    record() {}
+    async stop() { stopped++; }
+    remove() { removed = true; }
+  }
+  const { Audio } = evaluate(fs.readFileSync('src/lib/audio.ts', 'utf8'), id => {
+    if (id === './native-permissions') return {};
+    if (id === 'expo-audio') return { AudioModule: { AudioRecorder: Recorder }, RecordingPresets: { HIGH_QUALITY: {} } };
+    if (id === 'react-native') return { Platform: { OS: 'ios' } };
+    throw new Error(id);
+  });
+  await assert.rejects(Audio.Recording.createAsync({}), /RECORDING_NOT_STARTED/);
+  assert.equal(stopped, 1); assert.equal(removed, true);
+});
+await test('a recorder preparation failure releases its native object and metering subscription', async () => {
+  let removed = false, unsubscribed = false;
+  class Recorder {
+    addListener() { return { remove() { unsubscribed = true; } }; }
+    async prepareToRecordAsync() { throw new Error('microphone unavailable'); }
+    async stop() { throw new Error('not prepared'); }
+    remove() { removed = true; }
+  }
+  const { Audio } = evaluate(fs.readFileSync('src/lib/audio.ts', 'utf8'), id => {
+    if (id === './native-permissions') return {};
+    if (id === 'expo-audio') return { AudioModule: { AudioRecorder: Recorder }, RecordingPresets: { HIGH_QUALITY: {} } };
+    if (id === 'react-native') return { Platform: { OS: 'ios' } };
+    throw new Error(id);
+  });
+  await assert.rejects(Audio.Recording.createAsync({}, () => {}), /microphone unavailable/);
+  assert.equal(removed, true); assert.equal(unsubscribed, true);
+});
 await test('the real expo-audio adapter forwards native playback and error status', async () => {
   let listener;
   const native = { play() {}, pause() {}, remove() {}, addListener: (event, callback) => { listener = callback; return { remove() {} }; } };

@@ -4,6 +4,7 @@ import { StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { ScaledText as Text } from "./ScaledText";
 import { useThemeColors } from "../hooks/useThemeColors";
+import { useCheckinAddressing } from "../features/checkin/useCheckinAddressing";
 import {
   CHECKIN_STATUS_CHOICES,
   CheckinStatusChoice,
@@ -13,6 +14,7 @@ import {
 // These examples have no network calls and cannot create a check-in.
 export function CheckinGuidePreview({ step }: { step: number }) {
   const { t } = useTranslation("home");
+  const addressing = useCheckinAddressing();
   const { isDark } = useThemeColors();
   const styles = createStyles(isDark);
   return (
@@ -20,7 +22,7 @@ export function CheckinGuidePreview({ step }: { step: number }) {
       <Text style={styles.caption}>{t("checkinGuide.preview")}</Text>
       {step <= 3 ? (
         <>
-          <Text style={styles.heading}>{t("checkinGreetingMorning")}</Text>
+          <Text style={styles.heading}>{t("checkinGreetingMorning", addressing)}</Text>
           <Text style={styles.body}>{t("checkinSubheading")}</Text>
           {CHECKIN_STATUS_CHOICES.filter(
             (choice) =>
@@ -32,7 +34,7 @@ export function CheckinGuidePreview({ step }: { step: number }) {
         </>
       ) : step === 4 ? (
         <>
-          <Text style={styles.heading}>{t("checkinLocationTitle")}</Text>
+          <Text style={styles.heading}>{t("checkinLocationTitle", addressing)}</Text>
           <Text style={styles.body}>{t("checkinLocationDescription")}</Text>
           {(["Head", "Chest", "Abdomen"] as const).map((location, index) => (
             <View

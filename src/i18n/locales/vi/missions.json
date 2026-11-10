@@ -7,7 +7,6 @@
   "completed": "Hoàn thành",
   "howItWorks": "Cách hoạt động",
   "resetDaily": "Nhiệm vụ reset tiến trình mỗi ngày",
-  "pointsToTree": "Khi hoàn thành, điểm được cộng vào \"Cây sức khỏe\"",
   "historyTracked": "Lịch sử hoàn thành được lưu để theo dõi",
   "missionList": "Nhiệm vụ",
   "statusCompleted": "Đã hoàn thành",
@@ -33,5 +32,14 @@
   "logMedicationDesc": "Ghi chép thuốc đã uống",
   "connectFamilyDesc": "Mời người thân vào Vòng kết nối",
   "cannotLoadMissions": "Không thể tải nhiệm vụ",
-  "missionListSubtitle": "Hoàn thành nhiệm vụ mỗi ngày để có sức khỏe tốt hơn"
+  "missionListSubtitle": "Hoàn thành nhiệm vụ mỗi ngày để có sức khỏe tốt hơn",
+  "today": "Hôm nay",
+  "completionSummary": "Hoàn thành {{completed}}/{{total}}",
+  "remainingTitle": "Cần thực hiện",
+  "completedSection": "Đã hoàn thành ({{count}})",
+  "recordedProgress": "Đã ghi {{progress}}/{{goal}} lần",
+  "singlePending": "Chưa ghi nhận hôm nay",
+  "noMissionsToday": "Chưa có nhiệm vụ hôm nay",
+  "openMission": "Mở để thực hiện nhiệm vụ",
+  "instructions": "Chọn một nhiệm vụ để check-in hoặc ghi lại chỉ số. Tiến độ cập nhật sau khi lưu thành công."
 }

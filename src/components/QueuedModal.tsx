@@ -10,6 +10,8 @@ import {
 import { AppState, Modal, type ModalProps, Platform } from 'react-native';
 import { ModalQueue } from '../lib/modalQueue';
 import { attachNativePermissionPresenter } from '../lib/native-permissions';
+import { checkinPresentation } from '../lib/checkin-presentation';
+import { useCheckinPresentationBlocked } from '../hooks/useCheckinPresentation';
 
 type Content = Omit<ModalProps, 'visible' | 'onShow' | 'onDismiss'>;
 type Props = Omit<ModalProps, 'onShow' | 'onDismiss'> & {
@@ -23,10 +25,13 @@ const QueueContext = createContext<ModalQueue<Content> | null>(null);
 export function QueuedModalProvider({ children }: { children: ReactNode }) {
   const [queue] = useState(() => new ModalQueue<Content>(AppState.currentState === 'active'));
   useEffect(() => {
+    const syncPriority = () => queue.setSuspended(checkinPresentation.isBlocked());
+    syncPriority();
+    const unsubscribePriority = checkinPresentation.subscribe(syncPriority);
     const detach = attachNativePermissionPresenter(queue);
     queue.setForeground(AppState.currentState === 'active');
     const subscription = AppState.addEventListener('change', state => queue.setForeground(state === 'active'));
-    return () => { subscription.remove(); detach(); };
+    return () => { subscription.remove(); detach(); unsubscribePriority(); };
   }, [queue]);
   return <QueueContext.Provider value={queue}>{children}</QueueContext.Provider>;
 }
@@ -39,9 +44,10 @@ function useModalQueue() {
 
 /** Inline guidance yields to every native presenter, never occupying its slot. */
 export function useQueuedModalBusy() {
+  const checkinBlocked = useCheckinPresentationBlocked();
   const queue = useModalQueue();
   const snapshot = useSyncExternalStore(queue.subscribe, queue.getSnapshot, queue.getSnapshot);
-  return Boolean(snapshot.active || snapshot.nativeBusy);
+  return checkinBlocked || Boolean(snapshot.active || snapshot.nativeBusy);
 }
 
 /** Portal into the root presenter so route/unmount changes cannot orphan a modal. */
@@ -51,6 +57,7 @@ export function QueuedModal(props: Props) {
 
   useEffect(() => {
     const { visible = true, priority, interruptible, onShow, onDismiss, ...content } = props;
+    queue.setSuspended(checkinPresentation.isBlocked());
     if (visible) {
       queue.request(id, { content, priority, interruptible, onShow, onDismiss });
     } else {

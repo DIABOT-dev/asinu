@@ -1,6 +1,6 @@
 import type { GuideStep } from './guidance.model';
 
-export type GuidanceClip = 'welcome' | 'practice_result' | GuideStep;
+export type GuidanceClip = 'welcome' | 'practice_result' | 'checkin.intensity' | GuideStep;
 
 // Different screens keep independent account progress, but reuse the same
 // fixed Tuấn Anh sentence rather than synthesizing or bundling duplicate audio.
@@ -17,6 +17,7 @@ export const guidanceAssets: Record<'vi' | 'en', Record<GuidanceClip, number>> =
     'home.fine': require('../../../assets/sounds/guidance/vi_home_fine.mp3'),
     'home.unwell': require('../../../assets/sounds/guidance/vi_home_unwell.mp3'),
     'checkin.status': require('../../../assets/sounds/guidance/vi_checkin_status.mp3'),
+    'checkin.intensity': require('../../../assets/sounds/guidance/vi_checkin_intensity.mp3'),
     'checkin.location': require('../../../assets/sounds/guidance/vi_checkin_location.mp3'),
     'checkin.location_other': require('../../../assets/sounds/guidance/vi_checkin_other.mp3'),
     'checkin.choices': require('../../../assets/sounds/guidance/vi_checkin_choices.mp3'),
@@ -50,6 +51,7 @@ export const guidanceAssets: Record<'vi' | 'en', Record<GuidanceClip, number>> =
     'home.fine': require('../../../assets/sounds/guidance/en_home_fine.mp3'),
     'home.unwell': require('../../../assets/sounds/guidance/en_home_unwell.mp3'),
     'checkin.status': require('../../../assets/sounds/guidance/en_checkin_status.mp3'),
+    'checkin.intensity': require('../../../assets/sounds/guidance/en_checkin_intensity.mp3'),
     'checkin.location': require('../../../assets/sounds/guidance/en_checkin_location.mp3'),
     'checkin.location_other': require('../../../assets/sounds/guidance/en_checkin_other.mp3'),
     'checkin.choices': require('../../../assets/sounds/guidance/en_checkin_choices.mp3'),

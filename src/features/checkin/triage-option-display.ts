@@ -8,7 +8,7 @@ export function formatTriageOptionLabel(value: string): string {
   // Keep the observable warning sign visible; a suspected diagnosis is an
   // internal annotation, while the original value still goes to the API.
   return value.trim().normalize('NFC')
-    .replace(/\s*\(nghi suy tim\)/giu, '')
+    .replace(/\s*\((?:nghi(?: ngờ)? [^)]*|hội chứng đuôi ngựa|hot potato voice)\)/giu, '')
     .replace(/\p{L}/u, letter => letter.toLocaleUpperCase());
 }
 

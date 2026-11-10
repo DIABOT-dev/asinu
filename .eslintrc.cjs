@@ -14,6 +14,11 @@ module.exports = {
   ],
   overrides: [
     {
+      files: ['scripts/check-checkin-viewport.mjs', 'scripts/check-checkin-question-loading.mjs', 'scripts/check-checkin-progress.mjs', 'scripts/helpers/checkin-progress-harness.mjs', 'scripts/check-home-checkin-cards.mjs', 'scripts/check-checkin-conclusion.mjs', 'scripts/check-checkin-practice.mjs', 'scripts/check-guided-onboarding.mjs', 'scripts/check-checkin-voice-upload.mjs', 'scripts/check-checkin-live-dictation.mjs'],
+      parser: 'espree',
+      parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+    },
+    {
       files: ['scripts/check-health-feed-dismissals.mjs', 'scripts/check-ui-feature-state.mjs', 'scripts/check-home-connectivity.mjs', 'scripts/check-blood-pressure.mjs', 'scripts/check-typewriter-text.cjs', 'scripts/check-medication-photo-upload.cjs', 'scripts/check-medication-purpose.cjs', 'scripts/check-v21-medication-screen.mjs'],
       parser: 'espree',
       parserOptions: { ecmaVersion: 2022, sourceType: 'module' },

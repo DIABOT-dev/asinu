@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import ts from 'typescript';
+import { progressHarness } from './helpers/checkin-progress-harness.mjs';
+const triageSelection = progressHarness().selection;
 const read = file => fs.readFileSync(file, 'utf8');
 function evaluateSource(source, imports = {}, globals = {}) {
   const module = { exports: {} };
@@ -110,38 +112,55 @@ const nativeButton = node => typeof node.type === 'function' ? nativeButton(node
 function assertBrandButton(button) {
   const style = buttonStyle(button);
   const iconOnly = !nodes(button).some(node => node.type === 'Text');
-  assert.equal(style.backgroundColor, iconOnly ? undefined : theme.lightColors.primary);
+  const voiceControl = button.props.testID === 'checkin-voice-answer';
+  assert.equal(style.backgroundColor, iconOnly || voiceControl ? undefined : theme.lightColors.primary);
   assert.ok(style.minHeight >= 56);
   for (const node of nodes(button)) {
     if (node.type === 'Text') {
       const label = flattenStyle(node.props.style);
-      assert.equal(label.color, model.guideColors.onAction); assert.ok(label.fontSize >= 22);
+      assert.equal(label.color, voiceControl ? model.guideColors.primary : model.guideColors.onAction);
+      assert.ok(label.fontSize >= (voiceControl ? 14 : 22));
       assert.equal(node.props.allowFontScaling, true);
     }
     if (node.type === 'Icon' || node.type === 'Spinner') {
-      assert.equal(node.props.color, iconOnly ? model.guideColors.primary : model.guideColors.onAction);
+      assert.equal(node.props.color, iconOnly || voiceControl ? model.guideColors.primary : model.guideColors.onAction);
     }
   }
 }
-function controlHarness(file, imports = {}) {
-  const slots = []; let cursor = 0;
+function controlHarness(file, imports = {}, runEffects = false) {
+  const slots = [], pending = [], appListeners = new Set(); let cursor = 0, focused = true;
   const jsx = (type, props) => ({ type, props });
   const components = evaluate(file, {
-    react: { useEffect() {}, useRef: value => slots[cursor++] ??= { current: value },
+    react: { useEffect(work, deps) {
+      if (!runEffects) return;
+      const index = cursor++, old = slots[index];
+      if (!old || deps.some((value, i) => !Object.is(value, old.deps[i]))) {
+        slots[index] = { deps };
+        pending.push(() => { old?.cleanup?.(); slots[index].cleanup = work(); });
+      }
+    }, useRef: value => slots[cursor++] ??= { current: value },
       useState: initial => {
         const index = cursor++; slots[index] ??= { value: initial };
         return [slots[index].value, value => { slots[index].value = value; }];
       } },
     'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': { Pressable: 'Pressable', View: 'View', Text: 'Text', Switch: 'Switch',
-      ActivityIndicator: 'Spinner', StyleSheet: { create: value => value } },
+      ActivityIndicator: 'Spinner', StyleSheet: { create: value => value },
+      AppState: { addEventListener: (_name, fn) => { appListeners.add(fn); return { remove: () => appListeners.delete(fn) }; } } },
     '@expo/vector-icons': { Ionicons: 'Icon' },
-    'expo-router': { useIsFocused: () => true },
+    'expo-router': { useIsFocused: () => focused },
     'react-i18next': { useTranslation: () => ({ t: key => key, i18n: { language: 'vi' } }) },
     './guidance.model': model,
+    './live-dictation.service': { getLiveDictationModule: () => null },
+    '../../lib/native-permissions': {},
+    '../../components/ScaledText': { ScaledText: 'Text' },
     ...imports,
   });
-  return { render(name, props = {}) { cursor = 0; return components[name](props); } };
+  return {
+    render(name, props = {}, ...args) { cursor = 0; const tree = components[name](props, ...args); for (const work of pending.splice(0)) work(); return tree; },
+    focus(value) { focused = value; }, appState(value) { for (const fn of appListeners) fn(value); },
+    unmount() { for (const slot of slots) slot?.cleanup?.(); },
+  };
 }
 
 await test('welcome and its narration stay hidden until authenticated profile onboarding is complete', async () => {
@@ -402,8 +421,8 @@ await test('real symptom guides cover single, multiple, grouped, empty-group and
     'react/jsx-runtime': { jsx, jsxs: jsx },
   }, { View: 'View', Text: 'Text', Image: 'Image', Svg: 'Svg', Path: 'Path', asinuChatSticker: 'asinu_chat_sticker.png', Pressable: 'Pressable', TextInput: 'TextInput', ActivityIndicator: 'Spinner',
     Ionicons: 'Icon', MaterialCommunityIcons: 'Icon', Animated: { View: 'Animated' },
-    FadeIn: animation, FadeInDown: animation, FadeInLeft: animation, GuideTarget: 'GuideTarget', VoiceAnswerButton: 'VoiceAnswerButton',
-    ...triageOptionDisplay, colors: theme.lightColors, spacing: theme.spacing, MAX_TRIAGE_QUESTIONS: 10,
+    FadeIn: animation, FadeInDown: animation, FadeInLeft: animation, GuideTarget: 'GuideTarget', VoiceAnswerInput: 'VoiceAnswerInput',
+    CheckinQuestionLoading: 'QuestionLoading', ...triageOptionDisplay, ...triageSelection, colors: theme.lightColors, spacing: theme.spacing, MAX_TRIAGE_QUESTIONS: 10,
     useTranslation: () => ({ t: key => key }), useLanguageStore: () => ({ language: 'vi' }), useGuideAcknowledgement: () => () => {},
     useState: initial => [initial, () => {}], useRef: initial => ({ current: initial }), useEffect() {} });
   const defaults = { styles: {}, question: 'question', answers: [], options: ['first', 'second'], practice: true,
@@ -444,7 +463,7 @@ await test('the real first check-in screen guides all three health choices witho
     'react/jsx-runtime': { jsx, jsxs: jsx },
   }, { View: 'View', Text: 'Text', Svg: 'Svg', Path: 'Path', Circle: 'Circle', colors: theme.colors, MaterialCommunityIcons: 'Icon', Animated: { View: 'Animated' },
     FadeIn: animation, FadeInDown: animation, GuideTarget: 'GuideTarget', CheckinStatusChoice: 'StatusChoice',
-    CHECKIN_STATUS_CHOICES: statuses, useTranslation: () => ({ t: key => key }) });
+    CHECKIN_STATUS_CHOICES: statuses, useCheckinAddressing: () => ({ honorific: 'bạn', Honorific: 'Bạn', CallName: 'Bạn' }), useTranslation: () => ({ t: key => key }) });
   const selected = [], onSelect = status => selected.push(status);
   const tree = StatusScreen({ styles: { optionList: 'optionList' }, onSelect, isFollowUp: false, practice: true });
   const guide = nodes(tree).find(node => node.type === 'GuideTarget' && node.props.step === 'checkin.status');
@@ -488,14 +507,16 @@ await test('existing symptom-guide completion does not suppress the newly indepe
 await test('real status, location and symptom-question screens register different guide identities', () => {
   const file = ts.createSourceFile('checkin.tsx', read('app/checkin/index.tsx'),
     ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const expected = { StatusScreen: ['checkin.status'], LocationScreen: ['checkin.location', 'checkin.location_other', 'checkin.voice', 'checkin.location_confirm'],
-    TriageScreen: ['checkin.choices', 'checkin.other', 'checkin.voice', 'checkin.confirm'] };
+  const expected = { StatusScreen: ['checkin.status'], LocationScreen: ['checkin.location', 'checkin.location_other', 'checkin.location_confirm'],
+    TriageScreen: ['checkin.choices', 'checkin.other', 'checkin.confirm'] };
   for (const [name, ids] of Object.entries(expected)) {
-    const component = file.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
+    const owner = name === 'LocationScreen'
+      ? ts.createSourceFile('location.tsx', read('src/features/checkin/CheckinLocationFlow.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX) : file;
+    const component = owner.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === (name === 'LocationScreen' ? 'CheckinLocationFlow' : name));
     assert.ok(component);
     const registered = new Set();
     const visit = node => {
-      if (ts.isJsxAttribute(node) && node.name.getText(file) === 'step' && ts.isStringLiteral(node.initializer)) {
+      if (ts.isJsxAttribute(node) && node.name.getText(owner) === 'step' && ts.isStringLiteral(node.initializer)) {
         registered.add(node.initializer.text);
       }
       ts.forEachChild(node, visit);
@@ -503,6 +524,7 @@ await test('real status, location and symptom-question screens register differen
     visit(component);
     assert.deepEqual([...registered].sort(), [...ids].sort(), name);
   }
+  assert.match(read('src/features/guidance/VoiceAnswerInput.tsx'), /step="checkin.voice"/);
 });
 await test('care-circle steps follow actual form progress without a five-step blocking tour', () => {
   let progress = completedWelcome();
@@ -552,6 +574,22 @@ await test('normal check-in cannot display or narrate leftover guide targets, ev
   assert.ok(nodes(tree).some(node => node.props?.children === 'guidance.steps.checkin_status'));
   assert.deepEqual(h.calls.audio.at(-1), ['checkin.status', 'vi']);
   h.unmount();
+});
+await test('the intensity guide teaches the two tired levels with matching narration and never resets the account tour', async () => {
+  const h = guidanceHarness({ path: '/checkin', params: { mode: 'guide', entry: 'instant' },
+    guidance: { progress: completedWelcome() } });
+  try {
+    let tree = await h.settle(); tree.props.value.beginPractice('intensity-help');
+    tree.props.value.register('checkin.status', { node: { current: { measureInWindow: work => work(20, 180, 300, 90) } } });
+    tree = await h.settle();
+    assert.ok(nodes(tree).some(node => node.props?.children === 'guidance.steps.checkin_intensity'));
+    assert.ok(!nodes(tree).some(node => node.props?.children === 'guidance.steps.checkin_status'));
+    assert.deepEqual(h.calls.audio, [['checkin.intensity', 'vi']]);
+    nativeButton(nodes(tree).find(node => node.type?.name === 'GuideReplay')).props.onPress();
+    assert.deepEqual(h.calls.audio.at(-1), ['checkin.intensity', 'vi', true]);
+    tree.props.value.acknowledge('checkin.status'); await h.settle();
+    assert.deepEqual(h.calls.updates, []); assert.deepEqual(h.calls.routes, []);
+  } finally { h.unmount(); }
 });
 await test('practice coaches keep every acknowledgement in memory, even for an already-completed account', async () => {
   const saved = { ...completedWelcome(), completed: [...model.GUIDE_STEPS] };
@@ -708,6 +746,8 @@ await test('voice Start, Stop and transcription states retain brand colors and t
   button.props.onPress(); await tick();
   button = h.render('VoiceAnswerButton', props); assertBrandButton(button);
   assert.equal(button.props.accessibilityLabel, 'guidance.stopRecording');
+  assert.equal(button.props.accessibilityHint, 'guidance.voiceStopHint');
+  assert.ok(nodes(button).some(node => node.type === 'Text' && node.props.children === 'guidance.stopRecording'));
   button.props.onPress(); await tick();
   button = h.render('VoiceAnswerButton', props); assertBrandButton(button);
   assert.equal(button.props.disabled, true); assert.equal(button.props.accessibilityState.busy, true);
@@ -718,6 +758,155 @@ await test('voice Start, Stop and transcription states retain brand colors and t
   assert.deepEqual(events, ['stop-guide', 'stop-guide', 'stop']);
   button = h.render('VoiceAnswerButton', { ...props, disabled: true }); assertBrandButton(button);
   assert.equal(button.props.disabled, true); assert.equal(buttonStyle(button).opacity, 0.5);
+});
+function microphoneHarness({ transcript = async () => 'Tôi hơi mệt', permission = true, startError = () => false } = {}) {
+  const texts = [], notices = [], uploads = [], processing = [];
+  let creates = 0, stops = 0;
+  const h = controlHarness('src/features/guidance/VoiceAnswerButton.tsx', {
+    '../../lib/audio': { Audio: {
+      requestPermissionsAsync: async () => ({ granted: await (typeof permission === 'function' ? permission() : permission) }), setAudioModeAsync: async () => {},
+      RecordingOptionsPresets: { HIGH_QUALITY: {} }, Recording: { createAsync: async () => {
+        creates++; if (startError()) throw new Error('RECORDING_NOT_STARTED');
+        return { recording: { stopAndUnloadAsync: async () => { stops++; }, getURI: () => 'file:///answer.m4a' } };
+      } },
+    } },
+    '../chat/chat.api': { chatApi: { transcribeAudio: (...args) => { uploads.push(args); return transcript(); } } },
+    '../../stores/toast.store': { showToast: (...args) => notices.push(args) },
+    './guidance.audio': { guidanceAudio: { stop: async () => {} } },
+  }, true);
+  const props = { onBeforeAi: async () => true, onText: value => texts.push(value), onProcessingChange: value => processing.push(value) };
+  return { ...h, texts, notices, uploads, processing, get creates() { return creates; }, get stops() { return stops; },
+    render: () => h.render('VoiceAnswerButton', props), props };
+}
+await test('live check-in microphone uploads without an arbitrary loudness/duration gate and delivers text through the check-in endpoint', async () => {
+  const h = microphoneHarness();
+  try {
+    const start = h.render(); start.props.onPress(); start.props.onPress(); await tick();
+    assert.equal(h.creates, 1, 'Rapid taps cannot start two recorders');
+    const recording = h.render(); assert.equal(h.processing.at(-1), true, 'Cannot leave the question during recording');
+    recording.props.onPress(); await tick(); h.render();
+    assert.deepEqual(h.uploads, [['file:///answer.m4a', 'vi', 'checkin']]);
+    assert.deepEqual(h.texts, ['Tôi hơi mệt']); assert.deepEqual(h.notices, []); assert.equal(h.stops, 1);
+    assert.equal(h.processing.at(-1), false, 'The answer becomes actionable after text arrives');
+  } finally { h.unmount(); }
+});
+await test('empty speech or a transcription failure gives feedback and restores an actionable mic', async () => {
+  for (const [transcript, message] of [[async () => '  ', 'guidance.voiceFailure'],
+    [async () => { throw new Error('offline'); }, 'guidance.voiceTranscriptionFailure']]) {
+    const h = microphoneHarness({ transcript });
+    try {
+      h.render().props.onPress(); await tick(); h.render().props.onPress(); await tick();
+      const button = h.render(); assert.equal(button.props.disabled, false);
+      assert.equal(button.props.accessibilityState.busy, false);
+      assert.deepEqual(h.texts, []); assert.equal(h.notices[0][0], message);
+      button.props.onPress(); await tick(); assert.equal(h.creates, 2, 'Retry starts a new recording');
+    } finally { h.unmount(); }
+  }
+});
+await test('microphone denial never uploads audio and explains the missing permission', async () => {
+  const h = microphoneHarness({ permission: false });
+  try {
+    h.render().props.onPress(); await tick();
+    assert.equal(h.creates, 0); assert.deepEqual(h.uploads, []);
+    assert.deepEqual(h.notices, [['guidance.microphoneDenied', 'info']]);
+    assert.equal(h.render().props.disabled, false);
+  } finally { h.unmount(); }
+});
+await test('native recording failure is distinguished from transcription failure and permits a fresh retry', async () => {
+  let unavailable = true;
+  const h = microphoneHarness({ startError: () => unavailable });
+  try {
+    h.render().props.onPress(); await tick();
+    assert.equal(h.render().props.accessibilityLabel, 'guidance.speak');
+    assert.equal(h.render().props.disabled, false);
+    assert.deepEqual(h.notices, [['guidance.voiceRecordingFailure', 'error']]);
+    assert.deepEqual(h.uploads, []); assert.equal(h.processing.at(-1), false);
+    unavailable = false; h.render().props.onPress(); await tick();
+    h.render().props.onPress(); await tick(); h.render();
+    assert.deepEqual(h.texts, ['Tôi hơi mệt']); assert.equal(h.creates, 2);
+  } finally { h.unmount(); }
+});
+await test('the iOS permission dialog does not cancel the first recording, while actual backgrounding still does', async () => {
+  for (const state of ['inactive', 'background']) {
+    const pending = deferred(), h = microphoneHarness({ permission: () => pending.promise });
+    try {
+      h.render().props.onPress(); await tick(); h.appState(state);
+      pending.resolve(true); await tick();
+      assert.equal(h.creates, state === 'inactive' ? 1 : 0);
+      if (state === 'inactive') {
+        assert.equal(h.render().props.accessibilityLabel, 'guidance.stopRecording');
+        h.render().props.onPress(); await tick(); assert.deepEqual(h.texts, ['Tôi hơi mệt']);
+      }
+    } finally { h.unmount(); }
+  }
+});
+await test('a transcript from a hidden/unmounted question cannot fill a later answer; returning re-enables the mic', async () => {
+  for (const leave of ['blur', 'unmount']) {
+    const pending = deferred(), h = microphoneHarness({ transcript: () => pending.promise });
+    h.render().props.onPress(); await tick(); h.render().props.onPress(); await tick();
+    if (leave === 'blur') { h.focus(false); h.render(); } else h.unmount();
+    pending.resolve('old question answer'); await tick(); assert.deepEqual(h.texts, []);
+    if (leave === 'blur') {
+      h.focus(true); h.render(); assert.equal(h.render().props.disabled, false);
+      h.render().props.onPress(); await tick(); assert.equal(h.creates, 2); h.unmount();
+    }
+  }
+});
+await test('backgrounding during recording stops it without submitting an answer', async () => {
+  const h = microphoneHarness();
+  try {
+    h.render().props.onPress(); await tick(); h.appState('background'); await tick();
+    assert.equal(h.stops, 1); assert.deepEqual(h.uploads, []); assert.deepEqual(h.texts, []);
+    assert.equal(h.render().props.accessibilityLabel, 'guidance.speak');
+  } finally { h.unmount(); }
+});
+await test('the actual live symptom input appends dictated text, reflects processing and keys the mic by question', () => {
+  const file = ts.createSourceFile('checkin.tsx', read('app/checkin/index.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const component = file.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'TriageScreen');
+  const states = []; let cursor = 0;
+  const jsx = (type, props, key) => ({ type, props, key });
+  const animation = { duration: () => animation, delay: () => animation };
+  const TriageScreen = evaluateSource(`${component.getText(file)}\nmodule.exports=TriageScreen;`, {
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+  }, { View:'View',Text:'Text',Image:'Image',Pressable:'Pressable',TextInput:'Input',Ionicons:'Icon',MaterialCommunityIcons:'Icon',Svg:'Svg',Path:'Path',
+    Animated:{View:'Animated'},FadeIn:animation,FadeInDown:animation,FadeInLeft:animation,GuideTarget:'Guide',VoiceAnswerInput:'VoiceField',
+    asinuChatSticker:'existing-art', colors:theme.lightColors, spacing:theme.spacing, MAX_TRIAGE_QUESTIONS:4,
+    CheckinQuestionLoading: 'QuestionLoading', ...triageOptionDisplay, ...triageSelection,useTranslation:()=>({t:key=>key}),useGuideAcknowledgement:()=>()=>{},useRef:initial=>({current:initial}),useEffect(){},
+    useState(initial){const index=cursor++;states[index]??={value:initial};return [states[index].value,value=>{states[index].value=typeof value==='function'?value(states[index].value):value;}];},
+  });
+  const submitted=[];
+  const props={styles:{},question:'What changed?',options:[],multiSelect:false,allowFreeText:true,answers:[],loading:false,practice:false,onBeforeAi:async()=>true,onAnswer: value=>submitted.push(value)};
+  const render=()=>{cursor=0;return TriageScreen(props);};
+  let tree=render(),mic=nodes(tree).find(node=>node.type==='VoiceField');
+  assert.ok(mic,'Live check-in must use the same working voice control'); assert.equal(mic.key,props.question);
+  mic.props.onChangeText('Từ sáng tôi hơi mệt'); tree=render();
+  assert.equal(nodes(tree).find(node=>node.type==='VoiceField').props.value,'Từ sáng tôi hơi mệt');
+  nodes(tree).find(node=>node.type==='VoiceField').props.onProcessingChange(true); tree=render();
+  const confirm=nodes(tree).find(node=>node.type==='Pressable');
+  assert.equal(confirm.props.disabled,true); confirm.props.onPress(); assert.deepEqual(submitted,[]);
+  nodes(tree).find(node=>node.type==='VoiceField').props.onProcessingChange(false);tree=render();
+  nodes(tree).find(node=>node.type==='Pressable').props.onPress();
+  assert.deepEqual(submitted,['Từ sáng tôi hơi mệt']);
+});
+await test('the real transcription client keeps chat gated separately and bounds a check-in request with authentication', async () => {
+  const requests=[],timers=new Map();let response={ok:true,status:200,text:async()=>JSON.stringify({ok:true,text:' Tôi hơi mệt '})};
+  class Form { constructor(){this.entries=[];} append(...args){this.entries.push(args);} }
+  class Failure extends Error { constructor(message,status){super(message);this.statusCode=status;} }
+  const {chatApi}=evaluate('src/features/chat/chat.api.ts',{
+    'expo-file-system':{File:class File {constructor(uri){this.uri=uri;} }},'react-native':{Platform:{OS:'ios'}},
+    '../../observability/sentry':{monitoredFetch:async(url,options)=>{requests.push({url,options});return response;}},
+    '../../i18n':{default:{t:key=>key}},'../../lib/apiClient':{ApiError:Failure},
+    '../../lib/env':{env:{apiBaseUrl:'https://test.invalid'}},'../../lib/tokenStore':{tokenStore:{getToken:()=> 'test-token'}},
+  },{FormData:Form,setTimeout:(fn,ms)=>{assert.equal(ms,45000);timers.set(1,fn);return 1;},clearTimeout:id=>timers.delete(id)});
+  assert.equal(await chatApi.transcribeAudio('file:///voice.m4a','vi','checkin'),'Tôi hơi mệt');
+  assert.equal(requests[0].url,'https://test.invalid/api/mobile/checkin/transcribe');
+  assert.equal(requests[0].options.headers.Authorization,'Bearer test-token');
+  assert.equal(requests[0].options.headers['Accept-Language'],'vi');
+  assert.equal(requests[0].options.body.entries[0][1].uri,'file:///voice.m4a');
+  assert.ok(requests[0].options.signal);assert.equal(timers.size,0);
+  await chatApi.transcribeAudio('file:///voice.m4a','en');assert.equal(requests[1].url,'https://test.invalid/api/mobile/chat/transcribe');
+  response={ok:false,status:403,text:async()=>JSON.stringify({ok:false,error:'Consent required',code:'AI_CONSENT_REQUIRED'})};
+  await assert.rejects(chatApi.transcribeAudio('file:///voice.m4a','vi','checkin'),/Consent required/);assert.equal(timers.size,0);
 });
 await test('practice Speak and Done use example text, never recording, permission, transcription or consent APIs', async () => {
   const texts = [], notices = [];
@@ -790,7 +979,8 @@ await test('the check-in Help button explicitly reopens a seen guide without res
     './guidance.store': { useGuidanceStore: Object.assign(() => state, { getState: () => state }) },
     '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: theme.lightColors }) },
     '../../components/ScaledText': { ScaledText: 'Text' },
-    '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ replace: route => routes.push(route) }) },
+    '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => routes.push(route),
+      replace: () => assert.fail('Help must preserve the original check-in beneath its guide') }) },
     '../../stores/toast.store': { showToast: () => assert.fail('Unexpected guide failure') },
   });
   await h.render('useReviewGuidance', 'checkin')();
@@ -798,6 +988,12 @@ await test('the check-in Help button explicitly reopens a seen guide without res
   assert.equal(routes[0].pathname, '/checkin'); assert.equal(routes[0].params.mode, 'guide');
   assert.ok(routes[0].params.guide);
   assert.equal(state.progress, saved); assert.equal(state.progress.welcomeSeen, true);
+  assert.equal(routes[0].params.entry, undefined);
+  await h.render('useReviewGuidance', 'checkin', { instant: true })();
+  assert.equal(routes[1].params.entry, 'instant');
+  await h.render('useReviewGuidance', 'checkin', { followup: true })();
+  assert.equal(routes[2].params.guide_followup, '1');
+  assert.equal(state.progress, saved);
 });
 await test('automatic read-aloud restores old disabled preferences without choosing a role or completing coach steps', async () => {
   const h = guidanceHarness({ guidance: { progress: { ...model.defaultProgress(), readAloud: false } } });
@@ -1088,7 +1284,7 @@ await test('all bundled clips match their fixed translations, voice identity and
   assert.equal(manifest.voice, nativeVoice); assert.equal(manifest.voiceLabel, 'Asinu Tuan Anh v4');
   assert.equal(manifest.engine, 'v4'); assert.ok(manifest.speed < 1 && manifest.speed >= 0.75);
   const hash = value => createHash('sha256').update(value).digest('hex');
-  const ids = ['welcome', 'practice_result', ...model.GUIDE_STEPS];
+  const ids = ['welcome', 'practice_result', 'checkin.intensity', ...model.GUIDE_STEPS];
   const recordedIds = ids.filter(id => !Object.hasOwn(guidanceAudioAliases, id));
   for (const language of ['vi', 'en']) {
     const strings = JSON.parse(read(`src/i18n/locales/${language}/onboarding.json`)).guidance;
@@ -1119,8 +1315,9 @@ await test('the profile System section has no guide replay or read-aloud setting
   const settings = [], sections = [];
   const visit = node => {
     if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(source) === 'GuidanceSettings') settings.push(node);
-    if (ts.isJsxElement(node) && node.openingElement.tagName.getText(source) === 'Animated.View'
-      && /t\("sectionSystem"\)/.test(node.getText(source))) sections.push(node);
+    if (ts.isJsxElement(node) && node.children.some(child => ts.isJsxExpression(child)
+      && child.expression && /^renderSectionHeader\(/.test(child.expression.getText(source))
+      && /t\("sectionSystem"\)/.test(child.expression.getText(source)))) sections.push(node);
     ts.forEachChild(node, visit);
   };
   visit(source);
