@@ -126,24 +126,21 @@ export function checkinConclusionSpeech(
 ): string {
   if (!hasNarrativeCheckinConclusion(result))
     return structuredCheckinSpeech(result, fallbackNotice);
-  if (result.speechText?.trim()) return result.speechText.trim();
-  const notice = result.aiNotice?.trim() || fallbackNotice || "";
-  const suffix = [result.closeMessage, notice].filter(Boolean).join(" ");
-  const parts = parseCheckinNarrative(result.narrative).filter(
-    (part) => part.type !== "heading"
+  // Derive narration from the visible result so old saved responses carrying an
+  // abbreviated speechText also read every explanation and practical action.
+  return joinConclusionSpeech(
+    parseCheckinNarrative(result.narrative).map(part => part.text),
+    result, fallbackNotice,
   );
-  const selected = parts.filter(
-    (part, index) =>
-      index === 0 ||
-      /đi khám|chuyên gia|gọi\s*115|seek|assessment|health expert|call\s*115/iu.test(
-        part.text
-      )
-  );
-  const body: string[] = [];
-  for (const part of selected)
-    if ([...body, part.text, suffix].join(" ").length <= 1600)
-      body.push(part.text);
-  return [...body, suffix].join(" ");
+}
+
+function joinConclusionSpeech(body: string[], result: TriageSummaryView, fallbackNotice?: string): string {
+  const parts = body.map(text => text.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  for (const value of [result.disclaimer, result.closeMessage, result.aiNotice?.trim() || fallbackNotice || '']) {
+    const text = value?.replace(/\s+/g, ' ').trim();
+    if (text && !parts.some(part => part === text || part.endsWith(' ' + text))) parts.push(text);
+  }
+  return parts.join(' ');
 }
 
 export function hasStructuredCheckinConclusion(
@@ -166,19 +163,16 @@ export function hasStructuredCheckinConclusion(
   );
 }
 
-// Keep the concise narration (blocks 1, 4, 6), then the fixed AI notice.
-// Older servers can use the app's translated notice without changing the schedule.
+// Read every displayed block in order; the audio service handles provider-sized
+// requests and never relies on excluding advice to fit one TTS submission.
 export function structuredCheckinSpeech(
   result: StructuredCheckinConclusion,
   fallbackNotice?: string
 ): string {
-  return [
+  return joinConclusionSpeech([
     result.personalMessage,
+    result.explanation,
+    ...result.todo,
     ...result.seeDoctorWhen,
-    result.closeMessage,
-    result.aiNotice?.trim() || fallbackNotice || "",
-  ]
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .join(" ");
+  ], result, fallbackNotice);
 }

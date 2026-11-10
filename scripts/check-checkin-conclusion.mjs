@@ -251,10 +251,10 @@ for (const lang of ['vi', 'en']) {
       0,
     );
   });
-  test(`${lang}: speech contains blocks 1, 4, 6 followed by the fixed AI notice`, () => {
+  test(`${lang}: speech contains every visible conclusion block and advice followed by the fixed AI notice`, () => {
     assert.equal(
       helper.structuredCheckinSpeech(result),
-      'MESSAGE WARNING ONE WARNING TWO FOLLOW UP AFTER 3 HOURS ' + result.aiNotice,
+      [result.personalMessage, result.explanation, ...result.todo, ...result.seeDoctorWhen, result.disclaimer, result.closeMessage, result.aiNotice].join(' '),
     );
     assert.ok(helper.hasStructuredCheckinConclusion(result));
   });
@@ -273,16 +273,19 @@ for (const lang of ['vi', 'en']) {
     assert.ok(rendered.includes(result.disclaimer));
     assert.ok(rendered.includes(result.closeMessage));
     assert.ok(nodes(tree).some(n => n.props?.testID === 'checkin-narrative-conclusion'));
-    assert.equal(helper.checkinConclusionSpeech(value), value.speechText);
+    for (const part of parts) assert.ok(helper.checkinConclusionSpeech(value).includes(part.text));
+    assert.notEqual(helper.checkinConclusionSpeech(value), value.speechText, 'Old abbreviated transcripts cannot drop visible advice');
     assert.ok(!helper.hasNarrativeCheckinConclusion({ ...value, severity: 'emergency' }));
   });
-  test(`${lang}: a narrative without a server transcript keeps a bounded reading with the notice at the end`, () => {
-    const value = { ...result, conclusionFormat: 'narrative', narrative: 'A warm first paragraph.\n\n- Please see a health expert if symptoms worsen.\n\n' + 'Some additional explanation. '.repeat(150) };
+  test(`${lang}: a long narrative reads every paragraph and advice item with the notice at the end`, () => {
+    const value = { ...result, conclusionFormat: 'narrative', narrative: 'A warm first paragraph.\n\n- Please see a health expert if symptoms worsen.\n\n' + Array.from({ length: 150 }, (_, index) => `Some additional explanation ${index}.`).join(' ') };
     const speech = helper.checkinConclusionSpeech(value);
     assert.ok(speech.includes('A warm first paragraph.'));
     assert.ok(speech.includes('health expert'));
     assert.ok(speech.endsWith(result.aiNotice));
-    assert.ok(speech.length <= 1600);
+    assert.ok(speech.length > 1600);
+    assert.ok(speech.includes('Some additional explanation 149.'));
+    assert.ok(speech.includes(result.disclaimer));
   });
   test(`${lang}: V3 prose and every activity render fully under the existing API schema`, () => {
     const v3 = {
@@ -587,7 +590,7 @@ for (const lang of ['vi', 'en']) {
     try {
       const next = { ...h.props, triageSummary: value };
       assert.ok(loading(h.settle(next)));
-      assert.deepEqual(h.calls, [['conclusion', value.speechText]]);
+      assert.deepEqual(h.calls, [['conclusion', helper.checkinConclusionSpeech(value)]]);
       h.phase('playing');
       const tree = h.settle();
       const rendered = nodes(tree).find(n => n.type === CheckinConclusion);
@@ -662,7 +665,7 @@ for (const lang of ['vi', 'en']) {
   test(`${lang}: a stuck player has one bounded deadline and cannot keep the result hidden`, () => {
     const h = resultHarness();
     try {
-      h.settle(); assert.ok(loading(h.advance(39000)));
+      h.settle(); assert.ok(loading(h.advance(159000)));
       h.phase('loading'); h.settle();
       assert.ok(loading(h.advance(999)));
       const tree = h.advance(1);

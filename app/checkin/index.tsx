@@ -1449,13 +1449,13 @@ function DoneScreen({
 
   useEffect(() => {
     if (!waitForAudio || audioReady) return;
-    // The synthesis request has a 30s network deadline. Also bound metadata,
+    // Full narration may require several provider-sized segments. Bound metadata,
     // file/decoder stalls; a failed narrator must never hide the health result.
     const safetyTimer = setTimeout(() => {
       setAudioTimeoutIdentity(conclusionIdentity);
       setAudioReadyIdentity(conclusionIdentity);
       void stopConclusionAudio();
-    }, 40000);
+    }, 160000);
     return () => clearTimeout(safetyTimer);
   }, [waitForAudio, audioReady, conclusionIdentity, stopConclusionAudio]);
 
