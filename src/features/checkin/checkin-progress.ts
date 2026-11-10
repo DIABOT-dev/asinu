@@ -233,6 +233,7 @@ export async function loadCheckinEntry(
   account: string | number | undefined,
   mode?: string,
   requestedId?: number | null,
+  recoverCompletedPhase?: string,
 ): Promise<Entry> {
   const result = await client.getToday();
   if (!result.ok) {
@@ -250,6 +251,13 @@ export async function loadCheckinEntry(
   if (s && isUnfinishedCheckin(s)) {
     await clearLocationDraft(account);
     return { kind: 'resume', session: s, answers: await resumableAnswers(account, s) };
+  }
+  // A response may be lost after the server has already saved its conclusion.
+  // Explicit conflict recovery replays that same phase using server answers;
+  // ordinary stale Resume links still return home below.
+  if (s && recoverCompletedPhase && checkinPhaseId(s) === recoverCompletedPhase &&
+    s.triage_completed_at && s.triage_state?.completed?.finalized === true) {
+    return { kind: 'resume', session: s, answers: s.triage_messages || [] };
   }
   if (mode === 'resume') {
     if (s) {

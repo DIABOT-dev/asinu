@@ -845,6 +845,43 @@ for (const language of ['vi', 'en']) {
     assert.equal(h.calls.network.filter(call=>call[0]==='triage').length,1);
   });
 }
+await test('conflict retry opens the saved conclusion when that same interview completed before its response arrived', async () => {
+  const session = { id:500,user_id:7,initial_status:'tired',current_status:'tired',flow_state:'follow_up',
+    triage_messages:[],triage_completed_at:null,triage_state:{phase:'initial',phase_id:'phase-a'} };
+  const answer = { step:'symptoms',question:'Biểu hiện nào?',answer:'Đau bụng' };
+  let attempt = 0;
+  const entry = { session,api:{triage:async () => {
+    if (++attempt === 1) return {ok:true,isDone:false,...answer,options:['Đau bụng'],multiSelect:false};
+    if (attempt === 2) {
+      entry.session = {...session,triage_messages:[answer],triage_completed_at:'2026-11-10T06:53:00Z',
+        triage_state:{...session.triage_state,completed:{finalized:true}}};
+      throw Object.assign(new Error('changed'),{code:'TRIAGE_CHANGED'});
+    }
+    return {ok:true,isDone:true,summary:'Đã ghi nhận',recommendation:'Theo dõi thêm',severity:'low'};
+  }}};
+  const h=routeHarness('vi',{mode:'resume',checkin_id:'500'},{},entry);
+  let tree=await h.settle();
+  await nodes(tree).find(n=>n.type==='Question').props.onAnswer(answer.answer);tree=await h.settle();
+  await nodes(tree).find(n=>n.type==='StateError').props.onRetry();tree=await h.settle();
+  assert.ok(nodes(tree).some(n=>n.type==='Result'));
+  assert.ok(!nodes(tree).some(n=>n.type==='StateError'));
+  assert.deepEqual(h.calls.network.at(-1),['triage',500,[answer],'phase-a']);
+  assert.equal(h.calls.network.filter(call=>['start','followUp'].includes(call[0])).length,0);
+  assert.deepEqual(h.calls.routes,[]);
+});
+
+await test('completed conflict recovery cannot reopen a different phase or a stale ordinary Resume link', async () => {
+  const {progress} = progressHarness();
+  const session={id:500,user_id:7,initial_status:'tired',current_status:'tired',
+    triage_messages:[],triage_completed_at:'2026-11-10T06:53:00Z',
+    triage_state:{phase:'initial',phase_id:'phase-new',completed:{finalized:true}}};
+  const client={getToday:async()=>({ok:true,session})};
+  assert.equal((await progress.loadCheckinEntry(client,7,'resume',500)).kind,'home');
+  assert.equal((await progress.loadCheckinEntry(client,7,'resume',500,'phase-old')).kind,'home');
+  assert.equal((await progress.loadCheckinEntry(client,7,'resume',500,'phase-new')).kind,'resume');
+  await assert.rejects(progress.loadCheckinEntry(client,8,'resume',500,'phase-new'),/CHECKIN_ACCOUNT_CHANGED/);
+});
+
 await test('Continue Check-in restores a server bigint ID and resumes the latest saved question', async () => {
   const saved = [
     { step: 'symptoms', question: 'Biểu hiện nào?', answer: 'Đau bụng, Đau khớp' },

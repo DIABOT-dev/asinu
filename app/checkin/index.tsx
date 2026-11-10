@@ -157,6 +157,7 @@ function CheckinScreen() {
 
   const [entryError, setEntryError] = useState(false);
   const [entryAttempt, setEntryAttempt] = useState(0);
+  const entryRecoveryPhase = useRef<string | undefined>(undefined);
   const requestEpoch = useRef(0);
   const cancellation = useCheckinCancellation({
     account: userId, session,
@@ -172,7 +173,7 @@ function CheckinScreen() {
     const epoch = requestEpoch.current;
     setLoading(true);
     setEntryError(false);
-    loadCheckinEntry(checkinClient, userId, params.mode, existingCheckinId)
+    loadCheckinEntry(checkinClient, userId, params.mode, existingCheckinId, entryRecoveryPhase.current)
       .then(async entry => {
         if (!mounted || epoch !== requestEpoch.current) return;
         if (entry.kind === 'resume') {
@@ -508,6 +509,7 @@ function CheckinScreen() {
       if (err?.code === 'TRIAGE_CHANGED') {
         setTriageConflict(true);
         triageRetryRef.current = async () => {
+          entryRecoveryPhase.current = checkinPhaseId(sess);
           setLoading(true);
           setTriageError(false);
           setEntryAttempt(value => value + 1);
