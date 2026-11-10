@@ -126,7 +126,9 @@ function CheckinScreen() {
   const [practiceRevision, setPracticeRevision] = useState(0);
   const isFollowUp = isPractice ? practiceFollowup : params.mode === 'followup';
   const isRandom = params.mode === 'random';
-  const isInstantEntry = !isFollowUp && (isRandom || (isPractice && params.entry === 'instant'));
+  const isInstantEntry = isPractice
+    ? !isFollowUp && params.entry === 'instant'
+    : isRandom || params.entry === 'instant';
   const isResultPreview = params.mode === 'result_preview';
   const reviewGuidance = useReviewGuidance('checkin', { instant: isInstantEntry, followup: isFollowUp });
   const existingCheckinId = isPractice ? (practiceFollowup ? -1 : null)
@@ -191,7 +193,7 @@ function CheckinScreen() {
           else router.replace('/(tabs)/home');
           return;
         } else if (entry.kind === 'followup' && !isFollowUp) {
-          router.replace({ pathname: '/checkin', params: { checkin_id: String(entry.session.id), mode: 'followup' } });
+          router.replace({ pathname: '/checkin', params: { checkin_id: String(entry.session.id), mode: 'followup', ...(isInstantEntry ? { entry: 'instant' } : {}) } });
           return;
         }
         if (mounted && epoch === requestEpoch.current) setLoading(false);
@@ -405,7 +407,7 @@ function CheckinScreen() {
     // The start response can contain an existing session (for example when
     // another request completed it after the entry screen loaded).
     if (!isPractice && requiresCheckinFollowUp(sess)) {
-      router.replace({ pathname: '/checkin', params: { checkin_id: String(sess.id), mode: 'followup' } });
+      router.replace({ pathname: '/checkin', params: { checkin_id: String(sess.id), mode: 'followup', ...(isInstantEntry ? { entry: 'instant' } : {}) } });
       setLoading(false);
       return;
     }
@@ -648,6 +650,8 @@ function CheckinScreen() {
         >
           {isResultPreview
             ? t('checkinResultPreviewHeader')
+            : screen === 'status' && isInstantEntry
+              ? t('checkinSelectIntensityTitle')
             : isFollowUp
               ? t('checkinHeaderFollowUp')
               : screen === 'status'

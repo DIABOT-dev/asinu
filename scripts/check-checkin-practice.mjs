@@ -565,8 +565,8 @@ for (const language of ['vi', 'en']) {
     const StatusScreen = evaluate(`${extract('StatusScreen')}\nmodule.exports=StatusScreen;`, {
       ...native, ...tr, CHECKIN_STATUS_CHOICES: choices, CheckinStatusChoice: 'Choice',
     });
-    for (const instant of [false, true]) {
-      const tree = StatusScreen({ styles: {}, instant, isFollowUp: false, onSelect() {} });
+    for (const instant of [false, true]) for (const isFollowUp of [false,true]) {
+      const tree = StatusScreen({ styles: {}, instant, isFollowUp, onSelect() {} });
       assert.deepEqual(nodes(tree).filter(n => n.type === 'Choice').map(n => n.props.choice.status), instant ? ['tired', 'very_tired'] : ['fine', 'tired', 'very_tired']);
       assert.ok(!nodes(tree).some(n => ['Svg','Image'].includes(n.type)));
       for (const key of ['checkinHeroSloganLeft','checkinHeroSloganRight','checkinFooterBrand1','checkinFooterBrand2','checkinFooterBrand3']) {
@@ -906,7 +906,7 @@ await test('instant entry routes a completed high alert to the existing follow-u
     triage_messages:[{step:'symptoms',question:'Biểu hiện?',answer:'Đau bụng'}],
     triage_completed_at:'2026-11-10T06:53:00Z',triage_state:{phase:'initial',phase_id:'prior',completed:{finalized:true}}};
   const h=routeHarness('vi',{mode:'random'},{},{session});await h.settle();
-  assert.deepEqual(h.calls.routes,[{pathname:'/checkin',params:{checkin_id:'500',mode:'followup'}}]);
+  assert.deepEqual(h.calls.routes,[{pathname:'/checkin',params:{checkin_id:'500',mode:'followup',entry:'instant'}}]);
   assert.deepEqual(h.calls.network.map(c=>c[0]),['getToday']);
 });
 
@@ -926,7 +926,7 @@ for (const status of ['tired','specific_concern']) for (const completed of [fals
       await nodes(tree).find(n=>n.type==='Location').props.onConfirm(['abdomen'],'');tree=await h.settle();
     }
     if(completed){
-      assert.deepEqual(h.calls.routes,[{pathname:'/checkin',params:{checkin_id:'500',mode:'followup'}}]);
+      assert.deepEqual(h.calls.routes,[{pathname:'/checkin',params:{checkin_id:'500',mode:'followup',...(status==='tired'?{entry:'instant'}:{})}}]);
       assert.ok(!h.calls.network.some(c=>c[0]==='triage'));
     }else{
       assert.deepEqual(nodes(tree).find(n=>n.type==='Question').props.answers,saved);
@@ -935,6 +935,28 @@ for (const status of ['tired','specific_concern']) for (const completed of [fals
     assert.deepEqual(h.calls.alerts,[]);
   });
 }
+for (const language of ['vi','en']) {
+  await test(`${language}: an unwell entry keeps only the two discomfort levels when following up a protected alert`, async () => {
+    const session={id:500,user_id:7,initial_status:'tired',current_status:'tired',flow_state:'high_alert',
+      triage_messages:[{step:'symptoms',question:'Biểu hiện?',answer:'Đau bụng'}],
+      triage_completed_at:'2026-11-10T06:53:00Z',triage_state:{phase:'initial',phase_id:'prior',completed:{finalized:true}}};
+    const entry={session,api:{followUp:async()=>({ok:true,session:{...session,triage_messages:[],
+      triage_state:{phase:'followup',phase_id:'current-followup'}}}),triage:async()=>({ok:true,isDone:false,
+      step:'followup_status',question:'Tình trạng hiện giờ?',options:['Đỡ hơn','Vẫn vậy'],multiSelect:false})}};
+    const h=routeHarness(language,{mode:'followup',checkin_id:'500',entry:'instant'},{},entry);
+    let tree=await h.settle();let status=nodes(tree).find(n=>n.type==='Status');
+    assert.equal(status.props.instant,true);
+    assert.ok(nodes(tree).some(n=>n.type==='Text'&&n.props.children===translations(language).t('checkinSelectIntensityTitle')));
+    await status.props.onSelect('fine');await status.props.onSelect('specific_concern');tree=await h.settle();
+    assert.deepEqual(h.calls.network.map(c=>c[0]),['getToday']);
+    status=nodes(tree).find(n=>n.type==='Status');await status.props.onSelect('tired');tree=await h.settle();
+    assert.ok(nodes(tree).some(n=>n.type==='Question'));
+    assert.deepEqual(h.calls.network.find(c=>c[0]==='followUp'),['followUp',500,'tired']);
+    assert.deepEqual(h.calls.network.at(-1),['triage',500,[],'current-followup']);
+    assert.ok(!h.calls.network.some(c=>c[0]==='start'));
+  });
+}
+
 await test('live result preparation and the resulting conclusion both request foreground priority', async () => {
   let resolve;
   const response = new Promise(done => { resolve = done; });
