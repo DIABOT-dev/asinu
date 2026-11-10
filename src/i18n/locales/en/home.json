@@ -429,6 +429,7 @@
   "healthFeedSectionTitle": "Asinu reminders",
   "quickActions": {
     "title": "Quick actions",
+    "healthHistory": "Health history",
     "medication": "Medicines",
     "journal": "Health journal",
     "calls": "Call settings",

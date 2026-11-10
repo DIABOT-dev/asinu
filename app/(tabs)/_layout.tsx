@@ -12,10 +12,9 @@ import { useOnboardingGate } from '../../src/features/auth/useOnboardingGate';
 
 const homeIcon = require('../../src/assets/tab-icons/home.png');
 const healthcheckIcon = require('../../src/assets/tab-icons/healthcheck.png');
-const careCircleIcon = require('../../src/assets/tab-icons/care-circle.png');
 const profileIcon = require('../../src/assets/tab-icons/profile.png');
 const missionIcon = require('../../src/assets/tab-icons/mission.png');
-const tabIconModules = [homeIcon, healthcheckIcon, careCircleIcon, profileIcon, missionIcon];
+const tabIconModules = [homeIcon, healthcheckIcon, profileIcon, missionIcon];
 type TabIconSource = number | { uri: string };
 
 function TabIconSkeleton() {
@@ -133,21 +132,19 @@ export default function TabsLayout() {
     [bottom, colors, sideInset]
   );
 
-  // Keep the whole visible tab bar in loading state until all four icons are ready.
+  // Keep the whole visible tab bar in loading state until all three icons are ready.
   // The short minimum gate also makes cached bundled assets render the skeleton
   // consistently instead of skipping it in a single frame.
-  const allVisibleTabIconsLoaded = tabIconSources.slice(0, 4).every(Boolean);
+  const allVisibleTabIconsLoaded = tabIconSources.slice(0, 3).every(Boolean);
   const showTabBarLoading = useInitialLoadingGate(allVisibleTabIconsLoaded, 800, allVisibleTabIconsLoaded);
   const visibleTabIconsReady = !showTabBarLoading;
   const homeIconSource = tabIconSources[0] ?? homeIcon;
   const connectIconSource = tabIconSources[1] ?? healthcheckIcon;
-  const overviewIconSource = tabIconSources[2] ?? careCircleIcon;
-  const profileIconSource = tabIconSources[3] ?? profileIcon;
-  const missionIconSource = tabIconSources[4] ?? missionIcon;
+  const profileIconSource = tabIconSources[2] ?? profileIcon;
+  const missionIconSource = tabIconSources[3] ?? missionIcon;
   const renderHomeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={homeIconSource} focused={focused} ready={visibleTabIconsReady} />, [homeIconSource, visibleTabIconsReady]);
-  const renderMissionIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={missionIconSource} focused={focused} ready={Boolean(tabIconSources[4])} />, [missionIconSource, tabIconSources[4]]);
+  const renderMissionIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={missionIconSource} focused={focused} ready={Boolean(tabIconSources[3])} />, [missionIconSource, tabIconSources[3]]);
   const renderProfileIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={profileIconSource} focused={focused} ready={visibleTabIconsReady} />, [profileIconSource, visibleTabIconsReady]);
-  const renderTreeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={overviewIconSource} focused={focused} ready={visibleTabIconsReady} />, [overviewIconSource, visibleTabIconsReady]);
   const renderCareCircleIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={connectIconSource} focused={focused} ready={visibleTabIconsReady} />, [connectIconSource, visibleTabIconsReady]);
 
   if (!canShowTabs) return null;
@@ -176,8 +173,7 @@ export default function TabsLayout() {
         name="tree/index"
         options={{
           title: t('tabOverview'),
-          tabBarAccessibilityLabel: t('tabOverview'),
-          tabBarIcon: renderTreeIcon
+          href: null,
         }}
       />
       <Tabs.Screen

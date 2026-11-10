@@ -110,13 +110,14 @@ for (const language of ['vi', 'en']) {
   await test(`${language}: Home shortcuts expose the real destinations with labels and a gold coin`, () => {
     const h = featureGridHarness({ language }), tree = h.render(), nodes = h.nodes(tree);
     const buttons = h.tiles();
-    assert.equal(buttons.length, 10);
+    assert.equal(buttons.length, 11);
+    assert.equal(buttons[0].props.testID, 'home-feature-healthHistory');
     for (const button of buttons) {
       assert.equal(button.props.accessibilityRole, 'button'); assert.ok(button.props.accessibilityLabel);
       assert.ok(flatten(button.props.style({ pressed: false })).minHeight >= 44);
       button.props.onPress();
     }
-    assert.deepEqual(h.pushes, ['/medication', '/logs', '/checkin-call/settings', '/checkin-call/voice-settings', '/care-circle',
+    assert.deepEqual(h.pushes, ['/(tabs)/tree', '/medication', '/logs', '/checkin-call/settings', '/checkin-call/voice-settings', '/care-circle',
       '/(tabs)/missions', '/coins', '/checkin-rewards', '/checkin-rewards/history']);
     const dialog = h.nodes(h.render()).find(node => node.type === 'PermissionModal');
     assert.equal(dialog.props.visible, true);
@@ -129,7 +130,8 @@ for (const language of ['vi', 'en']) {
   await test(`${language}: disabled medication and coin features have no Home shortcuts`, () => {
     const h = featureGridHarness({ language, medicationEnabled: false, coinsEnabled: false });
     const ids = h.tiles().map(node => node.props.testID);
-    assert.equal(ids.length, 8); assert.ok(!ids.includes('home-feature-medication')); assert.ok(!ids.includes('home-feature-coins'));
+    assert.equal(ids.length, 9);
+    assert.equal(ids[0], 'home-feature-healthHistory'); assert.ok(!ids.includes('home-feature-medication')); assert.ok(!ids.includes('home-feature-coins'));
   });
 }
 for (const [width, multiplier, fontScale, columns] of [[393, 1, 1, 4], [430, 1, 1, 4],
@@ -143,7 +145,7 @@ for (const [width, multiplier, fontScale, columns] of [[393, 1, 1, 4], [430, 1, 
   });
 }
 
-for (const [width, multiplier, expected] of [[393, 1, [8, 2]], [320, 1, [6, 4]], [393, 1.6, [4, 4, 2]]]) {
+for (const [width, multiplier, expected] of [[393, 1, [8, 3]], [320, 1, [6, 5]], [393, 1.6, [4, 4, 3]]]) {
   await test(`Home shortcuts paginate at ${width}px/font ${multiplier} and expose only the active page to accessibility`, () => {
     const h = featureGridHarness({ width, multiplier });
     const nodes = h.nodes(h.render());
@@ -171,11 +173,44 @@ await test('changing screen width resets a paged shortcut grid to a valid positi
   assert.equal(nodes.find(node => node.props?.testID === 'home-feature-page-0').props.accessibilityState.selected, true);
   assert.deepEqual(h.scrolls.at(-1), { x: 0, animated: false });
 });
-await test('a single shortcut page has neither page controls nor horizontal scrolling', () => {
+await test('health history remains the first shortcut when optional features are disabled', () => {
   const h = featureGridHarness({ medicationEnabled: false, coinsEnabled: false });
   const nodes = h.nodes(h.render());
-  assert.equal(nodes.find(node => node.props?.testID === 'home-feature-pages').props.scrollEnabled, false);
-  assert.equal(nodes.some(node => node.props?.testID?.startsWith('home-feature-page-')), false);
+  const scroller = nodes.find(node => node.props?.testID === 'home-feature-pages');
+  assert.equal(scroller.props.scrollEnabled, true);
+  const history = h.nodes(scroller.props.children[0]).find(node => node.props?.testID === 'home-feature-healthHistory');
+  assert.ok(history);
+  history.props.onPress();
+  assert.equal(h.pushes.at(-1), '/(tabs)/tree');
+});
+
+await test('health history leaves the bottom bar and stays available through its existing route', () => {
+  const source = read('app/(tabs)/_layout.tsx');
+  const assets = Object.fromEntries([...source.matchAll(/require\('([^']+)'\)/g)].map(match => [match[1], match[1]]));
+  const loading = [];
+  const Tabs = Object.assign(() => null, { Screen: 'TabScreen' });
+  const { default: TabsLayout } = evaluate(source, {
+    ...assets,
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    react: { useCallback: fn => fn, useMemo: fn => fn(), useEffect: () => {},
+      useState: () => [['home-loaded', 'connect-loaded', 'profile-loaded', null], () => {}] },
+    'expo-asset': { Asset: {} },
+    'expo-router': { Tabs },
+    'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    'react-native': { Image: 'Image', StyleSheet: { create: value => value }, useWindowDimensions: () => ({ width: 393 }), View: 'View' },
+    'react-native-reanimated': {},
+    'react-native-safe-area-context': { useSafeAreaInsets: () => ({ bottom: 0 }) },
+    '../../src/hooks/useInitialLoadingGate': { useInitialLoadingGate: ready => { loading.push(ready); return !ready; } },
+    '../../src/hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
+    '../../src/styles': { bottomTabBar: { horizontalInset: 16, maxWidth: 600, contentHeight: 60, verticalPadding: 8, minimumBottomPadding: 8 } },
+    '../../src/features/auth/useOnboardingGate': { useOnboardingGate: () => true },
+  });
+  const screens = TabsLayout().props.children.filter(child => child?.type === 'TabScreen');
+  assert.deepEqual(screens.filter(screen => screen.props.options.href !== null).map(screen => screen.props.name),
+    ['home/index', 'care-circle/index', 'profile/index']);
+  assert.equal(screens.find(screen => screen.props.name === 'tree/index').props.options.href, null);
+  assert.ok(fs.existsSync('app/(tabs)/tree/index.tsx'));
+  assert.deepEqual(loading, [true], 'Hidden tabs do not delay the three visible icons');
 });
 
 function permissionModalHarness({ language = 'vi', platform = 'ios', request } = {}) {

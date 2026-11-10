@@ -11,6 +11,7 @@ import { QuickActionTile } from './QuickActionTile';
 import { AppPermissionsModal } from '../features/profile/AppPermissionsModal';
 
 const actions = [
+  { id: 'healthHistory', route: '/(tabs)/tree', image: require('../../assets/images/notifications/checkin-v1.png') },
   { id: 'medication', route: '/medication', image: require('../../assets/images/notifications/medication-v1.png') },
   { id: 'journal', route: '/logs', image: require('../../assets/images/notifications/checkin-v1.png') },
   { id: 'calls', route: '/checkin-call/settings', icon: 'options-outline' },
