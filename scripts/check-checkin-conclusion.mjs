@@ -162,7 +162,7 @@ for (const lang of ['vi', 'en']) {
     fs.readFileSync(`src/i18n/locales/${lang}/home.json`),
   );
   const backend = JSON.parse(
-    fs.readFileSync(`../backend.asinu/src/i18n/locales/${lang}.json`),
+    fs.readFileSync(`${process.env.ASINU_BACKEND_DIR || '../backend.asinu'}/src/i18n/locales/${lang}.json`),
   );
   const result = {
     summary: 'LEGACY SUMMARY',

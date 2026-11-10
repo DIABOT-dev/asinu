@@ -610,7 +610,8 @@ for (const language of ['vi', 'en']) {
       ...native, ...runtime, ...tr, ...optionDisplay, ...triageSelection, MAX_TRIAGE_QUESTIONS: 4,
       spacing: { sm: 8 }, VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
     });
-    const catalog = JSON.parse(read(`../backend.asinu/src/i18n/locales/${language}.json`));
+    const backendRoot = process.env.ASINU_BACKEND_DIR || '../backend.asinu';
+    const catalog = JSON.parse(read(`${backendRoot}/src/i18n/locales/${language}.json`));
     const nausea = catalog['checkin.detail.option.nausea'];
     const none = catalog['checkin.detail.option.none'];
     const unknown = catalog['checkin.detail.option.unknown'];
