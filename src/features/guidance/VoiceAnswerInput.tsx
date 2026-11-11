@@ -11,7 +11,7 @@ export function dictationValue(value: string, interim: string, maxLength?: numbe
 
 /** The input displays partial speech; only a finished utterance updates its owner. */
 export function VoiceAnswerInput({ value, onChangeText, onRecognized, onBeforeAi,
-  onProcessingChange, disabled = false, readOnly = false, practice = false,
+  onProcessingChange, disabled = false, readOnly = false, practice = false, practiceExample,
   placeholder, maxLength, style, inputStyle }: {
   value: string;
   onChangeText: (text: string) => void;
@@ -19,6 +19,7 @@ export function VoiceAnswerInput({ value, onChangeText, onRecognized, onBeforeAi
   onBeforeAi: () => Promise<boolean>;
   onProcessingChange: (busy: boolean) => void;
   disabled?: boolean; readOnly?: boolean; practice?: boolean;
+  practiceExample?: string;
   placeholder: string; maxLength?: number;
   style?: StyleProp<ViewStyle>; inputStyle?: StyleProp<TextStyle>;
 }) {
@@ -31,7 +32,7 @@ export function VoiceAnswerInput({ value, onChangeText, onRecognized, onBeforeAi
   }, [onProcessingChange]);
   return <View style={style}>
     <GuideTarget step="checkin.voice" enabled={practice && !disabled} acknowledgeOnTouch={false}>
-      <VoiceAnswerButton practice={practice} disabled={disabled || readOnly}
+      <VoiceAnswerButton practice={practice} practiceExample={practiceExample} disabled={disabled || readOnly}
         onBeforeAi={onBeforeAi} onInterimText={setInterim} onProcessingChange={handleProcessing}
         onText={text => {
           setInterim('');

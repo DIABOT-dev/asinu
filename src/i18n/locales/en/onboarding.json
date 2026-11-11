@@ -22,7 +22,237 @@
     "voiceStopHint": "When you finish speaking, tap Done to keep your answer.",
     "voiceProcessing": "Transcribing…",
     "practiceTitle": "Your health check-in guide",
-    "practiceNotice": "Let's go through each step together, just follow the guide.",
+    "practiceNotice": "Tap Next to explore each example step.",
+    "practiceNext": "Next",
+    "practiceCheckin": {
+      "none": "None",
+      "unknown": "Not sure",
+      "other": "Other, type or speak your answer",
+      "symptoms": {
+        "label": "Main symptoms",
+        "question": "What is bothering you at the moment?",
+        "options": [
+          "Aching",
+          "Numbness",
+          "Swelling",
+          "Itching or burning",
+          "Dizziness",
+          "Fatigue"
+        ]
+      },
+      "red_flags": {
+        "label": "Warning signs",
+        "question": "Are any of these warning signs happening now?",
+        "options": [
+          "Severe shortness of breath",
+          "Chest pain with sweating",
+          "Fainting or drowsiness"
+        ]
+      },
+      "impact": {
+        "label": "Daily activities",
+        "question": "How are these symptoms affecting your everyday activities?",
+        "options": [
+          "Usual activities are unchanged",
+          "Slower but still independent",
+          "Need help with some activities"
+        ]
+      },
+      "onset": {
+        "label": "Onset and course",
+        "question": "When did these symptoms start?",
+        "options": [
+          "Under 24 hours",
+          "24 hours to under 3 days",
+          "3 to under 7 days",
+          "7 days or more"
+        ]
+      },
+      "progression": {
+        "label": "Onset and course",
+        "question": "Since starting, have the symptoms improved, stayed the same or worsened?",
+        "options": [
+          "Improved",
+          "Stayed the same",
+          "Worsened"
+        ]
+      },
+      "character": {
+        "label": "Character and location",
+        "question": "What does the discomfort feel like?",
+        "options": [
+          "Dull aching",
+          "Sharp",
+          "Tightness",
+          "Burning",
+          "Tingling"
+        ]
+      },
+      "clinical_context": {
+        "label": "Conditions and medication today",
+        "question": "How have prescribed medicines, if any, and measurements been today?",
+        "options": [
+          "Took medication as prescribed",
+          "Missed, changed or mistimed medication",
+          "No prescribed medication at present",
+          "Measured today",
+          "Have not measured today"
+        ]
+      },
+      "source": {
+        "label": "Recent changes",
+        "question": "Before the symptoms, did any of these events or changes occur?",
+        "options": [
+          "Existing-condition symptoms or readings changed",
+          "Missed or changed medicine, or suspected side effect",
+          "Missed meal, unusual food, little water or alcohol",
+          "Fall, impact or strenuous activity",
+          "Poor sleep, stress or weather changes",
+          "New fever, cough or feeling ill"
+        ]
+      },
+      "associated": {
+        "label": "Associated changes",
+        "question": "Apart from what was already mentioned, have you noticed other changes?",
+        "options": [
+          "Fever",
+          "Reduced appetite",
+          "Trouble sleeping",
+          "Changed bowel movements",
+          "Changed urination"
+        ]
+      },
+      "followup_status": {
+        "label": "Current condition",
+        "question": "How are you feeling compared with last time?",
+        "options": [
+          "Much better",
+          "A little better",
+          "The same",
+          "Worse"
+        ]
+      },
+      "followup_detail": {
+        "label": "Current symptoms",
+        "question": "Have any new or changed symptoms appeared since the last check-in?",
+        "options": [
+          "New symptoms",
+          "Existing symptoms worsened",
+          "Existing symptoms reduced"
+        ]
+      },
+      "symptomsByRegion": {
+        "head": [
+          "Headache",
+          "Dizziness",
+          "Light-headed",
+          "Blurred vision",
+          "Tinnitus",
+          "Migraine",
+          "Fainting"
+        ],
+        "chest": [
+          "Shortness of breath",
+          "Chest pain",
+          "Chest tightness",
+          "Palpitations",
+          "Rapid heartbeat",
+          "Sweating"
+        ],
+        "abdomen": [
+          "Stomach pain",
+          "Nausea",
+          "Diarrhea",
+          "Bloating",
+          "Indigestion",
+          "Constipation"
+        ],
+        "limbs": [
+          "Numbness in limbs",
+          "Joint pain",
+          "Muscle weakness",
+          "Cramps",
+          "Swollen joints",
+          "Back pain",
+          "Fall"
+        ],
+        "skin": [
+          "Itching",
+          "Rash",
+          "Yellow skin",
+          "Burning",
+          "Bruises",
+          "Dry skin"
+        ],
+        "whole_body": [
+          "Fever",
+          "Fatigue",
+          "Chills",
+          "Body aches",
+          "Sweating",
+          "Trembling"
+        ],
+        "mental": [
+          "Anxiety",
+          "Sadness",
+          "Trouble sleeping",
+          "Insomnia",
+          "Stress",
+          "Mental fatigue"
+        ]
+      },
+    "characterByRegion": {
+      "head": [
+        "Dull aching",
+        "Sharp pain",
+        "Tightness",
+        "Throbbing"
+      ],
+      "chest": [
+        "Fast breathing",
+        "Feeling short of air",
+        "Chest heaviness",
+        "Difficulty taking a deep breath"
+      ],
+      "abdomen": [
+        "Dull aching",
+        "Cramping",
+        "Burning",
+        "Tightness",
+        "Sharp pain"
+      ],
+      "limbs": [
+        "Pins and needles",
+        "Crawling sensation",
+        "Numbness",
+        "Reduced sensation",
+        "Weakness in limbs"
+      ],
+      "skin": [
+        "Itching",
+        "Prickling",
+        "Burning",
+        "Dry tight skin"
+      ],
+      "whole_body": [
+        "Feeling hot",
+        "Shivering",
+        "Low energy",
+        "Body aches",
+        "Sweating"
+      ],
+      "mental": [
+        "Worrying about many things",
+        "Restlessness",
+        "Difficulty relaxing",
+        "Difficulty concentrating"
+      ]
+    },
+      "sampleSymptoms": "An example of the symptoms mentioned",
+      "narrative": "This demonstrates how Asinu presents a result after collecting the relevant information. In a real check-in, this area explains the reported symptoms, considers the relevant context and acknowledges uncertainty.\n\nThis guide only moves through sample screens. Example selections and anything typed during the guide are not used to assess your health.\n\n- Read the explanation to understand a real check-in result.\n- Review suggested next steps and signs that call for help.\n- Replay the narration or open Expert consultation when needed.",
+      "disclaimer": "This is a screen example, not a health assessment of the person viewing it.",
+      "close": "Tap Finish the guide to return home. This example does not schedule a follow-up."
+    },
     "practiceSummary": "Let's look over your answers and the suggestions below.",
     "practiceAdvice": "During your daily check-in, Asinu uses your answers to suggest what to do next.",
     "practiceSaved": "You've finished this step, let's see what comes next.",
@@ -30,7 +260,7 @@
     "practiceVoiceNotice": "I've added an example sentence so you can see how to check the text.",
     "practiceActionNotice": "This example helps you learn when to use this button.",
     "practiceResultTitle": "Let's look at the results together",
-    "practiceResultAudio": "Let's look at the result screen together. At the top is the attention level. Below are the things you shared and suggestions for what to do next. If you need more advice, tap the button to find someone to consult. The family section helps you see who Asinu has contacted. You can choose each situation below to learn what happens next. To hear this again, tap the speaker. When you're ready, tap Finish the guide to return home.",
+    "practiceResultAudio": "This is an example result screen. The attention level is at the top. Below is an example explanation and suggestions to review during a real check-in. You can try Replay, see the Expert consultation button and explore the example situations. The guide does not assess your health, alert your family or schedule reminders. Tap Finish the guide to return home.",
     "practiceFamilyNotice": "Here you can learn how Asinu alerts your family when you need support.",
     "practiceResultVariants": "Which situation would you like to see?",
     "practiceVariantLow": "I'm feeling well",
@@ -50,17 +280,17 @@
       "checkin_intensity": "Choose A little tired or Very tired to match how you feel now. Next, Asinu will ask where you feel uncomfortable.",
       "checkin_location": "Where do you feel uncomfortable, tap that area so we can continue.",
       "checkin_location_other": "If your answer isn't here, tap this to speak or type.",
-      "checkin_choices": "What are you experiencing, tap an option so Asinu can understand better.",
+      "checkin_choices": "Try choosing an answer, then tap Next to see the following step.",
       "checkin_other": "If your answer isn't here, tap this to speak or type.",
       "checkin_practice": "Let's go through each step together, just follow the guide.",
-      "checkin_voice": "Tap Speak and speak slowly, then tap Done when you're finished.",
+      "checkin_voice": "Tap Speak, then Done to see an example sentence appear.",
       "checkin_location_confirm": "Once you've chosen, tap Continue so we can ask you a little more.",
-      "checkin_multiple": "You can choose every option that matches what you're feeling.",
-      "checkin_single": "Choose one situation that fits how you feel, then we'll continue.",
-      "checkin_confirm": "When you're ready, tap Confirm so we can look at your answers together.",
+      "checkin_multiple": "Try selecting several answers, then tap Next.",
+      "checkin_single": "Try selecting one answer, then tap Next.",
+      "checkin_confirm": "Tap Next to see the following example step.",
       "checkin_result_status": "Let's look at the attention level here together.",
-      "checkin_result_symptoms": "Here are the things you just shared with Asinu.",
-      "checkin_result_advice": "Read these suggestions to see what you can do next.",
+      "checkin_result_symptoms": "Here is an example of how Asinu explains a result.",
+      "checkin_result_advice": "Here is where you can review suggested next steps.",
       "checkin_result_replay": "If you'd like to hear this again, tap the speaker here.",
       "checkin_result_doctor": "If you'd like more advice, tap here.",
       "checkin_result_emergency": "When you need emergency help, tap here to call one one five.",

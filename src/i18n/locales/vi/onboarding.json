@@ -22,7 +22,237 @@
     "voiceStopHint": "Nói xong, bấm Xong để giữ câu trả lời.",
     "voiceProcessing": "Đang nhận…",
     "practiceTitle": "Hướng dẫn hỏi thăm sức khỏe",
-    "practiceNotice": "Mình cùng thử từng bước nhé, bạn cứ bấm theo hướng dẫn.",
+    "practiceNotice": "Bấm Tiếp theo để xem từng bước mẫu nhé.",
+    "practiceNext": "Tiếp theo",
+    "practiceCheckin": {
+      "none": "Không có",
+      "unknown": "Không rõ",
+      "other": "Khác, nhập hoặc nói câu trả lời",
+      "symptoms": {
+        "label": "Triệu chứng chính",
+        "question": "{{Honorific}} đang thấy khó chịu như thế nào?",
+        "options": [
+          "Đau nhức",
+          "Tê bì",
+          "Sưng",
+          "Ngứa hoặc rát",
+          "Chóng mặt",
+          "Mệt mỏi"
+        ]
+      },
+      "red_flags": {
+        "label": "Dấu hiệu cần chú ý",
+        "question": "Hiện giờ có dấu hiệu nào dưới đây không?",
+        "options": [
+          "Khó thở dữ dội",
+          "Đau ngực kèm vã mồ hôi",
+          "Ngất hoặc lơ mơ"
+        ]
+      },
+      "impact": {
+        "label": "Ảnh hưởng sinh hoạt",
+        "question": "Những khó chịu này ảnh hưởng thế nào đến sinh hoạt hằng ngày?",
+        "options": [
+          "Vẫn sinh hoạt bình thường",
+          "Làm chậm hơn nhưng vẫn tự làm được",
+          "Có việc cần người giúp"
+        ]
+      },
+      "onset": {
+        "label": "Thời gian và diễn biến",
+        "question": "Những khó chịu này bắt đầu từ khi nào vậy?",
+        "options": [
+          "Dưới 24 giờ",
+          "Từ 24 giờ đến dưới 3 ngày",
+          "Từ 3 đến dưới 7 ngày",
+          "Từ 7 ngày trở lên"
+        ]
+      },
+      "progression": {
+        "label": "Thời gian và diễn biến",
+        "question": "Từ lúc mới bị đến giờ, {{honorific}} thấy đỡ hơn, vẫn vậy hay nặng hơn?",
+        "options": [
+          "Đỡ hơn",
+          "Vẫn như cũ",
+          "Nặng hơn"
+        ]
+      },
+      "character": {
+        "label": "Cảm giác và vị trí",
+        "question": "Cảm giác khó chịu này như thế nào vậy?",
+        "options": [
+          "Âm ỉ",
+          "Nhói",
+          "Căng tức",
+          "Nóng rát",
+          "Tê râm ran"
+        ]
+      },
+      "clinical_context": {
+        "label": "Bệnh nền và thuốc hôm nay",
+        "question": "Hôm nay {{honorific}} dùng thuốc được kê, nếu có, và đo chỉ số như thế nào?",
+        "options": [
+          "Đã dùng thuốc theo hướng dẫn",
+          "Có quên, sai giờ hoặc thay đổi thuốc",
+          "Hiện không có thuốc được kê",
+          "Đã đo chỉ số hôm nay",
+          "Hôm nay chưa đo chỉ số"
+        ]
+      },
+      "source": {
+        "label": "Những việc xảy ra trước đó",
+        "question": "Trước lúc thấy khó chịu, {{honorific}} có gặp việc nào dưới đây không?",
+        "options": [
+          "Biểu hiện bệnh nền hoặc chỉ số có thay đổi",
+          "Quên, đổi thuốc hoặc nghi tác dụng phụ",
+          "Bỏ bữa, ăn lạ, uống ít nước hoặc rượu bia",
+          "Ngã, va đập hoặc vận động mạnh",
+          "Thiếu ngủ, căng thẳng hoặc thay đổi thời tiết",
+          "Mới sốt, ho hoặc có biểu hiện bị ốm"
+        ]
+      },
+      "associated": {
+        "label": "Biểu hiện kèm theo",
+        "question": "Ngoài những điều vừa kể, cơ thể còn có thay đổi nào khác không?",
+        "options": [
+          "Có sốt",
+          "Ăn uống kém hơn",
+          "Khó ngủ",
+          "Đi tiêu có thay đổi",
+          "Đi tiểu có thay đổi"
+        ]
+      },
+      "followup_status": {
+        "label": "Cập nhật tình trạng",
+        "question": "So với lần trước, {{honorific}} thấy thế nào rồi?",
+        "options": [
+          "Đỡ hơn nhiều",
+          "Đỡ hơn một chút",
+          "Vẫn như cũ",
+          "Nặng hơn"
+        ]
+      },
+      "followup_detail": {
+        "label": "Biểu hiện hiện tại",
+        "question": "Từ lần hỏi thăm trước, có biểu hiện nào mới hoặc thay đổi không?",
+        "options": [
+          "Có biểu hiện mới",
+          "Biểu hiện cũ nặng hơn",
+          "Biểu hiện cũ đã giảm"
+        ]
+      },
+      "symptomsByRegion": {
+        "head": [
+          "Đau đầu",
+          "Chóng mặt",
+          "Hoa mắt",
+          "Mờ mắt",
+          "Ù tai",
+          "Đau nửa đầu",
+          "Ngất"
+        ],
+        "chest": [
+          "Khó thở",
+          "Đau ngực",
+          "Tức ngực",
+          "Hồi hộp",
+          "Tim đập nhanh",
+          "Vã mồ hôi"
+        ],
+        "abdomen": [
+          "Đau bụng",
+          "Buồn nôn",
+          "Tiêu chảy",
+          "Đầy hơi",
+          "Khó tiêu",
+          "Táo bón"
+        ],
+        "limbs": [
+          "Tê tay chân",
+          "Đau khớp",
+          "Yếu cơ",
+          "Chuột rút",
+          "Sưng khớp",
+          "Đau lưng",
+          "Bị ngã"
+        ],
+        "skin": [
+          "Ngứa",
+          "Phát ban",
+          "Vàng da",
+          "Nóng rát",
+          "Vết bầm",
+          "Da khô"
+        ],
+        "whole_body": [
+          "Sốt",
+          "Mệt mỏi",
+          "Ớn lạnh",
+          "Đau nhức toàn thân",
+          "Vã mồ hôi",
+          "Run rẩy"
+        ],
+        "mental": [
+          "Lo âu",
+          "Buồn bã",
+          "Khó ngủ",
+          "Mất ngủ",
+          "Căng thẳng",
+          "Mệt mỏi tinh thần"
+        ]
+      },
+    "characterByRegion": {
+      "head": [
+        "Đau âm ỉ",
+        "Đau nhói",
+        "Căng tức",
+        "Đau giật theo nhịp"
+      ],
+      "chest": [
+        "Thở nhanh",
+        "Hụt hơi",
+        "Cảm giác nặng ngực",
+        "Khó hít sâu"
+      ],
+      "abdomen": [
+        "Đau âm ỉ",
+        "Đau quặn",
+        "Nóng rát",
+        "Căng tức",
+        "Đau nhói"
+      ],
+      "limbs": [
+        "Kim châm",
+        "Kiến bò",
+        "Tê bì",
+        "Giảm cảm giác",
+        "Yếu tay chân"
+      ],
+      "skin": [
+        "Ngứa râm ran",
+        "Châm chích",
+        "Nóng rát",
+        "Khô căng"
+      ],
+      "whole_body": [
+        "Nóng bừng",
+        "Rét run",
+        "Uể oải",
+        "Mỏi người",
+        "Ra mồ hôi"
+      ],
+      "mental": [
+        "Lo nghĩ nhiều chuyện",
+        "Bồn chồn",
+        "Khó thư giãn",
+        "Khó tập trung"
+      ]
+    },
+      "sampleSymptoms": "Ví dụ minh hoạ về những khó chịu đã kể",
+      "narrative": "Đây là phần minh hoạ cách Asinu trình bày kết quả sau khi hỏi đủ thông tin. Trong lần check-in thật, phần này sẽ giải thích những khó chịu đã kể, liên hệ các thông tin liên quan và nói rõ điều chưa chắc.\n\nPhần hướng dẫn này chỉ chuyển qua các bước mẫu. Các đáp án vừa bấm hoặc nội dung nhập thử không được dùng để đánh giá sức khoẻ.\n\n- Đọc phần giải thích để hiểu kết quả của lần check-in thật.\n- Xem các gợi ý cần làm và dấu hiệu cần tìm hỗ trợ.\n- Có thể bấm nghe lại hoặc chọn Tư vấn chuyên gia khi cần.",
+      "disclaimer": "Đây là ví dụ giao diện, không phải kết luận về sức khoẻ của người đang xem.",
+      "close": "Bấm Hoàn tất hướng dẫn để về trang chủ. Lần minh hoạ này không tạo lịch hỏi lại."
+    },
     "practiceSummary": "Bạn xem lại những điều vừa trả lời và gợi ý ở bên dưới nhé.",
     "practiceAdvice": "Trong lần hỏi thăm hằng ngày, Asinu sẽ dựa vào câu trả lời để gợi ý bước tiếp theo.",
     "practiceSaved": "Bạn làm xong bước này rồi, mình cùng xem tiếp nhé.",
@@ -30,7 +260,7 @@
     "practiceVoiceNotice": "Mình đã thêm một câu ví dụ, bạn xem cách kiểm tra chữ nhé.",
     "practiceActionNotice": "Đây là ví dụ để bạn biết lúc nào dùng nút này nhé.",
     "practiceResultTitle": "Mình cùng xem kết quả nhé",
-    "practiceResultAudio": "Mình cùng xem màn kết quả nhé. Phía trên là mức cần chú ý. Bên dưới là những điều bạn vừa chia sẻ và gợi ý nên làm gì tiếp. Khi cần tư vấn thêm, bạn bấm vào nút tìm người tư vấn. Mục người thân giúp bạn biết Asinu đã liên hệ ai. Bạn có thể chọn từng tình huống bên dưới để xem cách xử lý. Muốn nghe lại, bạn bấm vào chiếc loa nhé. Khi đã hiểu, bạn bấm Hoàn tất hướng dẫn để về trang chủ.",
+    "practiceResultAudio": "Đây là màn kết quả minh hoạ của hướng dẫn. Phía trên là mức cần chú ý. Bên dưới là ví dụ phần giải thích và những gợi ý cần xem trong lần check-in thật. Bạn có thể bấm thử nghe lại, xem nút tư vấn chuyên gia và chọn các tình huống minh hoạ. Hướng dẫn không đánh giá sức khoẻ, không báo người thân và không tạo lịch nhắc. Bấm Hoàn tất hướng dẫn để về trang chủ nhé.",
     "practiceFamilyNotice": "Ở đây, bạn xem cách Asinu báo người thân khi cần hỗ trợ.",
     "practiceResultVariants": "Bạn muốn xem tình huống nào?",
     "practiceVariantLow": "Tôi đang thấy khỏe",
@@ -50,17 +280,17 @@
       "checkin_intensity": "Bạn chọn Hơi mệt hoặc Rất mệt theo cảm nhận lúc này nhé. Sau đó, Asinu sẽ hỏi bạn khó chịu ở đâu.",
       "checkin_location": "Bạn khó chịu ở đâu, bấm vào chỗ đó để mình hỏi tiếp nhé.",
       "checkin_location_other": "Không thấy điều bạn muốn nói, bấm đây để nói hoặc gõ nhé.",
-      "checkin_choices": "Bạn đang gặp điều nào dưới đây, bấm chọn để Asinu hiểu hơn nhé.",
+      "checkin_choices": "Bấm thử một đáp án, rồi bấm Tiếp theo để xem bước sau nhé.",
       "checkin_other": "Không thấy điều bạn muốn nói, bấm đây để nói hoặc gõ nhé.",
       "checkin_practice": "Mình cùng thử từng bước nhé, bạn cứ bấm theo hướng dẫn.",
-      "checkin_voice": "Bạn bấm Nói rồi nói chậm, xong bấm Xong giúp mình nhé.",
+      "checkin_voice": "Bấm Nói rồi Xong để xem ví dụ lời nói hiện thành chữ nhé.",
       "checkin_location_confirm": "Bạn chọn xong rồi, bấm Tiếp tục để mình hỏi thêm nhé.",
-      "checkin_multiple": "Bạn có nhiều dấu hiệu thì chọn hết những điều mình đang gặp nhé.",
-      "checkin_single": "Bạn chọn một tình huống đúng với mình, mình sẽ hỏi tiếp nhé.",
-      "checkin_confirm": "Bạn trả lời xong rồi, bấm Xác nhận để mình xem cùng nhé.",
+      "checkin_multiple": "Có thể chọn nhiều đáp án, rồi bấm Tiếp theo để xem tiếp nhé.",
+      "checkin_single": "Bạn chọn thử một đáp án, rồi bấm Tiếp theo nhé.",
+      "checkin_confirm": "Bấm Tiếp theo để xem bước mẫu tiếp theo nhé.",
       "checkin_result_status": "Mình cùng xem mức cần chú ý ở đây nhé.",
-      "checkin_result_symptoms": "Ở đây là những điều bạn vừa chia sẻ với Asinu nhé.",
-      "checkin_result_advice": "Bạn đọc gợi ý ở đây để biết nên làm gì tiếp nhé.",
+      "checkin_result_symptoms": "Ở đây là ví dụ phần giải thích kết quả nhé.",
+      "checkin_result_advice": "Bạn xem phần gợi ý nên làm gì tiếp ở đây nhé.",
       "checkin_result_replay": "Muốn nghe lại, bạn bấm vào chiếc loa ở đây nhé.",
       "checkin_result_doctor": "Bạn muốn được tư vấn thêm, bấm vào đây nhé.",
       "checkin_result_emergency": "Khi cần cấp cứu, bạn bấm đây để gọi một một năm nhé.",

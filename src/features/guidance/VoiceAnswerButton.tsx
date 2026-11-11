@@ -13,8 +13,9 @@ import { runNativePermission } from '../../lib/native-permissions';
 import { createLiveDictation, getLiveDictationModule, type LiveDictation } from './live-dictation.service';
 
 /** Reuses the existing, consented transcription endpoint, never submits an answer. */
-export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcessingChange, disabled = false, practice = false }: {
+export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcessingChange, disabled = false, practice = false, practiceExample }: {
   onText: (text: string) => void; onInterimText?: (text: string) => void; onBeforeAi: () => Promise<boolean>; onProcessingChange?: (busy: boolean) => void; disabled?: boolean; practice?: boolean;
+  practiceExample?: string;
 }) {
   const { t, i18n } = useTranslation('onboarding');
   const focused = useIsFocused();
@@ -63,7 +64,7 @@ export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcess
       if (!current()) {return;}
       if (practice) {
         if (recording) {
-          setRecording(false); onText(t('guidance.practiceVoiceExample'));
+          setRecording(false); onText(practiceExample || t('guidance.practiceVoiceExample'));
           showToast(t('guidance.practiceVoiceNotice'), 'info');
         } else {setRecording(true);}
         return;
