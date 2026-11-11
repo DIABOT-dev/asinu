@@ -197,6 +197,7 @@ for (const lang of ['vi', 'en']) {
         }),
       },
       '../../components/ScaledText': { ScaledText: 'Text' },
+      '../guidance/GuidanceProvider': { GuideTarget: 'GuideTarget' },
       '../../hooks/useThemeColors': {
         useThemeColors: () => ({
           colors: {
@@ -250,6 +251,15 @@ for (const lang of ['vi', 'en']) {
       nodes(disclaimer).filter((n) => n.type === 'Button').length,
       0,
     );
+  });
+  test(`${lang}: the practice guide highlights the real narrative explanation, advice and expert button`, () => {
+    const sample = { ...result, conclusionFormat: 'narrative', narrative: 'Example explanation.\n\n- Example next step.\n\nExample monitoring paragraph.' };
+    const tree = CheckinConclusion({ result: sample, onConnectExpert() {}, expertAvailable: true, practice: true });
+    const targets = nodes(tree).filter(node => node.type === 'GuideTarget');
+    assert.deepEqual(targets.map(node => node.props.step), ['checkin.result_symptoms', 'checkin.result_advice', 'checkin.result_doctor']);
+    assert.ok(text(targets[0]).includes('Example explanation'));
+    assert.ok(text(targets[1]).includes('Example next step'));
+    assert.ok(nodes(tree).some(node => node.props?.testID === 'checkin-narrative-conclusion'));
   });
   test(`${lang}: speech contains every visible conclusion block and advice followed by the fixed AI notice`, () => {
     assert.equal(
