@@ -417,6 +417,8 @@
   "checkinAnalyzing": "Asinu is analyzing...",
   "checkinQuestionCount": "Question {{current}} / max {{max}}",
   "checkinCustomPlaceholder": "Or type another symptom (e.g. lip numbness, itchy skin)...",
+  "checkinAnswerPlaceholder": "No matching answer? Type or speak your answer here...",
+  "checkinMeasurementPlaceholder": "Type or say the result, unit and measurement time...",
   "checkinConfirmSelection": "Confirm",
   "checkinSelectHint": "Select one or more options below",
   "checkinSelectSingleHint": "Choose the most appropriate answer for your current condition.",

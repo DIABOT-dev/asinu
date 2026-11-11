@@ -417,6 +417,8 @@
   "checkinAnalyzing": "Asinu đang phân tích...",
   "checkinQuestionCount": "Câu {{current}} / tối đa {{max}}",
   "checkinCustomPlaceholder": "Hoặc gõ triệu chứng khác (vd. tê môi, ngứa khắp người)...",
+  "checkinAnswerPlaceholder": "Chưa có đáp án phù hợp? Nhập hoặc nói câu trả lời ở đây...",
+  "checkinMeasurementPlaceholder": "Nhập hoặc nói kết quả, đơn vị và giờ đo...",
   "checkinConfirmSelection": "Xác nhận",
   "checkinSelectHint": "Chọn một hoặc nhiều mục bên dưới",
   "checkinSelectSingleHint": "Chọn một đáp án phù hợp nhất với tình trạng hiện tại của bạn.",

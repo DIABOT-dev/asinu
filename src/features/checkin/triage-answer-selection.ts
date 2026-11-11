@@ -1,4 +1,4 @@
-export function toggleTriageOption(selected: Set<string>, option: string, exclusive: string[]) {
+export function toggleTriageOption(selected: Set<string>, option: string, exclusive: string[], exclusiveGroups: string[][] = []) {
   const next = new Set(selected);
   if (next.has(option)) {
     next.delete(option);
@@ -6,6 +6,7 @@ export function toggleTriageOption(selected: Set<string>, option: string, exclus
     return new Set([option]);
   } else {
     exclusive.forEach((item) => next.delete(item));
+    exclusiveGroups.filter(group => group.includes(option)).flat().forEach(item => next.delete(item));
     next.add(option);
   }
   return next;
