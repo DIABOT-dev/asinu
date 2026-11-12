@@ -1440,4 +1440,34 @@ for (const language of ['vi', 'en']) {
     assert.ok(sent[0].includes('Glucose forgotten'));
   });
 }
+for (const language of ['vi', 'en']) for (const key of ['other', 'other_measurements']) {
+  await test(`${language}: ${key} measurement statuses remain visible and allow continuing after medicine selection`, async () => {
+    const runtime = hooks(), tr = translations(language), sent = [];
+    const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+      ...native, ...runtime, ...tr, ...triageOptionDisplay, ...triageSelection,
+      MeasurementAnswerFields: 'MeasurementFields', VoiceAnswerInput: 'VoiceAnswerInput', spacing: { sm: 8 }, useGuideAcknowledgement: () => () => {},
+    });
+    const medicines = ['Taken medicine', 'No prescription'];
+    const readings = ['Measured another reading', 'Not measured today', 'Cannot remember reading'];
+    const props = { styles: {}, question: 'Medicines and measurements?', questionStep: 'compact_clinical_context_q2',
+      options: [...medicines, ...readings, 'Unknown', 'Other'],
+      optionsGrouped: [{ key: 'medication_today', label: 'Medicine', items: medicines }, { key, label: 'Measurements today', items: readings }, { key: 'other', label: 'Another answer', items: ['Unknown', 'Other'] }],
+      requiredOptionGroups: [medicines, readings], exclusiveOptionGroups: [medicines, readings],
+      exclusiveOptions: ['Unknown'], freeTextOption: 'Other', skipAnswerLabel: 'Unknown', multiSelect: true, allowFreeText: true,
+      answers: [], loading: false, onAnswer: answer => sent.push(answer), onBeforeAi: async () => true };
+    const render = () => runtime.settle(() => component(props)); let tree = await render();
+    const pick = async label => {
+      const choice = nodes(tree).find(n => n.props?.accessibilityLabel === label && n.props.accessibilityRole === 'radio');
+      assert.ok(choice, `A required answer must be visible: ${label}`);
+      choice.props.onPress(); tree = await render();
+    };
+    const confirm = () => nodes(tree).find(n => n.type === 'Pressable' && nodes(n).some(child => child.type === 'Icon' && child.props.name === 'arrow-forward'));
+    await pick('No prescription');
+    assert.equal(confirm().props.disabled, true, 'Wait for the visible measurement answer');
+    await pick('Not measured today');
+    assert.equal(confirm().props.disabled, false, 'The video case must be able to continue');
+    confirm().props.onPress(); await tick();
+    assert.deepEqual(sent, ['No prescription, Not measured today']);
+  });
+}
 console.log(`Check-in practice: ${checks} runtime regressions passed.`);

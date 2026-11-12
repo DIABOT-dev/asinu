@@ -669,7 +669,7 @@ function CheckinScreen() {
                 ? t(isInstantEntry ? 'checkinSelectIntensityTitle' : 'checkinSelectStatusTitle')
                 : t('checkinHeaderTitle')}
         </Text>}
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', minWidth: 44 }}>
         {screen === 'status' && !isPractice && !isResultPreview ? <Pressable
           testID="checkin-context-help"
           accessibilityLabel={t('checkinGuide.badge')}
@@ -686,12 +686,12 @@ function CheckinScreen() {
         >
           <Ionicons name="help-circle-outline" size={24} color={colors.primaryText} />
         </Pressable> : null}
-        {!isPractice && !isResultPreview && screen !== 'done' ? <Pressable
+        {!isPractice && !isResultPreview && (screen === 'location' || screen === 'triage') ? <Pressable
           testID="checkin-cancel" accessibilityRole="button" accessibilityLabel={t('checkinCancel')}
           disabled={cancellation.busy || (loading && !session)} onPress={cancellation.request}
           style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 8, justifyContent: 'center', opacity: cancellation.busy || pressed || (loading && !session) ? 0.5 : 1 })}>
           <Text allowFontScaling style={{ color: colors.danger, fontWeight: '700', fontSize: 14 }}>{t('checkinCancel')}</Text>
-        </Pressable> : <View style={{ width: 44, height: 44 }} />}
+        </Pressable> : null}
         </View>
       </View>
       <AppAlertModal {...alertState} onDismiss={dismissAlert} />
@@ -1015,7 +1015,10 @@ function TriageScreen({
   const groupedAlternatives = Boolean(freeTextOption && optionsGrouped?.some(group => group.key === 'other' && group.items.includes(freeTextOption)) &&
     (questionStep?.startsWith('compact_timeline') || questionStep?.startsWith('compact_clinical_context') ||
       optionsGrouped?.some(group => ['onset', 'progression', 'medication_today', 'huyet_ap', 'duong_huyet'].includes(group.key))));
-  const visibleOptionGroups = optionsGrouped?.filter(group => !groupedAlternatives || group.key !== 'other');
+  // Older APIs also used "other" for a real measurement section. Hide only
+  // the escape group containing the free-answer option, never required data.
+  const visibleOptionGroups = optionsGrouped?.filter(group => !groupedAlternatives ||
+    group.key !== 'other' || !freeTextOption || !group.items.includes(freeTextOption));
   const answerChoiceGroups = groupedAlternatives ? visibleOptionGroups?.map(group => group.items).filter(group => group.length) || [] : exclusiveOptionGroups;
   const singleChoiceGroup = (items: string[]) => exclusiveOptionGroups.some(group => items.length > 0 && items.every(item => group.includes(item)));
 
