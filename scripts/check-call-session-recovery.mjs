@@ -200,19 +200,76 @@ await test('a completed logged-out startup is not repeatedly retried', async () 
   h.change('active'); await tick(); assert.equal(h.boots(), 1); h.cleanup();
 });
 
-const mountStartupRoute = effectFrom('app/index.tsx', 'InteractionManager.runAfterInteractions');
-function routeHarness({ authToken = 'protected-test-session', profile = null, call = { episodeId: 'episode', attemptId: 'attempt' }, hydrated = true, loading = false } = {}) {
-  const routes = []; let work, reads = 0;
+const mountStartupRoute = effectFrom('app/index.tsx', 'const routeStartup =');
+function routeHarness({ authToken = 'protected-test-session', profile = null, call = { episodeId: 'episode', attemptId: 'attempt' }, hydrated = true, loading = false,
+  idleAvailable = true, response = null, doctorEnabled = false } = {}) {
+  const routes = [], pending = new Map(), scheduled = [];
+  let reads = 0, pushReads = 0, nextId = 0, lastWork;
+  const schedule = (kind, work, options) => {
+    const id = ++nextId; lastWork = work; pending.set(id, work); scheduled.push({ kind, options }); return id;
+  };
   const cleanup = mountStartupRoute({
     minSplashDone: true, hydrated, isNavReady: true, loading, consentReady: true, showConsent: false,
     profile, authToken, router: { replace: href => routes.push(href) },
-    InteractionManager: { runAfterInteractions: callback => { work = callback; return { cancel() {} }; } },
+    globalThis: {
+      requestIdleCallback: idleAvailable ? (work, options) => schedule('idle', work, options) : undefined,
+      cancelIdleCallback: idleAvailable ? id => pending.delete(id) : undefined,
+    },
+    setTimeout: (work, delay) => schedule('timer', work, delay), clearTimeout: id => pending.delete(id),
+    isDoctorFeaturesEnabled: doctorEnabled,
     getPendingVoipCall: async () => { reads++; return await call; },
-    Notifications: { getLastNotificationResponseAsync: async () => null },
-    routeFromNotificationData: () => null,
+    Notifications: { getLastNotificationResponseAsync: async () => { pushReads++; return response; } },
+    routeFromNotificationData: data => data.route,
   });
-  return { routes, cleanup, reads: () => reads, run: () => work?.() };
+  return { routes, cleanup, scheduled, pending, reads: () => reads, pushReads: () => pushReads,
+    runStale: () => lastWork?.(),
+    run: async (deadline = { didTimeout: false, timeRemaining: () => 50 }) => {
+      const queued = [...pending]; pending.clear();
+      for (const [, work] of queued) await work(deadline);
+    },
+  };
 }
+await test('startup uses a bounded idle callback and routes a call even when its deadline has expired', async () => {
+  const h = routeHarness();
+  assert.equal(h.scheduled.length, 1); assert.equal(h.scheduled[0].kind, 'idle');
+  assert.ok(h.scheduled[0].options.timeout > 0 && h.scheduled[0].options.timeout <= 100);
+  await h.run({ didTimeout: true, timeRemaining: () => 0 });
+  assert.equal(h.routes[0].pathname, '/checkin-call/[episodeId]'); assert.equal(h.pushReads(), 0);
+});
+await test('startup falls back to a cancellable timer when idle callbacks are unavailable', async () => {
+  const h = routeHarness({ idleAvailable: false, authToken: null });
+  assert.deepEqual(h.scheduled, [{ kind: 'timer', options: 0 }]);
+  await h.run(); assert.deepEqual(h.routes, ['/login']); assert.equal(h.reads(), 0);
+});
+for (const idleAvailable of [true, false]) await test(`cancelled ${idleAvailable ? 'idle' : 'timer'} startup cannot read native calls or route even if its old callback wakes`, async () => {
+  const h = routeHarness({ idleAvailable }); h.cleanup();
+  assert.equal(h.pending.size, 0); await h.run(); await h.runStale();
+  assert.equal(h.reads(), 0); assert.deepEqual(h.routes, []);
+});
+await test('a recent notification still opens before Home when there is no answered native call', async () => {
+  const h = routeHarness({ call: null, profile: { onboardingCompleted: true }, response: {
+    notification: { date: Date.now() / 1000, request: { content: { data: { route: '/care-circle' } } } },
+  } });
+  await h.run(); assert.deepEqual(h.routes, ['/care-circle']); assert.equal(h.pushReads(), 1);
+});
+await test('native medication answers and consents keep their own startup routes ahead of notifications', async () => {
+  for (const consent of [false, true]) {
+    const h = routeHarness({ call: { callType: 'medication', episodeId: 'event', medDoseId: 'dose', medConsentId: consent ? 'schedule' : null, attemptId: 'attempt' } });
+    await h.run(); assert.deepEqual(h.routes, [{ pathname: consent ? '/medication/consent' : '/medication/call/[doseId]',
+      params: { ...(consent ? { scheduleId: 'schedule' } : { doseId: 'dose' }), attemptId: 'attempt', nativeAnswered: '1' } }]);
+    assert.equal(h.pushReads(), 0);
+  }
+});
+await test('Doctor IVR startup keeps its visibility gate when idle scheduling changes', async () => {
+  for (const doctorEnabled of [false, true]) {
+    const h = routeHarness({ doctorEnabled, profile: { onboardingCompleted: true },
+      call: { callType: 'doctor_ivr', episodeId: 'session', attemptId: 'attempt' } });
+    await h.run();
+    assert.deepEqual(h.routes, doctorEnabled ? [{ pathname: '/doctor-call/[sessionId]',
+      params: { sessionId: 'session', attemptId: 'attempt', nativeAnswered: '1' } }] : ['/(tabs)/home']);
+    assert.equal(h.pushReads(), doctorEnabled ? 0 : 1);
+  }
+});
 await test('an answered call opens from the restored session even if the profile request failed', async () => {
   const h = routeHarness(); await h.run();
   assert.deepEqual(h.routes, [{ pathname: '/checkin-call/[episodeId]', params: {

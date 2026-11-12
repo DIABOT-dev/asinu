@@ -315,7 +315,7 @@ await test('the specialist busy/reopen modal opts into stacked buttons and scrol
 // Run the actual updated splash with native adapters: assets, consent/auth
 // gates and cold-start call routing must survive a visual-only replacement.
 function splashHarness({ language = 'vi', profile = null, hydrated = true, loading = false,
-  token = profile ? 'test-session' : null, navigationReady = true, consent = Promise.resolve(true), call = null, response = null } = {}) {
+  token = profile ? 'test-session' : null, navigationReady = true, consent = Promise.resolve(true), call = null, response = null, idleAvailable = true } = {}) {
   let cursor = 0, pending = [], live = true;
   let now = 0, nextTimerId = 0;
   const timers = new Map();
@@ -323,6 +323,7 @@ function splashHarness({ language = 'vi', profile = null, hydrated = true, loadi
   const state = { profile, token, hydrated, loading, navigationReady };
   const calls = { routes: [], native: 0, push: 0, loopStarts: 0, loopStops: 0 };
   const tasks = [];
+  let nextIdleId = 0;
   const router = { replace: route => calls.routes.push(route) };
   class Value {
     constructor(value) { this.value = value; this.listeners = new Map(); }
@@ -362,10 +363,7 @@ function splashHarness({ language = 'vi', profile = null, hydrated = true, loadi
         loop: () => ({ start: () => calls.loopStarts++, stop: () => calls.loopStops++ }) },
       Easing: { out: value => value, cubic: () => {}, bezier: (...points) => points },
       Image: 'Image', View: 'View', StyleSheet: { create: value => value, absoluteFill: { position: 'absolute' } },
-      InteractionManager: { runAfterInteractions: work => {
-        const task = { work, cancelled: false, cancel() { this.cancelled = true; } };
-        tasks.push(task); return task;
-      } },
+
     },
     'expo-router': { useRootNavigationState: () => state.navigationReady ? { key: 'ready' } : null },
     'expo-status-bar': { StatusBar: 'StatusBar' },
@@ -386,6 +384,17 @@ function splashHarness({ language = 'vi', profile = null, hydrated = true, loadi
     imports[`../assets/images/splash/${asset}`] = asset;
   }
   const components = evaluate(`${read('app/index.tsx')}\nexport { LoadingDot };`, imports, {
+    globalThis: {
+      requestIdleCallback: idleAvailable ? (work, options) => {
+        const id = ++nextIdleId;
+        tasks.push({ id, work, options, cancelled: false });
+        return id;
+      } : undefined,
+      cancelIdleCallback: idleAvailable ? id => {
+        const task = tasks.find(task => task.id === id);
+        if (task) task.cancelled = true;
+      } : undefined,
+    },
     setTimeout: (work, delay = 0) => {
       const id = ++nextTimerId;
       timers.set(id, { work, at: now + delay });
@@ -414,6 +423,9 @@ function splashHarness({ language = 'vi', profile = null, hydrated = true, loadi
     runTasks: async () => {
       const queued = tasks.splice(0);
       for (const task of queued) { if (!task.cancelled) await task.work(); }
+      for (const [id, task] of [...timers]) {
+        if (task.at <= now) { timers.delete(id); await task.work(); }
+      }
     },
     dot: () => { cursor = 0; return components.LoadingDot({ delay: 200 }); },
     runEffects: () => { const effects = pending; pending = []; effects.forEach(work => work()); },
@@ -460,6 +472,16 @@ await test('leaving splash cancels its pending minimum-display timer', async () 
   const h = splashHarness();
   await h.settle(); h.unmount(); h.advanceTime(1800);
   await h.runTasks(); assert.deepEqual(h.calls.routes, []);
+});
+await test('splash keeps startup routing available when the runtime has no idle callback API', async () => {
+  const h = splashHarness({ idleAvailable: false, profile: { id: '7', onboardingCompleted: true } });
+  await h.settle(); h.advanceTime(1800); await h.settle(); await h.runTasks();
+  assert.deepEqual(h.calls.routes, ['/(tabs)/home']); h.unmount();
+});
+for (const idleAvailable of [true, false]) await test(`unmount cancels queued ${idleAvailable ? 'idle' : 'fallback timer'} routing before native call recovery`, async () => {
+  const h = splashHarness({ idleAvailable, profile: { id: '7', onboardingCompleted: true }, call: { episodeId: 'episode', attemptId: 'attempt' } });
+  await h.settle(); h.advanceTime(1800); await h.settle(); h.unmount(); await h.runTasks();
+  assert.deepEqual(h.calls.routes, []); assert.equal(h.calls.native, 0);
 });
 await test('an answered CallKit call still outranks a stale notification tap on the new splash', async () => {
   const h = splashHarness({ profile: { id: '7', onboardingCompleted: true },
