@@ -91,7 +91,6 @@
     "weekChecked": "Ngày {{day}} trong tuần: đã check-in",
     "weekEmpty": "Ngày {{day}} trong tuần: chưa check-in",
     "followupNotice": "Asinu đã ghi nhận. Hãy theo dõi lời nhắc hỏi thăm tiếp theo.",
-    "urgentNotice": "Hãy ưu tiên làm theo hướng dẫn ở kết quả check-in. Hộp quà không thay đổi cảnh báo sức khỏe.",
     "savedHealthError": "Check-in đã được lưu. Hộp quà chưa tải được, bạn có thể thử lại hoặc để sau.",
     "retry": "Thử lại",
     "later": "Để sau",

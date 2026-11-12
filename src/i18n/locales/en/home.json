@@ -91,7 +91,6 @@
     "weekChecked": "Day {{day}} of this week: checked in",
     "weekEmpty": "Day {{day}} of this week: not checked in",
     "followupNotice": "Asinu has noted your response. Look out for the next follow-up reminder.",
-    "urgentNotice": "Please prioritize the guidance in your check-in result. Gifts do not change health alerts.",
     "savedHealthError": "Your check-in is saved. The gift could not load. Try again or return later.",
     "retry": "Try again",
     "later": "Later",

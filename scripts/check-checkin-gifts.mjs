@@ -1001,10 +1001,10 @@ await test('an account change while opening cannot publish the former account’
   await assert.rejects(pending, /account changed/);
   assert.deepEqual(h.calls.opened, []);
 });
-await test('the three health responses keep their gifts while unwell results also retain a notice', async () => {
+await test('the three health responses keep their gifts and only the follow-up response retains its notice', async () => {
   for (const status of ['fine', 'tired', 'very_tired']) {
     const h = productionFlowHarness({ status }); const tree = await h.settle();
-    assert.equal(tree.type, 'Gift'); assert.equal(Boolean(tree.props.notice), status !== 'fine');
+    assert.equal(tree.type, 'Gift'); assert.equal(Boolean(tree.props.notice), status !== 'fine' && status !== 'very_tired');
   }
 });
 await test('the default Asinu mascot illustrations retain distinct images and accessible touch targets', async () => {
