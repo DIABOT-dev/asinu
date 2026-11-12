@@ -13,8 +13,7 @@ export const PRACTICE_CHECKIN_GROUPS = [
   ["symptoms", 1, true],
   ["red_flags", 2, true],
   ["impact", 3, false],
-  ["onset", 4, false],
-  ["progression", 4, false],
+  ["timeline", 4, true],
   ["character", 5, true],
   ["clinical_context", 6, true],
   ["source", 7, true],
@@ -136,7 +135,12 @@ export function createCheckinPractice(
           exclusiveOptionGroups:
             field === "clinical_context"
               ? [choices.slice(0, 3), choices.slice(3, 5)]
-              : [],
+              : field === "timeline" ? [choices.slice(0, 4), choices.slice(4)] : [],
+          ...(field === "timeline" ? { optionsGrouped: [
+            { key: "onset", label: guide("onset.question"), icon: "", items: choices.slice(0, 4) },
+            { key: "progression", label: guide("progression.question"), icon: "", items: choices.slice(4) },
+            { key: "other", label: guide("timeline.label"), icon: "", items: [unknown, other] },
+          ] } : {}),
           questionProgress: { current: answers.length + 1, total: plan.length },
           questionGroup: {
             key: field,

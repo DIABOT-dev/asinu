@@ -7,6 +7,7 @@ import { progressHarness } from './helpers/checkin-progress-harness.mjs';
 const triageSelection = progressHarness().selection;
 const read = file => fs.readFileSync(file, 'utf8');
 function evaluateSource(source, imports = {}, globals = {}) {
+  globals = { useCallback: work => work, ...globals };
   const module = { exports: {} };
   const output = ts.transpileModule(source, { compilerOptions: {
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,

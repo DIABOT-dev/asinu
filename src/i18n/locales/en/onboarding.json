@@ -58,6 +58,11 @@
           "Need help with some activities"
         ]
       },
+      "timeline": {
+        "label": "Onset and course",
+        "question": "When did these symptoms start, and have they improved or worsened since then?",
+        "options": ["Less than 1 day", "1 to under 3 days", "3 to under 7 days", "7 days or more", "Improved", "Stayed the same", "Worsened"]
+      },
       "onset": {
         "label": "Onset and course",
         "question": "When did these symptoms start?",

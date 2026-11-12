@@ -58,6 +58,11 @@
           "Có việc cần người giúp"
         ]
       },
+      "timeline": {
+        "label": "Thời gian và diễn biến",
+        "question": "Những khó chịu này bắt đầu từ khi nào, và đến giờ đỡ hơn hay nặng hơn?",
+        "options": ["Chưa đến 1 ngày", "Từ 1 đến dưới 3 ngày", "Từ 3 đến dưới 7 ngày", "Từ 7 ngày trở lên", "Đỡ hơn", "Vẫn như cũ", "Nặng hơn"]
+      },
       "onset": {
         "label": "Thời gian và diễn biến",
         "question": "Những khó chịu này bắt đầu từ khi nào vậy?",
