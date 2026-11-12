@@ -3,6 +3,25 @@ import type { MaterialCommunityIcons } from '@expo/vector-icons';
 
 type TriageOptionIcon = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
+export function formatTriageQuestionLabel(
+  value: string,
+  step: string | undefined,
+  answers: ReadonlyArray<{ question: string; answer: string; step?: string }>,
+  continuation: string,
+): string {
+  const isWarning = (key?: string) => /^(?:compact_)?red_flags(?:_q\d+)?$/.test(key || '');
+  const normalize = (text: string) => text.normalize('NFC').trim().toLocaleLowerCase()
+    .replace(/\s+/g, ' ').replace(/[.!?]+$/, '');
+  const previous = answers.at(-1);
+  // Old saved phases keep their exact wire question. Only present an adjacent
+  // repeated warning batch differently after None/Unknown, never an unclear
+  // free-text reply that may require clarification of the same warning set.
+  return isWarning(step) && previous && isWarning(previous.step) &&
+    /^(?:không có|không rõ|none|not sure|unknown)$/.test(normalize(previous.answer)) &&
+    normalize(previous.question) === normalize(value)
+    ? continuation : value;
+}
+
 // Presentation only: labels and icons never change the answer sent to the API.
 export function formatTriageOptionLabel(value: string): string {
   // Keep the observable warning sign visible; a suspected diagnosis is an

@@ -103,6 +103,7 @@ expectCall(health.calls, {
     previous_answers: [{ step: 'progression', question: 'Mức độ?', answer: 'Nhẹ' }],
     conclusion_format: 'narrative',
     assessment_version: 3,
+    interview_layout: 'eight_groups',
     adaptive_questions: true,
   },
   timeoutMs: 90000,
@@ -111,7 +112,7 @@ expectCall(health.calls, {
 checkinApi.triage(123, [], 'current-interview-phase');
 expectCall(health.calls, {
   path: '/api/mobile/checkin/triage', method: 'POST',
-  body: {checkin_id:123,previous_answers:[],conclusion_format:'narrative',assessment_version:3,adaptive_questions:true,phase_id:'current-interview-phase'},
+  body: {checkin_id:123,previous_answers:[],conclusion_format:'narrative',assessment_version:3,interview_layout:'eight_groups',adaptive_questions:true,phase_id:'current-interview-phase'},
   timeoutMs:90000,
 });
 

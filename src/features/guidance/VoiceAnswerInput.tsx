@@ -4,15 +4,15 @@ import { ScaledTextInput as TextInput } from '../../components/ScaledTextInput';
 import { GuideTarget } from './GuidanceProvider';
 import { VoiceAnswerButton } from './VoiceAnswerButton';
 
-export function dictationValue(value: string, interim: string, maxLength?: number) {
-  const combined = interim ? `${value.trimEnd()} ${interim}`.trim() : value;
+export function dictationValue(value: string, interim: string, maxLength?: number, mode: 'append' | 'replace' = 'append') {
+  const combined = interim ? mode === 'replace' ? interim : `${value.trimEnd()} ${interim}`.trim() : value;
   return maxLength === undefined ? combined : combined.slice(0, maxLength);
 }
 
 /** The input displays partial speech; only a finished utterance updates its owner. */
 export function VoiceAnswerInput({ value, onChangeText, onRecognized, onBeforeAi,
   onProcessingChange, disabled = false, readOnly = false, practice = false, practiceExample,
-  placeholder, maxLength, style, inputStyle }: {
+  placeholder, maxLength, style, inputStyle, dictationMode = 'append' }: {
   value: string;
   onChangeText: (text: string) => void;
   onRecognized?: () => void;
@@ -21,6 +21,7 @@ export function VoiceAnswerInput({ value, onChangeText, onRecognized, onBeforeAi
   disabled?: boolean; readOnly?: boolean; practice?: boolean;
   practiceExample?: string;
   placeholder: string; maxLength?: number;
+  dictationMode?: 'append' | 'replace';
   style?: StyleProp<ViewStyle>; inputStyle?: StyleProp<TextStyle>;
 }) {
   const [interim, setInterim] = useState('');
@@ -36,13 +37,13 @@ export function VoiceAnswerInput({ value, onChangeText, onRecognized, onBeforeAi
         onBeforeAi={onBeforeAi} onInterimText={setInterim} onProcessingChange={handleProcessing}
         onText={text => {
           setInterim('');
-          onChangeText(dictationValue(value, text, maxLength));
+          onChangeText(dictationValue(value, text, maxLength, dictationMode));
           onRecognized?.();
         }} />
     </GuideTarget>
     <TextInput testID="checkin-voice-text" allowFontScaling multiline
       style={[inputStyle, { maxHeight: 144 }]} placeholder={placeholder} placeholderTextColor="#94a3b8"
-      value={dictationValue(value, interim, maxLength)} maxLength={maxLength}
+      value={dictationValue(value, interim, maxLength, dictationMode)} maxLength={maxLength}
       onChangeText={disabled || readOnly ? undefined : onChangeText} returnKeyType="done"
       editable={!disabled && !readOnly && !processing} />
   </View>;

@@ -16,6 +16,11 @@ export function withoutExclusiveAnswers(selected: Set<string>, exclusive: string
   return new Set([...selected].filter((option) => !exclusive.includes(option)));
 }
 
+export function requiredAnswersComplete(selected: Set<string>, groups: string[][], exclusive: string[], custom: string) {
+  return custom.trim().length > 0 || [...selected].some(item => exclusive.includes(item)) ||
+    groups.every(group => group.some(item => selected.has(item)));
+}
+
 export function composeTriageAnswer(selected: Set<string>, custom: string, exclusive: string[]) {
   const text = custom.trim();
   const choices = text ? withoutExclusiveAnswers(selected, exclusive) : selected;

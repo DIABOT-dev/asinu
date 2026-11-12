@@ -213,3 +213,22 @@ test('the real description field displays each partial phrase without duplicate 
   assert.equal(find('Input').props.editable, false); assert.equal(find('Input').props.onChangeText, undefined);
   assert.equal(find('Mic').props.disabled, true);
 });
+
+test('measurement dictation replaces a prior reading while description dictation still appends', () => {
+  const changes = [];
+  const h = renderer('src/features/guidance/VoiceAnswerInput.tsx', 'VoiceAnswerInput', {
+    '../../components/ScaledTextInput': { ScaledTextInput: 'Input' },
+    './GuidanceProvider': { GuideTarget: 'Guide' }, './VoiceAnswerButton': { VoiceAnswerButton: 'Mic' },
+  });
+  let props = { value: '120/80', dictationMode: 'replace', onChangeText: text => { changes.push(text); props = { ...props, value: text }; },
+    onBeforeAi: async () => true, onProcessingChange() {}, placeholder: 'Reading' };
+  const find = type => nodes(h.render(props)).find(node => node.type === type);
+  find('Mic').props.onProcessingChange(true);
+  find('Mic').props.onInterimText('130');
+  assert.equal(find('Input').props.value, '130'); assert.deepEqual(changes, []);
+  find('Mic').props.onText('130/85'); find('Mic').props.onProcessingChange(false);
+  assert.deepEqual(changes, ['130/85']); assert.equal(find('Input').props.value, '130/85');
+  find('Mic').props.onProcessingChange(true); find('Mic').props.onInterimText('140');
+  find('Mic').props.onProcessingChange(false);
+  assert.equal(find('Input').props.value, '130/85');
+});

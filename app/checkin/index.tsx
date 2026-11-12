@@ -44,7 +44,7 @@ import { CheckinConclusionLoading } from '../../src/features/checkin/CheckinConc
 import { CheckinQuestionLoading } from '../../src/features/checkin/CheckinQuestionLoading';
 import { useCheckinQuestionViewport } from '../../src/features/checkin/useCheckinQuestionViewport';
 import { hasDisplayCheckinConclusion, checkinConclusionSpeech, recordedCheckinSymptoms } from '../../src/features/checkin/checkin-conclusion';
-import { formatTriageOptionLabel, getTriageOptionIcon } from '../../src/features/checkin/triage-option-display';
+import { formatTriageOptionLabel, formatTriageQuestionLabel, getTriageOptionIcon } from '../../src/features/checkin/triage-option-display';
 import { type BodyLocation } from '../../src/features/checkin/location-details';
 import { CheckinLocationFlow } from '../../src/features/checkin/CheckinLocationFlow';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
@@ -54,7 +54,9 @@ import { colors, iconColors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { StateError } from '../../src/components/state/StateError';
 import { loadCheckinEntry, checkinPhaseId, requiresCheckinFollowUp, saveLocationDraft, clearLocationDraft, savePendingAnswers, clearPendingAnswers, type LocationDraft } from '../../src/features/checkin/checkin-progress';
-import { toggleTriageOption, withoutExclusiveAnswers, composeTriageAnswer } from '../../src/features/checkin/triage-answer-selection';
+import { toggleTriageOption, withoutExclusiveAnswers, composeTriageAnswer, requiredAnswersComplete } from '../../src/features/checkin/triage-answer-selection';
+import { MeasurementAnswerFields } from '../../src/features/checkin/MeasurementAnswerFields';
+import type { MeasurementInput } from '../../src/features/checkin/triage-measurement';
 import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 import { GuidePracticeScope, GuideScrollScope, GuideTarget, useGuideAcknowledgement } from '../../src/features/guidance/GuidanceProvider';
 import { useReviewGuidance } from '../../src/features/guidance/GuidanceSettings';
@@ -245,6 +247,8 @@ function CheckinScreen() {
   const [currentFreeTextOption, setCurrentFreeTextOption] = useState<string>();
   const [currentSkipAnswerLabel, setCurrentSkipAnswerLabel] = useState<string>();
   const [currentAnswerInput, setCurrentAnswerInput] = useState<'measurement'>();
+  const [requiredOptionGroups, setRequiredOptionGroups] = useState<string[][]>([]);
+  const [measurementInputs, setMeasurementInputs] = useState<MeasurementInput[]>([]);
   const mainScrollRef = useRef<ScrollView>(null);
   const guideScrollOffset = useRef(0);
   const [triageSummary, setTriageSummary] = useState<TriageSummaryView | null>(() =>
@@ -486,6 +490,8 @@ function CheckinScreen() {
         setExclusiveOptions(result.exclusiveOptions || []);
         setExclusiveOptionGroups(result.exclusiveOptionGroups || []);
         setCurrentAnswerInput(result.answerInput);
+        setRequiredOptionGroups(result.requiredOptionGroups || []);
+        setMeasurementInputs(result.measurementInputs || []);
         setCurrentQ(newQ);
         setCurrentOpts(result.options || []);
         setCurrentOptsGrouped(result.optionsGrouped || null);
@@ -732,6 +738,7 @@ function CheckinScreen() {
           <TriageScreen
             styles={styles}
             question={currentQ}
+            questionStep={currentStep}
             options={currentOpts}
             optionsGrouped={currentOptsGrouped}
             questionProgress={questionProgress}
@@ -743,6 +750,8 @@ function CheckinScreen() {
             freeTextOption={currentFreeTextOption}
             skipAnswerLabel={currentSkipAnswerLabel}
             answerInput={currentAnswerInput}
+            requiredOptionGroups={requiredOptionGroups}
+            measurementInputs={measurementInputs}
             answers={answers}
             loading={loading || cancellation.busy}
             onAnswer={handleAnswer}
@@ -897,6 +906,7 @@ function LocationScreen(props: React.ComponentProps<typeof CheckinLocationFlow>)
 function TriageScreen({
   styles,
   question,
+  questionStep,
   options,
   optionsGrouped,
   questionProgress,
@@ -908,6 +918,8 @@ function TriageScreen({
   freeTextOption,
   skipAnswerLabel,
   answerInput,
+  requiredOptionGroups = [],
+  measurementInputs = [],
   answers,
   loading,
   onAnswer,
@@ -920,6 +932,7 @@ function TriageScreen({
 }: {
   styles: Styles;
   question: string;
+  questionStep?: string;
   options: string[];
   optionsGrouped?: TriageOptionGroup[] | null;
   questionProgress?: { current: number; total: number };
@@ -931,6 +944,8 @@ function TriageScreen({
   freeTextOption?: string;
   skipAnswerLabel?: string;
   answerInput?: 'measurement';
+  requiredOptionGroups?: string[][];
+  measurementInputs?: MeasurementInput[];
   answers: TriageAnswer[];
   loading: boolean;
   onAnswer: (a: string) => void | Promise<void>;
@@ -948,17 +963,45 @@ function TriageScreen({
   const [selected, setSelected] = useState<Set<string>>(
     readOnly && !multiSelect && options.length > 0 ? new Set([options[0]]) : new Set()
   );
-  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [busyRecorders, setBusyRecorders] = useState<Set<string>>(new Set());
+  const recorderOwner = useRef<string | null>(null);
+  const isTranscribing = busyRecorders.size > 0;
+  const handleVoiceBusy = useCallback((id: string, busy: boolean) => {
+    if (busy && recorderOwner.current && recorderOwner.current !== id) return;
+    if (busy) recorderOwner.current = id;
+    else if (recorderOwner.current === id) recorderOwner.current = null;
+    setBusyRecorders(previous => {
+      if (previous.has(id) === busy) return previous;
+      const next = new Set(previous);
+      if (busy) next.add(id); else next.delete(id);
+      return next;
+    });
+  }, []);
+  const handleMeasurementBusy = useCallback((type: MeasurementInput['type'], busy: boolean) => handleVoiceBusy(`measurement:${type}`, busy), [handleVoiceBusy]);
+  const handleCustomVoiceBusy = useCallback((busy: boolean) => handleVoiceBusy('custom', busy), [handleVoiceBusy]);
+  const beforeVoice = async (id: string) => {
+    if (recorderOwner.current && recorderOwner.current !== id) return false;
+    recorderOwner.current = id;
+    try {
+      const allowed = await onBeforeAi();
+      if (!allowed) handleVoiceBusy(id, false);
+      return allowed;
+    } catch (error) { handleVoiceBusy(id, false); throw error; }
+  };
   const [otherActive, setOtherActive] = useState(false);
+  const [measurementAnswers, setMeasurementAnswers] = useState<Record<string, string | null>>({});
   useEffect(() => {
     if (!readOnly) {
       setOtherActive(false);
       setCustom('');
       setSelected(new Set());
+      setMeasurementAnswers({});
+      recorderOwner.current = null;
+      setBusyRecorders(new Set());
     }
-  }, [question, readOnly]);
+  }, [question, questionStep, readOnly]);
   const [showHistory, setShowHistory] = useState(false);
-  useEffect(() => { if (!readOnly) setShowHistory(false); }, [question, readOnly]);
+  useEffect(() => { if (!readOnly) setShowHistory(false); }, [question, questionStep, readOnly]);
   const answering = useRef(false);
   const submitAnswer = (answer: string) => {
     if (answering.current) return;
@@ -966,24 +1009,43 @@ function TriageScreen({
     void Promise.resolve(onAnswer(answer)).finally(() => { answering.current = false; }).catch(() => {});
   };
 
-  const progressCurrent = questionProgress?.current || answers.length + 1;
-  const progressTotal = questionProgress?.total;
+  const progressCurrent = questionProgress && questionGroup?.kind === 'topic' ? questionGroup.index : questionProgress?.current || answers.length + 1;
+  const progressTotal = questionProgress && questionGroup?.kind === 'topic' ? questionGroup.total : questionProgress?.total;
   const progress = progressTotal ? progressCurrent / progressTotal : 0;
+  const groupedAlternatives = Boolean(freeTextOption && optionsGrouped?.some(group => group.key === 'other' && group.items.includes(freeTextOption)) &&
+    (questionStep?.startsWith('compact_timeline') || questionStep?.startsWith('compact_clinical_context') ||
+      optionsGrouped?.some(group => ['onset', 'progression', 'medication_today', 'huyet_ap', 'duong_huyet'].includes(group.key))));
+  const visibleOptionGroups = optionsGrouped?.filter(group => !groupedAlternatives || group.key !== 'other');
+  const answerChoiceGroups = groupedAlternatives ? visibleOptionGroups?.map(group => group.items).filter(group => group.length) || [] : exclusiveOptionGroups;
+  const singleChoiceGroup = (items: string[]) => exclusiveOptionGroups.some(group => items.length > 0 && items.every(item => group.includes(item)));
 
   const handleOptionTap = (opt: string) => {
     if (readOnly || loading || isTranscribing) return;
     if (freeTextOption && opt === freeTextOption) {
       setOtherActive(!otherActive);
       if (otherActive) setCustom('');
-      setSelected(previous => multiSelect ? withoutExclusiveAnswers(previous, exclusiveOptions) : new Set());
+      setSelected(previous => multiSelect && !groupedAlternatives && !questionStep?.startsWith('compact_timeline') ? withoutExclusiveAnswers(previous, exclusiveOptions) : new Set());
+      if (groupedAlternatives || measurementInputs.some(input => !input.whenSelected)) setMeasurementAnswers({});
       return;
+    }
+    if (groupedAlternatives && selected.has(opt) && !exclusiveOptions.includes(opt)) return;
+    if (groupedAlternatives && otherActive) { setOtherActive(false); setCustom(''); }
+    if (exclusiveOptions.includes(opt)) setMeasurementAnswers({});
+    else {
+      const changed = measurementInputs.filter(input => input.whenSelected === opt ||
+        answerChoiceGroups.some(group => group.includes(opt) && input.whenSelected && group.includes(input.whenSelected)));
+      if (changed.length) setMeasurementAnswers(previous => {
+        const next = { ...previous };
+        changed.forEach(input => { delete next[input.type]; });
+        return next;
+      });
     }
     if (multiSelect) {
       if (exclusiveOptions.includes(opt)) {
         setCustom('');
         setOtherActive(false);
       }
-      setSelected(previous => toggleTriageOption(previous, opt, exclusiveOptions, exclusiveOptionGroups));
+      setSelected(previous => toggleTriageOption(previous, opt, exclusiveOptions, answerChoiceGroups));
     } else if (practice) {
       // A guide tap only previews a selection. Next advances the example.
       setOtherActive(false);
@@ -998,16 +1060,27 @@ function TriageScreen({
     }
   };
 
+  const activeMeasurements = measurementInputs.filter(input => input.whenSelected ? selected.has(input.whenSelected) : otherActive || !freeTextOption);
+  const renderMeasurement = (input: MeasurementInput, inline = false) => <MeasurementAnswerFields key={`${questionStep || question}-${input.type}`} input={input}
+    hideTitle={inline}
+    disabled={readOnly || loading || (isTranscribing && !busyRecorders.has(`measurement:${input.type}`))}
+    onBeforeAi={() => beforeVoice(`measurement:${input.type}`)} onProcessingChange={handleMeasurementBusy}
+    onChange={value => setMeasurementAnswers(previous => ({ ...previous, [input.type]: value }))} />;
+  const measurementsComplete = activeMeasurements.every(input => Boolean(measurementAnswers[input.type]));
+  const groupsComplete = requiredAnswersComplete(selected, requiredOptionGroups, exclusiveOptions, custom);
   const handleConfirm = () => {
     if (readOnly || loading || isTranscribing) return;
-    const combined = practice ? '__practice_next__' : composeTriageAnswer(selected, custom, exclusiveOptions);
+    if (!practice && (!measurementsComplete || !groupsComplete)) return;
+    const readings = activeMeasurements.map(input => t('checkinMeasurementReport', { label: input.label, value: measurementAnswers[input.type] }));
+    const combined = practice ? '__practice_next__' : composeTriageAnswer(selected, [custom, ...readings].filter(Boolean).join(', '), exclusiveOptions);
     if (!combined) return;
     submitAnswer(combined);
     setSelected(new Set());
     setCustom('');
   };
 
-  const hasSelection = !loading && !isTranscribing && (practice || selected.size > 0 || custom.trim().length > 0);
+  const hasSelection = !loading && !isTranscribing && measurementsComplete && groupsComplete &&
+    (practice || selected.size > 0 || custom.trim().length > 0 || activeMeasurements.length > 0);
   const firstOptionGroupIndex = optionsGrouped?.findIndex(group => group.items.length > 0) ?? -1;
   const hasAnswerChoices = firstOptionGroupIndex >= 0 || options.length > 0;
   const hasSkipChoice = skipAnswerLabel &&
@@ -1021,7 +1094,7 @@ function TriageScreen({
     (empathy && answers.length > 0 ? empathy.text : null) ||
     t('checkinTriageMascotBubble');
 
-  const confirmLabel = practice ? tg('guidance.practiceNext') : selected.size > 0 && multiSelect
+  const confirmLabel = practice ? tg('guidance.practiceNext') : activeMeasurements.length ? t('checkinConfirmMeasurement') : selected.size > 0 && multiSelect && !groupedAlternatives
     ? `${t('checkinLocationContinue')} (${selected.size})`
     : t('checkinLocationContinue');
 
@@ -1036,7 +1109,9 @@ function TriageScreen({
           />
         </View> : null}
         <Text style={styles.triageProgressText}>
-          {progressTotal ? `${progressCurrent}/${progressTotal}` : t('checkinQuestionNumber', { count: progressCurrent })}
+          {progressTotal ? questionGroup?.kind === 'topic'
+            ? t('checkinTopicProgress', { current: progressCurrent, total: progressTotal })
+            : `${progressCurrent}/${progressTotal}` : t('checkinQuestionNumber', { count: progressCurrent })}
         </Text>
       </View>
 
@@ -1056,7 +1131,7 @@ function TriageScreen({
           {showHistory && answers.map((a, i) => (
             <View key={i} style={styles.historyAnswerRow}>
               <View style={styles.historyQuestionTag}>
-                <Text style={styles.historyQuestionText}>{a.question}</Text>
+                <Text style={styles.historyQuestionText}>{formatTriageQuestionLabel(a.question, a.step, answers.slice(0, i), t('checkinWarningContinuationQuestion'))}</Text>
               </View>
               <View style={styles.historyAnswerCard}>
                 <Ionicons name="checkmark-circle" size={14} color="#08b8a2" />
@@ -1088,28 +1163,30 @@ function TriageScreen({
             <View style={styles.questionHeaderRow}>
               <MaterialCommunityIcons name="pulse" size={26} color="#08b8a2" style={styles.questionPulseIcon} />
               <Text allowFontScaling style={[styles.questionHeaderTitle, practice && { fontSize: 22, lineHeight: 30 }]}>
-                {question}
+                {formatTriageQuestionLabel(question, questionStep, answers, t('checkinWarningContinuationQuestion'))}
               </Text>
             </View>
             <Text style={styles.questionSubtitle}>
-              {multiSelect ? t('checkinSelectHint') : t('checkinSelectSingleHint')}
+              {groupedAlternatives ? t('checkinSelectPerGroupHint') : multiSelect ? t('checkinSelectHint') : t('checkinSelectSingleHint')}
             </Text>
           </Animated.View>
 
           {/* Option cards */}
           {optionsGrouped && firstOptionGroupIndex >= 0 ? (
             <Animated.View entering={FadeInDown.delay(120).duration(400)} style={styles.triageOptionsList}>
-              {optionsGrouped.map((group, groupIndex) => (
-                <View key={group.key} style={{ marginBottom: spacing.sm }}>
+              {visibleOptionGroups?.map((group, groupIndex) => (
+                <View key={group.key} testID={`checkin-answer-group-${group.key}`} style={{ marginBottom: spacing.sm }}>
                   <View style={styles.groupHeaderRow}>
                     <Text style={styles.groupHeaderText}>{group.label}</Text>
                     <View style={styles.groupHeaderLine} />
                   </View>
                   {group.items.map((opt, optionIndex) => {
                     const isSelected = selected.has(opt) || (opt === freeTextOption && otherActive);
+                    const radio = groupedAlternatives || singleChoiceGroup(group.items);
                     return (
+                      <View key={`${group.key}-${opt}`}>
                       <GuideTarget key={`${group.key}-${opt}`} step={opt === freeTextOption ? 'checkin.other' : 'checkin.choices'} enabled={practice && !loading && (opt === freeTextOption ? !otherActive : groupIndex === firstOptionGroupIndex && optionIndex === 0)}>
-                        <GuideTarget step={multiSelect ? 'checkin.multiple' : 'checkin.single'} enabled={practice && groupIndex === firstOptionGroupIndex && optionIndex === 0 && !loading}>
+                        <GuideTarget step={multiSelect && !radio ? 'checkin.multiple' : 'checkin.single'} enabled={practice && groupIndex === firstOptionGroupIndex && optionIndex === 0 && !loading}>
                           <Pressable
                             key={`${group.key}-${opt}`}
                             style={({ pressed }) => [
@@ -1119,11 +1196,11 @@ function TriageScreen({
                             ]}
                             disabled={readOnly || loading || isTranscribing}
                             onPress={() => handleOptionTap(opt)}
-                            accessibilityRole={multiSelect ? 'checkbox' : 'radio'}
+                            accessibilityRole={multiSelect && !radio ? 'checkbox' : 'radio'}
                             accessibilityLabel={formatTriageOptionLabel(opt)}
                             accessibilityState={{ checked: isSelected, disabled: readOnly || loading || isTranscribing }}
                           >
-                            {multiSelect ? (
+                            {multiSelect && !radio ? (
                               <View style={[styles.triageCheckbox, isSelected && styles.triageCheckboxSelected]}>
                                 {isSelected && <Ionicons name="checkmark" size={13} color="#ffffff" />}
                               </View>
@@ -1139,6 +1216,8 @@ function TriageScreen({
                           </Pressable>
                         </GuideTarget>
                       </GuideTarget>
+                      {activeMeasurements.filter(input => input.whenSelected === opt).map(input => renderMeasurement(input, true))}
+                      </View>
                     );
                   })}
                 </View>
@@ -1185,8 +1264,33 @@ function TriageScreen({
             </Animated.View>
           )}
 
+          {groupedAlternatives && freeTextOption && <GuideTarget step="checkin.other" enabled={practice && !loading && !otherActive}>
+            <Pressable testID="checkin-answer-alternative" accessibilityRole="button" accessibilityState={{ expanded: otherActive }}
+              accessibilityLabel={t(otherActive ? 'checkinUseAnswerChoices' : 'checkinAnswerByMyself')}
+              disabled={readOnly || loading || isTranscribing} onPress={() => handleOptionTap(freeTextOption)}
+              style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 }}>
+              <Ionicons name={otherActive ? 'list-outline' : 'create-outline'} size={22} color={colors.primary} />
+              <Text style={{ fontSize: 18, color: colors.primary, fontWeight: '600', flexShrink: 1 }}>
+                {t(otherActive ? 'checkinUseAnswerChoices' : 'checkinAnswerByMyself')}
+              </Text>
+            </Pressable>
+          </GuideTarget>}
+          {groupedAlternatives && skipAnswerLabel && <Pressable testID="checkin-answer-unknown" accessibilityRole="button"
+            accessibilityLabel={t((visibleOptionGroups?.length || 0) > 1 ? 'checkinUnknownAllSections' : 'checkinUnknownThisSection', { count: visibleOptionGroups?.length || 1 })}
+            accessibilityState={{ selected: selected.has(skipAnswerLabel) }} disabled={readOnly || loading || isTranscribing}
+            onPress={() => handleOptionTap(skipAnswerLabel)}
+            style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 }}>
+            <Ionicons name={selected.has(skipAnswerLabel) ? 'checkmark-circle' : 'help-circle-outline'} size={22} color={colors.primary} />
+            <Text style={{ fontSize: 17, color: colors.primary, flexShrink: 1 }}>
+              {t((visibleOptionGroups?.length || 0) > 1 ? 'checkinUnknownAllSections' : 'checkinUnknownThisSection', { count: visibleOptionGroups?.length || 1 })}
+            </Text>
+          </Pressable>}
+
+          {activeMeasurements.filter(input => !input.whenSelected ||
+            !visibleOptionGroups?.some(group => group.items.includes(input.whenSelected!))).map(input => renderMeasurement(input))}
+
           {/* Custom text input + mic */}
-          {(multiSelect || allowFreeText || !hasAnswerChoices) && (!freeTextOption || otherActive || !hasAnswerChoices) && (
+          {!(answerInput === 'measurement' && activeMeasurements.length) && (multiSelect || allowFreeText || !hasAnswerChoices) && (!freeTextOption || otherActive || !hasAnswerChoices) && (
             <GuideTarget step="checkin.other" enabled={practice && !loading} withoutChoices={!hasAnswerChoices}>
               <Animated.View entering={FadeInDown.delay(180).duration(400)} style={styles.triageInputCard}>
                 <VoiceAnswerInput key={question} value={custom} onChangeText={text => {
@@ -1194,11 +1298,14 @@ function TriageScreen({
                   if (text.trim()) setSelected(previous => withoutExclusiveAnswers(previous, exclusiveOptions));
                 }}
                   onRecognized={() => acknowledgeGuide('checkin.voice')}
-                  onBeforeAi={onBeforeAi} onProcessingChange={setIsTranscribing}
-                  disabled={loading} readOnly={readOnly} practice={practice}
+                  onBeforeAi={() => beforeVoice('custom')} onProcessingChange={handleCustomVoiceBusy}
+                  disabled={loading || (isTranscribing && !busyRecorders.has('custom'))} readOnly={readOnly} practice={practice}
                   practiceExample={practice ? options[0] : undefined}
                   maxLength={2000}
-                  placeholder={t(answerInput === 'measurement' ? 'checkinMeasurementPlaceholder' : 'checkinAnswerPlaceholder')}
+                  placeholder={t(answerInput === 'measurement' ? 'checkinMeasurementPlaceholder' : groupedAlternatives
+                    ? questionStep?.startsWith('compact_timeline') || optionsGrouped?.some(group => group.key === 'onset' || group.key === 'progression')
+                      ? 'checkinTimelineAnswerPlaceholder' : 'checkinClinicalAnswerPlaceholder'
+                    : 'checkinAnswerPlaceholder')}
                   style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
                   inputStyle={[styles.triageTextInput, { fontSize: practice ? 20 : 15 }]} />
               </Animated.View>
@@ -1206,7 +1313,7 @@ function TriageScreen({
           )}
 
           {/* Confirm / Continue button */}
-          {(practice || multiSelect || options.length === 0 || (allowFreeText && custom.trim().length > 0) || selected.size > 0 || (readOnly && !multiSelect)) && (
+          {(practice || multiSelect || activeMeasurements.length > 0 || options.length === 0 || (allowFreeText && custom.trim().length > 0) || selected.size > 0 || (readOnly && !multiSelect)) && (
             <GuideTarget step="checkin.confirm" enabled={practice && hasSelection && !loading}>
               <Animated.View entering={FadeInDown.delay(220).duration(400)}>
                 <Pressable
