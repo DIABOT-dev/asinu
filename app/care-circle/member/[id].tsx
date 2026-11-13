@@ -23,7 +23,6 @@ import { useAuthStore } from '../../../src/features/auth/auth.store';
 const LOG_TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string; labelKey: string }> = {
   glucose:    { icon: 'water',                 color: '#3b82f6', bg: '#eff6ff', labelKey: 'glucose' },
   bp:         { icon: 'heart-pulse',           color: '#ef4444', bg: '#fef2f2', labelKey: 'bloodPressure' },
-  weight:     { icon: 'scale-bathroom',        color: '#8b5cf6', bg: '#f5f3ff', labelKey: 'weight' },
   water:      { icon: 'cup-water',             color: '#06b6d4', bg: '#ecfeff', labelKey: 'water' },
   medication: { icon: 'pill',                  color: '#f59e0b', bg: '#fffbeb', labelKey: 'medication' },
   meal:       { icon: 'food-apple-outline',    color: '#10b981', bg: '#ecfdf5', labelKey: 'meal' },
@@ -64,7 +63,6 @@ const getLogValue = (log: { log_type: string; metadata: any }): string => {
   switch (log.log_type) {
     case 'glucose': return m.value ? `${m.value} ${m.unit || 'mg/dL'}` : '';
     case 'bp':      return m.systolic ? `${m.systolic}/${m.diastolic} mmHg` : '';
-    case 'weight':  return m.value ? `${m.value} ${m.unit || 'kg'}` : '';
     case 'water':   return m.amount_ml ? `${m.amount_ml} ml` : '';
     case 'insulin': return m.dose_units ? `${m.dose_units} units` : '';
     default: return '';

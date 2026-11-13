@@ -75,7 +75,6 @@ export type MemberHealthSummary = {
   quickMetrics?: {
     glucose?: string | number | null;
     bloodPressure?: string | null;
-    weight?: string | number | null;
     water?: string | number | null;
   };
   treeSummary?: {

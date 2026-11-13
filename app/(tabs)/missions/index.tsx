@@ -25,14 +25,13 @@ import type { Mission } from '../../../src/features/missions/missions.store';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import { getBottomTabBarHeight } from '../../../src/styles';
 
-type MissionKey = 'daily_checkin' | 'log_bp' | 'log_glucose' | 'log_water' | 'log_weight';
+type MissionKey = 'daily_checkin' | 'log_bp' | 'log_glucose' | 'log_water';
 
 const MISSION_ORDER: MissionKey[] = [
   'daily_checkin',
   'log_bp',
   'log_glucose',
   'log_water',
-  'log_weight',
 ];
 
 const MISSION_ROUTES: Record<MissionKey, string> = {
@@ -40,7 +39,6 @@ const MISSION_ROUTES: Record<MissionKey, string> = {
   log_bp: '/logs/blood-pressure',
   log_glucose: '/logs/glucose',
   log_water: '/logs/water',
-  log_weight: '/logs/weight',
 };
 
 const MISSION_CONFIG: Record<
@@ -75,12 +73,6 @@ const MISSION_CONFIG: Record<
     defaultGoal: 4,
     titleKey: 'waterIntake',
     descKey: 'waterIntakeDesc',
-  },
-  log_weight: {
-    image: require('../../../assets/images/missions/icons-v2/weight-v2.png'),
-    defaultGoal: 1,
-    titleKey: 'weightMission',
-    descKey: 'weightMissionDesc',
   },
 };
 

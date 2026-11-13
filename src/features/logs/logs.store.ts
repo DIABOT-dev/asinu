@@ -30,13 +30,12 @@ import {
     logsApi,
     MealLogPayload,
     MedicationLogPayload,
-    WaterLogPayload,
-    WeightLogPayload
+    WaterLogPayload
 } from './logs.api';
 
 export type LogEntry = {
   id: string;
-  type: 'glucose' | 'blood-pressure' | 'medication' | 'weight' | 'water' | 'meal' | 'insulin';
+  type: 'glucose' | 'blood-pressure' | 'medication' | 'water' | 'meal' | 'insulin';
   // Glucose fields
   value?: number;
   unit?: string;
@@ -52,10 +51,6 @@ export type LogEntry = {
   dose_value?: number;
   dose_unit?: string;
   frequency_text?: string;
-  // Weight fields
-  weight_kg?: number;
-  bodyfat_pct?: number;
-  muscle_pct?: number;
   // Water fields
   volume_ml?: number;
   // Meal fields
@@ -90,7 +85,6 @@ type LogsState = {
   createGlucose: (payload: GlucoseLogPayload) => Promise<LogEntry>;
   createBloodPressure: (payload: BloodPressureLogPayload) => Promise<LogEntry>;
   createMedication: (payload: MedicationLogPayload) => Promise<LogEntry>;
-  createWeight: (payload: WeightLogPayload) => Promise<LogEntry>;
   createWater: (payload: WaterLogPayload) => Promise<LogEntry>;
   createMeal: (payload: MealLogPayload) => Promise<LogEntry>;
   createInsulin: (payload: InsulinLogPayload) => Promise<LogEntry>;
@@ -110,7 +104,7 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     let usedCache = false;
     const cached = await localCache.getCached<LogEntry[]>(CACHE_KEYS.RECENT_LOGS, todayKey);
     if (cached) {
-      set({ recent: cached, status: 'success', isStale: true, errorState: 'none' });
+      set({ recent: cached.filter(log => String(log.type) !== 'weight'), status: 'success', isStale: true, errorState: 'none' });
       usedCache = true;
     } else {
       set({ status: 'loading', errorState: 'none', isStale: false });
@@ -199,28 +193,6 @@ export const useLogsStore = create<LogsState>((set, get) => ({
     } catch (error) {
       set({ recent: get().recent.filter((log) => log.id !== optimistic.id) });
       logError(error, { store: 'logs', action: 'createMedication' });
-      throw error;
-    }
-  },
-  async createWeight(payload) {
-    const optimistic: LogEntry = {
-      id: `weight-${Date.now()}`,
-      type: 'weight',
-      recordedAt: payload.recordedAt || new Date().toISOString(),
-      weight_kg: payload.weight_kg,
-      bodyfat_pct: payload.bodyfat_pct,
-      notes: payload.notes
-    };
-    set({ recent: [optimistic, ...get().recent] });
-    try {
-      await logsApi.createWeight(payload);
-      // Log wellness activity
-      logActivity('HEALTH_MEASUREMENT', { type: 'weight', value: payload.weight_kg }).catch(() => {});
-      debouncedFetchRecent((s) => get().fetchRecent(s));
-      return optimistic;
-    } catch (error) {
-      set({ recent: get().recent.filter((log) => log.id !== optimistic.id) });
-      logError(error, { store: 'logs', action: 'createWeight' });
       throw error;
     }
   },

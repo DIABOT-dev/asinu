@@ -297,13 +297,6 @@ export function logBloodPressureMeasurement(systolic: number, diastolic: number,
 }
 
 /**
- * Ghi lại cân nặng
- */
-export function logWeightMeasurement(value: number, sessionId?: string) {
-  return logActivity('HEALTH_MEASUREMENT', { type: 'weight', value }, sessionId);
-}
-
-/**
  * Ghi lại uống nước
  */
 export function logWaterIntake(volumeMl: number, sessionId?: string) {

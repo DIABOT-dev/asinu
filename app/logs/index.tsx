@@ -59,7 +59,6 @@ export default function LogsIndexScreen() {
 
     const latestGlucose = logs.find((l: LogEntry) => l.type === 'glucose' && isToday(l.recordedAt));
     const latestBp = logs.find((l: LogEntry) => l.type === 'blood-pressure' && isToday(l.recordedAt));
-    const latestWeight = logs.find((l: LogEntry) => l.type === 'weight' && isToday(l.recordedAt));
     const waterTotal = logs
       .filter((l: LogEntry) => l.type === 'water' && isToday(l.recordedAt))
       .reduce((sum: number, l: LogEntry) => sum + (Number(l.volume_ml) || 0), 0);
@@ -71,13 +70,11 @@ export default function LogsIndexScreen() {
 
     const gVal = latestGlucose?.value;
     const bpVal = latestBp?.systolic && latestBp?.diastolic ? `${latestBp.systolic}/${latestBp.diastolic}` : null;
-    const wVal = latestWeight?.weight_kg;
 
     return {
       glucose: typeof gVal === 'number' && Number.isFinite(gVal) ? gVal : '--',
       bloodPressure: bpVal || '--',
       water: waterTotal > 0 ? waterTotal : '--',
-      weight: typeof wVal === 'number' && Number.isFinite(wVal) ? wVal : '--',
       medication: medCount > 0 ? medCount : '--',
       meal: mealCount > 0 ? mealCount : '--',
       insulin: insulinTotal > 0 ? insulinTotal : '--',
@@ -111,15 +108,6 @@ export default function LogsIndexScreen() {
       unit: 'ml',
       icon: 'cup-water',
       iconColor: '#0284C7',
-    },
-    {
-      key: 'weight',
-      route: '/logs/weight',
-      title: t('weight'),
-      value: quickMetrics.weight,
-      unit: 'kg',
-      icon: 'scale-bathroom',
-      iconColor: '#7C3AED',
     },
     {
       key: 'medication',

@@ -181,7 +181,6 @@ export function VoiceLogButton({ logType, onParsed, onError }: Props) {
   const voiceHint: Record<string, string> = {
     glucose:        t('voiceHintGlucose'),
     blood_pressure: t('voiceHintBp'),
-    weight:         t('voiceHintWeight'),
     water:          t('voiceHintWater'),
     insulin:        t('voiceHintInsulin'),
     meal:           t('voiceHintMeal'),

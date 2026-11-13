@@ -7,7 +7,7 @@ export const navigation = {
   goToHome() {
     router.replace('/(tabs)/home' as Href);
   },
-  goToLogs(type?: 'glucose' | 'blood-pressure' | 'medication' | 'weight' | 'water' | 'meal' | 'insulin') {
+  goToLogs(type?: 'glucose' | 'blood-pressure' | 'medication' | 'water' | 'meal' | 'insulin') {
     if (!type) {
       router.navigate('/logs' as Href);
       return;

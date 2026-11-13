@@ -33,7 +33,6 @@ const VISIBLE_MISSION_KEYS = new Set([
   'daily_checkin',
   'log_glucose',
   'log_bp',
-  'log_weight',
   'log_water',
 ]);
 
@@ -58,10 +57,6 @@ const getMissionMeta = (): Record<string, { title: string; description?: string 
   log_bp: {
     title: i18n.t('missions:measureBP'),
     description: i18n.t('missions:measureBPDesc')
-  },
-  log_weight: {
-    title: i18n.t('missions:weightMission'),
-    description: i18n.t('missions:weightMissionDesc')
   },
   log_water: {
     title: i18n.t('missions:waterIntake'),

@@ -165,7 +165,6 @@ type HomeMetricCarouselProps = {
 const METRIC_BANNER_MAP: Record<string, any> = {
   glucose: require('../../../assets/images/logs/banner_glucose.png'),
   'blood-pressure': require('../../../assets/images/logs/banner_bp.png'),
-  weight: require('../../../assets/images/logs/banner_weight.png'),
   water: require('../../../assets/images/logs/banner_water.png'),
   medication: require('../../../assets/images/logs/banner_medication.png'),
   meal: require('../../../assets/images/logs/banner_meal.png'),
@@ -178,9 +177,6 @@ const METRIC_THEME_MAP: Record<string, { iconColor: string }> = {
   },
   'blood-pressure': {
     iconColor: '#E11D48',
-  },
-  weight: {
-    iconColor: '#7C3AED',
   },
   water: {
     iconColor: '#0D9488',
@@ -583,17 +579,6 @@ export default function HomeScreen() {
       iconColor: '#E11D48',
     },
     {
-      key: 'weight',
-      title: t('weight'),
-      value: quickMetrics.weight,
-      unit: tc('unitKg'),
-      icon: 'scale-bathroom',
-      color: '#7C3AED',
-      route: '/logs/weight',
-      banner: require('../../../assets/images/logs/banner_weight.png'),
-      iconColor: '#7C3AED',
-    },
-    {
       key: 'water',
       title: t('water'),
       value: quickMetrics.water,
@@ -940,7 +925,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {logs.filter((log: LogEntry) => ['glucose', 'blood-pressure', 'water', 'weight'].includes(log.type)).length === 0 ? (
+        {logs.filter((log: LogEntry) => ['glucose', 'blood-pressure', 'water'].includes(log.type)).length === 0 ? (
           <View style={styles.emptyLogsContainer}>
             <Ionicons name="document-text-outline" size={40} color={iconColors.primary} />
             <Text style={styles.emptyLogsTitle}>{t('noLogsYet')}</Text>
@@ -948,11 +933,10 @@ export default function HomeScreen() {
           </View>
         ) : (
           <View style={styles.logsGrid}>
-            {logs.filter((log: LogEntry) => ['glucose', 'blood-pressure', 'water', 'weight'].includes(log.type)).slice(0, 3).map((log: LogEntry) => {
+            {logs.filter((log: LogEntry) => ['glucose', 'blood-pressure', 'water'].includes(log.type)).slice(0, 3).map((log: LogEntry) => {
               const logMeta: Record<string, { iconColor: string; icon: string; subtitle: string; watermarkColor: string }> = {
                 'glucose':        { iconColor: '#43A047', icon: 'water',           subtitle: t('glucoseHealth'), watermarkColor: '#43A047' },
                 'blood-pressure': { iconColor: '#1E88E5', icon: 'heart-pulse',     subtitle: t('cardioHealth'),  watermarkColor: '#1E88E5' },
-                'weight':         { iconColor: '#26A69A', icon: 'scale-bathroom',  subtitle: t('bodyMetrics'),   watermarkColor: '#26A69A' },
                 'water':          { iconColor: '#00ACC1', icon: 'cup-water',       subtitle: t('hydration'),     watermarkColor: '#00ACC1' },
               };
               const meta = logMeta[log.type] ?? { iconColor: colors.textSecondary, icon: 'dots-horizontal', subtitle: '', watermarkColor: colors.textSecondary };
@@ -960,7 +944,6 @@ export default function HomeScreen() {
               const displayValue = (() => {
                 if (log.type === 'glucose') return log.value ? `${log.value} ${tc('unitMgdl')}` : tc('noData');
                 if (log.type === 'blood-pressure') return log.systolic && log.diastolic ? `${log.systolic}/${log.diastolic} ${tc('unitMmhg')}` : tc('noData');
-                if (log.type === 'weight') return log.weight_kg ? `${log.weight_kg} ${tc('unitKg')}` : tc('noData');
                 if (log.type === 'water') return log.volume_ml ? `${log.volume_ml} ${tc('unitMl')}` : tc('noData');
                 return tc('noData');
               })();

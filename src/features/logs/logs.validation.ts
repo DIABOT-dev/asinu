@@ -1,5 +1,5 @@
 import i18n from '../../i18n';
-import { BloodPressureLogPayload, GlucoseLogPayload, InsulinLogPayload, MealLogPayload, MedicationLogPayload, WaterLogPayload, WeightLogPayload } from './logs.api';
+import { BloodPressureLogPayload, GlucoseLogPayload, InsulinLogPayload, MealLogPayload, MedicationLogPayload, WaterLogPayload } from './logs.api';
 import { isHalfStepNumber } from './logs.service';
 import { validateBloodPressure } from '../../lib/blood-pressure';
 
@@ -43,26 +43,6 @@ export const validateMedicationPayload = (
   if (!medication.trim()) return { ok: false, errors: { medication: t('errMedName') } };
   if (!dose.trim()) return { ok: false, errors: { dose: t('errMedDose') } };
   return { ok: true, value: { medication: medication.trim(), dose: dose.trim(), notes } };
-};
-
-export const validateWeightPayload = (
-  weight: string,
-  bodyfat?: string,
-  notes?: string
-): ValidationResult<WeightLogPayload> => {
-  const w = requireNumber(weight);
-  if (w === null || w <= 0 || !isHalfStepNumber(w)) {
-    return { ok: false, errors: { weight: t('errWeightStep') } };
-  }
-  let bf: number | undefined;
-  if (bodyfat) {
-    const bfNum = requireNumber(bodyfat);
-    if (bfNum === null || !isHalfStepNumber(bfNum)) {
-      return { ok: false, errors: { bodyfat: t('errBodyfatStep') } };
-    }
-    bf = bfNum;
-  }
-  return { ok: true, value: { weight_kg: w, bodyfat_pct: bf, notes } };
 };
 
 export const validateWaterPayload = (volume: string): ValidationResult<WaterLogPayload> => {
