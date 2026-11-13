@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image as ExpoImage } from 'expo-image';
 import { DailyCheckinCard, InstantCheckinCard } from '../../../src/components/DailyCheckinCard';
 import { EarlySignalCard } from '../../../src/components/EarlySignalCard';
+import { AsinuAssistantButton } from '../../../src/features/app-assistant/AsinuAssistantButton';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
 import { isUnfinishedCheckin, readLocationDraft } from '../../../src/features/checkin/checkin-progress';
@@ -815,6 +816,7 @@ export default function HomeScreen() {
       {/* Notification Bell — chỉ hiện khi đã đăng nhập */}
       {profile && (
         <View style={[styles.headerActions, { top: insets.top + spacing.sm }]}>
+          <AsinuAssistantButton />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={tt('earlyTitle')}

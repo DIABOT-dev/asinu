@@ -16,7 +16,7 @@ import { createLiveDictation, getLiveDictationModule, type LiveDictation } from 
 export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcessingChange, disabled = false, practice = false, practiceExample, purpose = 'checkin' }: {
   onText: (text: string) => void; onInterimText?: (text: string) => void; onBeforeAi: () => Promise<boolean>; onProcessingChange?: (busy: boolean) => void; disabled?: boolean; practice?: boolean;
   practiceExample?: string;
-  purpose?: 'checkin' | 'reminder';
+  purpose?: 'checkin' | 'reminder' | 'assistant';
 }) {
   const { t, i18n } = useTranslation('onboarding');
   const focused = useIsFocused();
@@ -145,7 +145,7 @@ export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcess
     finally { if (current() && !waitingForLiveResult) { locked.current = false; setBusy(false); } }
   };
   const label = t(recording ? 'guidance.stopRecording' : 'guidance.speak');
-  return <Pressable testID={purpose === 'reminder' ? 'reminder-voice-answer' : 'checkin-voice-answer'} accessibilityRole="button" accessibilityLabel={label} disabled={busy || disabled || !focused}
+  return <Pressable testID={purpose === 'reminder' ? 'reminder-voice-answer' : purpose === 'assistant' ? 'assistant-voice-answer' : 'checkin-voice-answer'} accessibilityRole="button" accessibilityLabel={label} disabled={busy || disabled || !focused}
     accessibilityHint={recording ? t('guidance.voiceStopHint') : undefined}
     accessibilityState={{ disabled: busy || disabled || !focused, busy }}
     onPress={() => void press()} style={({ pressed }) => ({ minHeight: 56, minWidth: 56, padding: 12, borderRadius: 14,

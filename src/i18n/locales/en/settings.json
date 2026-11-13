@@ -212,5 +212,36 @@
       "evening": "Evening"
     }
   },
-  "scheduleCustom": "Custom"
+  "scheduleCustom": "Custom",
+  "appAssistant": {
+    "open": "Talk to Asinu",
+    "openHint": "Log a health reading or change the app language and text size",
+    "close": "Close Asinu assistant",
+    "greeting": "How can I help?",
+    "input": "Your request to Asinu",
+    "placeholder": "For example: log glucose 120, switch to Vietnamese…",
+    "answer": "Tell me a little more here…",
+    "send": "Send request",
+    "review": "Please check these details",
+    "confirm": "Confirm",
+    "newRequest": "New request",
+    "saved": "All updated.",
+    "working": "Asinu is understanding your request…",
+    "saving": "Updating…",
+    "error": "I could not understand the full request. Please try again.",
+    "saveError": "Not all results could be confirmed. Tap Confirm to continue; readings already saved will not be saved twice.",
+    "rateLimited": "Please wait a moment and try again.",
+    "scope": "I can log blood sugar, blood pressure and water, switch between Vietnamese and English, and change the app text size.",
+    "pulseUnit": "bpm",
+    "label": {
+      "glucose": "Blood sugar",
+      "blood_pressure": "Blood pressure",
+      "water": "Water"
+    },
+    "prompt": {
+      "glucose": "Log blood sugar ",
+      "blood_pressure": "Log blood pressure ",
+      "water": "Log water "
+    }
+  }
 }

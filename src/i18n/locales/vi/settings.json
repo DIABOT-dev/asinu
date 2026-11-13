@@ -212,5 +212,36 @@
       "evening": "Tối"
     }
   },
-  "scheduleCustom": "Đã đặt"
+  "scheduleCustom": "Đã đặt",
+  "appAssistant": {
+    "open": "Trò chuyện với Asinu",
+    "openHint": "Ghi chỉ số sức khỏe hoặc chỉnh ngôn ngữ và cỡ chữ",
+    "close": "Đóng trợ lý Asinu",
+    "greeting": "Mình giúp gì cho bạn nhé?",
+    "input": "Yêu cầu dành cho Asinu",
+    "placeholder": "Ví dụ: ghi đường huyết 120, đổi sang tiếng Anh…",
+    "answer": "Bạn nói hoặc nhập thêm ở đây nhé…",
+    "send": "Gửi yêu cầu",
+    "review": "Bạn xem lại giúp mình nhé",
+    "confirm": "Xác nhận",
+    "newRequest": "Yêu cầu mới",
+    "saved": "Mình đã cập nhật xong rồi nhé.",
+    "working": "Asinu đang hiểu yêu cầu…",
+    "saving": "Đang cập nhật…",
+    "error": "Mình chưa hiểu trọn yêu cầu. Bạn thử lại nhé.",
+    "saveError": "Chưa xác nhận được toàn bộ kết quả. Bạn bấm Xác nhận để tiếp tục; các số đo đã lưu sẽ không bị ghi lại lần nữa.",
+    "rateLimited": "Bạn đợi một chút rồi gửi lại nhé.",
+    "scope": "Mình có thể ghi đường huyết, huyết áp, nước uống, đổi Tiếng Việt/Tiếng Anh và cỡ chữ trong app.",
+    "pulseUnit": "nhịp/phút",
+    "label": {
+      "glucose": "Đường huyết",
+      "blood_pressure": "Huyết áp",
+      "water": "Nước uống"
+    },
+    "prompt": {
+      "glucose": "Ghi đường huyết ",
+      "blood_pressure": "Ghi huyết áp ",
+      "water": "Ghi nước uống "
+    }
+  }
 }
