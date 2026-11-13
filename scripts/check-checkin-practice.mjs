@@ -99,7 +99,7 @@ const native = { ...conclusionHelpers, useCheckinAddressing: () => ({ honorific:
 native.useCallback = work => work;
 function routeHarness(language, params = { mode: 'guide' }, guidance = {}, entry = {}) {
   const storage = progressHarness();
-  const runtime = hooks(), calls = { network: [], consent: 0, progress: [], finished: [], routes: [], alerts: [], audio: [], help: [], presentation: [] };
+  const runtime = hooks(), calls = { network: [], signals: [], consent: 0, progress: [], finished: [], routes: [], alerts: [], audio: [], help: [], presentation: [] };
   const tr = translations(language);
   const guideState = { account: '7', ready: true,
     progress: { firstCheckin: false, welcomeSeen: true, completed: [], epoch: 0 }, ...guidance,
@@ -114,7 +114,9 @@ function routeHarness(language, params = { mode: 'guide' }, guidance = {}, entry
   const useGuidanceStore = Object.assign(select => select(guideState), { getState: () => guideState });
   const real = createCheckinPractice(tr.t);
   const realApi = Object.fromEntries(Object.keys(real).map(name => [name, async (...args) => {
-    calls.network.push([name, ...args]); const response = await (entry.api?.[name] ? entry.api[name](...args) : real[name](...args));
+    calls.network.push([name, ...(name === 'triage' ? args.slice(0, 3) : args)]);
+    if (name === 'triage') calls.signals.push(args[3]);
+    const response = await (entry.api?.[name] ? entry.api[name](...args) : real[name](...args));
     if (response.session) response.session = { ...response.session, id: 500, user_id: 7 };
     if (name === 'triage' && entry.triageError) throw new Error('offline');
     return response;
@@ -1236,6 +1238,7 @@ await test('the explicit top-right Cancel action cannot be undone by a late tria
   confirm.onPress(); confirm.onPress(); tree=await h.settle();
   assert.equal(h.calls.network.filter(call=>call[0]==='cancel').length,1);
   assert.deepEqual(h.calls.network.find(call=>call[0]==='cancel'),['cancel',500,'phase-a']);
+  assert.equal(h.calls.signals.at(-1).aborted, true, 'Confirmed cancellation stops the pending AI poll');
   assert.equal(h.calls.routes.at(-1),'/(tabs)/home');
   resolve({ok:true,isDone:true,summary:'Synthetic late result',severity:'low'}); tree=await h.settle();
   assert.ok(!nodes(tree).some(node=>node.type==='Result'));
@@ -1468,6 +1471,24 @@ for (const language of ['vi', 'en']) for (const key of ['other', 'other_measurem
     assert.equal(confirm().props.disabled, false, 'The video case must be able to continue');
     confirm().props.onPress(); await tick();
     assert.deepEqual(sent, ['No prescription, Not measured today']);
+  });
+}
+for (const [label, mode, expected, question, options] of [
+  ['explicit single choice despite a symptom keyword', false, false, 'Bạn đang bị cảm giác nào dưới đây?', ['Âm ỉ', 'Nóng rát', 'Căng tức', 'Châm chích', 'Nhói', 'Khác']],
+  ['explicit multiple choice despite a time keyword', true, true, 'Bạn bắt đầu thấy từng khó chịu từ khi nào?', ['Hôm nay', 'Hôm qua']],
+  ['legacy response without a mode', undefined, true, 'Bạn đang bị cảm giác nào dưới đây?', ['Âm ỉ', 'Nóng rát', 'Căng tức', 'Châm chích', 'Nhói', 'Khác']],
+]) {
+  await test(`the real route respects the server selection mode: ${label}`, async () => {
+    const session = { id: 500, user_id: 7, initial_status: 'tired', current_status: 'tired',
+      triage_messages: [{ step: 'symptoms', question: 'Bạn thấy thế nào?', answer: 'Ngứa' }],
+      triage_state: { phase: 'initial', phase_id: 'selection-mode-test' } };
+    const h = routeHarness('vi', { mode: 'resume', checkin_id: '500' }, {}, { session,
+      api: { triage: async () => ({ ok: true, isDone: false, step: 'compact_character', question, options, multiSelect: mode }) } });
+    const tree = await h.settle();
+    const visible = nodes(tree).find(node => node.type === 'Question');
+    assert.ok(visible);
+    assert.equal(visible.props.multiSelect, expected);
+    assert.deepEqual(visible.props.options, options);
   });
 }
 console.log(`Check-in practice: ${checks} runtime regressions passed.`);

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useFocusEffect } from "expo-router";
 import { AppState } from "react-native";
 import {
@@ -14,22 +14,27 @@ import {
 
 export function useReminderConfigPreferences() {
   const token = useAuthStore((state) => state.token);
-  const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
+  const [prefs, setPreferences] = useState<NotificationPreferences | null>(null);
+  const request = useRef(0);
+  // A load begun before a manual/agent save must not overwrite its result.
+  const setPrefs: Dispatch<SetStateAction<NotificationPreferences | null>> = useCallback(value => {
+    request.current++;
+    setPreferences(value);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [notificationPermissionGranted, setNotificationPermissionGranted] =
     useState(false);
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      let request = 0;
-      setPrefs(null);
+      setPreferences(null);
       setLoading(true);
       setNotificationPermissionGranted(false);
       const load = async () => {
-        const version = ++request;
+        const version = ++request.current;
         const current = () =>
           active &&
-          request === version &&
+          request.current === version &&
           useAuthStore.getState().token === token;
         try {
           const [preferences, granted] = await Promise.all([
@@ -39,12 +44,12 @@ export function useReminderConfigPreferences() {
           if (!preferences.ok)
             throw new Error("Reminder preference unavailable");
           if (current()) {
-            setPrefs(preferences);
+            setPreferences(preferences);
             setNotificationPermissionGranted(granted);
           }
         } catch {
           if (current()) {
-            setPrefs(null);
+            setPreferences(null);
             setNotificationPermissionGranted(false);
           }
         } finally {
@@ -62,7 +67,7 @@ export function useReminderConfigPreferences() {
       });
       return () => {
         active = false;
-        request++;
+        request.current++;
         unsubscribeNative();
         unsubscribeTask();
         subscription.remove();

@@ -163,9 +163,14 @@ function CheckinScreen() {
   const [entryAttempt, setEntryAttempt] = useState(0);
   const entryRecoveryPhase = useRef<string | undefined>(undefined);
   const requestEpoch = useRef(0);
+  const triageRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => {
+    requestEpoch.current++;
+    triageRequest.current?.abort();
+  }, [userId, isPractice]);
   const cancellation = useCheckinCancellation({
     account: userId, session,
-    onConfirmed: () => { requestEpoch.current++; },
+    onConfirmed: () => { requestEpoch.current++; triageRequest.current?.abort(); },
     onCancelled: () => { void guidanceAudio.stop(); router.replace('/(tabs)/home'); },
     onRecover: () => { setLoading(true); setEntryAttempt(value => value + 1); },
   });
@@ -433,10 +438,14 @@ function CheckinScreen() {
     setTriageError(false);
     setTriageConflict(false);
     triageRetryRef.current = () => fetchNextQuestion(sess, prevAnswers);
+    triageRequest.current?.abort();
+    const request = new AbortController();
+    triageRequest.current = request;
     try {
       if (!isPractice) await savePendingAnswers(userId, sess, prevAnswers);
       if (epoch !== requestEpoch.current) return;
-      const result = await checkinClient.triage(sess.id, prevAnswers, isPractice ? undefined : checkinPhaseId(sess));
+      const result = await checkinClient.triage(sess.id, prevAnswers,
+        isPractice ? undefined : checkinPhaseId(sess), request.signal);
       if (epoch !== requestEpoch.current) return;
       if (__DEV__) console.log('[Checkin] triage completed:', {
         isDone: result.isDone, step: result.step,
@@ -500,16 +509,15 @@ function CheckinScreen() {
         // Multi-select: symptom lists, activities, body areas (many combinable options)
         const opts = result.options || [];
         const q = (result.question || '').toLowerCase();
-        // Override: câu hỏi gom triệu chứng phải luôn multi-select bất kể BE trả gì.
-        // User thường gặp nhiều triệu chứng cùng lúc, ép multi để khớp UX thực tế.
+        // Only older API responses without a selection mode need a text heuristic.
         const isSymptomCollect =
           opts.length > 4 &&
           (/triệu chứng.*(gì|nào)|gặp.*triệu chứng|đang.*bị/.test(q) ||
             /symptom.*(what|which)|experiencing/.test(q));
-        if (isSymptomCollect) {
-          setCurrentMultiSelect(true);
-        } else if (result.multiSelect !== undefined) {
+        if (typeof result.multiSelect === 'boolean') {
           setCurrentMultiSelect(result.multiSelect);
+        } else if (isSymptomCollect) {
+          setCurrentMultiSelect(true);
         } else {
           const isSingleSelect =
             opts.length <= 4 && (
@@ -526,6 +534,7 @@ function CheckinScreen() {
         setCurrentSkipAnswerLabel(result.skipAnswerLabel);
       }
     } catch (err: any) {
+      if (request.signal.aborted) return;
       if (epoch !== requestEpoch.current) return;
       if (__DEV__) console.warn('[Checkin] triage request failed:', err?.message || err);
       // Keep this exact request, including the last answer. A network failure
@@ -541,7 +550,10 @@ function CheckinScreen() {
         };
       }
     } finally {
-      if (epoch === requestEpoch.current) setLoading(false);
+      if (triageRequest.current === request) {
+        triageRequest.current = null;
+        if (epoch === requestEpoch.current) setLoading(false);
+      }
     }
   };
 

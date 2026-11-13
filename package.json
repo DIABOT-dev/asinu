@@ -51,6 +51,7 @@
     "test:guidance": "node scripts/check-guided-onboarding.mjs",
     "test:auth": "node scripts/check-auth-flows.mjs",
     "test:checkin-question-loading": "node --test scripts/check-checkin-question-loading.mjs",
+    "test:checkin-ai-wait": "node --test scripts/check-checkin-ai-wait.mjs scripts/check-checkin-question-loading.mjs",
     "test:checkin-viewport": "node --test scripts/check-checkin-viewport.mjs",
     "test:checkin-progress": "node --test scripts/check-checkin-progress.mjs && node scripts/check-checkin-cancel-home.mjs",
     "test:checkin-practice": "node scripts/check-checkin-practice.mjs",

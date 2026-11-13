@@ -408,6 +408,7 @@ for (const language of ['vi', 'en']) {
       'react-native-safe-area-context': {}, '../../src/components/ScaledText': { ScaledText: 'Text' },
       '../../src/components/state/MainScreenSkeletons': {}, '../../src/features/auth/auth.api': {},
       '../../src/features/profile/useReminderConfigPreferences': {},
+      '../../src/features/profile/ReminderAssistant': { ReminderAssistant: 'ReminderAssistant' },
       '../../src/stores/toast.store': {}, '../../src/features/notifications/notifications.api': {},
       '../../src/lib/notifications': {}, '../../src/hooks/useScaledTypography': { useScaledTypography: () => theme.typography },
       '../../src/styles': theme, '../../src/hooks/useThemeColors': {},

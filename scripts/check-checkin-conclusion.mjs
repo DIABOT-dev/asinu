@@ -445,12 +445,14 @@ for (const lang of ['vi', 'en']) {
       },
     };
     const globals = {
+      ...evaluate('src/features/checkin/triage-answer-selection.ts', {}),
       CheckinQuestionLoading: 'QuestionLoading',
       useTranslation: () => ({ t: (key) => home[key] || key }),
       useGuideAcknowledgement: () => () => {},
-      useState: (initial) => [initial, () => {}],
+      useState: (initial) => [typeof initial === 'function' ? initial() : initial, () => {}],
       useRef: (current) => ({ current }),
       useEffect: () => {},
+      useCallback: work => work,
       useLanguageStore: () => ({ language: lang }),
       MAX_TRIAGE_QUESTIONS: 8,
       View: 'View',

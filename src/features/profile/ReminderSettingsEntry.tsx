@@ -137,14 +137,13 @@ export function ReminderSettingsEntry() {
       onPress={() => void open()}
       style={({ pressed }) => [
         styles.row,
-        disabled && styles.disabled,
         pressed && { opacity: 0.65 },
       ]}
     >
       <Ionicons
         name="alarm-outline"
         size={22}
-        color={disabled ? colors.textSecondary : colors.primaryDark}
+        color={colors.primaryDark}
         style={styles.icon}
       />
       <View style={styles.copy}>
@@ -180,5 +179,4 @@ const styles = StyleSheet.create({
   copy: { flex: 1, minWidth: 0, gap: 4 },
   label: { fontSize: 15, fontWeight: "600" },
   hint: { fontSize: 12 },
-  disabled: { opacity: 0.55 },
 });

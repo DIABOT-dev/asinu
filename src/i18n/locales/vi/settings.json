@@ -188,5 +188,29 @@
   "devicePermissions": "Thông báo, micro và ảnh",
   "devicePermissionsError": "Chưa mở được Cài đặt. Vui lòng thử lại.",
   "languageViPreview": "Chăm sóc sức khỏe mỗi ngày",
-  "languageEnPreview": "Take care of your health every day"
+  "languageEnPreview": "Take care of your health every day",
+  "reminderAssistant": {
+    "title": "Nói giờ bạn muốn được nhắc",
+    "hint": "Nói hoặc gõ một lần để đổi giờ sáng, chiều, tối.",
+    "placeholder": "Ví dụ: Sáng 7 rưỡi, chiều 2 giờ, tối 9 rưỡi.",
+    "answerPlaceholder": "Bạn trả lời thêm ở đây nhé",
+    "submit": "Đặt giờ giúp tôi",
+    "working": "Asinu đang xếp giờ nhắc…",
+    "saved": "Đã đổi giờ nhắc",
+    "unchanged": "Giờ nhắc hiện tại đã đúng với yêu cầu của bạn.",
+    "newRequest": "Bắt đầu yêu cầu mới",
+    "clarify": "Bạn muốn được nhắc vào mấy giờ sáng, chiều hoặc tối?",
+    "scope": "Asinu có thể đổi giờ nhắc sáng, chiều và tối hằng ngày tại đây.",
+    "tooLong": "Yêu cầu hơi dài. Bạn bắt đầu yêu cầu mới và nói gọn các giờ muốn đổi nhé.",
+    "error": "Chưa xác nhận được kết quả. Bạn xem giờ hiện tại và bấm Đặt giờ giúp tôi để thử lại nhé.",
+    "conflict": "Giờ nhắc vừa được thay đổi. Bạn xem lịch hiện tại rồi gửi lại yêu cầu nhé.",
+    "expired": "Yêu cầu đã hết hạn. Bạn gửi lại để Asinu kiểm tra giờ hiện tại nhé.",
+    "rateLimited": "Bạn đợi một chút rồi thử lại nhé.",
+    "slots": {
+      "morning": "Sáng",
+      "afternoon": "Chiều",
+      "evening": "Tối"
+    }
+  },
+  "scheduleCustom": "Đã đặt"
 }

@@ -27,7 +27,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 // and replace the loader immediately when the actual response arrives.
 export function estimatedQuestionProgress(elapsedMs: number) {
   const elapsed = Number.isFinite(elapsedMs) ? Math.max(0, elapsedMs) : 0;
-  return Math.min(94, Math.round(12 + 82 * (1 - Math.exp(-elapsed / 2400))));
+  return Math.min(94, Math.round(12 + 82 * (1 - Math.exp(-elapsed / 10000))));
 }
 
 export function CheckinQuestionLoading({
@@ -44,6 +44,7 @@ export function CheckinQuestionLoading({
   const [elapsed, setElapsed] = useState(0);
   const elapsedRef = useRef(0);
   const lift = useSharedValue(0);
+  const spin = useSharedValue(0);
   const ring = useSharedValue(12);
   const playing = active && foreground && focused;
   const percent = estimatedQuestionProgress(elapsed);
@@ -101,11 +102,13 @@ export function CheckinQuestionLoading({
         -1,
         false,
       );
+      spin.value = withRepeat(withTiming(360, { duration: 2600, easing: Easing.linear }), -1, false);
     } else {
       lift.value = 0;
+      spin.value = 0;
     }
-    return () => cancelAnimation(lift);
-  }, [lift, playing, reducedMotion]);
+    return () => { cancelAnimation(lift); cancelAnimation(spin); };
+  }, [lift, spin, playing, reducedMotion]);
 
   useEffect(() => {
     ring.value =
@@ -116,6 +119,7 @@ export function CheckinQuestionLoading({
   }, [ring, percent, playing, reducedMotion]);
 
   const mascotMotion = useAnimatedStyle(() => ({ transform: [{ translateY: lift.value }] }));
+  const ringRotation = useAnimatedStyle(() => ({ transform: [{ rotate: `${spin.value}deg` }] }));
   const ringMotion = useAnimatedProps(() => ({
     strokeDashoffset: CIRCUMFERENCE * (1 - ring.value / 100),
   }));
@@ -135,6 +139,7 @@ export function CheckinQuestionLoading({
           text: t('checkinQuestionLoadingPercent', { percent }),
         }}
       >
+        <Animated.View style={ringRotation} testID="checkin-waiting-ring" accessible={false}>
         <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} accessible={false}>
           <Circle
             cx={SIZE / 2}
@@ -158,6 +163,7 @@ export function CheckinQuestionLoading({
             animatedProps={ringMotion}
           />
         </Svg>
+        </Animated.View>
         <Animated.View style={[styles.mascot, mascotMotion]} pointerEvents="none">
           <Image source={MASCOT} style={styles.image} resizeMode="contain" accessible={false} />
         </Animated.View>

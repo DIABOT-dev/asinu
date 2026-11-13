@@ -78,7 +78,7 @@ export const chatApi = {
     return res.feedbacks ?? {};
   },
 
-  async transcribeAudio(uri: string, lang: string = 'vi', purpose: 'chat' | 'checkin' = 'chat'): Promise<string> {
+  async transcribeAudio(uri: string, lang: string = 'vi', purpose: 'chat' | 'checkin' | 'reminder' = 'chat'): Promise<string> {
     const token = tokenStore.getToken();
     const formData = new FormData();
     // SDK 57's fetch encoder needs the file bytes. A legacy { uri, type, name }
@@ -100,7 +100,8 @@ export const chatApi = {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 45000);
-    const endpoint = purpose === 'checkin' ? '/api/mobile/checkin/transcribe' : '/api/mobile/chat/transcribe';
+    const endpoint = purpose === 'reminder' ? '/api/notifications/reminder-assistant/transcribe'
+      : purpose === 'checkin' ? '/api/mobile/checkin/transcribe' : '/api/mobile/chat/transcribe';
     try {
       const response = await monitoredFetch(`${env.apiBaseUrl}${endpoint}`, {
         method: 'POST',

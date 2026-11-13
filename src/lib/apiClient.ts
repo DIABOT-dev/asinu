@@ -49,6 +49,7 @@ class RequestTimeoutError extends Error {
 const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs: number) => {
   const controller = new AbortController();
   const userSignal = options.signal;
+  const abort = () => controller.abort();
   let didTimeout = false;
   const timeout = setTimeout(() => {
     didTimeout = true;
@@ -60,7 +61,7 @@ const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs: nu
       clearTimeout(timeout);
       controller.abort();
     } else {
-      userSignal.addEventListener('abort', () => controller.abort(), { once: true });
+      userSignal.addEventListener('abort', abort, { once: true });
     }
   }
 
@@ -74,6 +75,8 @@ const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs: nu
       throw new RequestTimeoutError();
     }
     throw error;
+  } finally {
+    userSignal?.removeEventListener('abort', abort);
   }
 };
 

@@ -188,5 +188,29 @@
   "devicePermissions": "Notifications, microphone & photos",
   "devicePermissionsError": "Could not open Settings. Please try again.",
   "languageViPreview": "Chăm sóc sức khỏe mỗi ngày",
-  "languageEnPreview": "Take care of your health every day"
+  "languageEnPreview": "Take care of your health every day",
+  "reminderAssistant": {
+    "title": "Tell Asinu when to remind you",
+    "hint": "Say or type your morning, afternoon and evening times in one request.",
+    "placeholder": "For example: 7:30 am, 2 pm and 9:30 pm.",
+    "answerPlaceholder": "Add your answer here",
+    "submit": "Set my reminder times",
+    "working": "Asinu is arranging your reminders…",
+    "saved": "Reminder times updated",
+    "unchanged": "Your current reminder times already match your request.",
+    "newRequest": "Start a new request",
+    "clarify": "Which reminder should change, and to what morning, afternoon or evening time?",
+    "scope": "Here Asinu can change your daily morning, afternoon and evening reminders.",
+    "tooLong": "This request is a little long. Start a new request with the times you want to change.",
+    "error": "Could not confirm the result. Check your current times and tap Set my reminder times to retry.",
+    "conflict": "Reminder times changed. Review the current schedule and send your request again.",
+    "expired": "This request expired. Send it again so Asinu can check your current times.",
+    "rateLimited": "Please wait a moment before trying again.",
+    "slots": {
+      "morning": "Morning",
+      "afternoon": "Afternoon",
+      "evening": "Evening"
+    }
+  },
+  "scheduleCustom": "Custom"
 }

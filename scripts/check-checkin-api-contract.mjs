@@ -25,6 +25,7 @@ function loadApi(relativePath) {
   const localRequire = (id) => {
     if (id.endsWith('/lib/apiClient') || id.endsWith('lib/apiClient')) return { apiClient };
     if (id === '../checkin-call/checkin-call.completion') return { withManualCheckinCallCompletion: save => save() };
+    if (id === './wait-for-triage') return loadApi('src/features/checkin/wait-for-triage.ts').exports;
     throw new Error(`Unexpected dependency in ${relativePath}: ${id}`);
   };
   // This isolated harness evaluates transpiled API modules with a stubbed request client.
@@ -105,15 +106,16 @@ expectCall(health.calls, {
     assessment_version: 3,
     interview_layout: 'eight_groups',
     adaptive_questions: true,
+    wait_for_ai: true,
   },
-  timeoutMs: 90000,
+  timeoutMs: 30000,
 });
 
 checkinApi.triage(123, [], 'current-interview-phase');
 expectCall(health.calls, {
   path: '/api/mobile/checkin/triage', method: 'POST',
-  body: {checkin_id:123,previous_answers:[],conclusion_format:'narrative',assessment_version:3,interview_layout:'eight_groups',adaptive_questions:true,phase_id:'current-interview-phase'},
-  timeoutMs:90000,
+  body: {checkin_id:123,previous_answers:[],conclusion_format:'narrative',assessment_version:3,interview_layout:'eight_groups',adaptive_questions:true,wait_for_ai:true,phase_id:'current-interview-phase'},
+  timeoutMs:30000,
 });
 
 checkinApi.emergency({ lat: 10.7769, lng: 106.7009, accuracy: 12 });

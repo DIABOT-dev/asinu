@@ -13,9 +13,10 @@ import { runNativePermission } from '../../lib/native-permissions';
 import { createLiveDictation, getLiveDictationModule, type LiveDictation } from './live-dictation.service';
 
 /** Reuses the existing, consented transcription endpoint, never submits an answer. */
-export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcessingChange, disabled = false, practice = false, practiceExample }: {
+export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcessingChange, disabled = false, practice = false, practiceExample, purpose = 'checkin' }: {
   onText: (text: string) => void; onInterimText?: (text: string) => void; onBeforeAi: () => Promise<boolean>; onProcessingChange?: (busy: boolean) => void; disabled?: boolean; practice?: boolean;
   practiceExample?: string;
+  purpose?: 'checkin' | 'reminder';
 }) {
   const { t, i18n } = useTranslation('onboarding');
   const focused = useIsFocused();
@@ -82,7 +83,7 @@ export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcess
         const uri = previous.getURI();
         if (!uri) {throw new Error('RECORDING_FILE_UNAVAILABLE');}
         transcribing = true;
-        const text = (await chatApi.transcribeAudio(uri, i18n.language.startsWith('en') ? 'en' : 'vi', 'checkin')).trim();
+        const text = (await chatApi.transcribeAudio(uri, i18n.language.startsWith('en') ? 'en' : 'vi', purpose)).trim();
         if (current()) {
           if (text) {onText(text);}
           else {showToast(t('guidance.voiceFailure'), 'info');}
@@ -144,7 +145,7 @@ export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcess
     finally { if (current() && !waitingForLiveResult) { locked.current = false; setBusy(false); } }
   };
   const label = t(recording ? 'guidance.stopRecording' : 'guidance.speak');
-  return <Pressable testID="checkin-voice-answer" accessibilityRole="button" accessibilityLabel={label} disabled={busy || disabled || !focused}
+  return <Pressable testID={purpose === 'reminder' ? 'reminder-voice-answer' : 'checkin-voice-answer'} accessibilityRole="button" accessibilityLabel={label} disabled={busy || disabled || !focused}
     accessibilityHint={recording ? t('guidance.voiceStopHint') : undefined}
     accessibilityState={{ disabled: busy || disabled || !focused, busy }}
     onPress={() => void press()} style={({ pressed }) => ({ minHeight: 56, minWidth: 56, padding: 12, borderRadius: 14,

@@ -95,7 +95,8 @@ export function createCheckinPractice(
     async triage(
       _id: number,
       answers: TriageAnswer[],
-      _phaseId?: string
+      _phaseId?: string,
+      _signal?: AbortSignal
     ): Promise<TriageResult> {
       const plan = steps();
       const next = plan[answers.length];

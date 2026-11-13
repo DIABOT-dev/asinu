@@ -23,6 +23,7 @@ import { ReminderConfigSkeleton } from '../../src/components/state/MainScreenSke
 import { showToast } from '../../src/stores/toast.store';
 import { updateNotificationPreferences } from '../../src/features/notifications/notifications.api';
 import { useReminderConfigPreferences } from '../../src/features/profile/useReminderConfigPreferences';
+import { ReminderAssistant } from '../../src/features/profile/ReminderAssistant';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, radius, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
@@ -363,6 +364,7 @@ export default function ReminderConfigScreen() {
 
   const { prefs, setPrefs, loading, notificationPermissionGranted } = useReminderConfigPreferences();
   const [saving, setSaving] = useState(false);
+  const [assistantBusy, setAssistantBusy] = useState(false);
 
   // Time picker state
   const [pickerSlot, setPickerSlot] = useState<TimeSlot | null>(null);
@@ -387,7 +389,7 @@ export default function ReminderConfigScreen() {
   };
 
   const handleTimeConfirm = useCallback(async (time: string) => {
-    if (!prefs || !pickerSlot || saving || !remindersEnabled) {
+    if (!prefs || !pickerSlot || saving || assistantBusy || !remindersEnabled) {
       return;
     }
     const previousTime = prefs[`effective_${pickerSlot}_time`] ?? SLOT_META.find(meta => meta.slot === pickerSlot)!.defaultTime;
@@ -413,10 +415,10 @@ export default function ReminderConfigScreen() {
       showToast(t('scheduleSaveError'), 'error');
     }
     setSaving(false);
-  }, [prefs, pickerSlot, saving, remindersEnabled, t]);
+  }, [prefs, pickerSlot, saving, assistantBusy, remindersEnabled, t]);
 
   const handleResetToAuto = useCallback(async (slot: TimeSlot) => {
-    if (!prefs || saving || !remindersEnabled || prefs[`${slot}_time`] === null) {
+    if (!prefs || saving || assistantBusy || !remindersEnabled || prefs[`${slot}_time`] === null) {
       return;
     }
     const field = `${slot}_time`;
@@ -437,7 +439,7 @@ export default function ReminderConfigScreen() {
       showToast(t('scheduleSaveError'), 'error');
     }
     setSaving(false);
-  }, [prefs, saving, remindersEnabled, t]);
+  }, [prefs, saving, assistantBusy, remindersEnabled, t]);
 
   const handlePickerCancel = useCallback(() => {
     setPickerSlot(null);
@@ -497,14 +499,19 @@ export default function ReminderConfigScreen() {
             style={{ flex: 1 }}
             contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 48 }]}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           >
             {!remindersEnabled && <Text style={{ fontSize: 14, color: colors.textSecondary }}>
               {t(!prefs ? 'taskRemindersStatusUnavailable' : !notificationPermissionGranted ? 'enableNotificationsFirst' : 'enableTaskRemindersFirst')}
             </Text>}
 
+            {prefs?.reminder_assistant_enabled && <ReminderAssistant preferences={prefs}
+              disabled={!remindersEnabled || saving} onPreferences={setPrefs} onBusyChange={setAssistantBusy} />}
+
             {/* Morning, afternoon and evening rows. */}
             {SLOT_META.map((meta, idx) => {
-              const disabled = !remindersEnabled || saving;
+              const disabled = !remindersEnabled || saving || assistantBusy;
               const effectiveTime = getEffectiveTime(meta.slot);
               const isAuto = isAutoTime(meta.slot);
 
@@ -561,7 +568,7 @@ export default function ReminderConfigScreen() {
                           {/* Mode pill */}
                           <View style={styles.pillBadge}>
                             <MaterialCommunityIcons name="auto-fix" size={12} color="#00897b" />
-                            <Text style={styles.pillText}>{isAuto ? t('scheduleAuto') : t('scheduleAuto')}</Text>
+                            <Text style={styles.pillText}>{isAuto ? t('scheduleAuto') : t('scheduleCustom')}</Text>
                           </View>
                         </View>
                       </View>
