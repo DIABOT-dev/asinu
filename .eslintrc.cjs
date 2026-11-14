@@ -19,7 +19,7 @@ module.exports = {
       parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
     },
     {
-      files: ['scripts/check-health-feed-dismissals.mjs', 'scripts/check-ui-feature-state.mjs', 'scripts/check-home-connectivity.mjs', 'scripts/check-blood-pressure.mjs', 'scripts/check-typewriter-text.cjs', 'scripts/check-medication-photo-upload.cjs', 'scripts/check-medication-purpose.cjs', 'scripts/check-v21-medication-screen.mjs'],
+      files: ['scripts/check-health-feed-dismissals.mjs', 'scripts/check-ui-feature-state.mjs', 'scripts/check-home-connectivity.mjs', 'scripts/check-blood-pressure.mjs', 'scripts/check-typewriter-text.cjs', 'scripts/check-medication-photo-upload.cjs', 'scripts/check-medication-purpose.cjs', 'scripts/check-v21-medication-screen.mjs', 'scripts/check-app-assistant.cjs'],
       parser: 'espree',
       parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
     },
