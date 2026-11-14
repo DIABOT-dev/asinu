@@ -15,11 +15,19 @@ import { useFontSizeStore } from '../../stores/font-size.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { useAuthStore } from '../auth/auth.store';
 import { useLogsStore } from '../logs/logs.store';
-import { VoiceAnswerButton } from '../guidance/VoiceAnswerButton';
+import { renderVoiceAnswerButton, useVoiceAnswer } from '../guidance/VoiceAnswerButton';
 import { executeAssistantActions, planAssistantActions, saveAssistantReading, type AssistantAction } from './app-assistant.api';
 
 const mascot = require('../../../assets/asinu_assistant_listening_v1.png');
 type Preview = { actions: AssistantAction[]; requestId: string; recordedAt: string; completed: Set<number> };
+type PermissionDecision = { granted: boolean };
+type PendingPermission = {
+  operation: () => Promise<PermissionDecision>;
+  resolve: (decision: PermissionDecision) => void;
+  reject: (reason: Error) => void;
+  token: string | null;
+  started: boolean;
+};
 
 export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation('settings');
@@ -39,6 +47,9 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [clarification, setClarification] = useState<{ original: string; question: string }>();
   const [consent, setConsent] = useState(false);
+  const [permissionPending, setPermissionPending] = useState(false);
+  const pendingPermission = useRef<PendingPermission | null>(null);
+  const resumeVoice = useRef(false);
   const active = useRef(false);
   const locked = useRef(false);
   const revision = useRef(0);
@@ -47,13 +58,44 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
   const submit = useRef<() => Promise<void>>(async () => {});
   useEffect(() => {
     active.current = focused;
-    return () => { active.current = false; revision.current++; abort.current?.abort(); };
+    return () => {
+      active.current = false; revision.current++; abort.current?.abort();
+      pendingPermission.current?.reject(new Error('Voice permission request cancelled'));
+      pendingPermission.current = null;
+      resumeVoice.current = false;
+    };
   }, [focused, token]);
   const current = (version: number) => active.current && revision.current === version && useAuthStore.getState().token === token;
   const beforeVoice = async () => {
     if (await hasAiDataConsent()) return active.current && useAuthStore.getState().token === token;
-    if (active.current) { resume.current = false; setConsent(true); }
+    if (active.current && useAuthStore.getState().token === token) { resume.current = false; resumeVoice.current = true; setConsent(true); }
     return false;
+  };
+  const withPermissionPrompt = (operation: () => Promise<PermissionDecision>) => new Promise<PermissionDecision>((resolve, reject) => {
+    if (!active.current || useAuthStore.getState().token !== token || pendingPermission.current) { reject(new Error('Voice permission request cancelled')); return; }
+    pendingPermission.current = { operation, resolve, reject, token, started: false };
+    Keyboard.dismiss();
+    setPermissionPending(true);
+  });
+  const afterDialogDismiss = async () => {
+    const pending = pendingPermission.current;
+    if (!pending || pending.started) return;
+    pending.started = true;
+    const ownsRequest = () => active.current && pendingPermission.current === pending
+      && useAuthStore.getState().token === pending.token;
+    try {
+      if (!ownsRequest()) throw new Error('Voice permission request cancelled');
+      const decision = await pending.operation();
+      if (!ownsRequest()) throw new Error('Voice permission request cancelled');
+      pending.resolve(decision);
+    } catch (reason) {
+      pending.reject(reason instanceof Error ? reason : new Error('Voice permission request failed'));
+    } finally {
+      if (pendingPermission.current === pending) {
+        pendingPermission.current = null;
+        if (active.current) setPermissionPending(false);
+      }
+    }
   };
   const updateText = (value: string) => {
     setText(value); setPreview(null); setFeedback(''); setError(false);
@@ -116,11 +158,16 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
     }
   };
   const reset = () => { setText(''); setPreview(null); setClarification(undefined); setFeedback(''); setError(false); };
+  const voice = useVoiceAnswer({ purpose: 'assistant', sessionKey: token, disabled: !!busy, onBeforeAi: beforeVoice, withPermissionPrompt,
+    onNotice: (message, tone) => { setFeedback(message); setError(tone === 'error'); },
+    onInterimText: setInterim, onProcessingChange: setVoiceBusy,
+    onText: recognized => { setInterim(''); updateText(`${text.trimEnd()} ${recognized}`.trim().slice(0, 3000)); } });
   const unavailable = !!busy || voiceBusy;
   return <>
-    <AiDataConsentModal visible={consent} onDecline={() => { resume.current = false; setConsent(false); }}
+    <AiDataConsentModal visible={consent && focused} onDecline={() => { resume.current = false; resumeVoice.current = false; setConsent(false); }}
       onAgree={() => { setConsent(false); if (resume.current) { resume.current = false; void submit.current(); } }} />
-    <QueuedModal visible transparent animationType="fade" interruptible priority={10} statusBarTranslucent onRequestClose={onClose}>
+    <QueuedModal visible={focused && !consent && !permissionPending} transparent animationType="fade" interruptible priority={10} statusBarTranslucent onRequestClose={onClose}
+      onDismiss={afterDialogDismiss} onShow={() => { if (resumeVoice.current) { resumeVoice.current = false; void voice.press(); } }}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
         <Pressable accessibilityRole="button" accessibilityLabel={t('appAssistant.close')} onPress={onClose}
           style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }]} />
@@ -164,9 +211,7 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
               placeholderTextColor={colors.textSecondary} editable={!unavailable} style={[styles.input, { color: colors.textPrimary }]}
               value={interim ? `${text.trimEnd()} ${interim}`.trim() : text} onChangeText={updateText} />
             <View style={styles.composerActions}>
-              <VoiceAnswerButton purpose="assistant" disabled={!!busy} onBeforeAi={beforeVoice}
-                onInterimText={setInterim} onProcessingChange={setVoiceBusy}
-                onText={recognized => { setInterim(''); updateText(`${text.trimEnd()} ${recognized}`.trim().slice(0, 3000)); }} />
+              {renderVoiceAnswerButton(voice)}
               <Pressable accessibilityRole="button" accessibilityLabel={t('appAssistant.send')}
                 accessibilityState={{ busy: !!busy, disabled: unavailable || !text.trim() }} disabled={unavailable || !text.trim()}
                 onPress={() => void plan()} testID="asinu-assistant-send"

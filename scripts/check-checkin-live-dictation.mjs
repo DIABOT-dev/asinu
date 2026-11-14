@@ -57,7 +57,7 @@ function renderer(file, name, imports) {
     return slots[id].value;
   };
   const jsx = (type, props, key) => ({ type, props, key });
-  const components = evaluate(file, {
+  const adapters = {
     react: {
       useState(initial) { const id = index++; slots[id] ??= { value: initial }; return [slots[id].value, value => { slots[id].value = typeof value === 'function' ? value(slots[id].value) : value; }]; },
       useRef(initial) { return slots[index++] ??= { current: initial }; },
@@ -71,6 +71,7 @@ function renderer(file, name, imports) {
     },
     'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': { View: 'View', Pressable: 'Button', ActivityIndicator: 'Spinner', AppState: {
+      currentState: 'active',
       addEventListener: (_event, fn) => { appListeners.add(fn); return { remove: () => appListeners.delete(fn) }; },
     } },
     'expo-router': { useIsFocused: () => focused },
@@ -78,11 +79,11 @@ function renderer(file, name, imports) {
     '@expo/vector-icons': { Ionicons: 'Icon' },
     '../../components/ScaledText': { ScaledText: 'Text' },
     './guidance.model': { guideColors: { primary: '#08b8a2' } },
-    ...imports,
-  });
+  };
+  const components = evaluate(file, { ...adapters, ...(typeof imports === 'function' ? imports(adapters) : imports) });
   return {
     render(props) { index = 0; const tree = components[name](props); effects.splice(0).forEach(fn => fn()); return tree; },
-    appState(state) { appListeners.forEach(fn => fn(state)); },
+    appState(state) { adapters['react-native'].AppState.currentState = state; appListeners.forEach(fn => fn(state)); },
     focus(value) { focused = value; },
     unmount() { slots.forEach(slot => slot?.cleanup?.()); },
   };
@@ -188,6 +189,177 @@ test('the first iOS speech permission dialog does not cancel dictation; a real b
       assert.equal(h.native.starts.length, state === 'inactive' ? 1 : 0);
     } finally { h.unmount(); }
   }
+});
+
+// Run the real assistant owner, voice controller, modal queue and permission
+// presenter together. Only native capture and the server are replaced.
+function assistantHarness({ granted = false, consent = true, legacy = false } = {}) {
+  const { ModalQueue } = evaluate('src/lib/modalQueue.ts', {});
+  const queue = new ModalQueue(), native = nativeHarness(), notices = [], uploads = [];
+  const decision = {};
+  let permissionRequests = 0, recordings = 0, stopped = 0, tree, consented = consent;
+  let auth = { token: 'owner-a' };
+  native.module.getPermissionsAsync = async () => ({ granted });
+  native.module.requestPermissionsAsync = () => {
+    permissionRequests++;
+    return new Promise(resolve => { decision.resolve = value => { granted = value; resolve({ granted }); }; });
+  };
+  let detach;
+  const ui = renderer('src/features/app-assistant/AsinuAssistantDialog.tsx', 'AsinuAssistantDialog', adapters => {
+    const { AppState } = adapters['react-native'];
+    AppState.addEventListener('change', state => queue.setForeground(state === 'active'));
+    const permissions = evaluate('src/lib/native-permissions.ts', {
+      'react-native': { AppState }, './tokenStore': { tokenStore: { getToken: () => auth.token } },
+    }, { requestAnimationFrame: work => work() });
+    detach = permissions.attachNativePermissionPresenter(queue);
+    const store = select => select(auth); store.getState = () => auth;
+    const voiceModule = evaluate('src/features/guidance/VoiceAnswerButton.tsx', {
+      ...adapters,
+      './live-dictation.service': { ...native, getLiveDictationModule: () => legacy ? null : native.module },
+      '../../lib/native-permissions': permissions,
+      '../../lib/audio': { Audio: {
+        getPermissionsAsync: async () => ({ granted }),
+        requestPermissionsAsync: canRun => permissions.runNativePermission(() => native.module.requestPermissionsAsync(), { key: 'microphone', canRun }),
+        setAudioModeAsync: async () => {}, RecordingOptionsPresets: { HIGH_QUALITY: {} },
+        Recording: { createAsync: async () => {
+          recordings++;
+          return { recording: { stopAndUnloadAsync: async () => { stopped++; }, getURI: () => 'captured.m4a' } };
+        } },
+      } },
+      '../chat/chat.api': { chatApi: { transcribeAudio: async (...args) => { uploads.push(args); return 'Tôi vừa uống 200 ml nước'; } } },
+      '../../stores/toast.store': { showToast: (...args) => notices.push(args) },
+      './guidance.audio': { guidanceAudio: { stop: async () => {} } },
+    });
+    return {
+      'react-native': { ...adapters['react-native'], Image: 'Image', Keyboard: { dismiss() {} }, KeyboardAvoidingView: 'Keyboard',
+        Platform: { OS: 'ios' }, ScrollView: 'Scroll', StyleSheet: { create: value => value, absoluteFill: {} } },
+      'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
+      'expo-crypto': { randomUUID: () => 'unused-preview-id' },
+      '../../components/ScaledTextInput': { ScaledTextInput: 'Input' },
+      '../../components/QueuedModal': { QueuedModal: 'QueuedModal' },
+      '../../components/AiDataConsentModal': { AiDataConsentModal: 'Consent', hasAiDataConsent: async () => consented },
+      '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {}, isDark: false }) },
+      '../../lib/apiClient': { ApiError: class extends Error {} },
+      '../../stores/font-size.store': { useFontSizeStore: select => select({ scale: 'normal' }) },
+      '../../stores/language.store': { useLanguageStore: select => select({ language: 'vi' }) },
+      '../auth/auth.store': { useAuthStore: store },
+      '../logs/logs.store': { useLogsStore: {} },
+      '../guidance/VoiceAnswerButton': voiceModule,
+      './app-assistant.api': {
+        executeAssistantActions: () => assert.fail('Mic must not execute actions'),
+        planAssistantActions: () => assert.fail('Mic must not submit a plan'),
+      },
+      '../../../assets/asinu_assistant_listening_v1.png': 'mascot',
+    };
+  });
+  const render = () => {
+    tree = ui.render({ onClose() {} });
+    const all = nodes(tree), modal = all.find(node => node.type === 'QueuedModal'), consentModal = all.find(node => node.type === 'Consent');
+    if (modal.props.visible) queue.request('assistant', { ...modal.props, content: modal.props.children });
+    else queue.remove('assistant');
+    if (consentModal.props.visible) queue.request('consent', { content: consentModal, priority: 40 });
+    else queue.remove('consent');
+    return tree;
+  };
+  const settle = async () => { for (let i = 0; i < 4; i++) { render(); await tick(); } };
+  const find = id => nodes(render()).find(node => node.props?.testID === id);
+  const active = () => queue.getSnapshot().active;
+  const show = () => { assert.equal(active()?.phase, 'opening'); queue.didShow(active().presentation); };
+  const dismiss = () => { assert.equal(active()?.phase, 'closing'); queue.didDismiss(active().presentation); };
+  render(); show();
+  return { ...ui, native, queue, notices, uploads, decision, settle, find, active, show, dismiss,
+    input: () => find('asinu-assistant-text').props.value,
+    mic: () => find('assistant-voice-answer'),
+    agree() { consented = true; nodes(render()).find(node => node.type === 'Consent').props.onAgree(); },
+    switchAccount() { auth = { token: 'owner-b' }; render(); },
+    get permissionRequests() { return permissionRequests; },
+    get recordings() { return recordings; }, get stopped() { return stopped; },
+    dispose() { ui.unmount(); detach(); },
+  };
+}
+
+test('assistant mic waits for modal dismissal, survives native permission and displays live words once', async () => {
+  const h = assistantHarness();
+  try {
+    h.mic().props.onPress(); await h.settle();
+    assert.equal(h.active().phase, 'closing'); assert.equal(h.permissionRequests, 0);
+    h.dismiss(); await h.settle();
+    assert.equal(h.permissionRequests, 1); assert.equal(h.native.starts.length, 0);
+    h.appState('inactive'); h.appState('active'); h.decision.resolve(true); await h.settle();
+    assert.equal(h.native.starts.length, 1); assert.equal(h.active().id, 'assistant'); h.show();
+    h.native.result('Tôi uống'); await h.settle(); assert.equal(h.input(), 'Tôi uống');
+    h.native.result('Tôi uống 200 ml nước'); await h.settle(); assert.equal(h.input(), 'Tôi uống 200 ml nước');
+    h.mic().props.onPress(); await h.settle(); h.native.emit('end'); await h.settle();
+    assert.equal(h.input(), 'Tôi uống 200 ml nước');
+    assert.equal(h.find('asinu-assistant-send').props.disabled, false);
+    assert.deepEqual(h.notices, []); assert.deepEqual(h.uploads, []);
+  } finally { h.dispose(); }
+});
+
+test('assistant with permission already granted starts without hiding its dialog or requesting another OS sheet', async () => {
+  const h = assistantHarness({ granted: true });
+  try {
+    h.mic().props.onPress(); await h.settle();
+    assert.equal(h.permissionRequests, 0); assert.equal(h.native.starts.length, 1);
+    assert.equal(h.active().phase, 'open');
+    h.native.result('Đổi sang tiếng Anh', true); h.native.emit('end'); await h.settle();
+    assert.equal(h.input(), 'Đổi sang tiếng Anh');
+  } finally { h.dispose(); }
+});
+
+test('assistant permission denial returns to a usable mic; leaving before dismissal never opens an OS sheet', async () => {
+  for (const leave of [false, true]) {
+    const h = assistantHarness();
+    try {
+      h.mic().props.onPress(); await h.settle();
+      if (leave) { h.focus(false); await h.settle(); }
+      h.dismiss(); await h.settle();
+      if (leave) { assert.equal(h.permissionRequests, 0); assert.equal(h.active(), null); }
+      else {
+        h.decision.resolve(false); await h.settle(); h.show();
+        assert.equal(h.mic().props.disabled, false);
+        assert.ok(nodes(h.render({ onClose() {} })).some(node => node.type === 'Text' && node.props.children === 'guidance.speechRecognitionDenied'));
+        assert.deepEqual(h.notices, [], 'Permission failures are shown inside the assistant, not under its modal');
+      }
+      assert.equal(h.native.starts.length, 0); assert.equal(h.input(), '');
+    } finally { h.dispose(); }
+  }
+});
+
+test('assistant first obtains AI consent, then resumes the requested mic after the consent modal dismisses', async () => {
+  const h = assistantHarness({ consent: false, granted: true });
+  try {
+    h.mic().props.onPress(); await h.settle();
+    assert.equal(h.permissionRequests, 0); assert.equal(h.native.starts.length, 0);
+    h.dismiss(); await h.settle(); assert.equal(h.active().id, 'consent'); h.show();
+    h.agree(); await h.settle(); h.dismiss(); await h.settle();
+    assert.equal(h.active().id, 'assistant'); h.show(); await h.settle();
+    assert.equal(h.native.starts.length, 1);
+  } finally { h.dispose(); }
+});
+
+test('older assistant clients can request recording permission, then transcribe one captured file for the assistant', async () => {
+  const h = assistantHarness({ legacy: true });
+  try {
+    h.mic().props.onPress(); await h.settle(); h.dismiss(); await h.settle();
+    h.decision.resolve(true); await h.settle(); h.show();
+    assert.equal(h.recordings, 1); assert.equal(h.native.starts.length, 0);
+    h.mic().props.onPress(); await h.settle();
+    assert.deepEqual(h.uploads, [['captured.m4a', 'vi', 'assistant']]);
+    assert.equal(h.stopped, 1); assert.equal(h.input(), 'Tôi vừa uống 200 ml nước');
+    assert.equal(h.find('asinu-assistant-send').props.disabled, false);
+  } finally { h.dispose(); }
+});
+
+test('changing accounts cancels an assistant dictation and ignores its remaining words', async () => {
+  const h = assistantHarness({ granted: true });
+  try {
+    h.mic().props.onPress(); await h.settle(); h.native.result('Tôi uống'); await h.settle();
+    h.switchAccount(); await h.settle();
+    h.native.result('old account text', true); h.native.emit('end'); await h.settle();
+    assert.equal(h.input(), ''); assert.equal(h.native.aborted, 1);
+    assert.equal(h.native.listeners, 0);
+  } finally { h.dispose(); }
 });
 
 test('the real description field displays each partial phrase without duplicate or prematurely saved words', () => {

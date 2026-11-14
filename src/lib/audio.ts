@@ -174,7 +174,7 @@ export const Audio = {
       return { sound, status: { isLoaded: true } };
     },
   },
-  requestPermissionsAsync: () => runNativePermission(requestRecordingPermissionsAsync, { key: 'microphone' }),
+  requestPermissionsAsync: (canRun?: () => boolean) => runNativePermission(requestRecordingPermissionsAsync, { key: 'microphone', canRun }),
   getPermissionsAsync: getRecordingPermissionsAsync,
   setAudioModeAsync: async (mode: LegacyAudioMode) => {
     const mapped: Record<string, boolean> = {};
