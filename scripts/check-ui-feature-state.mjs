@@ -2242,7 +2242,6 @@ function missionsScreenHarness({ language = 'vi', dark = false } = {}) {
   };
 }
 const missionFixtures = () => [
-  { missionKey: 'log_weight', progress: 0, goal: 1 },
   { missionKey: 'log_water', progress: 1, goal: 4 },
   { missionKey: 'log_glucose', progress: 0, goal: 2 },
   { missionKey: 'log_bp', progress: 1, goal: 2 },
@@ -2258,8 +2257,8 @@ for (const language of ['vi', 'en']) {
       assert.equal(h.requests.length, 1);
       assert.equal(h.find('missions-completed'), undefined);
       const rows = journeyNodes(h.find('missions-remaining')).filter(node => node.props?.testID?.startsWith('mission-'));
-      assert.deepEqual(rows.map(row => row.props.testID), ['mission-log_bp', 'mission-log_glucose', 'mission-log_water', 'mission-log_weight']);
-      assert.ok(journeyNodes(h.find('missions-summary')).some(node => node.props.children === h.t('completionSummary', { completed: 1, total: 5 })));
+      assert.deepEqual(rows.map(row => row.props.testID), ['mission-log_bp', 'mission-log_glucose', 'mission-log_water']);
+      assert.ok(journeyNodes(h.find('missions-summary')).some(node => node.props.children === h.t('completionSummary', { completed: 1, total: 4 })));
       for (const row of rows) {
         assert.equal(row.props.accessibilityRole, 'button');
         assert.ok(row.props.accessibilityLabel && row.props.accessibilityHint);
@@ -2269,7 +2268,7 @@ for (const language of ['vi', 'en']) {
       h.find('missions-completed-toggle').props.onPress();
       assert.equal(h.find('missions-completed-toggle').props.accessibilityState.expanded, true);
       h.find('mission-daily_checkin').props.onPress();
-      assert.deepEqual(h.routes, ['/logs/blood-pressure', '/logs/glucose', '/logs/water', '/logs/weight', '/checkin']);
+      assert.deepEqual(h.routes, ['/logs/blood-pressure', '/logs/glucose', '/logs/water', '/checkin']);
       assert.ok(h.nodes().filter(node => node.type === 'Text').every(node => node.props.allowFontScaling && !node.props.numberOfLines));
       assert.ok(h.nodes().filter(node => node.type === 'Image').every(node => node.props.resizeMode === 'contain' && node.props.accessible === false));
       const group = flattenMissionStyle(h.find('missions-remaining').props.style);
@@ -2296,15 +2295,13 @@ for (const language of ['vi', 'en']) {
     assert.ok(journeyNodes(h.find('missions-summary')).some(node => node.props.children === h.t('completionSummary', { completed: 0, total: 1 })));
     h.store.errorState = 'remote-failed';
     assert.equal(h.nodes().filter(node => node.type === 'OfflineBanner').length, 1);
-    assert.ok(h.find('mission-log_weight')); h.blur();
+    assert.ok(h.find('mission-log_water')); h.blur();
   });
 }
 await test('mission disclosures neither navigate nor refetch, and completed tasks stay discoverable', async () => {
   const h = missionsScreenHarness(); h.store.missions = missionFixtures(); await h.settle();
-  h.find('missions-help-toggle').props.onPress();
-  assert.ok(h.find('missions-help'));
-  assert.equal(h.find('missions-help-toggle').props.accessibilityState.expanded, true);
-  h.find('missions-help-toggle').props.onPress(); assert.equal(h.find('missions-help'), undefined);
+  assert.equal(h.find('missions-help-toggle'), undefined);
+  assert.equal(h.find('missions-help'), undefined);
   for (let i = 0; i < 2; i++) h.find('missions-completed-toggle').props.onPress();
   assert.equal(h.find('missions-completed'), undefined);
   await h.settle(); assert.deepEqual(h.routes, []); assert.equal(h.requests.length, 1);
@@ -2334,10 +2331,10 @@ await test('mission progress is bounded and only actual completion moves a row i
     { ...missionFixtures()[1], progress: Number.NaN, goal: 0 },
     { ...missionFixtures()[2], progress: 99 },
   ];
-  assert.ok(h.find('mission-log_weight')); assert.ok(h.find('mission-log_water'));
-  assert.equal(h.find('mission-log_glucose'), undefined);
+  assert.ok(h.find('mission-log_water')); assert.ok(h.find('mission-log_glucose'));
+  assert.equal(h.find('mission-log_bp'), undefined);
   h.find('missions-completed-toggle').props.onPress();
-  assert.ok(h.find('mission-log_glucose'));
+  assert.ok(h.find('mission-log_bp'));
   const summary = journeyNodes(h.find('missions-summary')).find(node => node.type === 'Progress');
   assert.equal(summary.props.progress, 1); assert.equal(summary.props.goal, 3); h.blur();
 });
