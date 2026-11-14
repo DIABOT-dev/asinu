@@ -1,4 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -251,6 +252,7 @@ function EmptyHistoryGraphic() {
 }
 
 export default function WalletScreen() {
+  const { assistant_amount } = useLocalSearchParams<{ assistant_amount?: string }>();
   const { t, i18n } = useTranslation('wallet');
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -261,6 +263,11 @@ export default function WalletScreen() {
   const mountedRef = useRef(true);
   const [balance, setBalance] = useState<string | null>(null);
   const [amount, setAmount] = useState('50000');
+  useEffect(() => {
+    if (typeof assistant_amount === 'string' && /^\d+$/.test(assistant_amount) && Number(assistant_amount) >= 10000 && Number(assistant_amount) <= 10000000) {
+      setAmount(assistant_amount);
+    }
+  }, [assistant_amount]);
   const [qr, setQr] = useState<QRData | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(true);
   const [creatingQR, setCreatingQR] = useState(false);

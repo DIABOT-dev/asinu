@@ -9,6 +9,7 @@ import { useFontSizeStore } from '../stores/font-size.store';
 import { HealthCoinIcon } from '../features/v21/HealthCoinIcon';
 import { QuickActionTile } from './QuickActionTile';
 import { AppPermissionsModal } from '../features/profile/AppPermissionsModal';
+import { useLocalSearchParams } from 'expo-router';
 
 const actions = [
   { id: 'healthHistory', route: '/(tabs)/tree', image: require('../../assets/images/notifications/checkin-v1.png') },
@@ -32,6 +33,7 @@ export function HomeFeatureGrid({ medicationEnabled, coinsEnabled }: {
 }) {
   const { t } = useTranslation('home');
   const router = useGuardedRouter();
+  const { assistant_permissions } = useLocalSearchParams<{ assistant_permissions?: string }>();
   const { colors } = useThemeColors();
   const { width, fontScale } = useWindowDimensions();
   const multiplier = useFontSizeStore(state => state.multiplier);
@@ -41,6 +43,12 @@ export function HomeFeatureGrid({ medicationEnabled, coinsEnabled }: {
   const scroller = useRef<ScrollView>(null);
   const closePermissions = useCallback(() => setPermissionDialog('closed'), []);
   const openPermissions = useCallback(() => setPermissionDialog('open'), []);
+  useEffect(() => {
+    if (assistant_permissions === '1') {
+      setPermissionDialog('open');
+      router.setParams({ assistant_permissions: '' });
+    }
+  }, [assistant_permissions, router]);
   const availableWidth = Math.min(measuredWidth || width - 32, width - 32);
   const textScale = multiplier * fontScale;
   const columns = textScale >= 1.6 ? 2 : availableWidth < 336 || textScale >= 1.2 ? 3 : 4;

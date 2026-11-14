@@ -82,7 +82,7 @@ function renderer(file, name, imports) {
   };
   const components = evaluate(file, { ...adapters, ...(typeof imports === 'function' ? imports(adapters) : imports) });
   return {
-    render(props) { index = 0; const tree = components[name](props); effects.splice(0).forEach(fn => fn()); return tree; },
+    render(props, ...args) { index = 0; const tree = components[name](props, ...args); effects.splice(0).forEach(fn => fn()); return tree; },
     appState(state) { adapters['react-native'].AppState.currentState = state; appListeners.forEach(fn => fn(state)); },
     focus(value) { focused = value; },
     unmount() { slots.forEach(slot => slot?.cleanup?.()); },
@@ -193,12 +193,13 @@ test('the first iOS speech permission dialog does not cancel dictation; a real b
 
 // Run the real assistant owner, voice controller, modal queue and permission
 // presenter together. Only native capture and the server are replaced.
-function assistantHarness({ granted = false, consent = true, legacy = false } = {}) {
+function assistantHarness({ granted = false, consent = true, legacy = false, assistantPlan, apply, photo, notificationsGranted = true } = {}) {
+  const settings = JSON.parse(fs.readFileSync('src/i18n/locales/vi/settings.json', 'utf8'));
   const { ModalQueue } = evaluate('src/lib/modalQueue.ts', {});
-  const queue = new ModalQueue(), native = nativeHarness(), notices = [], uploads = [];
+  const queue = new ModalQueue(), native = nativeHarness(), notices = [], uploads = [], routes = [], scans = [];
   const decision = {};
   let permissionRequests = 0, recordings = 0, stopped = 0, tree, consented = consent;
-  let auth = { token: 'owner-a' };
+  let auth = { token: 'owner-a', profile: { id: '1' } };
   native.module.getPermissionsAsync = async () => ({ granted });
   native.module.requestPermissionsAsync = () => {
     permissionRequests++;
@@ -213,6 +214,7 @@ function assistantHarness({ granted = false, consent = true, legacy = false } = 
     }, { requestAnimationFrame: work => work() });
     detach = permissions.attachNativePermissionPresenter(queue);
     const store = select => select(auth); store.getState = () => auth;
+    store.setState = patch => { auth = { ...auth, ...patch }; };
     const voiceModule = evaluate('src/features/guidance/VoiceAnswerButton.tsx', {
       ...adapters,
       './live-dictation.service': { ...native, getLiveDictationModule: () => legacy ? null : native.module },
@@ -231,10 +233,39 @@ function assistantHarness({ granted = false, consent = true, legacy = false } = 
       './guidance.audio': { guidanceAudio: { stop: async () => {} } },
     });
     return {
+      'react-i18next': { useTranslation: namespace => ({ t: (key, values = {}) => {
+        if (namespace !== 'settings') return key;
+        const text = key.split('.').reduce((value, part) => value?.[part], settings);
+        assert.equal(typeof text, 'string', `Missing assistant copy: ${key}`);
+        return text.replace(/\{\{(\w+)\}\}/g, (_, name) => String(values[name] ?? ''));
+      } }) },
       'react-native': { ...adapters['react-native'], Image: 'Image', Keyboard: { dismiss() {} }, KeyboardAvoidingView: 'Keyboard',
         Platform: { OS: 'ios' }, ScrollView: 'Scroll', StyleSheet: { create: value => value, absoluteFill: {} } },
       'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
       'expo-crypto': { randomUUID: () => 'unused-preview-id' },
+      '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => routes.push(route) }) },
+      'expo-image-picker': {
+        getMediaLibraryPermissionsAsync: async () => ({ granted: true }),
+        requestMediaLibraryPermissionsAsync: async () => ({ granted: true }),
+        launchImageLibraryAsync: async () => photo || { canceled: true },
+      },
+      '../../lib/native-permissions': permissions,
+      '../../lib/notifications': { checkNotificationPermission: async () => notificationsGranted },
+      '../notifications/notifications.api': { getNotificationPreferences: async () => ({ ok: true, reminders_enabled: true }), applyReminderTimes: async () => ({}) },
+      '../v21/v21.api': { v21Api: { scan: async (...args) => { scans.push(args); return { readable: true, items: [{ display_name: 'Hapacol' }] }; } } },
+      '../v21/medication-photo': { prepareMedicationPhoto: async () => ({ body: 'photo-file', dispose() {} }) },
+      './assistant-navigation': evaluate('src/features/app-assistant/assistant-navigation.ts', {}),
+      './useAssistantNativeActions': { useAssistantNativeActions: () => async () => undefined },
+      '../checkin-call/useCheckinCallAudio': { useCheckinCallAudio: () => ({ audio: { phase: 'idle' }, stopAudio: async () => {}, play: async () => {} }) },
+      '../../stores/notification.store': { useNotificationStore: { getState: () => ({ fetchFromBackend: async () => {} }) } },
+      '../../lib/device-permission-events': { notifyTaskReminderPreferenceChanged() {} },
+      '../../lib/health-action-events': { notifyHealthAction() {} },
+      '../health-feed/useHealthFeedDismissals': { useHealthFeedDismissals: () => ({ hiddenIds: new Set(), canShowCurated: true, dismiss: async () => {} }) },
+      './useAssistantConversation': { useAssistantConversation: () => {
+        const [messages, setMessages] = adapters.react.useState([]);
+        return { messages, storageError: false, edited() {}, clear: async () => setMessages([]),
+          append: (role, text) => setMessages(previous => [...previous, { id: String(previous.length), role, text }]) };
+      } },
       '../../components/ScaledTextInput': { ScaledTextInput: 'Input' },
       '../../components/QueuedModal': { QueuedModal: 'QueuedModal' },
       '../../components/AiDataConsentModal': { AiDataConsentModal: 'Consent', hasAiDataConsent: async () => consented },
@@ -243,11 +274,11 @@ function assistantHarness({ granted = false, consent = true, legacy = false } = 
       '../../stores/font-size.store': { useFontSizeStore: select => select({ scale: 'normal' }) },
       '../../stores/language.store': { useLanguageStore: select => select({ language: 'vi' }) },
       '../auth/auth.store': { useAuthStore: store },
-      '../logs/logs.store': { useLogsStore: {} },
+      '../logs/logs.store': { useLogsStore: { getState: () => ({ fetchRecent: async () => {} }) } },
       '../guidance/VoiceAnswerButton': voiceModule,
       './app-assistant.api': {
-        executeAssistantActions: () => assert.fail('Mic must not execute actions'),
-        planAssistantActions: () => assert.fail('Mic must not submit a plan'),
+        executeAssistantActions: apply || (() => assert.fail('Mic must not execute actions')),
+        planAssistantActions: () => assistantPlan || assert.fail('Mic must not submit a plan'),
       },
       '../../../assets/asinu_assistant_listening_v1.png': 'mascot',
     };
@@ -267,7 +298,7 @@ function assistantHarness({ granted = false, consent = true, legacy = false } = 
   const show = () => { assert.equal(active()?.phase, 'opening'); queue.didShow(active().presentation); };
   const dismiss = () => { assert.equal(active()?.phase, 'closing'); queue.didDismiss(active().presentation); };
   render(); show();
-  return { ...ui, native, queue, notices, uploads, decision, settle, find, active, show, dismiss,
+  return { ...ui, native, queue, notices, uploads, routes, scans, decision, settle, find, active, show, dismiss,
     input: () => find('asinu-assistant-text').props.value,
     mic: () => find('assistant-voice-answer'),
     agree() { consented = true; nodes(render()).find(node => node.type === 'Consent').props.onAgree(); },
@@ -277,6 +308,67 @@ function assistantHarness({ granted = false, consent = true, legacy = false } = 
     dispose() { ui.unmount(); detach(); },
   };
 }
+
+function nativeActionsHarness({ cameraGranted = false, swapAfterPicking = false, locationGranted = false, swapAfterLocation = false } = {}) {
+  const seen = []; let current = true;
+  const control = { permission: { granted: true }, loading: false, pending: false, change: async enabled => seen.push(['change', enabled]), refresh: async () => ({ granted: false }) };
+  const h = renderer('src/features/app-assistant/useAssistantNativeActions.ts', 'useAssistantNativeActions', {
+    'react-native': { Linking: { openURL: async () => seen.push('open-support') }, Share: { share: async () => seen.push('share-sheet') } },
+    'expo-image-picker': { getMediaLibraryPermissionsAsync: async () => ({ granted: true }), requestMediaLibraryPermissionsAsync: async () => assert.fail('already granted'),
+      launchImageLibraryAsync: async () => { seen.push('picker'); if (swapAfterPicking) current = false; return { canceled: false, assets: [{ uri: 'private-image' }] }; } },
+    'expo-camera': { Camera: { getCameraPermissionsAsync: async () => ({ granted: cameraGranted }) } },
+    'expo-location': { getForegroundPermissionsAsync: async () => ({ granted: locationGranted }),
+      requestForegroundPermissionsAsync: async () => { seen.push('location-permission'); return { granted: false }; },
+      Accuracy: { Balanced: 'balanced' }, getCurrentPositionAsync: async () => {
+        seen.push('location'); if (swapAfterLocation) current = false;
+        return { coords: { latitude: 21.028511, longitude: 105.804817 } };
+      } },
+    '../checkin-call/checkin-call.api': { checkinCallApi: {
+      voicePreferences: async () => { seen.push('fresh-preferences'); return { preferences: { use_name: false, use_health: true, address: 'chu', weather_enabled: false, region: 'hanoi', location: null } }; },
+      saveVoicePreferences: async value => { seen.push(['save-weather', value]); },
+    } },
+    '../profile/useDevicePermission': { useDevicePermission: () => control },
+    '../care-circle/useQrCameraPermission': { useQrCameraPermission: () => ({ change: async enabled => seen.push(['camera', enabled]) }) },
+    '../../lib/android-checkin-call': { getAndroidCallPermissions: async () => null, openAndroidCallSettings: async () => {} },
+    '../../lib/android-call-access': { requestAndroidCallAccess: async () => {} },
+    '../../lib/native-permissions': { runNativePermission: async operation => operation() },
+    '../auth/auth.api': { authApi: { uploadAvatar: async uri => { seen.push(['upload', uri]); return { id: 'A' }; } } },
+    '../auth/auth.store': { useAuthStore: { setState: value => seen.push(['profile', value]) } },
+    '../app-update/app-update.store': { useAppUpdateStore: { getState: () => ({ check: async () => ({ status: 'current' }) }) } },
+    '../guidance/guidance.store': { useGuidanceStore: { getState: () => ({ replay: async () => seen.push('guide') }) } },
+  });
+  const run = h.render({ present: async operation => { seen.push('dialog-dismissed'); return operation(); }, isCurrent: () => current, openHome: () => seen.push('home'), dismissArticle: async id => seen.push(['hide', id]) });
+  return { run, seen, h };
+}
+
+test('assistant device actions wait for dismissal and report the actual permission result instead of assuming approval', async () => {
+  const h = nativeActionsHarness();
+  await h.run({ type: 'native', kind: 'device.permission', parameters: { kind: 'camera', enabled: true } });
+  assert.deepEqual(h.seen, ['dialog-dismissed', ['camera', true]]);
+  h.seen.length = 0;
+  await h.run({ type: 'native', kind: 'app.share', parameters: {} });
+  assert.deepEqual(h.seen, ['dialog-dismissed', 'share-sheet']);
+});
+test('selecting an avatar for an account that leaves cannot upload the image or update the next profile', async () => {
+  const h = nativeActionsHarness({ swapAfterPicking: true });
+  await h.run({ type: 'native', kind: 'profile.avatar', parameters: {} });
+  assert.deepEqual(h.seen, ['dialog-dismissed', 'picker']);
+});
+test('weather cannot access location or change preferences when permission is denied or the account leaves', async () => {
+  const denied = nativeActionsHarness();
+  await assert.rejects(denied.run({ type: 'native', kind: 'calls.weather_device', parameters: {} }), /Location permission/);
+  assert.deepEqual(denied.seen, ['dialog-dismissed', 'location-permission']);
+  const switched = nativeActionsHarness({ locationGranted: true, swapAfterLocation: true });
+  await switched.run({ type: 'native', kind: 'calls.weather_device', parameters: {} });
+  assert.deepEqual(switched.seen, ['dialog-dismissed', 'location']);
+});
+test('device weather preserves fresh call preferences and sends only rounded area coordinates', async () => {
+  const h = nativeActionsHarness({ locationGranted: true });
+  await h.run({ type: 'native', kind: 'calls.weather_device', parameters: {} });
+  assert.deepEqual(h.seen, ['dialog-dismissed', 'location', 'fresh-preferences', ['save-weather', {
+    use_name: false, use_health: true, address: 'chu', weather_enabled: true, region: 'device', location: { latitude: 21.03, longitude: 105.8 },
+  }]]);
+});
 
 test('assistant mic waits for modal dismissal, survives native permission and displays live words once', async () => {
   const h = assistantHarness();
@@ -360,6 +452,100 @@ test('changing accounts cancels an assistant dictation and ignores its remaining
     assert.equal(h.input(), ''); assert.equal(h.native.aborted, 1);
     assert.equal(h.native.listeners, 0);
   } finally { h.dispose(); }
+});
+
+test('the same assistant chat previews readable medication changes and only applies after explicit confirmation', async () => {
+  const applied = [];
+  const action = { type: 'medication', planToken: 'private-signed-plan', changes: [
+    { operation: 'create', name: 'Hapacol', times: ['07:00'] },
+    { operation: 'move', name: 'Vitamin D3', previousTime: '07:00', times: ['08:00'] },
+  ] };
+  const h = assistantHarness({ assistantPlan: { status: 'ready', question: '', actions: [action] },
+    apply: async options => { applied.push(options.actions); return true; } });
+  try {
+    h.find('asinu-assistant-text').props.onChangeText('Nhắc uống Hapacol mỗi ngày lúc 7 giờ sáng');
+    h.find('asinu-assistant-send').props.onPress(); await h.settle();
+    assert.deepEqual(applied, []);
+    assert.ok(h.find('asinu-assistant-apply'));
+    const visible = nodes(h.render({ onClose() {} })).filter(node => node.type === 'Text').map(node => node.props.children).join(' ');
+    assert.match(visible, /Nhắc uống Hapacol mỗi ngày lúc 07:00/);
+    assert.match(visible, /Đổi giờ uống Vitamin D3 từ 07:00 sang 08:00/);
+    assert.ok(!visible.includes('private-signed-plan'));
+    h.find('asinu-assistant-apply').props.onPress(); await h.settle();
+    assert.deepEqual(applied, [[action]]);
+    assert.equal(h.find('asinu-assistant-apply'), undefined);
+  } finally { h.dispose(); }
+});
+
+test('assistant answers are shown directly, without turning a question into a confirmed write', async () => {
+  const h = assistantHarness({ assistantPlan: { status: 'answer', question: '', answer: 'Hôm nay bạn đã ghi 750 ml nước.', actions: [] } });
+  try {
+    h.find('asinu-assistant-text').props.onChangeText('Hôm nay tôi uống bao nhiêu nước?');
+    h.find('asinu-assistant-send').props.onPress(); await h.settle();
+    const visible = nodes(h.render({ onClose() {} })).filter(node => node.type === 'Text').map(node => node.props.children).join(' ');
+    assert.match(visible, /750 ml/); assert.equal(h.find('asinu-assistant-apply'), undefined);
+  } finally { h.dispose(); }
+});
+
+test('assistant navigation waits for the real modal dismissal; reminder access still honors notification permission', async () => {
+  for (const [destination, granted] of [['medication', true], ['reminders', false]]) {
+    const h = assistantHarness({ notificationsGranted: granted, assistantPlan: { status: 'ready', question: '', actions: [{ type: 'navigate', destination }] } });
+    try {
+      h.find('asinu-assistant-text').props.onChangeText('mở mục này');
+      h.find('asinu-assistant-send').props.onPress(); await h.settle();
+      assert.deepEqual(h.routes, []);
+      if (granted) { h.dismiss(); await h.settle(); assert.deepEqual(h.routes, ['/medication']); }
+      else { assert.equal(h.active().phase, 'open'); assert.deepEqual(h.routes, []); }
+    } finally { h.dispose(); }
+  }
+});
+
+test('photo upload uses the existing scan for this account after the picker modal closes, and only prefills reviewed names', async () => {
+  const h = assistantHarness({ photo: { canceled: false, assets: [{ uri: 'private-photo' }] } });
+  try {
+    h.find('asinu-assistant-photo').props.onPress(); await h.settle();
+    assert.equal(h.scans.length, 0); h.dismiss(); await h.settle();
+    assert.deepEqual(h.scans, [[1, 'photo-file']]);
+    assert.match(h.input(), /Hapacol/); assert.equal(h.find('asinu-assistant-apply'), undefined);
+  } finally { h.dispose(); }
+});
+
+test('history hydration cannot overwrite a new request typed while secure storage is loading', async () => {
+  let resolve;
+  const restores = [], saved = [];
+  const auth = { token: 'owner-a', profile: { id: 'A' } };
+  const store = select => select(auth); store.getState = () => auth;
+  const h = renderer('src/features/app-assistant/useAssistantConversation.ts', 'useAssistantConversation', {
+    '../auth/auth.store': { useAuthStore: store },
+    './assistant-conversation.storage': { readAssistantConversation: () => new Promise(done => { resolve = done; }),
+      saveAssistantConversation: async (_owner, value) => saved.push(value), clearAssistantConversation: async () => {} },
+  });
+  let snapshot = { text: '', preview: null, feedback: '', stalePreview: false };
+  const render = () => h.render(snapshot, value => restores.push(value));
+  try {
+    render().edited(); snapshot = { ...snapshot, text: 'new request' }; render();
+    resolve({ ...snapshot, text: 'old draft', messages: [{ id: 'old', role: 'assistant', text: 'old reply' }] }); await tick();
+    const history = render(); await tick();
+    assert.deepEqual(restores, []); assert.equal(history.messages[0].text, 'old reply');
+    assert.equal(saved.at(-1).text, 'new request');
+  } finally { h.unmount(); }
+});
+
+test('a failed history read preserves the old stored conversation instead of overwriting it with an empty one', async () => {
+  const auth = { token: 'owner-a', profile: { id: 'A' } };
+  const store = select => select(auth); store.getState = () => auth;
+  let writes = 0;
+  const h = renderer('src/features/app-assistant/useAssistantConversation.ts', 'useAssistantConversation', {
+    '../auth/auth.store': { useAuthStore: store },
+    './assistant-conversation.storage': { readAssistantConversation: async () => { throw Error('device locked'); },
+      saveAssistantConversation: async () => { writes++; }, clearAssistantConversation: async () => {} },
+  });
+  try {
+    const snapshot = { text: '', preview: null, feedback: '', stalePreview: false };
+    h.render(snapshot, () => assert.fail('Unread history must not hydrate')); await tick();
+    const value = h.render({ ...snapshot, text: 'new input' }, () => {}); await tick();
+    assert.equal(value.storageError, true); assert.equal(writes, 0);
+  } finally { h.unmount(); }
 });
 
 test('the real description field displays each partial phrase without duplicate or prematurely saved words', () => {

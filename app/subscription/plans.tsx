@@ -1,4 +1,4 @@
-import { Stack, useFocusEffect } from "expo-router";
+import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -16,6 +16,7 @@ import { apiClient } from "../../src/lib/apiClient";
 import { radius, spacing } from "../../src/styles";
 
 export default function SubscriptionPlansScreen() {
+  const { assistant_plan, assistant_billing } = useLocalSearchParams<{ assistant_plan?: string; assistant_billing?: string }>();
   const router = useGuardedRouter();
   const { t } = useTranslation("subscription");
   const insets = useSafeAreaInsets();
@@ -90,6 +91,8 @@ export default function SubscriptionPlansScreen() {
                 : t("iapCurrentPlanName", { plan: localizedPlanName(status.planCode, t) })}
             </Text> : null}
             <IapPurchaseCard
+              initialPlanCode={assistant_plan}
+              initialBillingPeriod={assistant_billing === 'monthly' || assistant_billing === 'yearly' ? assistant_billing : undefined}
               currentPlanCode={status.planCode}
               currentBillingPeriod={status.billingPeriod}
               disabled={loading || loadError}
