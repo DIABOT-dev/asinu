@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Stack, useFocusEffect } from 'expo-router';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
@@ -30,7 +30,6 @@ import { VoiceParseResult } from '../../src/features/logs/voice.api';
 import { ReadingLevelIndicator } from '../../src/features/logs/ReadingLevelIndicator';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { authApi } from '../../src/features/auth/auth.api';
-import { logsApi } from '../../src/features/logs/logs.api';
 import { useLogsStore } from '../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { showToast } from '../../src/stores/toast.store';
@@ -105,7 +104,7 @@ export default function BloodPressureLogScreen() {
   const assessment = assessBloodPressure(systolic, diastolic, assessmentProfile);
   const status = assessment.displayCategory ? getBPStatus(assessment.displayCategory) : null;
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let active = true;
     const owner = profileId;
     const ownerProfile = useAuthStore.getState().profile;
@@ -117,24 +116,16 @@ export default function BloodPressureLogScreen() {
     (async () => {
       try {
         if (!owner) return;
-        const [latestResult, profileResult] = await Promise.allSettled([
-          logsApi.fetchLatestByType('bp'),
-          ownerProfile?.dateOfBirth || typeof ownerProfile?.age === 'number' ? Promise.resolve(ownerProfile) : authApi.fetchProfile(),
-        ]);
+        const ownerAssessmentProfile = ownerProfile?.dateOfBirth || typeof ownerProfile?.age === 'number'
+          ? ownerProfile : await authApi.fetchProfile();
         if (!current()) return;
-        if (latestResult.status === 'fulfilled') {
-          const latest = latestResult.value;
-          if (latest?.systolic) setSystolic(String(latest.systolic));
-          if (latest?.diastolic) setDiastolic(String(latest.diastolic));
-          if (latest?.context) setContext(latest.context);
-        }
-        if (profileResult.status === 'fulfilled') setAssessmentProfile(profileResult.value);
+        setAssessmentProfile(ownerAssessmentProfile);
       } catch { /* ignore */ } finally {
         if (current()) setIsLoading(false);
       }
     })();
     return () => { active = false; };
-  }, [profileId, token]);
+  }, [profileId, token]));
 
   const handleBack = useCallback(() => router.back(), [router]);
 

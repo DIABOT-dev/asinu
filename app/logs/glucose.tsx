@@ -1,10 +1,9 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
+import { Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -31,7 +30,6 @@ import { VoiceLogButton } from '../../src/components/VoiceLogButton';
 import { VoiceParseResult } from '../../src/features/logs/voice.api';
 import { ReadingLevelIndicator } from '../../src/features/logs/ReadingLevelIndicator';
 import { useAuthStore } from '../../src/features/auth/auth.store';
-import { logsApi } from '../../src/features/logs/logs.api';
 import { useLogsStore } from '../../src/features/logs/logs.store';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { showToast } from '../../src/stores/toast.store';
@@ -96,11 +94,11 @@ export default function GlucoseLogScreen() {
   const [context, setContext] = useState('pre_meal');
   const [notes, setNotes] = useState('');
   const [valueError, setValueError] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   const createGlucose = useLogsStore((state) => state.createGlucose);
-  const profile = useAuthStore((state) => state.profile);
+  const profileId = useAuthStore((state) => state.profile?.id);
+  const token = useAuthStore((state) => state.token);
 
   // animations
   const shakeX = useSharedValue(0);
@@ -128,18 +126,12 @@ export default function GlucoseLogScreen() {
     }
   }, [numVal]);
 
-  // pre-fill from last log
-  useEffect(() => {
-    (async () => {
-      try {
-        const latest = await logsApi.fetchLatestByType('glucose');
-        if (latest?.value) setValue(String(latest.value));
-        if (latest?.context) setContext(latest.context);
-      } catch { /* ignore */ } finally {
-        setIsLoading(false);
-      }
-    })();
-  }, []);
+  useFocusEffect(useCallback(() => {
+    setValue('');
+    setContext('pre_meal');
+    setNotes('');
+    setValueError('');
+  }, [profileId, token]));
 
   const handleBack = useCallback(() => router.back(), [router]);
 
@@ -204,11 +196,6 @@ export default function GlucoseLogScreen() {
           style={{ flex: 1 }}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
         >
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={categoryColors.glucose} />
-            </View>
-          ) : (
             <ScrollView
               contentContainerStyle={[styles.container, { paddingTop: insets.top + spacing.sm }]}
               keyboardShouldPersistTaps="handled"
@@ -317,7 +304,6 @@ export default function GlucoseLogScreen() {
 
               <View style={{ height: insets.bottom + spacing.xl }} />
             </ScrollView>
-          )}
         </KeyboardAvoidingView>
       </Screen>
     </>
@@ -331,11 +317,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     container: {
       paddingHorizontal: spacing.lg,
       gap: spacing.md,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
     },
     // Nav row
     // Hero card
