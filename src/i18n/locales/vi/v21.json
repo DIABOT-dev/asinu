@@ -326,5 +326,6 @@
   "setupReminderTime": "Giờ nhắc",
   "medicationPhotoReadError": "Chưa đọc được tệp ảnh trên máy. Bạn chọn lại ảnh hoặc chụp ảnh mới nhé.",
   "medicationPhotoTooLarge": "Ảnh lớn hơn 10 MB. Bạn chọn ảnh nhỏ hơn hoặc chụp lại nhé.",
-  "medicationPhotoUploadError": "Chưa tải được ảnh lên. Bạn thử lại hoặc tự nhập tên thuốc để tiếp tục nhé."
+  "medicationPhotoUploadError": "Chưa tải được ảnh lên. Bạn thử lại hoặc tự nhập tên thuốc để tiếp tục nhé.",
+  "medicationPurposeNotSelected": "Không chọn tag công dụng"
 }

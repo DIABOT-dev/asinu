@@ -2,6 +2,9 @@ import { apiClient } from '../../lib/apiClient';
 import type { AppLanguage } from '../../stores/language.store';
 import type { FontSizeScale } from '../../stores/font-size.store';
 import type { UpdateProfilePayload } from '../auth/auth.api';
+import type { MedPurposeLookup } from '../v21/v21.api';
+
+export type AssistantMedicationPurpose = Pick<MedPurposeLookup, 'tags' | 'productName' | 'source'> & { status: MedPurposeLookup['status'] | 'not_selected' };
 
 export type AssistantDestination = 'checkin' | 'checkin_history' | 'medication' | 'logs' | 'blood_pressure' | 'glucose' | 'water'
   | 'consultation' | 'profile' | 'reminders' | 'notifications' | 'care_circle' | 'scan_qr' | 'missions' | 'coins' | 'early_signal'
@@ -9,7 +12,7 @@ export type AssistantDestination = 'checkin' | 'checkin_history' | 'medication' 
   | 'my_qr' | 'subscription' | 'subscription_plans' | 'wallet' | 'terms' | 'privacy_policy' | 'medical_sources';
 export type AssistantNative = { type: 'native'; kind: 'device.permission' | 'profile.avatar' | 'app.share' | 'app.support' | 'app.update' | 'app.guide' | 'feed.hide' | 'calls.weather_device';
   parameters: { kind?: 'camera' | 'microphone' | 'photos' | 'notifications' | 'calls'; enabled?: boolean; id?: string } };
-export type AssistantScreen = { type: 'screen'; screen: 'feed_article' | 'wallet_topup' | 'upgrade' | 'member'; params: Record<string, string> };
+export type AssistantScreen = { type: 'screen'; screen: 'feed_article' | 'wallet_topup' | 'upgrade' | 'member' | 'medication_draft'; params: Record<string, string> };
 
 export type AssistantAction =
   | { type: 'language'; value: AppLanguage }
@@ -24,6 +27,8 @@ export type AssistantAction =
   | { type: 'speech'; text: string }
   | { type: 'medication'; planToken: string; changes: {
     operation: 'create' | 'move' | 'pause' | 'resume' | 'delete' | 'taken' | 'skipped' | 'out_of_meds'; name: string; times: string[]; previousTime?: string;
+    purpose?: AssistantMedicationPurpose;
+    itemKind?: 'MEDICINE' | 'SUPPLEMENT';
   }[] }
   | { type: 'navigate'; destination: AssistantDestination }
   | { type: 'profile'; planToken: string; changes: Pick<UpdateProfilePayload, 'name' | 'dateOfBirth' | 'gender' | 'chronicDiseases' | 'heightCm' | 'bloodType'> }

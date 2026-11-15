@@ -18,6 +18,8 @@ export function assistantScreenRoute(action: import('./app-assistant.api').Assis
   const { screen, params } = action;
   if (screen === 'feed_article' && /^[\w-]{1,100}$/.test(params.id || '')) return `/feed/${encodeURIComponent(params.id)}`;
   if (screen === 'member' && /^\d+$/.test(params.id || '')) return `/care-circle/member/${params.id}?name=${encodeURIComponent(params.name || '')}`;
+  if (screen === 'medication_draft' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(params.id || ''))
+    return `/medication/setup?draftId=${encodeURIComponent(params.id)}`;
   if (screen === 'wallet_topup' && /^\d+$/.test(params.amount || '') && Number(params.amount) >= 10000 && Number(params.amount) <= 10000000)
     return `/wallet?assistant_amount=${params.amount}`;
   if (screen === 'upgrade' && (!params.plan || ['antam_2', 'antam_4', 'antam_8'].includes(params.plan)) && (!params.billing || ['monthly', 'yearly'].includes(params.billing)))

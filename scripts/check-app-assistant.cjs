@@ -99,6 +99,72 @@ test('medication confirmation uses only the signed preview, never client-supplie
   assert.deepEqual(requests[0].options.body, { planToken: 'signed-preview' });
 });
 
+function purposePreview(purpose, language = 'vi') {
+  const opened = [], module = { exports: {} };
+  const dictionary = JSON.parse(fs.readFileSync(`src/i18n/locales/${language}/v21.json`, 'utf8'));
+  const dependencies = {
+    'react/jsx-runtime': require('react/jsx-runtime'),
+    'react-native': { View: 'View', Pressable: 'Pressable', StyleSheet: { create: value => value },
+      Linking: { openURL: async url => { opened.push(url); } } },
+    '@expo/vector-icons': { Ionicons: 'Ionicons' },
+    'react-i18next': { useTranslation: () => ({ t: (key, values) => (dictionary[key] || key).replace('{{name}}', values?.name || '') }) },
+    '../../components/ScaledText': { ScaledText: 'ScaledText' },
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: { textSecondary: 'secondary', primaryText: 'primary' } }) },
+    '../v21/MedicationPurposeTags': { MedicationPurposeTags: 'PurposeTags' },
+  };
+  const code = ts.transpileModule(fs.readFileSync('src/features/app-assistant/AssistantMedicationPurpose.tsx', 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText;
+  // eslint-disable-next-line no-new-func -- Render the trusted component with native adapters isolated.
+  new Function('module', 'exports', 'require', code)(module, module.exports, name => {
+    assert.ok(name in dependencies, name); return dependencies[name];
+  });
+  const nodes = [];
+  const visit = node => {
+    if (Array.isArray(node)) { return node.forEach(visit); }
+    if (node && typeof node === 'object') { nodes.push(node); visit(node.props?.children); }
+  };
+  visit(module.exports.AssistantMedicationPurpose({ purpose }));
+  return { nodes, opened };
+}
+
+test('chat medicine previews show the exact suggested tags with a manufacturer source and scaled text in both languages', () => {
+  for (const language of ['vi', 'en']) {
+    const manufacturer = { name: 'DHG Pharma', url: 'https://dhgpharma.com.vn/vi/san-pham/giam-dau-ha-sot/hapacol-650-0' };
+    const h = purposePreview({ status: 'matched', tags: ['fever_reduction', 'pain_relief'], source: manufacturer }, language);
+    assert.deepEqual(h.nodes.find(n => n.type === 'PurposeTags').props.codes, ['fever_reduction', 'pain_relief']);
+    assert.equal(h.nodes.find(n => n.type === 'ScaledText').props.children, language === 'vi' ? 'Công dụng' : 'Purpose');
+    const link = h.nodes.find(n => n.type === 'Pressable');
+    assert.equal(link.props.accessibilityRole, 'link'); assert.ok(link.props.accessibilityLabel.includes('DHG Pharma'));
+    link.props.onPress(); assert.deepEqual(h.opened, [manufacturer.url]);
+  }
+});
+test('ambiguous, unavailable and unmatched medicines show no tag or source, even if stray metadata is present', () => {
+  for (const status of ['ambiguous', 'unavailable', 'not_found', 'not_selected']) {
+    const h = purposePreview({ status, tags: ['pain_relief'], source: { name: 'Unverified', url: 'https://example.test' } });
+    assert.equal(h.nodes.some(n => n.type === 'PurposeTags' || n.type === 'Pressable'), false);
+    assert.ok(h.nodes.find(n => n.type === 'ScaledText').props.children.length > 5);
+  }
+});
+test('continuing a draft opens only the scoped setup route, never a client-supplied patient or arbitrary path', () => {
+  const module = { exports: {} };
+  const code = ts.transpileModule(fs.readFileSync('src/features/app-assistant/assistant-navigation.ts', 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  // eslint-disable-next-line no-new-func -- Execute the trusted navigation mapper without native dependencies.
+  new Function('module', 'exports', code)(module, module.exports);
+  const id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  assert.equal(module.exports.assistantScreenRoute({ screen: 'medication_draft', params: { id, patientId: '999' } }), `/medication/setup?draftId=${id}`);
+  for (const invalid of ['../../admin', 'javascript:alert(1)', '123'])
+    assert.equal(module.exports.assistantScreenRoute({ screen: 'medication_draft', params: { id: invalid } }), null);
+});
+test('untrusted manufacturer links cannot launch another host or a native scheme from a saved preview', () => {
+  for (const url of ['javascript:alert(1)', 'https://example.test', 'https://dhgpharma.com.vn.evil.test', 'https://user@dhgpharma.com.vn/vi/san-pham/a/b']) {
+    const h = purposePreview({ status: 'matched', tags: ['pain_relief'], source: { name: 'DHG Pharma', url } });
+    h.nodes.find(n => n.type === 'Pressable').props.onPress(); assert.deepEqual(h.opened, []);
+  }
+});
+
 test('a mixed confirmation retries the same medication plan without repeating completed readings', async () => {
   const seen = []; let fails = true;
   const run = base({ actions: [{ type: 'water', volume_ml: 200 }, { type: 'medication', planToken: 'signed-preview', changes: [] }, { type: 'language', value: 'en' }],
@@ -175,4 +241,31 @@ test('malformed saved commands cannot become pending confirmations and storage f
   assert.equal((await h.readAssistantConversation('A', () => true)).preview, null);
   h.secure.setItem = async () => { throw Error('Keychain unavailable'); };
   await assert.rejects(h.saveAssistantConversation('A', conversation('must stay private'), () => true), /Keychain/);
+});
+test('restoring a pending medicine confirmation keeps verified tag metadata and rejects malformed or untrusted tags', async () => {
+  const h = conversationStorageHarness();
+  const purpose = { status: 'matched', tags: ['pain_relief'], productName: 'Hapacol 650',
+    source: { name: 'DHG Pharma', url: 'https://dhgpharma.com.vn/vi/san-pham/giam-dau-ha-sot/hapacol-650-0' } };
+  const pending = { ...conversation('reminder'), preview: { actions: [{ type: 'medication', planToken: 'signed', changes: [{
+    operation: 'create', name: 'Hapacol 650', times: ['07:00'], purpose,
+  }] }], requestId: 'med-preview', recordedAt: new Date().toISOString(), completed: [] } };
+  await h.saveAssistantConversation('A', pending, () => true);
+  assert.deepEqual((await h.readAssistantConversation('A', () => true)).preview.actions[0].changes[0].purpose, purpose);
+  for (const invalid of [{}, { ...purpose, tags: 'pain_relief' }, { ...purpose, tags: ['invented'] },
+    { ...purpose, source: { name: 'Fake', url: 'javascript:alert(1)' } }, { ...purpose, status: 'ambiguous' }]) {
+    pending.preview.actions[0].changes[0].purpose = invalid;
+    await h.saveAssistantConversation('A', pending, () => true);
+    assert.equal((await h.readAssistantConversation('A', () => true)).preview, null);
+  }
+});
+test('pending supplement confirmations retain their explicit type and reject invented categories', async () => {
+  const h = conversationStorageHarness();
+  const pending = { ...conversation('Vitamin D3'), preview: { actions: [{ type: 'medication', planToken: 'signed', changes: [{
+    operation: 'create', name: 'Vitamin D3', itemKind: 'SUPPLEMENT', times: ['07:00'],
+  }] }], requestId: 'supplement', recordedAt: new Date().toISOString(), completed: [] } };
+  await h.saveAssistantConversation('A', pending, () => true);
+  assert.equal((await h.readAssistantConversation('A', () => true)).preview.actions[0].changes[0].itemKind, 'SUPPLEMENT');
+  pending.preview.actions[0].changes[0].itemKind = 'INVENTED';
+  await h.saveAssistantConversation('A', pending, () => true);
+  assert.equal((await h.readAssistantConversation('A', () => true)).preview, null);
 });

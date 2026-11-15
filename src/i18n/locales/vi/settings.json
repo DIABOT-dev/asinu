@@ -335,7 +335,8 @@
       "feed_article": "bài viết",
       "wallet_topup": "ví và số tiền nạp đã chọn",
       "upgrade": "gói chăm sóc đã chọn",
-      "member": "sức khỏe người thân"
+      "member": "sức khỏe người thân",
+      "medication_draft": "Bản nháp lịch thuốc"
     },
     "permissionNames": {
       "camera": "camera",
@@ -354,6 +355,7 @@
       "calls_weather_device": "Dùng thời tiết theo vị trí hiện tại"
     },
     "featureUnavailable": "Tính năng này hiện chưa được mở cho tài khoản. Bạn có thể dùng các mục đang khả dụng trong app nhé.",
-    "weatherSaved": "Đã bật thời tiết theo khu vực hiện tại."
+    "weatherSaved": "Đã bật thời tiết theo khu vực hiện tại.",
+    "supplementCreate": "Nhắc dùng thực phẩm bổ sung {{name}} mỗi ngày lúc {{times}}"
   }
 }

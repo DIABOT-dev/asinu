@@ -14,6 +14,19 @@ let queue: Promise<unknown> = Promise.resolve();
 const keyFor = (owner: string) => `assistant_chat_v1_${Array.from(owner, char => char.charCodeAt(0).toString(16)).join('_')}`;
 const message = (value: any): value is AssistantMessage => value && typeof value.id === 'string' &&
   ['user', 'assistant'].includes(value.role) && typeof value.text === 'string';
+function medicationPurpose(value: any): boolean {
+  if (!value || !['matched', 'not_found', 'ambiguous', 'unavailable', 'not_applicable', 'not_selected'].includes(value.status) ||
+    !Array.isArray(value.tags) || value.tags.length > 9 || new Set(value.tags).size !== value.tags.length ||
+    !value.tags.every((tag: unknown) => ['fever_reduction', 'pain_relief', 'blood_pressure', 'diabetes', 'lipids', 'antibiotic', 'allergy', 'cough', 'stomach'].includes(String(tag)))) return false;
+  if (value.status !== 'matched') return value.tags.length === 0;
+  if (!value.tags.length || typeof value.productName !== 'string' || value.productName.length > 120 ||
+    typeof value.source?.name !== 'string' || typeof value.source?.url !== 'string') return false;
+  try {
+    const url = new URL(value.source.url);
+    return url.origin === 'https://dhgpharma.com.vn' && !url.username && !url.password &&
+      !url.search && !url.hash && /^\/vi\/san-pham\/[a-z0-9-]+\/[a-z0-9-]+$/.test(url.pathname);
+  } catch { return false; }
+}
 function action(value: any): value is AssistantAction {
   if (!value || typeof value !== 'object') return false;
   switch (value.type) {
@@ -25,7 +38,7 @@ function action(value: any): value is AssistantAction {
     case 'meal': return typeof value.meal_text === 'string' && value.meal_text.length <= 1000;
     case 'app_tool': return typeof value.tool === 'string' && typeof value.label === 'string' && value.label.length <= 10000 && typeof value.planToken === 'string' && value.planToken.length <= 24000;
     case 'speech': return typeof value.text === 'string' && value.text.length <= 16000;
-    case 'screen': return ['feed_article', 'wallet_topup', 'upgrade', 'member'].includes(value.screen) && value.params && Object.values(value.params).every(field => typeof field === 'string');
+    case 'screen': return ['feed_article', 'wallet_topup', 'upgrade', 'member', 'medication_draft'].includes(value.screen) && value.params && Object.values(value.params).every(field => typeof field === 'string');
     case 'native': return ['device.permission', 'profile.avatar', 'app.share', 'app.support', 'app.update', 'app.guide', 'feed.hide', 'calls.weather_device'].includes(value.kind) && value.parameters && (value.kind !== 'device.permission' || ['camera', 'microphone', 'photos', 'notifications', 'calls'].includes(value.parameters.kind) && typeof value.parameters.enabled === 'boolean');
     case 'navigate': return ['checkin', 'checkin_history', 'medication', 'logs', 'blood_pressure', 'glucose', 'water', 'consultation', 'profile', 'reminders', 'notifications', 'care_circle', 'scan_qr', 'missions', 'coins', 'early_signal', 'health_status', 'health_tree', 'feed', 'daily_gift', 'gift_history', 'call_settings', 'voice_settings', 'app_permissions', 'my_qr', 'subscription', 'subscription_plans', 'wallet', 'terms', 'privacy_policy', 'medical_sources'].includes(value.destination);
     case 'profile': return typeof value.planToken === 'string' && value.planToken.length <= 12000 && !!value.changes && Object.keys(value.changes).length > 0 &&
@@ -33,7 +46,9 @@ function action(value: any): value is AssistantAction {
         : key === 'heightCm' ? typeof field === 'number' && field >= 50 && field <= 250 : key === 'bloodType' ? field === null || typeof field === 'string' : ['name', 'dateOfBirth', 'gender'].includes(key) && typeof field === 'string');
     case 'medication': return typeof value.planToken === 'string' && value.planToken.length <= 20000 && Array.isArray(value.changes) && value.changes.length > 0 && value.changes.every((change: any) =>
       change && ['create', 'move', 'pause', 'resume', 'delete', 'taken', 'skipped', 'out_of_meds'].includes(change.operation) &&
-      typeof change.name === 'string' && Array.isArray(change.times) && change.times.every((time: any) => typeof time === 'string'));
+      typeof change.name === 'string' && Array.isArray(change.times) && change.times.every((time: any) => typeof time === 'string') &&
+      (change.purpose === undefined || medicationPurpose(change.purpose)) &&
+      (change.itemKind === undefined || ['MEDICINE', 'SUPPLEMENT'].includes(change.itemKind)));
     case 'routine_reminders': return typeof value.planToken === 'string' && value.planToken.length <= 20000 && Array.isArray(value.changes) && value.changes.every((change: any) =>
       change && ['morning', 'afternoon', 'evening'].includes(change.slot) && typeof change.before === 'string' && typeof change.time === 'string');
     default: return false;

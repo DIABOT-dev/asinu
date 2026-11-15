@@ -326,5 +326,6 @@
   "setupReminderTime": "Reminder time",
   "medicationPhotoReadError": "The image could not be read on this device. Select it again or take a new photo.",
   "medicationPhotoTooLarge": "The image is larger than 10 MB. Choose a smaller image or take a new photo.",
-  "medicationPhotoUploadError": "The image could not be uploaded. Please try again or enter the medicine name to continue."
+  "medicationPhotoUploadError": "The image could not be uploaded. Please try again or enter the medicine name to continue.",
+  "medicationPurposeNotSelected": "No purpose tags selected"
 }

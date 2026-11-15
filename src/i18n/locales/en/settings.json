@@ -335,7 +335,8 @@
       "feed_article": "the article",
       "wallet_topup": "the wallet with your chosen top-up amount",
       "upgrade": "your chosen care plan",
-      "member": "your relative’s health"
+      "member": "your relative’s health",
+      "medication_draft": "Medication draft"
     },
     "permissionNames": {
       "camera": "camera",
@@ -354,6 +355,7 @@
       "calls_weather_device": "Use weather for the current location"
     },
     "featureUnavailable": "This feature is not currently enabled for your account. You can use the available app features.",
-    "weatherSaved": "Weather for your current area is enabled."
+    "weatherSaved": "Weather for your current area is enabled.",
+    "supplementCreate": "Remind me to take supplement {{name}} daily at {{times}}"
   }
 }

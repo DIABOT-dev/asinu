@@ -20,6 +20,7 @@ import { useLogsStore } from '../logs/logs.store';
 import { renderVoiceAnswerButton, useVoiceAnswer } from '../guidance/VoiceAnswerButton';
 import { executeAssistantActions, planAssistantActions, saveAssistantReading, applyAssistantTool, type AssistantAction } from './app-assistant.api';
 import { useAssistantConversation } from './useAssistantConversation';
+import { AssistantMedicationPurpose } from './AssistantMedicationPurpose';
 import { assistantRoute, assistantScreenRoute } from './assistant-navigation';
 import type { AssistantScreen } from './app-assistant.api';
 import { useAssistantNativeActions } from './useAssistantNativeActions';
@@ -259,7 +260,7 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
         permission: t(`appAssistant.permissionNames.${action.parameters.kind}`), action: t(action.parameters.enabled ? 'appAssistant.permissionEnable' : 'appAssistant.permissionDisable'),
       }) : t(`appAssistant.nativeActions.${action.kind.replace('.', '_')}`);
       case 'speech': return t('appAssistant.listenConclusion');
-      case 'medication': return action.changes.map(change => t(change.operation === 'move' ? 'appAssistant.medicationMove' : change.operation === 'create' ? 'appAssistant.medicationCreate' : 'appAssistant.medicationStatus', {
+      case 'medication': return action.changes.map(change => t(change.operation === 'move' ? 'appAssistant.medicationMove' : change.operation === 'create' ? change.itemKind === 'SUPPLEMENT' ? 'appAssistant.supplementCreate' : 'appAssistant.medicationCreate' : 'appAssistant.medicationStatus', {
         name: change.name, times: change.times.join(', '), previousTime: change.previousTime, state: t(`appAssistant.medicationStates.${change.operation}`),
       })).join('\n');
       case 'navigate': return t('appAssistant.navigate', { destination: t(`appAssistant.destinations.${action.destination}`) });
@@ -404,7 +405,12 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
               <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('appAssistant.review')}</Text>
               {preview.actions.map((action, index) => <View key={index} style={styles.reading}>
                 <Ionicons name={preview.completed.has(index) ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={colors.primaryText} />
-                <Text style={[styles.readingText, { color: colors.textPrimary }]}>{describe(action)}</Text>
+                {action.type === 'medication' ? <View style={styles.medicationChanges}>
+                  {action.changes.map((change, changeIndex) => <View key={changeIndex} style={styles.medicationChange}>
+                    <Text style={[styles.readingText, { flex: 0, color: colors.textPrimary }]}>{describe({ ...action, changes: [change] })}</Text>
+                    {change.purpose && <AssistantMedicationPurpose purpose={change.purpose} />}
+                  </View>)}
+                </View> : <Text style={[styles.readingText, { color: colors.textPrimary }]}>{describe(action)}</Text>}
               </View>)}
             </View>}
             {!!feedback && <Text accessibilityLiveRegion="polite" style={[styles.feedback, { color: error ? colors.danger : colors.primaryText }]}>{feedback}</Text>}
@@ -461,6 +467,8 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: '700' },
   reading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   readingText: { flex: 1, fontSize: 17, lineHeight: 25 },
+  medicationChanges: { flex: 1, gap: 14 },
+  medicationChange: { gap: 4 },
   feedback: { fontSize: 16, lineHeight: 24, flexShrink: 1 },
   working: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   footer: { paddingTop: 10, gap: 4 },
