@@ -17,6 +17,15 @@ Vietnamese and English release notes are included. These files are Store metadat
 
 ## Upload status
 
-**Prepared locally; not uploaded to App Store Connect.** Apple's API and the iOS submission both reject the account with `REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED`. The Account Holder must resolve the outstanding agreement in [App Store Connect Business](https://appstoreconnect.apple.com/business), and, if requested by Apple, the [Developer account](https://developer.apple.com/account).
+**Uploaded to App Store Connect.** The Account Holder accepted the updated Apple agreements on 16 November 2026. The resubmission of iOS build **41**, version **2.0.4**, finished successfully.
 
-After that account issue is resolved, use iOS build **41**, version **2.0.4**, and verify the editable version, locale, and screenshot display types in App Store Connect before replacing its screenshot sets. Uploading a binary and submitting a version for App Review are separate steps; neither has succeeded for this release yet.
+All 14 screenshots were uploaded to the Vietnamese localization of version 2.0.4. Apple reports `COMPLETE` for every image; its source checksums match the local files. Only this new version's screenshot sets were replaced. The published version 2.0.3 was preserved.
+
+Apple finished processing build 41 (`VALID`). Version 2.0.4 was submitted for App Review at **18:51 on 16 November 2026 (Asia/Ho_Chi_Minh)**. Both the version and its review submission are `WAITING_FOR_REVIEW`, verified through the App Store Connect API. Release mode is `AFTER_APPROVAL`: the version will be released automatically if Apple approves it.
+
+- [App Store Connect](https://appstoreconnect.apple.com/apps/6758967197/distribution/ios/version/14fbecad-788e-4235-8cf8-a09704c166b9)
+- [Successful EAS upload](https://expo.dev/accounts/diabot2025/projects/asinu-lite/submissions/5724d91e-456d-4b98-8224-9e4c28e5e37b)
+- Apple build: `59bcfa50-63ac-44b2-a7ed-26b623d7e18c`
+- Review submission: `d9ba0132-0ff5-460b-8c86-0ddbee8394ee`
+
+This records a successful review submission; Apple has not yet approved version 2.0.4.

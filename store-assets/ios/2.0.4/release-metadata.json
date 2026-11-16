@@ -5,7 +5,7 @@
   "buildNumber": "41",
   "sourceCommit": "f03d7f0c61d14dd721ee8d9a91064ee95a46c99a",
   "locale": "vi",
-  "uploadStatus": "BLOCKED_REQUIRED_APPLE_AGREEMENT",
+  "uploadStatus": "UPLOADED",
   "screenshots": [
     {
       "family": "iPhone 6.9-inch",
@@ -20,10 +20,35 @@
       "directory": "vi/ipad-13"
     }
   ],
-  "notes": "Screenshot sets must be checked against the editable version in App Store Connect after account agreements become effective. No screenshots have been uploaded yet.",
+  "notes": "Binary upload and processing finished. All 14 screenshots are COMPLETE with matching checksums. Version 2.0.4 with build 41 is WAITING_FOR_REVIEW; automatic release after approval.",
   "screenshotCount": 14,
   "binaryBuildId": "c193a3f8-fa26-40b3-ac4b-13ca4068c776",
-  "submissionId": "4d662036-ec79-46fb-a38a-514b4f9e5316",
+  "submissionId": "5724d91e-456d-4b98-8224-9e4c28e5e37b",
   "binaryStatus": "FINISHED",
-  "submissionStatus": "ERRORED"
+  "submissionStatus": "FINISHED",
+  "appleVersionId": "14fbecad-788e-4235-8cf8-a09704c166b9",
+  "appleLocalizationId": "4ccd5fa1-f3fc-41a6-9b06-42287ff681ce",
+  "screenshotProcessingStatus": "COMPLETE",
+  "buildProcessingStatus": "VALID",
+  "appReviewSubmitted": true,
+  "releaseType": "AFTER_APPROVAL",
+  "updatedAt": "2026-11-16T11:52:29.828955+00:00",
+  "appleScreenshotSets": [
+    {
+      "id": "b0079d53-9cf8-477a-a51d-00cec7e91557",
+      "display": "APP_IPAD_PRO_3GEN_129",
+      "screenCount": 7
+    },
+    {
+      "id": "69b04c32-5452-4543-9b2f-c9e2282d5687",
+      "display": "APP_IPHONE_67",
+      "screenCount": 7
+    }
+  ],
+  "appStoreState": "WAITING_FOR_REVIEW",
+  "reviewSubmissionId": "d9ba0132-0ff5-460b-8c86-0ddbee8394ee",
+  "reviewSubmissionState": "WAITING_FOR_REVIEW",
+  "submittedDate": "2026-11-16T11:51:48.993Z",
+  "appleBuildId": "59bcfa50-63ac-44b2-a7ed-26b623d7e18c",
+  "verifiedAt": "2026-11-16T11:52:07.215Z"
 }
