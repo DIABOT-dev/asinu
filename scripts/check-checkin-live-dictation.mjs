@@ -117,6 +117,30 @@ test('an Android-style client error after Stop cannot delete the last visible wo
   assert.deepEqual(done, [{ text: 'Hơi mệt', error: 'client' }]); assert.equal(h.timers.size, 0);
 });
 
+test('all 120 orderings of speech results, native end/error and Stop finish once and release the microphone', () => {
+  const permutations = values => values.length ? values.flatMap((value, index) =>
+    permutations(values.filter((_, i) => i !== index)).map(rest => [value, ...rest])) : [[]];
+  for (const order of permutations(['interim', 'final', 'end', 'error', 'stop'])) {
+    const h = nativeHarness(), preview = [], done = [];
+    const live = h.createLiveDictation(h.module, { language: 'vi', onInterim: text => preview.push(text),
+      onDone: value => { assert.equal(value.text, preview.at(-1) || '', order.join(',')); done.push(value); } });
+    live.start();
+    for (const action of order) {
+      if (action === 'interim') h.result('Tôi đau đầu');
+      if (action === 'final') h.result('Tôi đau đầu từ hôm qua', true);
+      if (action === 'end') h.emit('end');
+      if (action === 'error') h.emit('error', { error: 'client' });
+      if (action === 'stop') live.stop();
+    }
+    h.fire(2500);
+    assert.equal(done.length, 1, order.join(','));
+    const snapshot = { done: [...done], preview: [...preview] };
+    h.result('Late words must not enter another answer', true); h.emit('end'); live.stop();
+    assert.deepEqual({ done, preview }, snapshot);
+    assert.equal(h.listeners, 0); assert.equal(h.timers.size, 0);
+  }
+});
+
 test('cancellation ignores late words and never commits an answer; a recording ends after 60 seconds', () => {
   const h = nativeHarness(), previews = [], done = [];
   const make = () => h.createLiveDictation(h.module, { language: 'vi', onInterim: text => previews.push(text), onDone: value => done.push(value) });
@@ -193,12 +217,12 @@ test('the first iOS speech permission dialog does not cancel dictation; a real b
 
 // Run the real assistant owner, voice controller, modal queue and permission
 // presenter together. Only native capture and the server are replaced.
-function assistantHarness({ granted = false, consent = true, legacy = false, assistantPlan, apply, photo, notificationsGranted = true } = {}) {
+function assistantHarness({ granted = false, consent = true, legacy = false, assistantPlan, apply, photo, notificationsGranted = true, initialMessages = [], historyClearError = false } = {}) {
   const settings = JSON.parse(fs.readFileSync('src/i18n/locales/vi/settings.json', 'utf8'));
   const { ModalQueue } = evaluate('src/lib/modalQueue.ts', {});
   const queue = new ModalQueue(), native = nativeHarness(), notices = [], uploads = [], routes = [], scans = [];
   const decision = {};
-  let permissionRequests = 0, recordings = 0, stopped = 0, tree, consented = consent;
+  let permissionRequests = 0, recordings = 0, stopped = 0, historyClears = 0, tree, consented = consent;
   let auth = { token: 'owner-a', profile: { id: '1' } };
   native.module.getPermissionsAsync = async () => ({ granted });
   native.module.requestPermissionsAsync = () => {
@@ -255,6 +279,8 @@ function assistantHarness({ granted = false, consent = true, legacy = false, ass
       '../v21/v21.api': { v21Api: { scan: async (...args) => { scans.push(args); return { readable: true, items: [{ display_name: 'Hapacol' }] }; } } },
       '../v21/medication-photo': { prepareMedicationPhoto: async () => ({ body: 'photo-file', dispose() {} }) },
       './assistant-navigation': evaluate('src/features/app-assistant/assistant-navigation.ts', {}),
+      './AssistantMedicationPurpose': { AssistantMedicationPurpose: 'MedicinePurpose' },
+      './AssistantMessageContent': { AssistantMessageContent: 'RichReply' },
       './useAssistantNativeActions': { useAssistantNativeActions: () => async () => undefined },
       '../checkin-call/useCheckinCallAudio': { useCheckinCallAudio: () => ({ audio: { phase: 'idle' }, stopAudio: async () => {}, play: async () => {} }) },
       '../../stores/notification.store': { useNotificationStore: { getState: () => ({ fetchFromBackend: async () => {} }) } },
@@ -262,12 +288,15 @@ function assistantHarness({ granted = false, consent = true, legacy = false, ass
       '../../lib/health-action-events': { notifyHealthAction() {} },
       '../health-feed/useHealthFeedDismissals': { useHealthFeedDismissals: () => ({ hiddenIds: new Set(), canShowCurated: true, dismiss: async () => {} }) },
       './useAssistantConversation': { useAssistantConversation: () => {
-        const [messages, setMessages] = adapters.react.useState([]);
-        return { messages, storageError: false, edited() {}, clear: async () => setMessages([]),
+        const [messages, setMessages] = adapters.react.useState(initialMessages);
+        return { messages, storageError: false, edited() {}, clear: async () => {
+          historyClears++; if (historyClearError) throw Error('Keychain unavailable'); setMessages([]);
+        },
           append: (role, text) => setMessages(previous => [...previous, { id: String(previous.length), role, text }]) };
       } },
       '../../components/ScaledTextInput': { ScaledTextInput: 'Input' },
       '../../components/QueuedModal': { QueuedModal: 'QueuedModal' },
+      '../../components/AppAlertModal': { AppAlertModal: 'Alert' },
       '../../components/AiDataConsentModal': { AiDataConsentModal: 'Consent', hasAiDataConsent: async () => consented },
       '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {}, isDark: false }) },
       '../../lib/apiClient': { ApiError: class extends Error {} },
@@ -285,11 +314,13 @@ function assistantHarness({ granted = false, consent = true, legacy = false, ass
   });
   const render = () => {
     tree = ui.render({ onClose() {} });
-    const all = nodes(tree), modal = all.find(node => node.type === 'QueuedModal'), consentModal = all.find(node => node.type === 'Consent');
+    const all = nodes(tree), modal = all.find(node => node.type === 'QueuedModal'), consentModal = all.find(node => node.type === 'Consent'), clearModal = all.find(node => node.type === 'Alert');
     if (modal.props.visible) queue.request('assistant', { ...modal.props, content: modal.props.children });
     else queue.remove('assistant');
     if (consentModal.props.visible) queue.request('consent', { content: consentModal, priority: 40 });
     else queue.remove('consent');
+    if (clearModal.props.visible) queue.request('clear-history', { content: clearModal });
+    else queue.remove('clear-history');
     return tree;
   };
   const settle = async () => { for (let i = 0; i < 4; i++) { render(); await tick(); } };
@@ -301,9 +332,12 @@ function assistantHarness({ granted = false, consent = true, legacy = false, ass
   return { ...ui, native, queue, notices, uploads, routes, scans, decision, settle, find, active, show, dismiss,
     input: () => find('asinu-assistant-text').props.value,
     mic: () => find('assistant-voice-answer'),
+    trash: () => nodes(render()).find(node => node.props?.accessibilityLabel === settings.appAssistant.clearHistory),
+    clearModal: () => nodes(render()).find(node => node.type === 'Alert'),
     agree() { consented = true; nodes(render()).find(node => node.type === 'Consent').props.onAgree(); },
     switchAccount() { auth = { token: 'owner-b' }; render(); },
     get permissionRequests() { return permissionRequests; },
+    get historyClears() { return historyClears; },
     get recordings() { return recordings; }, get stopped() { return stopped; },
     dispose() { ui.unmount(); detach(); },
   };
@@ -482,8 +516,91 @@ test('assistant answers are shown directly, without turning a question into a co
   try {
     h.find('asinu-assistant-text').props.onChangeText('Hôm nay tôi uống bao nhiêu nước?');
     h.find('asinu-assistant-send').props.onPress(); await h.settle();
+    const reply = nodes(h.render({ onClose() {} })).find(node => node.type === 'RichReply');
+    assert.equal(reply.props.text, 'Hôm nay bạn đã ghi 750 ml nước.');
+    assert.equal(h.find('asinu-assistant-apply'), undefined);
+  } finally { h.dispose(); }
+});
+
+test('a normalized height update is displayed in centimeters and waits for user confirmation', async () => {
+  const applied = [];
+  const action = { type: 'profile', planToken: 'signed-height-preview', changes: { heightCm: 170 } };
+  const h = assistantHarness({ assistantPlan: { status: 'ready', question: '', actions: [action] },
+    apply: async options => { applied.push(options.actions); return true; } });
+  try {
+    h.find('asinu-assistant-text').props.onChangeText('Cập nhật chiều cao cho tôi là 1m70');
+    h.find('asinu-assistant-send').props.onPress(); await h.settle();
+    assert.deepEqual(applied, []);
     const visible = nodes(h.render({ onClose() {} })).filter(node => node.type === 'Text').map(node => node.props.children).join(' ');
-    assert.match(visible, /750 ml/); assert.equal(h.find('asinu-assistant-apply'), undefined);
+    assert.match(visible, /Chiều cao \(cm\): 170/);
+    assert.ok(!visible.includes('signed-height-preview'));
+    h.find('asinu-assistant-apply').props.onPress(); await h.settle();
+    assert.deepEqual(applied, [[action]]);
+    assert.equal(h.find('asinu-assistant-apply'), undefined);
+  } finally { h.dispose(); }
+});
+
+async function openClearHistory(h) {
+  h.trash().props.onPress(); await h.settle();
+  assert.equal(h.historyClears, 0);
+  assert.equal(h.active().id, 'assistant');
+  h.dismiss(); await h.settle();
+  assert.equal(h.active().id, 'clear-history'); h.show(); await h.settle();
+  return h.clearModal();
+}
+
+test('clearing assistant history presents a confirmation modal; cancelling preserves the conversation and draft', async () => {
+  const h = assistantHarness({ initialMessages: [{ id: '1', role: 'assistant', text: 'Uống nước: 0/4' }] });
+  try {
+    h.find('asinu-assistant-text').props.onChangeText('Bản nháp chưa gửi');
+    const alert = await openClearHistory(h);
+    assert.equal(alert.props.queued, true);
+    assert.equal(alert.props.title, 'Xóa hội thoại');
+    alert.props.onDismiss(); await h.settle();
+    h.dismiss(); await h.settle(); h.show(); await h.settle();
+    assert.equal(h.active().id, 'assistant');
+    assert.equal(h.historyClears, 0);
+    assert.equal(h.input(), 'Bản nháp chưa gửi');
+    assert.ok(nodes(h.render({ onClose() {} })).some(node => node.type === 'RichReply' && node.props.text === 'Uống nước: 0/4'));
+  } finally { h.dispose(); }
+});
+
+test('only confirming the history modal clears assistant history and the unsent draft', async () => {
+  const h = assistantHarness({ initialMessages: [{ id: '1', role: 'assistant', text: 'Câu trả lời cũ' }] });
+  try {
+    h.find('asinu-assistant-text').props.onChangeText('Bản nháp');
+    const alert = await openClearHistory(h);
+    const confirm = alert.props.buttons.find(button => button.style === 'destructive').onPress;
+    // AppAlertModal invokes the action after its native dismissal.
+    alert.props.onDismiss(); await h.settle(); h.dismiss(); await h.settle();
+    const pending = confirm(); await confirm(); await pending; await h.settle();
+    assert.equal(h.historyClears, 1); assert.equal(h.input(), '');
+    assert.ok(!nodes(h.render({ onClose() {} })).some(node => node.type === 'RichReply'));
+    h.show(); assert.equal(h.active().id, 'assistant');
+  } finally { h.dispose(); }
+});
+
+test('a failed local history deletion keeps the assistant messages and reports the storage failure', async () => {
+  const h = assistantHarness({ initialMessages: [{ id: '1', role: 'assistant', text: 'Giữ lại nội dung' }], historyClearError: true });
+  try {
+    const alert = await openClearHistory(h);
+    const confirm = alert.props.buttons.find(button => button.style === 'destructive').onPress;
+    alert.props.onDismiss(); await h.settle(); h.dismiss(); await h.settle();
+    await confirm(); await h.settle();
+    assert.equal(h.historyClears, 1);
+    assert.ok(nodes(h.render({ onClose() {} })).some(node => node.type === 'RichReply' && node.props.text === 'Giữ lại nội dung'));
+    assert.ok(nodes(h.render({ onClose() {} })).some(node => node.type === 'Text' && node.props.children === 'Chưa lưu được hội thoại trên máy này.'));
+  } finally { h.dispose(); }
+});
+
+test('a previous account history confirmation cannot delete after switching accounts', async () => {
+  const h = assistantHarness();
+  try {
+    const alert = await openClearHistory(h);
+    const confirm = alert.props.buttons.find(button => button.style === 'destructive').onPress;
+    h.switchAccount(); await h.settle(); await confirm(); await h.settle();
+    assert.equal(h.clearModal().props.visible, false);
+    assert.equal(h.historyClears, 0);
   } finally { h.dispose(); }
 });
 
