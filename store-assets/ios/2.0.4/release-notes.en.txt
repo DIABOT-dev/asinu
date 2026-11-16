@@ -1,0 +1,3 @@
+Improved health check-ins and the Asinu assistant experience.
+Refined medication reminders, the health journal, tasks and health coins.
+Bug fixes and stability improvements.

@@ -1,0 +1,29 @@
+{
+  "appId": "6758967197",
+  "bundleIdentifier": "com.asinu.lite",
+  "version": "2.0.4",
+  "buildNumber": "41",
+  "sourceCommit": "f03d7f0c61d14dd721ee8d9a91064ee95a46c99a",
+  "locale": "vi",
+  "uploadStatus": "BLOCKED_REQUIRED_APPLE_AGREEMENT",
+  "screenshots": [
+    {
+      "family": "iPhone 6.9-inch",
+      "width": 1320,
+      "height": 2868,
+      "directory": "vi/iphone-6.9"
+    },
+    {
+      "family": "iPad 13-inch",
+      "width": 2064,
+      "height": 2752,
+      "directory": "vi/ipad-13"
+    }
+  ],
+  "notes": "Screenshot sets must be checked against the editable version in App Store Connect after account agreements become effective. No screenshots have been uploaded yet.",
+  "screenshotCount": 14,
+  "binaryBuildId": "c193a3f8-fa26-40b3-ac4b-13ca4068c776",
+  "submissionId": "4d662036-ec79-46fb-a38a-514b4f9e5316",
+  "binaryStatus": "FINISHED",
+  "submissionStatus": "ERRORED"
+}
