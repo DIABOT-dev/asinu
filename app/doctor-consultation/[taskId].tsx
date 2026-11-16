@@ -1,5 +1,5 @@
 import { DoctorIvrEntry } from "../../src/features/doctor-ivr/DoctorIvrEntry";
-import { runNativePermission } from '../../src/lib/native-permissions';
+import { runNativePermission } from "../../src/lib/native-permissions";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { Stack, useLocalSearchParams } from "expo-router";
@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -155,7 +156,7 @@ const formatMessageTime = (dateString?: string) => {
 const formatHeaderDate = (
   dateString: string | undefined,
   todayLabel: string,
-  locale: string,
+  locale: string
 ) => {
   const date = dateString ? new Date(dateString) : new Date();
   const validDate = isNaN(date.getTime()) ? new Date() : date;
@@ -201,8 +202,12 @@ export default function DoctorConsultationThreadScreen() {
   const [editingDraft, setEditingDraft] = useState("");
   const [messageActionBusy, setMessageActionBusy] = useState(false);
   const messageActionInFlight = useRef(false);
-  const editedMessage = messages.find(message => message.id === editingMessageId);
-  const hasMessageEditChanges = Boolean(editedMessage) && Boolean(editingDraft.trim()) &&
+  const editedMessage = messages.find(
+    (message) => message.id === editingMessageId
+  );
+  const hasMessageEditChanges =
+    Boolean(editedMessage) &&
+    Boolean(editingDraft.trim()) &&
     editingDraft.trim() !== (editedMessage?.content ?? "").trim();
   const editMessageSaveDisabled = messageActionBusy || !hasMessageEditChanges;
   const [recording, setRecording] = useState(false);
@@ -332,8 +337,12 @@ export default function DoctorConsultationThreadScreen() {
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     const fallbackTimer = setInterval(() => {
       // A live chat socket does not mean the newly enqueued task is ready yet.
-      if (!connected || !taskStatusRef.current?.status ||
-        ["new", "queued", "assigned"].includes(taskStatusRef.current.status)) void loadThread();
+      if (
+        !connected ||
+        !taskStatusRef.current?.status ||
+        ["new", "queued", "assigned"].includes(taskStatusRef.current.status)
+      )
+        void loadThread();
     }, 5000);
 
     const connect = async () => {
@@ -361,7 +370,10 @@ export default function DoctorConsultationThreadScreen() {
                 is_typing?: boolean;
               };
             };
-            if (envelope.type === "chat.message.changed" || envelope.type === "chat.task.status.changed") {
+            if (
+              envelope.type === "chat.message.changed" ||
+              envelope.type === "chat.task.status.changed"
+            ) {
               void loadThread();
             } else if (envelope.type === "chat.typing.changed") {
               setDoctorTyping(
@@ -454,10 +466,12 @@ export default function DoctorConsultationThreadScreen() {
     if (!taskId || messageActionInFlight.current) {
       return;
     }
-    if (action === "edit" && (
-      messageId !== editingMessageId || !hasMessageEditChanges ||
-      content?.trim() !== editingDraft.trim()
-    )) {
+    if (
+      action === "edit" &&
+      (messageId !== editingMessageId ||
+        !hasMessageEditChanges ||
+        content?.trim() !== editingDraft.trim())
+    ) {
       return;
     }
     messageActionInFlight.current = true;
@@ -595,23 +609,39 @@ export default function DoctorConsultationThreadScreen() {
     }
   };
 
-  const resolveMediaUrl = async (messageId: string, url: string, kind: 'voice' | 'attachment') => {
+  const resolveMediaUrl = async (
+    messageId: string,
+    url: string,
+    kind: "voice" | "attachment"
+  ) => {
     const expiry = Number(/[?&]expires_at=(\d+)(?:&|$)/.exec(url)?.[1]);
     if (!expiry || expiry > Date.now() / 1000 + 30) return url;
     const token = tokenStore.getToken();
     const response = await apiClient<ThreadResponse>(
-      `/api/doctor/tasks/${encodeURIComponent(taskId)}/messages?tenant_id=${encodeURIComponent(activeTenantId)}`
+      `/api/doctor/tasks/${encodeURIComponent(
+        taskId
+      )}/messages?tenant_id=${encodeURIComponent(activeTenantId)}`
     );
-    if (tokenStore.getToken() !== token) throw new Error('Session changed');
-    const message = response.data?.messages?.find(message => message.id === messageId);
-    const media = kind === 'voice' ? parseVoice(message?.content || '') : parseAttachment(message?.content || '');
-    if (!media?.url) throw new Error('File is unavailable');
+    if (tokenStore.getToken() !== token) throw new Error("Session changed");
+    const message = response.data?.messages?.find(
+      (message) => message.id === messageId
+    );
+    const media =
+      kind === "voice"
+        ? parseVoice(message?.content || "")
+        : parseAttachment(message?.content || "");
+    if (!media?.url) throw new Error("File is unavailable");
     return media.url;
   };
 
   const openAttachment = async (messageId: string, url: string) => {
-    try { await Linking.openURL(await resolveMediaUrl(messageId, url, 'attachment')); }
-    catch { showToast(t('doctorConsultationAttachmentError'), 'error'); }
+    try {
+      await Linking.openURL(
+        await resolveMediaUrl(messageId, url, "attachment")
+      );
+    } catch {
+      showToast(t("doctorConsultationAttachmentError"), "error");
+    }
   };
 
   const playVoice = async (messageId: string, url: string) => {
@@ -623,7 +653,7 @@ export default function DoctorConsultationThreadScreen() {
       }
       await soundRef.current?.unloadAsync?.();
       const result = await Audio.Sound.createAsync(
-        { uri: await resolveMediaUrl(messageId, url, 'voice') },
+        { uri: await resolveMediaUrl(messageId, url, "voice") },
         { shouldPlay: true }
       );
       soundRef.current = result.sound;
@@ -639,8 +669,10 @@ export default function DoctorConsultationThreadScreen() {
   const handlePickImage = async () => {
     if (!taskId || sending || !conversationOpen) return;
     try {
-      const permission =
-        await runNativePermission(() => ImagePicker.requestMediaLibraryPermissionsAsync(), { key: 'photo-library' });
+      const permission = await runNativePermission(
+        () => ImagePicker.requestMediaLibraryPermissionsAsync(),
+        { key: "photo-library" }
+      );
       if (!permission.granted) {
         showToast(t("doctorConsultationPhotoPermission"), "error");
         return;
@@ -727,6 +759,33 @@ export default function DoctorConsultationThreadScreen() {
         new Date(taskStatus.follow_up_until).getTime() > statusClock)
   );
   const currentStatus = taskStatus?.status;
+  const [cancelling, setCancelling] = useState(false);
+  const cancelConsultation = () =>
+    Alert.alert(t("doctorCancelTitle"), t("doctorCancelConfirm"), [
+      { text: t("doctorCancelKeep"), style: "cancel" },
+      {
+        text: t("doctorCancelTitle"),
+        style: "destructive",
+        onPress: async () => {
+          if (cancelling) return;
+          setCancelling(true);
+          try {
+            await apiClient(
+              `/api/doctor/tasks/${encodeURIComponent(taskId)}/cancel`,
+              { method: "POST", body: { tenant_id: activeTenantId } }
+            );
+            await loadThread();
+          } catch (error) {
+            showToast(
+              getApiErrorMessage(error, t, t("doctorCareError")),
+              "error"
+            );
+          } finally {
+            setCancelling(false);
+          }
+        },
+      },
+    ]);
   const statusUnknown = !currentStatus;
   const reopenOpen = Boolean(
     ["cancelled", "expired"].includes(currentStatus ?? "") &&
@@ -741,8 +800,9 @@ export default function DoctorConsultationThreadScreen() {
   const statusLabel = taskStatus?.status
     ? t(`doctorConsultationStatus_${taskStatus.status}`)
     : t("doctorConsultationStatusSyncing");
-  const statusIsTerminal =
-    Boolean(currentStatus && ["completed", ...terminalStatuses].includes(currentStatus));
+  const statusIsTerminal = Boolean(
+    currentStatus && ["completed", ...terminalStatuses].includes(currentStatus)
+  );
 
   useEffect(() => {
     const followUpUntil = taskStatus?.follow_up_until;
@@ -834,7 +894,10 @@ export default function DoctorConsultationThreadScreen() {
             <View
               style={[
                 styles.statusDot,
-                { backgroundColor: statusIsTerminal || statusUnknown ? "#94A3B8" : "#10B981" },
+                {
+                  backgroundColor:
+                    statusIsTerminal || statusUnknown ? "#94A3B8" : "#10B981",
+                },
               ]}
             />
             <Text
@@ -858,6 +921,42 @@ export default function DoctorConsultationThreadScreen() {
         </View>
       </View>
 
+      <View
+        style={{
+          flexDirection: "row",
+          gap: 16,
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+        }}
+      >
+        {currentStatus === "completed" && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              router.push({
+                pathname: "/doctor-consultation",
+                params: { previousTaskId: taskId, tenantId: activeTenantId },
+              })
+            }
+          >
+            <Text style={{ color: colors.primary, fontWeight: "600" }}>
+              {t("doctorReconsult")}
+            </Text>
+          </Pressable>
+        )}
+        {currentStatus &&
+          !["completed", ...terminalStatuses].includes(currentStatus) && (
+            <Pressable
+              accessibilityRole="button"
+              disabled={cancelling}
+              onPress={cancelConsultation}
+            >
+              <Text style={{ color: colors.danger }}>
+                {t("doctorCancelTitle")}
+              </Text>
+            </Pressable>
+          )}
+      </View>
       <DoctorIvrEntry tenantId={activeTenantId} taskId={taskId} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -916,19 +1015,28 @@ export default function DoctorConsultationThreadScreen() {
             >
               <View style={styles.statusHeading}>
                 <Ionicons
-                  name={statusUnknown ? "time-outline" : statusIsTerminal ? "checkmark-circle" : "pulse"}
+                  name={
+                    statusUnknown
+                      ? "time-outline"
+                      : statusIsTerminal
+                      ? "checkmark-circle"
+                      : "pulse"
+                  }
                   size={18}
-                  color={statusIsTerminal || statusUnknown ? "#64748B" : "#00A88F"}
+                  color={
+                    statusIsTerminal || statusUnknown ? "#64748B" : "#00A88F"
+                  }
                 />
                 <Text
                   style={[
                     styles.statusLabel,
                     {
-                      color: statusIsTerminal || statusUnknown
-                        ? isDark
-                          ? colors.textPrimary
-                          : "#334155"
-                        : "#00A88F",
+                      color:
+                        statusIsTerminal || statusUnknown
+                          ? isDark
+                            ? colors.textPrimary
+                            : "#334155"
+                          : "#00A88F",
                     },
                   ]}
                 >
@@ -941,25 +1049,37 @@ export default function DoctorConsultationThreadScreen() {
                   { color: isDark ? colors.textSecondary : "#64748B" },
                 ]}
               >
-                {statusUnknown ? t("doctorConsultationStatusSyncingHint") : conversationOpen
+                {statusUnknown
+                  ? t("doctorConsultationStatusSyncingHint")
+                  : conversationOpen
                   ? taskStatus?.status === "completed"
                     ? t("doctorConsultationFollowUpOpen")
                     : t("doctorConsultationStatusTrackingHint")
                   : t("doctorConsultationConversationClosed")}
               </Text>
               {statusUnknown && (
-                <Pressable accessibilityRole="button" accessibilityLabel={t("common:retry")}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("common:retry")}
                   onPress={() => void loadThread(true)}
-                  style={{ minHeight: 56, alignSelf: "flex-start", justifyContent: "center", paddingHorizontal: 16 }}>
-                  <Text style={{ color: colors.primaryText, fontWeight: "600" }}>{t("common:retry")}</Text>
+                  style={{
+                    minHeight: 56,
+                    alignSelf: "flex-start",
+                    justifyContent: "center",
+                    paddingHorizontal: 16,
+                  }}
+                >
+                  <Text
+                    style={{ color: colors.primaryText, fontWeight: "600" }}
+                  >
+                    {t("common:retry")}
+                  </Text>
                 </Pressable>
               )}
             </View>
 
             {taskStatus?.consultation_summary ? (
-              <View
-                style={styles.summaryCard}
-              >
+              <View style={styles.summaryCard}>
                 <View style={styles.summaryHeading}>
                   <Ionicons
                     name="document-text-outline"
@@ -1109,8 +1229,14 @@ export default function DoctorConsultationThreadScreen() {
                             <Pressable
                               disabled={editMessageSaveDisabled}
                               accessibilityRole="button"
-                              accessibilityState={{ disabled: editMessageSaveDisabled, busy: messageActionBusy }}
-                              style={editMessageSaveDisabled && styles.editSaveDisabled}
+                              accessibilityState={{
+                                disabled: editMessageSaveDisabled,
+                                busy: messageActionBusy,
+                              }}
+                              style={
+                                editMessageSaveDisabled &&
+                                styles.editSaveDisabled
+                              }
                               onPress={() =>
                                 void runMessageAction(
                                   message.id,
@@ -1139,7 +1265,9 @@ export default function DoctorConsultationThreadScreen() {
                           <Pressable
                             accessibilityRole="imagebutton"
                             accessibilityLabel={attachment.name}
-                            onPress={() => void openAttachment(message.id, attachment.url)}
+                            onPress={() =>
+                              void openAttachment(message.id, attachment.url)
+                            }
                           >
                             <Image
                               source={{ uri: attachment.url }}
@@ -1223,8 +1351,11 @@ export default function DoctorConsultationThreadScreen() {
                               ]}
                             >
                               {voice.duration_ms
-                                ? t('doctorConsultationVoiceDuration', {
-                                    seconds: Math.max(1, Math.round(voice.duration_ms / 1000)),
+                                ? t("doctorConsultationVoiceDuration", {
+                                    seconds: Math.max(
+                                      1,
+                                      Math.round(voice.duration_ms / 1000)
+                                    ),
                                   })
                                 : t("doctorConsultationVoiceMessage")}
                             </Text>
@@ -1368,7 +1499,10 @@ export default function DoctorConsultationThreadScreen() {
                           value={editingDraft}
                         />
                         <View style={styles.editMessageActions}>
-                          <Pressable disabled={messageActionBusy} onPress={() => setEditingMessageId(null)}>
+                          <Pressable
+                            disabled={messageActionBusy}
+                            onPress={() => setEditingMessageId(null)}
+                          >
                             <Text style={styles.editCancelText}>
                               {t("doctorConsultationCancel")}
                             </Text>
@@ -1376,8 +1510,13 @@ export default function DoctorConsultationThreadScreen() {
                           <Pressable
                             disabled={editMessageSaveDisabled}
                             accessibilityRole="button"
-                            accessibilityState={{ disabled: editMessageSaveDisabled, busy: messageActionBusy }}
-                            style={editMessageSaveDisabled && styles.editSaveDisabled}
+                            accessibilityState={{
+                              disabled: editMessageSaveDisabled,
+                              busy: messageActionBusy,
+                            }}
+                            style={
+                              editMessageSaveDisabled && styles.editSaveDisabled
+                            }
                             onPress={() =>
                               void runMessageAction(
                                 message.id,
@@ -1397,7 +1536,9 @@ export default function DoctorConsultationThreadScreen() {
                         <Pressable
                           accessibilityRole="imagebutton"
                           accessibilityLabel={attachment.name}
-                          onPress={() => void openAttachment(message.id, attachment.url)}
+                          onPress={() =>
+                            void openAttachment(message.id, attachment.url)
+                          }
                         >
                           <Image
                             source={{ uri: attachment.url }}
@@ -1433,8 +1574,11 @@ export default function DoctorConsultationThreadScreen() {
                           ]}
                         >
                           {voice.duration_ms
-                            ? t('doctorConsultationVoiceDuration', {
-                                seconds: Math.max(1, Math.round(voice.duration_ms / 1000)),
+                            ? t("doctorConsultationVoiceDuration", {
+                                seconds: Math.max(
+                                  1,
+                                  Math.round(voice.duration_ms / 1000)
+                                ),
                               })
                             : t("doctorConsultationVoiceMessage")}
                         </Text>
@@ -1512,9 +1656,7 @@ export default function DoctorConsultationThreadScreen() {
 
             {/* Rating Section if available */}
             {rateable && (
-              <View
-                style={styles.ratingCard}
-              >
+              <View style={styles.ratingCard}>
                 <Text
                   style={[styles.ratingTitle, { color: colors.textPrimary }]}
                 >
@@ -1696,18 +1838,26 @@ export default function DoctorConsultationThreadScreen() {
               },
             ]}
           >
-            {statusUnknown ? <ActivityIndicator color={colors.textSecondary} size="small" /> : <Ionicons
-              name="lock-closed-outline"
-              size={18}
-              color={colors.textSecondary}
-            />}
+            {statusUnknown ? (
+              <ActivityIndicator color={colors.textSecondary} size="small" />
+            ) : (
+              <Ionicons
+                name="lock-closed-outline"
+                size={18}
+                color={colors.textSecondary}
+              />
+            )}
             <Text
               style={[
                 styles.closedComposerText,
                 { color: colors.textSecondary },
               ]}
             >
-              {t(statusUnknown ? "doctorConsultationStatusSyncingHint" : "doctorConsultationConversationClosed")}
+              {t(
+                statusUnknown
+                  ? "doctorConsultationStatusSyncingHint"
+                  : "doctorConsultationConversationClosed"
+              )}
             </Text>
           </View>
         )}
