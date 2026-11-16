@@ -952,13 +952,11 @@ for (const language of ["vi", "en"])
         h.get(tree, "Intake").props.screening.result.question.step,
         "red_flags"
       );
-      await h
-        .get(tree, "Intake")
-        .props.screening.answer({
-          step: "red_flags",
-          values: [value],
-          text: "",
-        });
+      await h.get(tree, "Intake").props.screening.answer({
+        step: "red_flags",
+        values: [value],
+        text: "",
+      });
       tree = await h.settle();
       tree = await h.step2(tree);
       assert.ok(h.get(tree, "Intake"));
@@ -1195,4 +1193,36 @@ await test("linked reconsultation keeps the unsent original draft and requires n
   h.setParams({});
   tree = await h.settle();
   assert.ok(h.get(tree, "Intake").props.summary.includes("Ca kiểm thử"));
+});
+
+await test("a closed request id is cleared before the patient explicitly submits a new consultation", async () => {
+  const h = harness();
+  let tree = await h.fill();
+  tree = await h.step2(tree);
+  tree = await h.step3(tree);
+  nodes(tree)
+    .filter((n) => n.props.accessibilityRole === "checkbox")
+    .forEach((n) => n.props.onPress());
+  tree = await h.settle();
+  h.respond((url, input) =>
+    url === "/api/doctor/tasks" && input?.method === "POST"
+      ? Promise.reject(
+          Object.assign(new Error("Closed request"), {
+            code: "DOCTOR_TASK_CLOSED",
+          })
+        )
+      : undefined
+  );
+  h.button(tree, h.t("doctorConsultationSubmit")).props.onPress();
+  tree = await h.settle();
+  const first = h.calls.find((c) => c.url === "/api/doctor/tasks").input.body
+    .task_id;
+  assert.equal(h.plain.size, 0);
+  assert.ok(h.get(tree, "Intake") === undefined);
+  h.respond(undefined);
+  h.button(tree, h.t("doctorConsultationSubmit")).props.onPress();
+  await h.settle();
+  const requests = h.calls.filter((c) => c.url === "/api/doctor/tasks");
+  assert.equal(requests.length, 2);
+  assert.notEqual(requests[1].input.body.task_id, first);
 });

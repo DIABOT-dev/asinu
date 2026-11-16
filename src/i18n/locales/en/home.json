@@ -866,5 +866,6 @@
   "doctorCancelConfirm": "Cancel this consultation? Any held credit will be released.",
   "doctorCancelKeep": "Continue consultation",
   "doctorCreditNone": "No gift credit available. You can still request a consultation.",
-  "doctorCreditHeld": "1 credit is held for an existing consultation. New requests can use the standard consultation flow."
+  "doctorCreditHeld": "1 credit is held for an existing consultation. New requests can use the standard consultation flow.",
+  "doctorConsultationClosedRequest": "The previous consultation is closed. Submit again to create a new consultation."
 }

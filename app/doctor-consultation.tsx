@@ -480,10 +480,22 @@ export default function DoctorConsultationScreen() {
         setCurrentStep(1);
         void screening.check();
       }
-      showToast(
-        getApiErrorMessage(error, t, "doctorConsultationError"),
-        "error"
-      );
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "DOCTOR_TASK_CLOSED"
+      ) {
+        submissionTaskIdRef.current = null;
+        submissionAttachmentMessageIdRef.current = null;
+        await AsyncStorage.removeItem(pendingSubmissionKey);
+        showToast(t("doctorConsultationClosedRequest"), "error");
+      } else {
+        showToast(
+          getApiErrorMessage(error, t, "doctorConsultationError"),
+          "error"
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
