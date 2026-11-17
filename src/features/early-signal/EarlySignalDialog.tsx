@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useIsFocused } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,10 +23,6 @@ export function EarlySignalDialog({
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
   const token = useAuthStore((state) => state.token);
-  const [callFailed, setCallFailed] = useState(false);
-  useEffect(() => {
-    setCallFailed(false);
-  }, [token]);
   return (
     <QueuedModal
       visible={focused && !!token}
@@ -96,22 +91,7 @@ export function EarlySignalDialog({
             style={{ flexGrow: 0, flexShrink: 1 }}
             contentContainerStyle={[styles.content, { paddingBottom: 12 }]}
           >
-            <EarlySignalCard
-              details
-              healthScore={healthScore}
-              onEmergency={() => {
-                if (useAuthStore.getState().token !== token) return;
-                void Linking.openURL("tel:115").catch(() => {
-                  if (useAuthStore.getState().token === token)
-                    setCallFailed(true);
-                });
-              }}
-            />
-            {callFailed && (
-              <Text accessibilityRole="alert" style={{ color: colors.danger }}>
-                {t("earlyCallError")}
-              </Text>
-            )}
+            <EarlySignalCard details healthScore={healthScore} />
           </ScrollView>
         </View>
       </View>

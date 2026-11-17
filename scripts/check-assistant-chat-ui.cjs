@@ -404,8 +404,7 @@ function earlyHarness({
   const state = hooks(),
     t = translator("vi", "tree");
   let reads = 0,
-    evaluations = 0,
-    emergencies = 0;
+    evaluations = 0;
   state.react.useCallback = (fn, deps) => state.react.useMemo(() => fn, deps);
   const alert = { alertState: {}, showAlert() {}, dismissAlert() {} };
   const { EarlySignalCard } = evaluateModule();
@@ -488,9 +487,6 @@ function earlyHarness({
         EarlySignalCard({
           details: true,
           healthScore,
-          onEmergency: () => {
-            emergencies++;
-          },
         })
       )
     );
@@ -503,9 +499,6 @@ function earlyHarness({
     },
     get evaluations() {
       return evaluations;
-    },
-    get emergencies() {
-      return emergencies;
     },
   };
 }
@@ -540,7 +533,7 @@ test("early signals show the actual assessment in their own presentation and nev
   assert.equal(h.evaluations, 0);
   h.unmount();
 });
-test("urgent early signals retain every sign and the emergency action without collapsing the result", async () => {
+test("urgent early signals retain every warning without a call action or collapsed content", async () => {
   const h = earlyHarness({
     assessment: {
       id: 8,
@@ -565,10 +558,9 @@ test("urgent early signals retain every sign and the emergency action without co
       (node) => node.props.numberOfLines || node.type === "ChatMessage"
     )
   );
-  nodes(tree)
-    .find((node) => node.props.testID === "early-signal-emergency")
-    .props.onPress();
-  assert.equal(h.emergencies, 1);
+  assert.ok(!nodes(tree).some((node) => node.props.testID === "early-signal-emergency"));
+  assert.ok(!visible.includes("115"));
+  assert.ok(visible.includes(translator("vi", "tree")("earlyRedFlagTitle")));
   h.unmount();
 });
 test("an empty early-signal view evaluates only after a deliberate press and blocks duplicate submissions", async () => {

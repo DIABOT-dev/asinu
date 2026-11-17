@@ -20,7 +20,6 @@ type Props = {
   loadFailed: boolean;
   onRetry: () => void;
   onEvaluate: () => void | Promise<void>;
-  onEmergency?: () => void;
 };
 const levels = {
   monitor: {
@@ -60,7 +59,6 @@ export function EarlySignalDetails({
   loadFailed,
   onRetry,
   onEvaluate,
-  onEmergency,
 }: Props) {
   const { t, i18n } = useTranslation("tree");
   const { colors, isDark } = useThemeColors();
@@ -278,18 +276,6 @@ export function EarlySignalDetails({
               </Text>
             </View>
           </View>
-          {urgent && onEmergency && (
-            <Pressable
-              testID="early-signal-emergency"
-              accessibilityRole="button"
-              accessibilityLabel={t("earlyCall115")}
-              onPress={onEmergency}
-              style={[styles.primary, { backgroundColor: status.color }]}
-            >
-              <Ionicons name="call-outline" size={21} color="#FFF8F6" />
-              <Text style={styles.primaryText}>{t("earlyCall115")}</Text>
-            </Pressable>
-          )}
           {!!summary && (
             <Text
               selectable

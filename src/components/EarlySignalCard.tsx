@@ -28,7 +28,6 @@ type Props = {
   modalOnly?: boolean;
   onClose?: () => void;
   details?: boolean;
-  onEmergency?: () => void;
 };
 
 const presentation = {
@@ -55,7 +54,7 @@ const attentionPresentation = {
   icon: "alert-circle-outline" as const,
 };
 
-export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = false, plain = false, modalOnly = false, onClose, details = false, onEmergency }: Props) {
+export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = false, plain = false, modalOnly = false, onClose, details = false }: Props) {
   const { t } = useTranslation("tree");
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const [assessment, setAssessment] = useState<EarlySignalAssessment | null>(
@@ -163,7 +162,7 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
     return <>
       <EarlySignalDetails assessment={assessment} level={urgent ? 'urgent' : showsCurrentAttention ? 'attention' : assessment?.severity ?? null} redFlag={urgent}
         summary={summary} signals={visibleSignals} loading={loading} evaluating={evaluating} loadFailed={loadFailed}
-        onRetry={load} onEvaluate={evaluate} onEmergency={onEmergency}/>
+        onRetry={load} onEvaluate={evaluate}/>
       <AppAlertModal queued {...alertState} onDismiss={dismissAlert}/>
     </>;
   }
