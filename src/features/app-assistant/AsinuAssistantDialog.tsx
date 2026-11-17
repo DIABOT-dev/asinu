@@ -464,9 +464,8 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
               <Pressable accessibilityRole="button" accessibilityLabel={t('appAssistant.attachPhoto')} disabled={unavailable}
                 onPress={() => void pickPhoto()} style={[styles.photo, { borderColor: colors.border }]} testID="asinu-assistant-photo">
                 <Ionicons name="image-outline" size={24} color={colors.primaryText} />
-                <Text style={[styles.photoText, { color: colors.textPrimary }]}>{t('appAssistant.photoLabel')}</Text>
               </Pressable>
-              {renderVoiceAnswerButton(voice)}
+              {renderVoiceAnswerButton(voice, { iconOnly: true })}
               <View style={{ flex: 1 }} />
               <Pressable accessibilityRole="button" accessibilityLabel={t('appAssistant.send')}
                 accessibilityState={{ busy: !!busy, disabled: unavailable || !text.trim() }} disabled={unavailable || !text.trim()}
@@ -524,7 +523,6 @@ const styles = StyleSheet.create({
   inputSurface: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 12 },
   input: { fontSize: 16, lineHeight: 24, minHeight: 52, maxHeight: 120, textAlignVertical: 'top', paddingVertical: 12 },
   composerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  photo: { minHeight: 44, paddingHorizontal: 12, borderRadius: 24, borderWidth: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
-  photoText: { fontSize: 15, fontWeight: '600' },
+  photo: { width: 50, height: 50, borderRadius: 25, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   send: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
 });

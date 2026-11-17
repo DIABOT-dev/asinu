@@ -165,7 +165,7 @@ export function useVoiceAnswer({ onText, onInterimText, onBeforeAi, onProcessing
 }
 
 /** No recording lifecycle lives in the portal: hiding a modal cannot stop its owner. */
-export function renderVoiceAnswerButton({ press, label, t, recording, busy, disabled, focused, purpose }: ReturnType<typeof useVoiceAnswer>) {
+export function renderVoiceAnswerButton({ press, label, t, recording, busy, disabled, focused, purpose }: ReturnType<typeof useVoiceAnswer>, { iconOnly = false }: { iconOnly?: boolean } = {}) {
   return <Pressable testID={purpose === 'reminder' ? 'reminder-voice-answer' : purpose === 'assistant' ? 'assistant-voice-answer' : 'checkin-voice-answer'} accessibilityRole="button" accessibilityLabel={label} disabled={busy || disabled || !focused}
     accessibilityHint={recording ? t('guidance.voiceStopHint') : undefined}
     accessibilityState={{ disabled: busy || disabled || !focused, busy }}
@@ -173,9 +173,9 @@ export function renderVoiceAnswerButton({ press, label, t, recording, busy, disa
       alignItems: 'center', justifyContent: 'center', gap: 4,
       opacity: busy || disabled ? 0.5 : pressed ? 0.8 : 1 })}>
     {busy ? <ActivityIndicator color={c.primary} /> : <Ionicons name={recording ? 'stop-circle-outline' : 'mic-outline'} size={28} color={c.primary} />}
-    <Text allowFontScaling style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>
+    {!iconOnly && <Text allowFontScaling style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>
       {busy ? t('guidance.voiceProcessing') : label}
-    </Text>
+    </Text>}
   </Pressable>;
 }
 
