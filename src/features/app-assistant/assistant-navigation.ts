@@ -2,11 +2,11 @@ import type { AssistantDestination } from './app-assistant.api';
 const routes: Record<Exclude<AssistantDestination, 'early_signal'>, string> = {
   checkin: '/checkin', checkin_history: '/tree', medication: '/medication', logs: '/logs',
   blood_pressure: '/logs/blood-pressure', glucose: '/logs/glucose', water: '/logs/water',
-  consultation: '/doctor-consultation', profile: '/profile', reminders: '/reminder-config',
+  consultation: '/doctor-consultation', profile: '/account', reminders: '/reminder-config',
   notifications: '/notifications', care_circle: '/care-circle', scan_qr: '/care-circle/scan',
   missions: '/missions', coins: '/coins',
   health_status: '/health-status', health_tree: '/tree', feed: '/feed', daily_gift: '/checkin-rewards', gift_history: '/checkin-rewards/history',
-  call_settings: '/checkin-call/settings', voice_settings: '/checkin-call/voice-settings', app_permissions: '/home?assistant_permissions=1',
+  call_settings: '/checkin-call/settings', voice_settings: '/checkin-call/voice-settings', app_permissions: '/operations?assistant_permissions=1',
   my_qr: '/care-circle/qr', subscription: '/subscription', subscription_plans: '/subscription/plans', wallet: '/wallet',
   terms: '/legal/content?type=terms', privacy_policy: '/legal/content?type=privacy', medical_sources: '/legal/sources',
 };

@@ -447,5 +447,7 @@
   "keyboardDone": "Xong",
   "addressDataTitle": "Dữ liệu địa chỉ",
   "addressDataAttribution": "Dữ liệu phường/xã: Địa Chỉ Việt, có điều chỉnh tên tỉnh/thành phố.",
-  "addressDataLicense": "Giấy phép Creative Commons Attribution 4.0"
+  "addressDataLicense": "Giấy phép Creative Commons Attribution 4.0",
+  "tabActions": "Thao tác",
+  "openProfile": "Mở trang Cá nhân"
 }

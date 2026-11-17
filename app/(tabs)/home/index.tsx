@@ -11,12 +11,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image as ExpoImage } from 'expo-image';
 import { DailyCheckinCard, InstantCheckinCard } from '../../../src/components/DailyCheckinCard';
 import { HomeConnections } from '../../../src/components/HomeConnections';
+import { HomeProfileAvatar } from '../../../src/components/HomeProfileAvatar';
 import { EarlySignalDialog } from '../../../src/features/early-signal/EarlySignalDialog';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
 import { isUnfinishedCheckin, readLocationDraft } from '../../../src/features/checkin/checkin-progress';
-import { V21HomeCard } from '../../../src/features/v21/V21HomeCard';
-import { HomeFeatureGrid } from '../../../src/components/HomeFeatureGrid';
 import { HomeGiftCard } from '../../../src/features/checkin-rewards/HomeGiftCard';
 import { HealthFeedThumbnail } from '../../../src/features/health-feed/HealthFeedThumbnail';
 import { apiClient } from '../../../src/lib/apiClient';
@@ -815,6 +814,9 @@ export default function HomeScreen() {
         }}
       />
       
+      {profile && <View style={[styles.profileEntry, { top: insets.top + spacing.sm }]}>
+        <HomeProfileAvatar profile={profile} />
+      </View>}
       {/* Notification Bell — chỉ hiện khi đã đăng nhập */}
       {profile && (
         <View style={[styles.headerActions, { top: insets.top + spacing.sm }]}>
@@ -861,8 +863,6 @@ export default function HomeScreen() {
         </Animated.View>
 
         {renderHealthFeedBlock()}
-
-        {profile && <V21HomeCard renderShortcuts={access => <HomeFeatureGrid {...access} />} />}
 
         {/* Missions section is temporarily hidden on the home screen. */}
         {SHOW_HOME_MISSIONS && (
@@ -1100,6 +1100,7 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'center',
     gap: spacing.sm,
   },
+  profileEntry: { position: 'absolute', left: spacing.md, zIndex: 1000 },
   headerIcon: {
     width: 48,
     height: 48,

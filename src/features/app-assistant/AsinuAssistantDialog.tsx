@@ -372,8 +372,8 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
           <ProfileHealthcareBackground />
           <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
             <Pressable accessibilityRole="button" accessibilityLabel={t('appAssistant.close')} onPress={onClose}
-              style={[styles.back, { borderColor: colors.border }]}>
-              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+              style={[styles.back, { backgroundColor: "#71817E", borderWidth: 0 }]}>
+              <Ionicons name="arrow-back" size={22} color="#F4FFFC" accessible={false} />
             </Pressable>
             <Image source={mascot} accessible={false} resizeMode="contain" resizeMethod="resize" style={styles.mascot} />
             <View style={styles.headerText}>

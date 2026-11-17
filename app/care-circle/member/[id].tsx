@@ -275,9 +275,9 @@ export default function MemberLogsScreen() {
         }}
       />
 
-      {/* Flat in-app header: no native back-button bubble, shadow, or divider. */}
+      {/* In-app header with the shared circular back control. */}
       <View style={[styles.topHeader, { paddingTop: insets.top + spacing.xs }]}>
-        <ScreenBackButton style={styles.flatBackButton} onPress={() => router.back()} />
+        <ScreenBackButton onPress={() => router.back()} />
         <Text style={styles.topHeaderTitle}>
           {patientName ? t('memberHealthProfileTitle', { name: patientName }) : t('viewHealthProfile')}
         </Text>
@@ -536,13 +536,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       paddingHorizontal: spacing.lg,
       paddingBottom: spacing.sm,
       backgroundColor: 'transparent',
-    },
-    flatBackButton: {
-      backgroundColor: 'transparent',
-      borderWidth: 0,
-      shadowColor: 'transparent',
-      shadowOpacity: 0,
-      elevation: 0,
     },
     topHeaderTitle: {
       flex: 1,

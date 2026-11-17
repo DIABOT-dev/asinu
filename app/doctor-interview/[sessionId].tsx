@@ -981,7 +981,6 @@ export function DoctorInterviewView({
       >
         <ScreenBackButton
           onPress={close}
-          style={{ backgroundColor: colors.surface }}
         />
         <View style={styles.flex}>
           <Text style={[styles.headerText, textColor]}>{t("ivr.title")}</Text>

@@ -644,9 +644,7 @@ function CheckinScreen() {
       >
         <ScreenBackButton
           disabled={cancellation.busy}
-          iconColor={colors.primaryText}
-          style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1,
-            borderColor: colors.primary + '66', backgroundColor: colors.primaryLight }}
+          style={{ width: 44, height: 44 }}
           onPress={() => {
             if (screen === 'location') {
               locationBackRef.current?.();

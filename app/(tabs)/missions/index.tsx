@@ -186,7 +186,7 @@ export default function MissionsScreen() {
     <Screen>
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <ScreenBackButton style={styles.backButton} iconColor={colors.textPrimary} onPress={() => {
+          <ScreenBackButton style={styles.backButton} onPress={() => {
             if (router.canGoBack()) {
               router.back();
             } else {

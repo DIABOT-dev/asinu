@@ -12,9 +12,9 @@ import { useOnboardingGate } from '../../src/features/auth/useOnboardingGate';
 
 const homeIcon = require('../../src/assets/tab-icons/home.png');
 const healthcheckIcon = require('../../src/assets/tab-icons/healthcheck.png');
-const profileIcon = require('../../src/assets/tab-icons/profile.png');
+const operationsIcon = require('../../src/assets/tab-icons/operations.png');
 const missionIcon = require('../../src/assets/tab-icons/mission.png');
-const tabIconModules = [homeIcon, healthcheckIcon, profileIcon, missionIcon];
+const tabIconModules = [homeIcon, healthcheckIcon, operationsIcon, missionIcon];
 type TabIconSource = number | { uri: string };
 
 function TabIconSkeleton() {
@@ -140,11 +140,11 @@ export default function TabsLayout() {
   const visibleTabIconsReady = !showTabBarLoading;
   const homeIconSource = tabIconSources[0] ?? homeIcon;
   const connectIconSource = tabIconSources[1] ?? healthcheckIcon;
-  const profileIconSource = tabIconSources[2] ?? profileIcon;
+  const operationsIconSource = tabIconSources[2] ?? operationsIcon;
   const missionIconSource = tabIconSources[3] ?? missionIcon;
   const renderHomeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={homeIconSource} focused={focused} ready={visibleTabIconsReady} />, [homeIconSource, visibleTabIconsReady]);
   const renderMissionIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={missionIconSource} focused={focused} ready={Boolean(tabIconSources[3])} />, [missionIconSource, tabIconSources[3]]);
-  const renderProfileIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={profileIconSource} focused={focused} ready={visibleTabIconsReady} />, [profileIconSource, visibleTabIconsReady]);
+  const renderOperationsIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={operationsIconSource} focused={focused} ready={visibleTabIconsReady} />, [operationsIconSource, visibleTabIconsReady]);
   const renderCareCircleIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={connectIconSource} focused={focused} ready={visibleTabIconsReady} />, [connectIconSource, visibleTabIconsReady]);
 
   if (!canShowTabs) return null;
@@ -180,8 +180,15 @@ export default function TabsLayout() {
         name="profile/index"
         options={{
           title: t('tabProfile'),
-          tabBarAccessibilityLabel: t('tabProfile'),
-          tabBarIcon: renderProfileIcon
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="operations/index"
+        options={{
+          title: t('tabActions'),
+          tabBarAccessibilityLabel: t('tabActions'),
+          tabBarIcon: renderOperationsIcon,
         }}
       />
       {/* Missions screen vẫn giữ route cho profile và deep link.

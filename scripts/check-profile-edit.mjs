@@ -36,7 +36,7 @@ class ApiError extends Error {
   constructor(statusCode) { super('Fixture API failure'); this.statusCode = statusCode; }
 }
 
-function harness({ personalInformation: initialPersonalInformation = false, canGoBack = true, language = 'vi', bloodType = 'A+', save, uploadAvatar, multiplier = 1, isDark = false, doctorEnabled = false, profile: profileOverrides = {}, coins: coinOverrides = {} } = {}) {
+function harness({ personalInformation: initialPersonalInformation = false, canGoBack = true, standalone = false, language = 'vi', bloodType = 'A+', save, uploadAvatar, multiplier = 1, isDark = false, doctorEnabled = false, profile: profileOverrides = {}, coins: coinOverrides = {} } = {}) {
   const slots = [];
   let cursor = 0;
   let personalInformation = initialPersonalInformation;
@@ -116,6 +116,7 @@ function harness({ personalInformation: initialPersonalInformation = false, canG
     '../../../src/components/RippleRefresh': { RippleRefreshScrollView: 'ScrollView' },
     '../../../src/components/ScaledText': { ScaledText: 'Text' },
     '../../../src/components/Screen': { Screen: 'Screen' },
+    '../../../src/components/ScreenHeaderButton': { ScreenBackButton: 'ScreenBackButton' },
     '../../../src/components/DeleteAccountModal': { __esModule: true, default: 'DeleteAccountModal' },
     '../../../src/components/GlobalToastHost': { ModalToastHost: 'ModalToastHost' },
     '../../../src/components/state/MainScreenSkeletons': { ProfileTabSkeleton: 'Skeleton' },
@@ -191,7 +192,7 @@ function harness({ personalInformation: initialPersonalInformation = false, canG
     do {
       needsRender = false;
       cursor = 0;
-      tree = ProfileScreen({ personalInformation });
+      tree = ProfileScreen({ personalInformation, standalone });
       const effects = pendingEffects;
       pendingEffects = [];
       for (const effect of effects) effect();
@@ -224,6 +225,17 @@ function harness({ personalInformation: initialPersonalInformation = false, canG
 
 let checks = 0;
 async function test(label, run) { await run(); checks++; console.log(`PASS ${label}`); }
+await test('personal settings open as a standalone page with a back button above the avatar', () => {
+  const h = harness({ standalone: true });
+  const page = h.render(), all = nodes(page);
+  assert.ok(all.findIndex(n => n.type === 'ScreenBackButton') < all.findIndex(n => n.props.testID === 'profile-identity'));
+  all.find(n => n.type === 'ScreenBackButton').props.onPress();
+  assert.deepEqual(h.calls.routes, ['back']);
+  const direct = harness({ standalone: true, canGoBack: false });
+  nodes(direct.render()).find(n => n.type === 'ScreenBackButton').props.onPress();
+  assert.deepEqual(direct.calls.routes, ['/(tabs)/home']);
+});
+
 for (const language of ['vi', 'en']) {
   await test(`${language}: profile, account and app menus keep their existing actions`, () => {
     const h = harness({ language, doctorEnabled: true });
@@ -449,7 +461,7 @@ for (const language of ['vi', 'en']) {
   await test(`${language}: a directly opened information page can return to Profile`, () => {
     const h = harness({ language, personalInformation: true, canGoBack: false });
     nodes(h.render()).find(node => node.props.accessibilityLabel === h.tc('back')).props.onPress();
-    assert.deepEqual(h.calls.routes, ['/(tabs)/profile']);
+    assert.deepEqual(h.calls.routes, ['/account']);
   });
 }
 await test('the header camera uploads once, updates the avatar and leaves the editor closed', async () => {

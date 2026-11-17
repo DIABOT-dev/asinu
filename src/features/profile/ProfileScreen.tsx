@@ -40,6 +40,7 @@ import DeleteAccountModal from "../../../src/components/DeleteAccountModal";
 import { RippleRefreshScrollView } from "../../../src/components/RippleRefresh";
 import { ScaledText as Text } from "../../../src/components/ScaledText";
 import { Screen } from "../../../src/components/Screen";
+import { ScreenBackButton } from "../../../src/components/ScreenHeaderButton";
 import { ProfileTabSkeleton } from "../../../src/components/state/MainScreenSkeletons";
 import { useAppUpdateStore } from "../../../src/features/app-update/app-update.store";
 import { authApi } from "../../../src/features/auth/auth.api";
@@ -95,7 +96,8 @@ type ProfileSection = "account" | "settings" | "preferences" | "system";
 
 export default function ProfileScreen({
   personalInformation = false,
-}: { personalInformation?: boolean } = {}) {
+  standalone = false,
+}: { personalInformation?: boolean; standalone?: boolean } = {}) {
   const { t } = useTranslation("profile");
   const { t: tc } = useTranslation("common");
   const { t: ts } = useTranslation("settings");
@@ -586,10 +588,36 @@ export default function ProfileScreen({
   return (
     <Screen>
       <ProfileHealthcareBackground />
+      {(personalInformation || standalone) && (
+        <View
+          style={[
+            styles.personalPageHeader,
+            { paddingTop: insets.top + spacing.sm },
+          ]}
+        >
+          <ScreenBackButton
+            accessibilityLabel={tc("back")}
+            onPress={() =>
+              router.canGoBack()
+                ? router.back()
+                : router.replace(
+                    personalInformation ? "/account" : "/(tabs)/home"
+                  )
+            }
+          />
+          <Text accessibilityRole="header" style={styles.personalPageTitle}>
+            {t(personalInformation ? "personalInfo" : "headerTitle")}
+          </Text>
+          <View style={styles.personalHeaderSpacer} />
+        </View>
+      )}
       {!personalInformation && !showInitialSkeleton && (
         <View
           testID="profile-identity"
-          style={[styles.userCard, { paddingTop: insets.top + spacing.md }]}
+          style={[
+            styles.userCard,
+            { paddingTop: standalone ? spacing.sm : insets.top + spacing.md },
+          ]}
         >
           {renderAvatar()}
           <TouchableOpacity
@@ -651,37 +679,6 @@ export default function ProfileScreen({
           </TouchableOpacity>
         </View>
       )}
-      {personalInformation && (
-        <View
-          style={[
-            styles.personalPageHeader,
-            { paddingTop: insets.top + spacing.sm },
-          ]}
-        >
-          <TouchableOpacity
-            style={styles.personalBackButton}
-            onPress={() =>
-              router.canGoBack()
-                ? router.back()
-                : router.replace("/(tabs)/profile")
-            }
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel={tc("back")}
-          >
-            <Ionicons
-              name="arrow-back"
-              size={24}
-              color={colors.textPrimary}
-              accessible={false}
-            />
-          </TouchableOpacity>
-          <Text accessibilityRole="header" style={styles.personalPageTitle}>
-            {t("personalInfo")}
-          </Text>
-          <View style={styles.personalHeaderSpacer} />
-        </View>
-      )}
       <RippleRefreshScrollView
         style={styles.menuScroll}
         refreshing={refreshing}
@@ -690,12 +687,13 @@ export default function ProfileScreen({
           styles.container,
           {
             paddingTop:
-              showInitialSkeleton && !personalInformation
+              showInitialSkeleton && !personalInformation && !standalone
                 ? insets.top + spacing.md
                 : 4,
-            paddingBottom: personalInformation
-              ? insets.bottom + spacing.lg
-              : tabBarHeight + spacing.sm,
+            paddingBottom:
+              personalInformation || standalone
+                ? insets.bottom + spacing.lg
+                : tabBarHeight + spacing.sm,
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -1398,12 +1396,6 @@ function createStyles(
       paddingHorizontal: 16,
       paddingBottom: 8,
       gap: 8,
-    },
-    personalBackButton: {
-      width: 44,
-      height: 44,
-      alignItems: "center",
-      justifyContent: "center",
     },
     personalHeaderSpacer: { width: 44 },
     personalPageTitle: {

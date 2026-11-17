@@ -447,5 +447,7 @@
   "keyboardDone": "Done",
   "addressDataTitle": "Address data",
   "addressDataAttribution": "Ward data: Địa Chỉ Việt, with province and city names adapted.",
-  "addressDataLicense": "Creative Commons Attribution 4.0 license"
+  "addressDataLicense": "Creative Commons Attribution 4.0 license",
+  "tabActions": "Actions",
+  "openProfile": "Open personal settings"
 }

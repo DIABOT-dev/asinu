@@ -107,7 +107,6 @@ export function HealthArticleReading({
         <ScreenBackButton
           onPress={onBack}
           style={styles.headerButton}
-          iconColor={colors.textPrimary}
         />
         <Text style={[styles.headerTitle, ink]}>{t("feedArticleChannel")}</Text>
         {article.saveable ? (

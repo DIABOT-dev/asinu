@@ -462,7 +462,11 @@
     "missions": "Missions",
     "coins": "Coins & gifts",
     "dailyGift": "Today's gift",
-    "giftHistory": "Gift collection"
+    "giftHistory": "Gift collection",
+    "groupHealth": "Health tracking",
+    "groupConsultation": "Advice and care",
+    "groupConnections": "Connections and calls",
+    "groupRewards": "Gifts and missions"
   },
   "healthFeedSeeAll": "See all ({{count}})",
   "healthFeedEmptyTitle": "No new reminders",

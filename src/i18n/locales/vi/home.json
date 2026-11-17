@@ -462,7 +462,11 @@
     "missions": "Nhiệm vụ",
     "coins": "Xu & quà",
     "dailyGift": "Lộc hôm nay",
-    "giftHistory": "Kho lộc"
+    "giftHistory": "Kho lộc",
+    "groupHealth": "Theo dõi sức khỏe",
+    "groupConsultation": "Tư vấn và chăm sóc",
+    "groupConnections": "Kết nối và tổng đài",
+    "groupRewards": "Lộc và nhiệm vụ"
   },
   "healthFeedSeeAll": "Xem tất cả ({{count}})",
   "healthFeedEmptyTitle": "Chưa có nhắc nhở mới",

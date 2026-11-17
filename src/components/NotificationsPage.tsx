@@ -595,7 +595,7 @@ export function NotificationsPage() {
               <ScreenBackButton
                 onPress={() => router.back()}
                 accessibilityLabel={t('back')}
-                style={styles.headerAction}
+                style={{ width: 44, height: 44 }}
               />
               <Text
                 style={styles.headerTitle}

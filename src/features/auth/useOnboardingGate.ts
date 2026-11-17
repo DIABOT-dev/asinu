@@ -3,7 +3,7 @@ import { usePathname } from 'expo-router';
 import { useGuardedRouter } from '../../hooks/useGuardedRouter';
 import { useAuthStore } from './auth.store';
 
-const MAIN_TAB_PATHS = new Set(['/home', '/care-circle', '/tree', '/profile', '/missions']);
+const MAIN_TAB_PATHS = new Set(['/home', '/care-circle', '/tree', '/profile', '/missions', '/operations', '/account']);
 
 /** Guard main screens even when an old tab or deep link bypasses the login redirect. */
 export function useOnboardingGate(): boolean {

@@ -45,7 +45,7 @@ const flush = async () => {
 };
 
 function featureGridHarness({ language = 'vi', width = 393, multiplier = 1, fontScale = 1,
-  medicationEnabled = true, coinsEnabled = true, expertEnabled = true } = {}) {
+  medicationEnabled = true, coinsEnabled = true, expertEnabled = true, assistantPermissions } = {}) {
   const pushes = [], catalog = JSON.parse(read(`src/i18n/locales/${language}/home.json`)).quickActions;
   let cursor = 0;
   const slots = [], pending = [], scrolls = [];
@@ -84,9 +84,9 @@ function featureGridHarness({ language = 'vi', width = 393, multiplier = 1, font
       const label = catalog[key.split('.')[1]]; assert.ok(label, `${language}/${key}`);
       return label.replace(/\{\{(\w+)\}\}/g, (_, name) => values[name]);
     } }) },
-    'expo-router': { useLocalSearchParams: () => ({}) },
+    'expo-router': { useLocalSearchParams: () => ({ assistant_permissions: assistantPermissions }), useFocusEffect: () => {} },
     '../lib/appEnv': { isExpertConsultationEnabled: expertEnabled },
-    '../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => pushes.push(route) }) },
+    '../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => pushes.push(route), setParams: () => { assistantPermissions = ''; } }) },
     '../hooks/useThemeColors': { useThemeColors: () => ({ colors: palette, isDark: false }) },
     '../stores/font-size.store': { useFontSizeStore: select => select({ multiplier }) },
     '../features/v21/HealthCoinIcon': { HealthCoinIcon: 'GoldCoin' },
@@ -109,7 +109,7 @@ function featureGridHarness({ language = 'vi', width = 393, multiplier = 1, font
 }
 
 for (const language of ['vi', 'en']) {
-  await test(`${language}: Home shortcuts expose the real destinations with labels and a gold coin`, () => {
+  await test(`${language}: Action groups expose the real destinations with labels and a gold coin`, () => {
     const h = featureGridHarness({ language }), tree = h.render(), nodes = h.nodes(tree);
     const buttons = h.tiles();
     assert.equal(buttons.length, 15);
@@ -119,7 +119,7 @@ for (const language of ['vi', 'en']) {
       assert.ok(flatten(button.props.style({ pressed: false })).minHeight >= 44);
       button.props.onPress();
     }
-    assert.deepEqual(h.pushes, ['/(tabs)/tree', '/medication', '/logs', '/doctor-consultation', '/doctor-consultation-history', '/privacy-center', '/doctor-care', '/checkin-call/settings', '/checkin-call/voice-settings', '/care-circle',
+    assert.deepEqual(h.pushes, ['/(tabs)/tree', '/medication', '/logs', '/doctor-consultation', '/doctor-consultation-history', '/privacy-center', '/doctor-care', '/care-circle', '/checkin-call/settings', '/checkin-call/voice-settings',
       '/(tabs)/missions', '/coins', '/checkin-rewards', '/checkin-rewards/history']);
     const dialog = h.nodes(h.render()).find(node => node.type === 'PermissionModal');
     assert.equal(dialog.props.visible, true);
@@ -129,7 +129,7 @@ for (const language of ['vi', 'en']) {
     assert.ok(nodes.filter(node => node.type === 'Text').every(node => node.props.allowFontScaling && !node.props.numberOfLines));
     assert.ok(nodes.filter(node => node.type === 'Image').every(node => node.props.accessible === false));
   });
-  await test(`${language}: disabled medication and coin features have no Home shortcuts`, () => {
+  await test(`${language}: disabled medication and coin features have no Action groups`, () => {
     const h = featureGridHarness({ language, medicationEnabled: false, coinsEnabled: false });
     const ids = h.tiles().map(node => node.props.testID);
     assert.equal(ids.length, 13); assert.ok(!ids.includes('home-feature-medication')); assert.ok(!ids.includes('home-feature-coins'));
@@ -139,7 +139,7 @@ for (const language of ['vi', 'en']) {
 }
 for (const [width, multiplier, fontScale, columns] of [[393, 1, 1, 4], [430, 1, 1, 4],
   [320, 1, 1, 3], [393, 1.25, 1, 3], [393, 1.25, 1.4, 2]]) {
-  await test(`Home shortcuts fit ${width}px with app font ${multiplier} and system font ${fontScale}`, () => {
+  await test(`Action groups fit ${width}px with app font ${multiplier} and system font ${fontScale}`, () => {
     const h = featureGridHarness({ width, multiplier, fontScale });
     let tree = h.render(); tree.props.onLayout({ nativeEvent: { layout: { width: width - 32 } } }); tree = h.render();
     const button = h.nodes(tree).find(node => node.type === 'Pressable');
@@ -155,45 +155,98 @@ await test('consultation history, data and care plans follow the consultation ki
   assert.ok(ids.includes('home-feature-family'));
 });
 
-for (const [width, multiplier, expected] of [[393, 1, [8, 7]], [320, 1, [6, 6, 3]], [393, 1.6, [4, 4, 4, 3]]]) {
-  await test(`Home shortcuts paginate at ${width}px/font ${multiplier} and expose only the active page to accessibility`, () => {
-    const h = featureGridHarness({ width, multiplier });
-    const nodes = h.nodes(h.render());
-    const scroller = nodes.find(node => node.props?.testID === 'home-feature-pages');
-    assert.equal(scroller.props.pagingEnabled, true); assert.equal(scroller.props.horizontal, true);
-    assert.deepEqual(scroller.props.children.map(page => page.props.children.length), expected);
-    assert.equal(scroller.props.children[0].props.accessibilityElementsHidden, false);
-    assert.ok(scroller.props.children.slice(1).every(page => page.props.importantForAccessibility === 'no-hide-descendants'));
-    scroller.props.onMomentumScrollEnd({ nativeEvent: { contentOffset: { x: width - 32 } } });
-    const afterSwipe = h.nodes(h.render());
-    assert.equal(afterSwipe.find(node => node.props?.testID === 'home-feature-page-1').props.accessibilityState.selected, true);
-    assert.equal(afterSwipe.find(node => node.props?.testID === 'home-feature-pages').props.children[1].props.accessibilityElementsHidden, false);
-    afterSwipe.find(node => node.props?.testID === 'home-feature-page-0').props.onPress();
-    assert.deepEqual(h.scrolls.at(-1), { x: 0, animated: false });
-    assert.equal(h.nodes(h.render()).find(node => node.props?.testID === 'home-feature-page-0').props.accessibilityState.selected, true);
+for (const [width, multiplier] of [[393, 1], [320, 1], [393, 1.6]]) {
+  await test(`Action groups at ${width}px/font ${multiplier} expose every feature without hidden horizontal pages`, () => {
+    const h = featureGridHarness({ width, multiplier }), nodes = h.nodes(h.render());
+    assert.ok(!nodes.some(n => n.type === 'ScrollView'));
+    const groups = nodes.filter(n => n.props?.testID?.startsWith('operations-group-'));
+    assert.deepEqual(groups.map(n => n.props.testID), ['operations-group-health', 'operations-group-consultation', 'operations-group-connections', 'operations-group-rewards']);
+    assert.deepEqual(groups.map(g => h.nodes(g).filter(n => n.type === 'Pressable').length), [3, 4, 4, 4]);
+    assert.equal(h.tiles().length, 15);
   });
 }
-await test('changing screen width resets a paged shortcut grid to a valid position', () => {
-  const h = featureGridHarness();
-  h.nodes(h.render()).find(node => node.props?.testID === 'home-feature-page-1').props.onPress();
-  h.viewport.width = 430;
-  h.render().props.onLayout({ nativeEvent: { layout: { width: 398 } } });
-  h.render();
-  const nodes = h.nodes(h.render());
-  assert.equal(nodes.find(node => node.props?.testID === 'home-feature-page-0').props.accessibilityState.selected, true);
-  assert.deepEqual(h.scrolls.at(-1), { x: 0, animated: false });
+await test('a disabled consultation feature removes the entire empty group', () => {
+  const h = featureGridHarness({ expertEnabled: false });
+  assert.ok(!h.nodes(h.render()).some(n => n.props?.testID === 'operations-group-consultation'));
 });
-await test('expert consultation stays on the first page with its doctor portrait when optional shortcuts are disabled', () => {
+await test('expert consultation retains its doctor portrait and destination inside the care group', () => {
   const h = featureGridHarness({ medicationEnabled: false, coinsEnabled: false });
-  const nodes = h.nodes(h.render());
-  const scroller = nodes.find(node => node.props?.testID === 'home-feature-pages');
-  assert.equal(scroller.props.scrollEnabled, true);
-  const firstPage = h.nodes(scroller.props.children[0]);
-  const expert = firstPage.find(node => node.props?.testID === 'home-feature-expert');
-  assert.ok(expert);
-  assert.ok(firstPage.some(node => node.type === 'Image' && node.props.source.endsWith('expert-consultation-v1.png')));
-  expert.props.onPress();
+  const group = h.nodes(h.render()).find(n => n.props?.testID === 'operations-group-consultation');
+  const nodes = h.nodes(group);
+  assert.ok(nodes.some(n => n.type === 'Image' && n.props.source.endsWith('expert-consultation-v1.png')));
+  nodes.find(n => n.props?.testID === 'home-feature-expert').props.onPress();
   assert.equal(h.pushes.at(-1), '/doctor-consultation');
+});
+
+await test('assistant permissions deep link opens the relocated permissions modal once', () => {
+  const h = featureGridHarness({ assistantPermissions: '1' });
+  h.render();
+  const modal = h.nodes(h.render()).find(n => n.type === 'PermissionModal');
+  assert.equal(modal.props.visible, true);
+  modal.props.onClose();
+  assert.equal(h.nodes(h.render()).find(n => n.type === 'PermissionModal').props.visible, false);
+});
+await test('Home avatar opens standalone settings and a failed photo falls back to the current account initial', () => {
+  const source = read('src/components/HomeProfileAvatar.tsx');
+  let failedAvatar = null;
+  const pushes = [];
+  const { HomeProfileAvatar } = evaluate(source, {
+    react: { useState: () => [failedAvatar, value => { failedAvatar = value; }] },
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    'react-native': { Image: 'Image', Pressable: 'Pressable', StyleSheet: { create: value => value } },
+    'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    '../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => pushes.push(route) }) },
+    '../hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
+    './ScaledText': { ScaledText: 'Text' }, '../assets/tab-icons/profile.png': 'default-avatar',
+  });
+  const profile = { id: 'A', name: 'Anh Đức', avatarUrl: 'avatar-a' };
+  let tree = HomeProfileAvatar({ profile });
+  assert.equal(tree.props.children.props.source.uri, 'avatar-a');
+  assert.equal(flatten(tree.props.style({ pressed: false })).width, 48);
+  tree.props.onPress(); assert.deepEqual(pushes, ['/account']);
+  tree.props.children.props.onError();
+  tree = HomeProfileAvatar({ profile });
+  assert.equal(tree.props.children.props.children, 'Đ');
+  const other = HomeProfileAvatar({ profile: { id: 'B', name: 'Lan', avatarUrl: 'avatar-b' } });
+  assert.equal(other.props.children.props.source.uri, 'avatar-b');
+  assert.equal(HomeProfileAvatar({ profile: { id: 'C', name: '' } }).props.children.props.source, 'default-avatar');
+  const home = read('app/(tabs)/home/index.tsx');
+  assert.ok(home.includes('<HomeProfileAvatar profile={profile} />'));
+  assert.ok(!home.includes('<HomeFeatureGrid'));
+  assert.ok(read('src/features/operations/OperationsScreen.tsx').includes('<HomeFeatureGrid {...access} />'));
+});
+await test('legacy profile links, assistant destinations and protected standalone settings remain reachable', () => {
+  const routes = evaluate(read('src/features/app-assistant/assistant-navigation.ts'), {});
+  assert.equal(routes.assistantRoute('profile'), '/account');
+  assert.equal(routes.assistantRoute('app_permissions'), '/operations?assistant_permissions=1');
+  const legacy = evaluate(read('app/(tabs)/profile/index.tsx'), {
+    'react/jsx-runtime': { jsx }, 'expo-router': { Redirect: 'Redirect' },
+  });
+  assert.equal(legacy.default().props.href, '/account');
+  for (const allowed of [false, true]) {
+    const account = evaluate(read('app/account.tsx'), {
+      'react/jsx-runtime': { jsx },
+      '../src/features/profile/ProfileScreen': { __esModule: true, default: 'ProfileScreen' },
+      '../src/features/auth/useOnboardingGate': { useOnboardingGate: () => allowed },
+    });
+    assert.equal(account.default()?.props.standalone ?? null, allowed ? true : null);
+  }
+});
+await test('shared back button has the circular contrast and touch size from the reference', () => {
+  let backs = 0;
+  const { ScreenBackButton } = evaluate(read('src/components/ScreenHeaderButton.tsx'), {
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    'react-native': { Pressable: 'Pressable', StyleSheet: { create: value => value } },
+    '@expo/vector-icons': { Ionicons: 'Icon' }, 'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    '../styles': { colors: {} }, './ScaledText': { ScaledText: 'Text' }, '../../assets/asinu_chat_sticker.png': 'mascot',
+  });
+  const back = ScreenBackButton({ onPress: () => { backs++; } });
+  const style = flatten(back.props.style({ pressed: false }));
+  assert.equal(style.width, 44); assert.equal(style.height, 44);
+  assert.ok(style.borderRadius >= 22); assert.equal(style.backgroundColor, '#71817E');
+  assert.equal(back.props.children.props.color, '#F4FFFC');
+  assert.equal(back.props.accessibilityLabel, 'back');
+  back.props.onPress(); assert.equal(backs, 1);
 });
 
 await test('health history leaves the bottom bar and stays available through its existing route', () => {
@@ -219,7 +272,7 @@ await test('health history leaves the bottom bar and stays available through its
   });
   const screens = TabsLayout().props.children.filter(child => child?.type === 'TabScreen');
   assert.deepEqual(screens.filter(screen => screen.props.options.href !== null).map(screen => screen.props.name),
-    ['home/index', 'care-circle/index', 'profile/index']);
+    ['home/index', 'care-circle/index', 'operations/index']);
   assert.equal(screens.find(screen => screen.props.name === 'tree/index').props.options.href, null);
   assert.ok(fs.existsSync('app/(tabs)/tree/index.tsx'));
   assert.deepEqual(loading, [true], 'Hidden tabs do not delay the three visible icons');
@@ -338,7 +391,7 @@ await test('Android call switch refreshes native state after granting and revoki
   assert.equal(h.calls.nativeOff, 1); assert.equal(h.switches()[4].props.value, false);
 });
 
-await test('Home shortcuts reuse V2.1 access without requesting unused coin balances or showing another account flags', async () => {
+await test('Action groups reuse V2.1 access without requesting unused coin balances or showing another account flags', async () => {
   let cursor = 0, focus, auth = { profile: { id: 7 }, token: 'session-a' };
   const slots = [], calls = [];
   const hooks = { useState: initial => {

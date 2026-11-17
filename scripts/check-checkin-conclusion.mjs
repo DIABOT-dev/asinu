@@ -113,7 +113,7 @@ test('legacy questions and detailed answers cannot classify duration, severity o
     ],
   ]) assert.equal(helper.recordedCheckinSymptoms({ session: null, answers }), 'Headache, Nausea');
 });
-test('the light check-in header can override its arrow color without changing other screen defaults', () => {
+test('the shared circular back button defaults to a white arrow and permits an explicit color override', () => {
   const { ScreenBackButton } = evaluate(
     'src/components/ScreenHeaderButton.tsx',
     {
@@ -134,28 +134,28 @@ test('the light check-in header can override its arrow color without changing ot
   const checkin = ScreenBackButton({ onPress() {}, iconColor: '#0F172A' });
   assert.equal(
     nodes(original).find((node) => node.type === 'Icon').props.color,
-    '#F0F0F5',
+    '#F4FFFC',
   );
   assert.equal(
     nodes(checkin).find((node) => node.type === 'Icon').props.color,
     '#0F172A',
   );
   const route = ts.createSourceFile('checkin.tsx', fs.readFileSync('app/checkin/index.tsx', 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  let arrow;
+  let button;
   const visit = node => {
-    if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(route) === 'ScreenBackButton') {
-      arrow ??= node.attributes.properties.find(prop => prop.name?.getText(route) === 'iconColor');
-    }
+    if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(route) === 'ScreenBackButton') button ??= node;
     ts.forEachChild(node, visit);
   };
   visit(route);
-  assert.ok(arrow?.initializer?.expression, 'Check-in header must set its arrow color');
-  // eslint-disable-next-line no-new-func -- Evaluate the checked-in color expression with controlled theme values.
-  const resolveColor = new Function('screen', 'colors', `return (${arrow.initializer.expression.getText(route)})`);
-  for (const primaryText of ['#0f766e', '#5eead4']) {
-    assert.equal(resolveColor('status', { primaryText }), primaryText, 'Status arrow follows the tinted back control');
-    assert.equal(resolveColor('triage', { primaryText }), primaryText, 'Triage arrow follows the same back control palette');
-  }
+  assert.ok(button, 'Check-in retains the shared back control');
+  assert.ok(!button.attributes.properties.some(prop => prop.name?.getText(route) === 'iconColor'),
+    'Check-in uses the white arrow on the shared gray circle');
+  const style = button.attributes.properties.find(prop => prop.name?.getText(route) === 'style');
+  // eslint-disable-next-line no-new-func -- Evaluate the local literal for the header layout.
+  const override = new Function(`return (${style.initializer.expression.getText(route)})`)();
+  assert.ok(!override.backgroundColor, 'Check-in keeps the shared circle background');
+  assert.ok(override.width >= 44 && override.height >= 44);
+
 });
 for (const lang of ['vi', 'en']) {
   const home = JSON.parse(

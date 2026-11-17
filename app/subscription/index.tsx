@@ -497,7 +497,7 @@ export default function SubscriptionScreen() {
       >
         <Animated.View entering={FadeInDown.duration(280)}>
           <View style={styles.headerRow}>
-            <ScreenBackButton style={styles.backButton} iconColor={isDark ? "#dbeafe" : "#19325e"} onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/profile")} />
+            <ScreenBackButton style={styles.backButton} onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/profile")} />
             <View style={styles.headerTextCol}>
               <Text numberOfLines={2} style={styles.headerTitle}>
                 {t("features.premiumTitle")}
@@ -906,7 +906,6 @@ function createStyles(
       width: 44,
       height: 44,
       borderRadius: 22,
-      backgroundColor: isDark ? "#1a3046" : "#f7fcff",
     },
     headerTextCol: {
       flex: 1,
