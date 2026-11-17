@@ -737,6 +737,45 @@ test("early-signal follow-up, timestamp, and family notification remain separate
   h.unmount();
 });
 
+test('assistant typing respects motion preferences, pauses in background and releases subscriptions', async () => {
+  const state = hooks(), motionListeners = new Set(), appListeners = new Set();
+  let resolvePreference;
+  const { AssistantThinkingIndicator } = evaluate('src/features/app-assistant/AssistantThinkingIndicator.tsx', {
+    react: state.react,
+    'react-native': {
+      View: 'View', Image: 'Image', StyleSheet: { create: value => value },
+      AccessibilityInfo: {
+        isReduceMotionEnabled: () => new Promise(resolve => { resolvePreference = resolve; }),
+        addEventListener: (_name, listener) => { motionListeners.add(listener); return { remove: () => motionListeners.delete(listener) }; },
+      },
+      AppState: { currentState: 'active', addEventListener: (_name, listener) => { appListeners.add(listener); return { remove: () => appListeners.delete(listener) }; } },
+    },
+    'react-native-reanimated': {},
+    '../../components/ScaledText': { ScaledText: 'Text' },
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: theme.lightColors, isDark: false }) },
+    '../../../assets/asinu_assistant_listening_v1.png': 'existing-asinu-avatar',
+  });
+  const render = () => state.render(() => AssistantThinkingIndicator({ label: 'Asinu đang suy nghĩ…' }));
+  const dots = tree => nodes(tree).filter(node => typeof node.type === 'function');
+  let tree = render();
+  assert.equal(tree.props.accessibilityLabel, 'Asinu đang suy nghĩ…');
+  assert.equal(tree.props.accessibilityState.busy, true);
+  assert.equal(tree.props.accessibilityLiveRegion, 'polite');
+  assert.equal(dots(tree).length, 3);
+  assert.ok(dots(tree).every(dot => dot.props.animate === false));
+  motionListeners.forEach(listener => listener(false));
+  resolvePreference(true); await flush();
+  assert.ok(dots(render()).every(dot => dot.props.animate === true), 'A newer preference event wins over an older pending read');
+  appListeners.forEach(listener => listener('background'));
+  assert.ok(dots(render()).every(dot => dot.props.animate === false));
+  appListeners.forEach(listener => listener('active'));
+  assert.ok(dots(render()).every(dot => dot.props.animate === true));
+  motionListeners.forEach(listener => listener(true));
+  assert.ok(dots(render()).every(dot => dot.props.animate === false));
+  state.unmount();
+  assert.equal(motionListeners.size, 0); assert.equal(appListeners.size, 0);
+});
+
 test('an urgent assessment without a red flag retains its clinic recommendation instead of becoming an emergency call',async()=>{
  const h=earlyHarness({assessment:{id:12,severity:'urgent',is_red_flag:false,summary:'Kết quả gốc',signals:['Dấu hiệu trong kết quả'],urgent_signs:[],disclaimer:'Thông tin gốc'}});
  h.render();await flush();const tree=h.render();assert.ok(JSON.stringify(tree).includes('Cần đi khám ngay'));assert.ok(!nodes(tree).some(node=>node.props.testID==='early-signal-emergency'));h.unmount();

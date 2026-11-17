@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { randomUUID } from 'expo-crypto';
 import { useIsFocused } from 'expo-router';
@@ -24,6 +24,7 @@ import { planAssistantWithReadCache as planAssistantActions } from './assistant-
 import { useAssistantConversation } from './useAssistantConversation';
 import { AssistantMedicationPurpose } from './AssistantMedicationPurpose';
 import { AssistantChatMessage } from './AssistantChatMessage';
+import { AssistantThinkingIndicator } from './AssistantThinkingIndicator';
 import { useAssistantMessageFeedback } from './useAssistantMessageFeedback';
 import { ProfileHealthcareBackground } from '../profile/ProfileHealthcareBackground';
 import { assistantRoute, assistantScreenRoute } from './assistant-navigation';
@@ -274,7 +275,7 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
         name: change.name, times: change.times.join(', '), previousTime: change.previousTime, state: t(`appAssistant.medicationStates.${change.operation}`),
       })).join('\n');
       case 'navigate': return t('appAssistant.navigate', { destination: t(`appAssistant.destinations.${action.destination}`) });
-      case 'profile': return Object.entries(action.changes).map(([field, value]) => `${t(`appAssistant.profileFields.${field}`)}: ${Array.isArray(value) ? value.length ? value.join(', ') : t('appAssistant.noConditions') : value}`).join('\n');
+      case 'profile': return Object.entries(action.changes).map(([field, value]) => `${t(`appAssistant.profileFields.${field}`)}: ${Array.isArray(value) ? value.length ? value.join(', ') : t('appAssistant.noConditions') : field === 'heightCm' && typeof value === 'number' ? `${value} cm` : value}`).join('\n');
       case 'routine_reminders': return action.changes.map(change => t('appAssistant.reminderChange', { slot: t(`reminderAssistant.slots.${change.slot}`), before: change.before, time: change.time })).join('\n');
     }
   };
@@ -409,23 +410,21 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
               </Pressable>}
               {conclusion.audio.phase === 'error' && <Text style={{ color: colors.danger }}>{t('appAssistant.audioError')}</Text>}
             </View>}
-            {preview && <View style={styles.review}>
+            {preview && <View testID="assistant-action-review" style={styles.review}>
               <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{t('appAssistant.review')}</Text>
               {preview.actions.map((action, index) => <View key={index} style={styles.reading}>
-                <Ionicons name={preview.completed.has(index) ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={colors.primaryText} />
                 {action.type === 'medication' ? <View style={styles.medicationChanges}>
                   {action.changes.map((change, changeIndex) => <View key={changeIndex} style={styles.medicationChange}>
                     <Text style={[styles.readingText, { flex: 0, color: colors.textPrimary }]}>{describe({ ...action, changes: [change] })}</Text>
                     {change.purpose && <AssistantMedicationPurpose purpose={change.purpose} />}
                   </View>)}
                 </View> : <Text style={[styles.readingText, { color: colors.textPrimary }]}>{describe(action)}</Text>}
+                {preview.completed.has(index) && <Text style={[styles.savedItem, { color: colors.primaryText }]}>{t('appAssistant.savedItem')}</Text>}
               </View>)}
             </View>}
             {!!feedback && <Text accessibilityLiveRegion="polite" style={[styles.feedback, { color: error ? colors.danger : colors.primaryText }]}>{feedback}</Text>}
-            {busy && <View accessibilityLiveRegion="polite" style={styles.working}>
-              <ActivityIndicator color={colors.primaryText} />
-              <Text style={[styles.feedback, { color: colors.primaryText }]}>{t(busy === 'saving' ? 'appAssistant.saving' : busy === 'photo' ? 'appAssistant.photoWorking' : 'appAssistant.working')}</Text>
-            </View>}
+            {busy && focused && !consent && !permissionPending && !navigationClosing && !clearRequested && <AssistantThinkingIndicator
+              label={t(busy === 'saving' ? 'appAssistant.saving' : busy === 'photo' ? 'appAssistant.photoWorking' : 'appAssistant.working')} />}
 
             {!preview && !busy && !clarification && <View style={styles.suggestionArea}>
               <View style={[styles.notice, { borderColor: colors.border, backgroundColor: colors.surface }]}>
@@ -509,7 +508,7 @@ const styles = StyleSheet.create({
   medicationChanges: { flex: 1, gap: 14 },
   medicationChange: { gap: 4 },
   feedback: { fontSize: 16, lineHeight: 24, flexShrink: 1 },
-  working: { flexDirection: 'row', gap: 10, alignItems: 'center', paddingBottom: 8 },
+  savedItem: { fontSize: 12, fontWeight: '600' },
   footer: { padding: 16, gap: 4 },
   primary: { minHeight: 50, borderRadius: 25, paddingHorizontal: 18, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
   primaryText: { fontSize: 17, fontWeight: '700', textAlign: 'center' },

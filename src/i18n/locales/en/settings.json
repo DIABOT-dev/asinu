@@ -226,7 +226,8 @@
     "confirm": "Confirm",
     "newRequest": "New request",
     "saved": "All updated.",
-    "working": "Asinu is understanding your request…",
+    "working": "Asinu is thinking…",
+    "savedItem": "Saved",
     "saving": "Updating…",
     "error": "I could not process your request right now. Please try again.",
     "saveError": "Not all results could be confirmed. Tap Confirm to continue; completed changes will not be saved twice.",
@@ -255,7 +256,7 @@
       "dateOfBirth": "Date of birth",
       "gender": "Gender",
       "chronicDiseases": "Existing conditions",
-      "heightCm": "Height (cm)",
+      "heightCm": "Height",
       "bloodType": "Blood group"
     },
     "destinations": {

@@ -226,7 +226,8 @@
     "confirm": "Xác nhận",
     "newRequest": "Yêu cầu mới",
     "saved": "Mình đã cập nhật xong rồi nhé.",
-    "working": "Asinu đang hiểu yêu cầu…",
+    "working": "Asinu đang suy nghĩ…",
+    "savedItem": "Đã lưu",
     "saving": "Đang cập nhật…",
     "error": "Mình chưa xử lý được yêu cầu lúc này. Bạn thử lại nhé.",
     "saveError": "Chưa xác nhận được toàn bộ kết quả. Bạn bấm Xác nhận để tiếp tục; các mục đã lưu sẽ không bị ghi lại lần nữa.",
@@ -255,7 +256,7 @@
       "dateOfBirth": "Ngày sinh",
       "gender": "Giới tính",
       "chronicDiseases": "Bệnh nền",
-      "heightCm": "Chiều cao (cm)",
+      "heightCm": "Chiều cao",
       "bloodType": "Nhóm máu"
     },
     "destinations": {

@@ -280,6 +280,7 @@ function assistantHarness({ granted = false, consent = true, legacy = false, ass
       '../v21/medication-photo': { prepareMedicationPhoto: async () => ({ body: 'photo-file', dispose() {} }) },
       './assistant-navigation': evaluate('src/features/app-assistant/assistant-navigation.ts', {}),
       './AssistantMedicationPurpose': { AssistantMedicationPurpose: 'MedicinePurpose' },
+      './AssistantThinkingIndicator': { AssistantThinkingIndicator: 'ThinkingIndicator' },
       './assistant-read-cache': { planAssistantWithReadCache: payload => { plans.push(payload); return assistantPlan || assert.fail('Mic must not submit a plan'); } },
       './AssistantChatMessage': { AssistantChatMessage: 'ChatMessage' },
       './useAssistantMessageFeedback': { useAssistantMessageFeedback: () => ({ratings:{},pending:{},errors:{},loading:false,rate:async()=>{}}) },
@@ -515,6 +516,39 @@ test('the same assistant chat previews readable medication changes and only appl
   } finally { h.dispose(); }
 });
 
+test('assistant thinking becomes a plain height preview and saves only after confirmation', async () => {
+  let resolvePlan, resolveSave;
+  const writes = [];
+  const h = assistantHarness({ granted: true,
+    assistantPlan: new Promise(resolve => { resolvePlan = resolve; }),
+    apply: options => { writes.push(options.actions); return new Promise(resolve => { resolveSave = resolve; }); },
+  });
+  try {
+    h.find('asinu-assistant-text').props.onChangeText('Cập nhật chiều cao cho tôi là 1m72');
+    h.find('asinu-assistant-send').props.onPress(); await h.settle();
+    let all = nodes(h.render({ onClose() {} }));
+    assert.equal(all.find(node => node.type === 'ThinkingIndicator').props.label, 'Asinu đang suy nghĩ…');
+    assert.equal(h.find('asinu-assistant-apply'), undefined);
+    assert.deepEqual(writes, []);
+    resolvePlan({ status: 'ready', question: '', actions: [{ type: 'profile', changes: { heightCm: 172 }, planToken: 'synthetic-signed-plan' }] });
+    await h.settle();
+    all = nodes(h.render({ onClose() {} }));
+    const review = all.find(node => node.props?.testID === 'assistant-action-review');
+    assert.ok(review);
+    assert.ok(nodes(review).some(node => node.type === 'Text' && node.props.children === 'Chiều cao: 172 cm'));
+    assert.ok(!nodes(review).some(node => ['checkbox', 'radio'].includes(node.props?.accessibilityRole)
+      || ['ellipse-outline', 'checkbox-outline', 'square-outline'].includes(node.props?.name)));
+    assert.ok(!all.some(node => node.type === 'ThinkingIndicator'));
+    assert.deepEqual(writes, []);
+    h.find('asinu-assistant-apply').props.onPress(); await h.settle();
+    assert.equal(writes.length, 1);
+    assert.equal(nodes(h.render({ onClose() {} })).find(node => node.type === 'ThinkingIndicator').props.label, 'Đang cập nhật…');
+    resolveSave(true); await h.settle();
+    assert.equal(h.find('asinu-assistant-apply'), undefined);
+    assert.ok(!nodes(h.render({ onClose() {} })).some(node => node.type === 'ThinkingIndicator'));
+  } finally { h.dispose(); }
+});
+
 test('assistant answers are shown directly, without turning a question into a confirmed write', async () => {
   const h = assistantHarness({ assistantPlan: { status: 'answer', question: '', answer: 'Hôm nay bạn đã ghi 750 ml nước.', actions: [] } });
   try {
@@ -536,7 +570,7 @@ test('a normalized height update is displayed in centimeters and waits for user 
     h.find('asinu-assistant-send').props.onPress(); await h.settle();
     assert.deepEqual(applied, []);
     const visible = nodes(h.render({ onClose() {} })).filter(node => node.type === 'Text').map(node => node.props.children).join(' ');
-    assert.match(visible, /Chiều cao \(cm\): 170/);
+    assert.match(visible, /Chiều cao: 170 cm/);
     assert.ok(!visible.includes('signed-height-preview'));
     h.find('asinu-assistant-apply').props.onPress(); await h.settle();
     assert.deepEqual(applied, [[action]]);
