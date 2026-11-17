@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '../auth/auth.store';
 import { readAssistantConversation, saveAssistantConversation, clearAssistantConversation, type ConversationDraft, type AssistantMessage } from './assistant-conversation.storage';
+import { assistantReadCacheStorage } from './assistant-read-cache.storage';
 
 export function useAssistantConversation(snapshot: ConversationDraft, restore: (value: ConversationDraft) => void) {
   const owner = useAuthStore(state => state.profile?.id);
@@ -47,7 +48,7 @@ export function useAssistantConversation(snapshot: ConversationDraft, restore: (
     },
     clear: async () => {
       edits.current++; loadGeneration.current++;
-      if (owner) await clearAssistantConversation(owner);
+      if (owner) await Promise.all([clearAssistantConversation(owner), assistantReadCacheStorage.clear(owner)]);
       if (current()) { setMessages([]); setReady(true); }
     },
   };

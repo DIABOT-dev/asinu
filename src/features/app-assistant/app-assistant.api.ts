@@ -3,6 +3,7 @@ import type { AppLanguage } from '../../stores/language.store';
 import type { FontSizeScale } from '../../stores/font-size.store';
 import type { UpdateProfilePayload } from '../auth/auth.api';
 import type { MedPurposeLookup } from '../v21/v21.api';
+import type { AssistantReadCache } from './assistant-read-cache.storage';
 
 export type AssistantMedicationPurpose = Pick<MedPurposeLookup, 'tags' | 'productName' | 'source'> & { status: MedPurposeLookup['status'] | 'not_selected' };
 
@@ -33,7 +34,7 @@ export type AssistantAction =
   | { type: 'navigate'; destination: AssistantDestination }
   | { type: 'profile'; planToken: string; changes: Pick<UpdateProfilePayload, 'name' | 'dateOfBirth' | 'gender' | 'chronicDiseases' | 'heightCm' | 'bloodType'> }
   | { type: 'routine_reminders'; planToken: string; changes: { slot: 'morning' | 'afternoon' | 'evening'; before: string; time: string }[] };
-export type AssistantPlan = { status: 'ready' | 'clarify' | 'unsupported' | 'answer'; question: string; answer?: string; actions: AssistantAction[] };
+export type AssistantPlan = { status: 'ready' | 'clarify' | 'unsupported' | 'answer'; question: string; answer?: string; actions: AssistantAction[]; readCache?: AssistantReadCache };
 export type AssistantRequest = {
   text: string;
   current: { language: AppLanguage; fontSize: FontSizeScale };
@@ -46,6 +47,11 @@ export type AssistantRequest = {
 export const planAssistantActions = (request: AssistantRequest, signal: AbortSignal) =>
   apiClient<AssistantPlan>('/api/mobile/assistant/plan', {
     method: 'POST', body: request, signal, timeoutMs: 300000,
+  });
+
+export const replayAssistantReadCache = (token: string, request: AssistantRequest, signal: AbortSignal) =>
+  apiClient<AssistantPlan>('/api/mobile/assistant/read-cache', {
+    method: 'POST', body: { token, request }, signal, timeoutMs: 45000,
   });
 
 export const applyAssistantMedication = (planToken: string) =>
