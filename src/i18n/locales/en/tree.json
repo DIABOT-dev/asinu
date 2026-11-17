@@ -118,5 +118,7 @@
   "earlyConsult": "Consult specialist",
   "earlyRetry": "Try again",
   "earlyOpen": "View your recent health",
-  "journalFutureDayAccessibility": "Day {{day}}, upcoming date."
+  "journalFutureDayAccessibility": "Day {{day}}, upcoming date.",
+  "earlyReviewSubtitle": "Review your recorded health signals",
+  "earlyCallError": "Could not open the call. Please dial 115 on your phone."
 }

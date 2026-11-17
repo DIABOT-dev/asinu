@@ -219,7 +219,7 @@
     "close": "Close Asinu assistant",
     "greeting": "How can I help?",
     "input": "Your request to Asinu",
-    "placeholder": "For example: what tasks do I have left today?",
+    "placeholder": "Ask Asinu",
     "answer": "Tell me a little more here…",
     "send": "Send request",
     "review": "Please check these details",
@@ -356,6 +356,34 @@
     },
     "featureUnavailable": "This feature is not currently enabled for your account. You can use the available app features.",
     "weatherSaved": "Weather for your current area is enabled.",
-    "supplementCreate": "Remind me to take supplement {{name}} daily at {{times}}"
+    "supplementCreate": "Remind me to take supplement {{name}} daily at {{times}}",
+    "entryLabel": "Asinu AI\nassistant",
+    "title": "Asinu assistant",
+    "subtitle": "Here for your everyday health",
+    "welcome": "Hi! I’m Asinu. What would you like to check or update today?",
+    "photoLabel": "Photo",
+    "copyMessage": "Copy response",
+    "copied": "Copied",
+    "copyError": "Could not copy this response. Please try again.",
+    "likeMessage": "Helpful response",
+    "dislikeMessage": "Unhelpful response",
+    "feedbackError": "Could not confirm your feedback. Please try again.",
+    "collapseMessage": "Collapse",
+    "expandMessage": "Show more",
+    "healthNotice": "Asinu helps you track your health and does not replace a doctor’s diagnosis or treatment.",
+    "suggestions": {
+      "profile": {
+        "label": "View basic information",
+        "prompt": "Show me my current personal information."
+      },
+      "weight": {
+        "label": "Update weight",
+        "prompt": "I want to update my weight. Help me open the weight editor."
+      },
+      "health": {
+        "label": "View health profile",
+        "prompt": "Show me my recorded health profile."
+      }
+    }
   }
 }

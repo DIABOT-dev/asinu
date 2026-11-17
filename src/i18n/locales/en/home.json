@@ -870,5 +870,7 @@
   "doctorCancelKeep": "Continue consultation",
   "doctorCreditNone": "No gift credit available. You can still request a consultation.",
   "doctorCreditHeld": "1 credit is held for an existing consultation. New requests can use the standard consultation flow.",
-  "doctorConsultationClosedRequest": "The previous consultation is closed. Submit again to create a new consultation."
+  "doctorConsultationClosedRequest": "The previous consultation is closed. Submit again to create a new consultation.",
+  "connectionFamily": "Connect with\nfamily",
+  "connectionExpert": "Connect with\nexperts"
 }

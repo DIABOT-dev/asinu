@@ -23,7 +23,9 @@ import { executeAssistantActions, saveAssistantReading, applyAssistantTool, type
 import { planAssistantWithReadCache as planAssistantActions } from './assistant-read-cache';
 import { useAssistantConversation } from './useAssistantConversation';
 import { AssistantMedicationPurpose } from './AssistantMedicationPurpose';
-import { AssistantMessageContent } from './AssistantMessageContent';
+import { AssistantChatMessage } from './AssistantChatMessage';
+import { useAssistantMessageFeedback } from './useAssistantMessageFeedback';
+import { ProfileHealthcareBackground } from '../profile/ProfileHealthcareBackground';
 import { assistantRoute, assistantScreenRoute } from './assistant-navigation';
 import type { AssistantScreen } from './app-assistant.api';
 import { useAssistantNativeActions } from './useAssistantNativeActions';
@@ -74,6 +76,9 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
   const [clarification, setClarification] = useState<{ original: string; question: string }>();
   const [consent, setConsent] = useState(false);
   const [clearRequested, setClearRequested] = useState(false);
+  const messageFeedback = useAssistantMessageFeedback();
+  const scroll = useRef<ScrollView>(null);
+  const followLatest = useRef(true);
   useEffect(() => { setClearRequested(false); }, [focused, owner, token]);
   const [navigationClosing, setNavigationClosing] = useState(false);
   const pendingNavigation = useRef<string | null>(null);
@@ -152,8 +157,9 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
     setPreview({ actions, requestId: randomUUID(), recordedAt: new Date().toISOString(), completed: new Set() });
     setFeedback(''); setError(false); setStalePreview(false); Keyboard.dismiss();
   };
-  const plan = async () => {
-    if (locked.current || voiceBusy || !text.trim() || !active.current) return;
+  const plan = async (requestedText = text) => {
+    if (locked.current || voiceBusy || !requestedText.trim() || !active.current) return;
+    followLatest.current = true;
     locked.current = true;
     const version = ++revision.current;
     abort.current = new AbortController();
@@ -162,8 +168,8 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
     try {
       if (!(await hasAiDataConsent())) { if (current(version)) { resume.current = true; setConsent(true); } return; }
       if (!current(version)) return;
-      history.append('user', text.trim());
-      const response = await planAssistantActions({ text: text.trim(), current: { language, fontSize }, clarification,
+      history.append('user', requestedText.trim());
+      const response = await planAssistantActions({ text: requestedText.trim(), current: { language, fontSize }, clarification,
         hiddenArticles: [...articles.hiddenIds].slice(-100), allowCuratedArticles: articles.canShowCurated,
         conversation: history.messages.filter(message => message.role === 'user').slice(-8).map(({ role, text }) => ({ role, text: text.slice(0, 2000) })),
       }, abort.current.signal);
@@ -184,7 +190,7 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
         if (reply) history.append('assistant', reply);
         setFeedback('');
         if (response.status === 'clarify') {
-          const original = clarification ? `${clarification.original}\n${text.trim()}` : text.trim();
+          const original = clarification ? `${clarification.original}\n${requestedText.trim()}` : requestedText.trim();
           setClarification(original.length <= 6000 ? { original, question: response.question } : undefined);
           setText('');
         } else { setClarification(undefined); setText(''); }
@@ -361,31 +367,38 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
         if (resumeVoice.current) { resumeVoice.current = false; void voice.press(); }
         else if (resumePhoto.current) { resumePhoto.current = false; void photoRequest.current(); }
       }}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('appAssistant.close')} onPress={onClose}
-          style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }]} />
-        <View accessibilityViewIsModal testID="asinu-assistant-dialog" style={[styles.dialog,
-          { backgroundColor: isDark ? '#142e29' : '#f1faf7', marginTop: insets.top + 12, marginBottom: insets.bottom + 12 }]}>
-          <View style={styles.header}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.root, { backgroundColor: colors.background }]}>
+        <View accessibilityViewIsModal testID="asinu-assistant-dialog" style={styles.dialog}>
+          <ProfileHealthcareBackground />
+          <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('appAssistant.close')} onPress={onClose}
+              style={[styles.back, { borderColor: colors.border }]}>
+              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+            </Pressable>
             <Image source={mascot} accessible={false} resizeMode="contain" resizeMethod="resize" style={styles.mascot} />
             <View style={styles.headerText}>
-              <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>Asinu</Text>
-              <Text style={[styles.greeting, { color: colors.textSecondary }]}>{t('appAssistant.greeting')}</Text>
+              <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>{t('appAssistant.title')}</Text>
+              <Text style={[styles.greeting, { color: colors.textSecondary }]}>{t('appAssistant.subtitle')}</Text>
             </View>
-            <Pressable accessibilityRole="button" accessibilityLabel={t('appAssistant.clearHistory')} disabled={unavailable}
-              onPress={() => { Keyboard.dismiss(); setClearRequested(true); }} style={styles.close}>
-              <Ionicons name="trash-outline" size={22} color={colors.textSecondary} />
-            </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={t('appAssistant.close')} onPress={onClose} style={styles.close}>
-              <Ionicons name="close" size={24} color={colors.textSecondary} />
-            </Pressable>
+
           </View>
-          <ScrollView keyboardShouldPersistTaps="handled" style={styles.scroll} contentContainerStyle={styles.content}>
-            {history.messages.map(message => <View key={message.id} style={[styles.message,
-              message.role === 'user' ? { alignSelf: 'flex-end', backgroundColor: colors.primaryLight } : styles.assistantMessage]}>
-              {message.role === 'assistant' ? <AssistantMessageContent text={message.text} />
-                : <Text style={[styles.feedback, { color: colors.textPrimary }]} selectable>{message.text}</Text>}
-            </View>)}
+          <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={styles.scroll}
+            contentContainerStyle={styles.content} scrollEventThrottle={100}
+            onScroll={event => { const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+              followLatest.current = contentSize.height - contentOffset.y - layoutMeasurement.height < 80; }}
+            onContentSizeChange={() => { if (followLatest.current) scroll.current?.scrollToEnd({ animated: false }); }}>
+            <View style={styles.conversationToolbar}>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('appAssistant.clearHistory')} disabled={unavailable}
+                onPress={() => { Keyboard.dismiss(); setClearRequested(true); }} style={styles.clearHistory}>
+                <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
+                <Text style={[styles.toolbarText, { color: colors.textSecondary }]}>{t('appAssistant.clearHistory')}</Text>
+              </Pressable>
+            </View>
+            {history.messages.length === 0 && <AssistantChatMessage message={{ id: 'welcome', role: 'assistant', text: t('appAssistant.welcome') }} />}
+            {history.messages.map(message => <AssistantChatMessage key={message.id} message={message}
+              rating={messageFeedback.ratings[message.id]} ratingBusy={messageFeedback.loading || messageFeedback.pending[message.id]}
+              ratingError={messageFeedback.errors[message.id] ? t('appAssistant.feedbackError') : undefined}
+              onRate={message.role === 'assistant' ? rating => { void messageFeedback.rate(message, rating); } : undefined} />)}
             {history.storageError && <Text style={{ color: colors.danger }}>{t('appAssistant.historyError')}</Text>}
             {!!speechText && <View style={styles.composerActions}>
               <Pressable accessibilityRole="button" onPress={() => void conclusion.play('conclusion', speechText)} style={styles.edit}>
@@ -413,8 +426,26 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
               <ActivityIndicator color={colors.primaryText} />
               <Text style={[styles.feedback, { color: colors.primaryText }]}>{t(busy === 'saving' ? 'appAssistant.saving' : busy === 'photo' ? 'appAssistant.photoWorking' : 'appAssistant.working')}</Text>
             </View>}
+
+            {!preview && !busy && !clarification && <View style={styles.suggestionArea}>
+              <View style={[styles.notice, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                <Ionicons name="shield-checkmark-outline" size={19} color={colors.primaryText} />
+                <Text style={[styles.noticeText, { color: colors.textSecondary }]}>{t('appAssistant.healthNotice')}</Text>
+              </View>
+              {(['profile', 'weight', 'health'] as const).map(key => <Pressable key={key} accessibilityRole="button"
+                accessibilityLabel={t(`appAssistant.suggestions.${key}.label`)} disabled={unavailable}
+                onPress={() => {
+                  if (unavailable || !active.current) return;
+                  const prompt = t(`appAssistant.suggestions.${key}.prompt`);
+                  updateText(prompt); void plan(prompt);
+                }} style={[styles.suggestion, { backgroundColor: colors.surface, borderColor: colors.primaryLight, opacity: unavailable ? 0.5 : 1 }]}>
+                <Ionicons name="sparkles-outline" size={23} color={colors.primaryText} />
+                <Text style={[styles.suggestionText, { color: colors.textPrimary }]}>{t(`appAssistant.suggestions.${key}.label`)}</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              </Pressable>)}
+            </View>}
           </ScrollView>
-          {preview ? <View style={styles.footer}>
+          {preview ? <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12), backgroundColor: colors.surface }]}>
             <Pressable accessibilityRole="button" disabled={unavailable || stalePreview} onPress={() => void apply()} testID="asinu-assistant-apply"
               style={[styles.primary, { backgroundColor: colors.primaryText, opacity: unavailable || stalePreview ? 0.5 : 1 }]}>
               <Text style={[styles.primaryText, { color: colors.background }]}>{t('appAssistant.confirm')}</Text>
@@ -422,22 +453,26 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
             <Pressable accessibilityRole="button" disabled={unavailable} onPress={reset} style={styles.edit}>
               <Text style={{ color: colors.primaryText, fontSize: 16 }}>{t('appAssistant.newRequest')}</Text>
             </Pressable>
-          </View> : <View style={[styles.composer, { borderColor: colors.border, backgroundColor: colors.surfaceMuted }]}>
-            <TextInput testID="asinu-assistant-text" accessibilityLabel={t('appAssistant.input')} multiline maxLength={3000}
-              placeholder={t(clarification ? 'appAssistant.answer' : 'appAssistant.placeholder')}
-              placeholderTextColor={colors.textSecondary} editable={!unavailable} style={[styles.input, { color: colors.textPrimary }]}
-              value={interim ? `${text.trimEnd()} ${interim}`.trim() : text} onChangeText={updateText} />
+          </View> : <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.inputSurface, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}>
+              <TextInput testID="asinu-assistant-text" accessibilityLabel={t('appAssistant.input')} multiline maxLength={3000}
+                placeholder={t(clarification ? 'appAssistant.answer' : 'appAssistant.placeholder')}
+                placeholderTextColor={colors.textSecondary} editable={!unavailable} style={[styles.input, { color: colors.textPrimary }]}
+                value={interim ? `${text.trimEnd()} ${interim}`.trim() : text} onChangeText={updateText} />
+            </View>
             <View style={styles.composerActions}>
               <Pressable accessibilityRole="button" accessibilityLabel={t('appAssistant.attachPhoto')} disabled={unavailable}
-                onPress={() => void pickPhoto()} style={styles.send} testID="asinu-assistant-photo">
-                <Ionicons name="image-outline" size={25} color={colors.primaryText} />
+                onPress={() => void pickPhoto()} style={[styles.photo, { borderColor: colors.border }]} testID="asinu-assistant-photo">
+                <Ionicons name="image-outline" size={24} color={colors.primaryText} />
+                <Text style={[styles.photoText, { color: colors.textPrimary }]}>{t('appAssistant.photoLabel')}</Text>
               </Pressable>
               {renderVoiceAnswerButton(voice)}
+              <View style={{ flex: 1 }} />
               <Pressable accessibilityRole="button" accessibilityLabel={t('appAssistant.send')}
                 accessibilityState={{ busy: !!busy, disabled: unavailable || !text.trim() }} disabled={unavailable || !text.trim()}
                 onPress={() => void plan()} testID="asinu-assistant-send"
                 style={[styles.send, { backgroundColor: colors.primaryText, opacity: unavailable || !text.trim() ? 0.45 : 1 }]}>
-                <Ionicons name="arrow-up" size={24} color={colors.background} />
+                <Ionicons name="arrow-up" size={27} color={colors.surface} />
               </Pressable>
             </View>
           </View>}
@@ -455,32 +490,41 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
   </>;
 }
 const styles = StyleSheet.create({
-  root: { flex: 1, justifyContent: 'center', paddingHorizontal: 18 },
-  dialog: { alignSelf: 'center', width: '100%', maxWidth: 560, maxHeight: '88%', borderRadius: 28, padding: 20 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingBottom: 12 },
-  mascot: { width: 72, height: 80, marginLeft: -8 },
-  headerText: { flex: 1, minWidth: 0, gap: 2 },
-  title: { fontSize: 24, lineHeight: 32, fontWeight: '700' },
-  greeting: { fontSize: 16, lineHeight: 23 },
-  close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-start' },
-  scroll: { flexGrow: 0, flexShrink: 1 },
-  content: { gap: 16, paddingBottom: 12 },
-  message: { maxWidth: '94%', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 16 },
-  assistantMessage: { alignSelf: 'stretch', maxWidth: '100%', paddingHorizontal: 0, paddingVertical: 6 },
-  review: { gap: 16 },
+  root: { flex: 1 },
+  dialog: { flex: 1, alignSelf: 'center', width: '100%', maxWidth: 840 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  back: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  mascot: { width: 44, height: 48 },
+  headerText: { flex: 1, minWidth: 0, gap: 1 },
+  title: { fontSize: 19, fontWeight: '700' },
+  greeting: { fontSize: 12 },
+  scroll: { flex: 1 },
+  content: { gap: 16, paddingHorizontal: 14, paddingBottom: 20, maxWidth: 720, width: '100%', alignSelf: 'center' },
+  conversationToolbar: { alignItems: 'flex-end', marginBottom: -8 },
+  clearHistory: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  toolbarText: { fontSize: 12 },
+  review: { gap: 16, padding: 16, borderRadius: 20 },
   sectionTitle: { fontSize: 18, fontWeight: '700' },
   reading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   readingText: { flex: 1, fontSize: 17, lineHeight: 25 },
   medicationChanges: { flex: 1, gap: 14 },
   medicationChange: { gap: 4 },
   feedback: { fontSize: 16, lineHeight: 24, flexShrink: 1 },
-  working: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  footer: { paddingTop: 10, gap: 4 },
+  working: { flexDirection: 'row', gap: 10, alignItems: 'center', paddingBottom: 8 },
+  footer: { padding: 16, gap: 4 },
   primary: { minHeight: 50, borderRadius: 25, paddingHorizontal: 18, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
   primaryText: { fontSize: 17, fontWeight: '700', textAlign: 'center' },
   edit: { minHeight: 44, alignItems: 'center', justifyContent: 'center', padding: 8 },
-  composer: { borderWidth: 1, borderRadius: 20, padding: 10, gap: 2 },
-  input: { fontSize: 16, lineHeight: 24, minHeight: 54, maxHeight: 120, textAlignVertical: 'top', padding: 6 },
-  composerActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  send: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  suggestionArea: { gap: 10, marginLeft: 42 },
+  notice: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderWidth: 1, borderRadius: 16, padding: 12, marginBottom: 2 },
+  noticeText: { flex: 1, minWidth: 0, fontSize: 12 },
+  suggestion: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 58, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 18, borderWidth: 1 },
+  suggestionText: { flex: 1, minWidth: 0, fontSize: 15, fontWeight: '600' },
+  composer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingTop: 8, gap: 6 },
+  inputSurface: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 12 },
+  input: { fontSize: 16, lineHeight: 24, minHeight: 52, maxHeight: 120, textAlignVertical: 'top', paddingVertical: 12 },
+  composerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  photo: { minHeight: 44, paddingHorizontal: 12, borderRadius: 24, borderWidth: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
+  photoText: { fontSize: 15, fontWeight: '600' },
+  send: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
 });

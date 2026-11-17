@@ -372,7 +372,7 @@ for (const [field, value, key] of [
   ["weightKg", "-1", "weightPositive"],
 ]) {
   await test(`${field}: invalid values cannot send a write`, async () => {
-    const h = harness(field);
+    const h = harness(field, { local: field === "phone" });
     h.change(value);
     await h.save();
     assert.equal(h.saveButton().props.disabled, true);
@@ -380,25 +380,14 @@ for (const [field, value, key] of [
     assert.ok(text(h.render()).includes(h.t(key)));
   });
 }
-await test("phone update sends only the phone and retains a conflict for correction", async () => {
-  let conflict = true;
-  const h = harness("phone", {
-    update: async (payload) => {
-      if (conflict) throw new ApiError(409);
-      return { id: "7", ...payload };
-    },
-  });
-  h.change("0987654321");
+await test("a saved profile phone is read only even if a stale input or Save handler is invoked", async () => {
+  const h = harness("phone");
+  const input = h.input();
+  assert.equal(input.props.editable, false);
+  input.props.onChangeText("0987654321");
   await h.save();
-  assert.equal(h.closed, 0);
-  assert.ok(text(h.render()).includes(h.t("phoneAlreadyUsed")));
-  conflict = false;
-  await h.save();
-  assert.deepEqual(h.calls.updates, [
-    { phone: "0987654321" },
-    { phone: "0987654321" },
-  ]);
-  assert.equal(h.closed, 1);
+  assert.equal(h.input().props.value, "0912345678");
+  assert.deepEqual(h.calls.updates, []);
 });
 await test("Cancel blocks a queued Save and reopening starts from persisted values", async () => {
   const h = harness("name");
@@ -598,7 +587,7 @@ await test("wards are disabled before province selection and changing province c
   assert.equal(h.saveButton().props.disabled, false);
   h.button(h.t("province")).props.onPress();
   h.button("Thành phố Hồ Chí Minh").props.onPress();
-  assert.equal(h.saveButton().props.disabled, true);
+  assert.equal(h.saveButton().props.disabled, false);
   assert.ok(text(h.button(h.t("ward"))).includes(h.t("wardPlaceholder")));
   h.button(h.t("ward")).props.onPress();
   assert.ok(
@@ -722,6 +711,53 @@ await test("an optional onboarding phone can be cleared locally while the saved 
   await saved.save();
   assert.deepEqual(saved.calls.updates, []);
   assert.equal(saved.saveButton().props.disabled, true);
+});
+
+await test("address fields are optional, a ward needs its province, and the empty street hint is centered without attribution", async () => {
+  const h = harness("address");
+  const street = h.input(h.t("street"));
+  assert.equal(street.props.style.at(-1).textAlign, "center");
+  assert.ok(!text(h.render()).includes(h.t("administrativeSource")));
+  h.button(h.t("province")).props.onPress();
+  h.button("Thành phố Hà Nội").props.onPress();
+  await h.save();
+  assert.deepEqual(h.calls.updates, [
+    {
+      address: {
+        provinceCode: "01",
+        province: "Thành phố Hà Nội",
+        wardCode: "",
+        ward: "",
+        street: "",
+      },
+    },
+  ]);
+  const streetOnly = harness("address");
+  streetOnly.input(streetOnly.t("street")).props.onChangeText("12 Phố A");
+  assert.equal(
+    streetOnly.input(streetOnly.t("street")).props.style.at(-1).textAlign,
+    "left"
+  );
+  await streetOnly.save();
+  assert.deepEqual(streetOnly.calls.updates, [
+    {
+      address: {
+        provinceCode: "",
+        province: "",
+        wardCode: "",
+        ward: "",
+        street: "12 Phố A",
+      },
+    },
+  ]);
+  assert.equal(
+    fields.fieldError("address", {
+      province: "",
+      ward: "Phường Ba Đình",
+      street: "",
+    }),
+    "addressSelectionRequired"
+  );
 });
 
 console.log(`Personal field sheets: ${checks} runtime checks passed.`);

@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -89,6 +88,7 @@ export function ProfileFieldSheet({
   );
   const [customCondition, setCustomCondition] = useState("");
   const [saving, setSaving] = useState(false);
+  const readOnlyPhone = field === "phone" && !onConfirm;
   const [spinning, setSpinning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addressSelector, setAddressSelector] = useState<
@@ -115,9 +115,10 @@ export function ProfileFieldSheet({
     (birthYearOnly && (year < birthYearOnly.min || year > birthYearOnly.max)
       ? "dateOfBirthInvalid"
       : null);
-  const disabled = saving || spinning || !changed || Boolean(invalid);
+  const disabled =
+    readOnlyPhone || saving || spinning || !changed || Boolean(invalid);
   const setValue = (next: ProfileFieldDraft) => {
-    if (busy.current || !active.current) return;
+    if (readOnlyPhone || busy.current || !active.current) return;
     setError(null);
     setDraft(next);
   };
@@ -167,6 +168,7 @@ export function ProfileFieldSheet({
     onClose();
   };
   const save = async () => {
+    if (readOnlyPhone) return;
     if (
       busy.current ||
       !active.current ||
@@ -441,7 +443,7 @@ export function ProfileFieldSheet({
                     accessibilityLabel={t(PROFILE_FIELD_LABELS[field])}
                     value={String(draft)}
                     onChangeText={setValue}
-                    editable={!saving}
+                    editable={!saving && !readOnlyPhone}
                     autoCapitalize={field === "name" ? "words" : "none"}
                     keyboardType={
                       field === "phone"
@@ -455,7 +457,7 @@ export function ProfileFieldSheet({
                       void save();
                     }}
                   />
-                  {String(draft).length > 0 && (
+                  {!readOnlyPhone && String(draft).length > 0 && (
                     <Pressable
                       style={styles.closeButton}
                       onPress={() => setValue("")}
@@ -709,7 +711,11 @@ export function ProfileFieldSheet({
                     <Text style={styles.addressLabel}>{t("street")}</Text>
                     <View style={styles.inputRow}>
                       <TextInput
-                        style={[styles.input, styles.streetInput]}
+                        style={[
+                          styles.input,
+                          styles.streetInput,
+                          { textAlign: address.street ? "left" : "center" },
+                        ]}
                         accessibilityLabel={t("street")}
                         placeholder={t("streetPlaceholder")}
                         placeholderTextColor={colors.textSecondary}
@@ -719,11 +725,13 @@ export function ProfileFieldSheet({
                         }
                         editable={!saving}
                         maxLength={300}
-                        multiline
                       />
                     </View>
                   </View>
-                  {profile.address && (
+                  {(profile.address ||
+                    [address.province, address.ward, address.street].some(
+                      Boolean
+                    )) && (
                     <Pressable
                       onPress={() =>
                         setValue({
@@ -742,18 +750,6 @@ export function ProfileFieldSheet({
                       <Text style={styles.error}>{t("clearAddress")}</Text>
                     </Pressable>
                   )}
-                  <Pressable
-                    accessibilityRole="link"
-                    onPress={() => {
-                      void Linking.openURL(
-                        "https://diachiviet.com/du-lieu-mo/"
-                      );
-                    }}
-                  >
-                    <Text style={styles.source}>
-                      {t("administrativeSource")}
-                    </Text>
-                  </Pressable>
                 </>
               )}
               {(error || (changed && invalid)) && (
@@ -944,13 +940,12 @@ function createStyles(
     addressOptionText: { flex: 1, fontSize: 17, color: colors.textPrimary },
     placeholder: { color: colors.textSecondary },
     clearAddressButton: { minHeight: 44, justifyContent: "center" },
-    source: { fontSize: 12, color: colors.textSecondary },
     addressLabel: {
       fontSize: 15,
       fontWeight: "600",
       color: colors.textPrimary,
     },
-    streetInput: { minHeight: 76, textAlignVertical: "top" },
+    streetInput: { minHeight: 56, textAlignVertical: "center" },
     error: { color: colors.danger, fontSize: 14 },
     saveButton: {
       minHeight: 52,

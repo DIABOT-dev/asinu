@@ -1,5 +1,7 @@
 export type MeasurementKind = "height" | "weight";
 export const RULER_TICK_SPACING = 10;
+export const formatMeasurementValue = (value: number | string) =>
+  Number.isFinite(Number(value)) ? String(Number(value)) : "";
 export function measurementRange(kind: MeasurementKind, value: string) {
   const current = Number(value);
   const usable = Boolean(value) && Number.isFinite(current) && current > 0;

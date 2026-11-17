@@ -89,6 +89,7 @@ function harness({ personalInformation: initialPersonalInformation = false, canG
   const animation = { delay() { return this; }, duration() { return this; } };
   const imports = {
     './ProfileFieldSheet': { ProfileFieldSheet: 'ProfileFieldSheet' },
+    './measurement-ruler': evaluate(read('src/features/profile/measurement-ruler.ts')),
     './profile-fields': evaluate(read('src/features/profile/profile-fields.ts'), { './administrative-units': administrative }),
     react: { __esModule: true, default: hooks, ...hooks },
     'react-native': {
@@ -432,11 +433,12 @@ for (const language of ['vi', 'en']) {
     assert.ok(!nodes(page).some(node => /^profile-group-/.test(node.props.testID || '')));
     assert.ok(!nodes(page).some(node => node.props.testID === 'profile-identity'));
     const rows = nodes(page).filter(node => node.props.accessibilityRole === 'button' && node.props.accessibilityHint === h.t('editProfile'));
-    assert.equal(rows.length, 9);
+    assert.equal(rows.length, 8);
     const row = key => rows.find(node => node.props.accessibilityLabel === h.t(key));
     assert.ok(text(row('fullName')).includes('Demo'));
     assert.ok(text(row('bloodType')).includes('A+'));
-    assert.ok(text(row('phone')).includes(h.tc('notUpdated')));
+    const phone = nodes(page).find(node=>node.props.accessibilityLabel===h.t('phone'));
+    assert.ok(text(phone).includes(h.tc('notUpdated')));assert.equal(phone.props.disabled,true);assert.equal(phone.props.onPress,undefined);assert.ok(!nodes(phone).some(node=>node.type==='Icon'));
     row('fullName').props.onPress(); assert.ok(h.modal());
     assert.equal(h.modal().props.field, 'name');
     h.modal().props.onClose();
@@ -606,4 +608,5 @@ await test('an incomplete logout cannot show success or navigate to Login', asyn
 });
 
 await test('the Other gender choice is retained on the personal information page',()=>{const h=harness({personalInformation:true,profile:{gender:'Khác'}});assert.ok(text(h.render()).includes(h.t('genderOther')));});
+await test('saved measurements hide decimal zeroes and retain meaningful decimal values',()=>{const h=harness({personalInformation:true,profile:{heightCm:'176.00',weightKg:'75.00'}});const page=h.render();assert.ok(text(page).includes('176 cm'));assert.ok(text(page).includes('75 kg'));assert.ok(!text(page).includes('176.00'));h.updateProfile({weightKg:'75.50'});assert.ok(text(h.render()).includes('75.5 kg'));});
 console.log(`Profile editing: ${checks} runtime regressions passed.`);

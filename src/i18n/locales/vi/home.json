@@ -874,5 +874,7 @@
   "doctorCancelKeep": "Tiếp tục tư vấn",
   "doctorCreditNone": "Không có lượt tặng. Bạn vẫn có thể gửi ca theo luồng tư vấn hiện tại.",
   "doctorCreditHeld": "Đang giữ 1 lượt cho ca đã gửi. Ca mới vẫn theo luồng tư vấn hiện tại.",
-  "doctorConsultationClosedRequest": "Ca trước đã đóng. Gửi lại yêu cầu để tạo ca mới."
+  "doctorConsultationClosedRequest": "Ca trước đã đóng. Gửi lại yêu cầu để tạo ca mới.",
+  "connectionFamily": "Kết nối\nngười thân",
+  "connectionExpert": "Kết nối\nchuyên gia"
 }

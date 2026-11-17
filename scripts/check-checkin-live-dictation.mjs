@@ -220,7 +220,7 @@ test('the first iOS speech permission dialog does not cancel dictation; a real b
 function assistantHarness({ granted = false, consent = true, legacy = false, assistantPlan, apply, photo, notificationsGranted = true, initialMessages = [], historyClearError = false } = {}) {
   const settings = JSON.parse(fs.readFileSync('src/i18n/locales/vi/settings.json', 'utf8'));
   const { ModalQueue } = evaluate('src/lib/modalQueue.ts', {});
-  const queue = new ModalQueue(), native = nativeHarness(), notices = [], uploads = [], routes = [], scans = [];
+  const queue = new ModalQueue(), native = nativeHarness(), notices = [], uploads = [], routes = [], scans = [], calls = [], plans = [];
   const decision = {};
   let permissionRequests = 0, recordings = 0, stopped = 0, historyClears = 0, tree, consented = consent;
   let auth = { token: 'owner-a', profile: { id: '1' } };
@@ -264,7 +264,7 @@ function assistantHarness({ granted = false, consent = true, legacy = false, ass
         return text.replace(/\{\{(\w+)\}\}/g, (_, name) => String(values[name] ?? ''));
       } }) },
       'react-native': { ...adapters['react-native'], Image: 'Image', Keyboard: { dismiss() {} }, KeyboardAvoidingView: 'Keyboard',
-        Platform: { OS: 'ios' }, ScrollView: 'Scroll', StyleSheet: { create: value => value, absoluteFill: {} } },
+        Linking: {openURL:async url=>{calls.push(url);}}, Platform: { OS: 'ios' }, ScrollView: 'Scroll', StyleSheet: { create: value => value, absoluteFill: {} } },
       'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
       'expo-crypto': { randomUUID: () => 'unused-preview-id' },
       '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => routes.push(route) }) },
@@ -280,7 +280,11 @@ function assistantHarness({ granted = false, consent = true, legacy = false, ass
       '../v21/medication-photo': { prepareMedicationPhoto: async () => ({ body: 'photo-file', dispose() {} }) },
       './assistant-navigation': evaluate('src/features/app-assistant/assistant-navigation.ts', {}),
       './AssistantMedicationPurpose': { AssistantMedicationPurpose: 'MedicinePurpose' },
-      './AssistantMessageContent': { AssistantMessageContent: 'RichReply' },
+      './assistant-read-cache': { planAssistantWithReadCache: payload => { plans.push(payload); return assistantPlan || assert.fail('Mic must not submit a plan'); } },
+      './AssistantChatMessage': { AssistantChatMessage: 'ChatMessage' },
+      './useAssistantMessageFeedback': { useAssistantMessageFeedback: () => ({ratings:{},pending:{},errors:{},loading:false,rate:async()=>{}}) },
+      '../../components/EarlySignalCard': {EarlySignalCard:'EarlySignalConversation'},
+      '../profile/ProfileHealthcareBackground': { ProfileHealthcareBackground:'HealthcareBackground' },
       './useAssistantNativeActions': { useAssistantNativeActions: () => async () => undefined },
       '../checkin-call/useCheckinCallAudio': { useCheckinCallAudio: () => ({ audio: { phase: 'idle' }, stopAudio: async () => {}, play: async () => {} }) },
       '../../stores/notification.store': { useNotificationStore: { getState: () => ({ fetchFromBackend: async () => {} }) } },
@@ -314,7 +318,7 @@ function assistantHarness({ granted = false, consent = true, legacy = false, ass
   });
   const render = () => {
     tree = ui.render({ onClose() {} });
-    const all = nodes(tree), modal = all.find(node => node.type === 'QueuedModal'), consentModal = all.find(node => node.type === 'Consent'), clearModal = all.find(node => node.type === 'Alert');
+    const all = nodes(tree), modal = all.find(node => node.type === 'QueuedModal'), consentModal = all.find(node => node.type === 'Consent'), clearModal = all.find(node => node.type === 'Alert' && node.props.title === settings.appAssistant.clearHistory);
     if (modal.props.visible) queue.request('assistant', { ...modal.props, content: modal.props.children });
     else queue.remove('assistant');
     if (consentModal.props.visible) queue.request('consent', { content: consentModal, priority: 40 });
@@ -329,11 +333,11 @@ function assistantHarness({ granted = false, consent = true, legacy = false, ass
   const show = () => { assert.equal(active()?.phase, 'opening'); queue.didShow(active().presentation); };
   const dismiss = () => { assert.equal(active()?.phase, 'closing'); queue.didDismiss(active().presentation); };
   render(); show();
-  return { ...ui, native, queue, notices, uploads, routes, scans, decision, settle, find, active, show, dismiss,
+  return { ...ui, native, queue, notices, uploads, routes, scans, calls, plans, decision, settle, find, active, show, dismiss,
     input: () => find('asinu-assistant-text').props.value,
     mic: () => find('assistant-voice-answer'),
     trash: () => nodes(render()).find(node => node.props?.accessibilityLabel === settings.appAssistant.clearHistory),
-    clearModal: () => nodes(render()).find(node => node.type === 'Alert'),
+    clearModal: () => nodes(render()).find(node => node.type === 'Alert' && node.props.title === settings.appAssistant.clearHistory),
     agree() { consented = true; nodes(render()).find(node => node.type === 'Consent').props.onAgree(); },
     switchAccount() { auth = { token: 'owner-b' }; render(); },
     get permissionRequests() { return permissionRequests; },
@@ -516,8 +520,8 @@ test('assistant answers are shown directly, without turning a question into a co
   try {
     h.find('asinu-assistant-text').props.onChangeText('Hôm nay tôi uống bao nhiêu nước?');
     h.find('asinu-assistant-send').props.onPress(); await h.settle();
-    const reply = nodes(h.render({ onClose() {} })).find(node => node.type === 'RichReply');
-    assert.equal(reply.props.text, 'Hôm nay bạn đã ghi 750 ml nước.');
+    const reply = nodes(h.render({ onClose() {} })).find(node => node.type === 'ChatMessage' && node.props.message.role === 'assistant');
+    assert.equal(reply.props.message.text, 'Hôm nay bạn đã ghi 750 ml nước.');
     assert.equal(h.find('asinu-assistant-apply'), undefined);
   } finally { h.dispose(); }
 });
@@ -561,7 +565,7 @@ test('clearing assistant history presents a confirmation modal; cancelling prese
     assert.equal(h.active().id, 'assistant');
     assert.equal(h.historyClears, 0);
     assert.equal(h.input(), 'Bản nháp chưa gửi');
-    assert.ok(nodes(h.render({ onClose() {} })).some(node => node.type === 'RichReply' && node.props.text === 'Uống nước: 0/4'));
+    assert.ok(nodes(h.render({ onClose() {} })).some(node => node.type === 'ChatMessage' && node.props.message.text === 'Uống nước: 0/4'));
   } finally { h.dispose(); }
 });
 
@@ -575,7 +579,7 @@ test('only confirming the history modal clears assistant history and the unsent 
     alert.props.onDismiss(); await h.settle(); h.dismiss(); await h.settle();
     const pending = confirm(); await confirm(); await pending; await h.settle();
     assert.equal(h.historyClears, 1); assert.equal(h.input(), '');
-    assert.ok(!nodes(h.render({ onClose() {} })).some(node => node.type === 'RichReply'));
+    assert.ok(!nodes(h.render({ onClose() {} })).some(node => node.type === 'ChatMessage' && node.props.message.id === '1'));
     h.show(); assert.equal(h.active().id, 'assistant');
   } finally { h.dispose(); }
 });
@@ -588,7 +592,7 @@ test('a failed local history deletion keeps the assistant messages and reports t
     alert.props.onDismiss(); await h.settle(); h.dismiss(); await h.settle();
     await confirm(); await h.settle();
     assert.equal(h.historyClears, 1);
-    assert.ok(nodes(h.render({ onClose() {} })).some(node => node.type === 'RichReply' && node.props.text === 'Giữ lại nội dung'));
+    assert.ok(nodes(h.render({ onClose() {} })).some(node => node.type === 'ChatMessage' && node.props.message.text === 'Giữ lại nội dung'));
     assert.ok(nodes(h.render({ onClose() {} })).some(node => node.type === 'Text' && node.props.children === 'Chưa lưu được hội thoại trên máy này.'));
   } finally { h.dispose(); }
 });
@@ -634,6 +638,7 @@ test('history hydration cannot overwrite a new request typed while secure storag
   const store = select => select(auth); store.getState = () => auth;
   const h = renderer('src/features/app-assistant/useAssistantConversation.ts', 'useAssistantConversation', {
     '../auth/auth.store': { useAuthStore: store },
+    './assistant-read-cache.storage': { assistantReadCacheStorage: {clear:async()=>{}} },
     './assistant-conversation.storage': { readAssistantConversation: () => new Promise(done => { resolve = done; }),
       saveAssistantConversation: async (_owner, value) => saved.push(value), clearAssistantConversation: async () => {} },
   });
@@ -654,6 +659,7 @@ test('a failed history read preserves the old stored conversation instead of ove
   let writes = 0;
   const h = renderer('src/features/app-assistant/useAssistantConversation.ts', 'useAssistantConversation', {
     '../auth/auth.store': { useAuthStore: store },
+    './assistant-read-cache.storage': { assistantReadCacheStorage: {clear:async()=>{}} },
     './assistant-conversation.storage': { readAssistantConversation: async () => { throw Error('device locked'); },
       saveAssistantConversation: async () => { writes++; }, clearAssistantConversation: async () => {} },
   });
@@ -707,3 +713,10 @@ test('measurement dictation replaces a prior reading while description dictation
   find('Mic').props.onProcessingChange(false);
   assert.equal(find('Input').props.value, '130/85');
 });
+
+test('quick suggestions send the exact selected request once through the existing consent-gated planner',async()=>{
+ const h=assistantHarness({assistantPlan:{status:'answer',answer:'Thông tin của bạn',actions:[]}});
+ try{const suggestion=nodes(h.render({onClose(){}})).find(node=>node.props.accessibilityLabel==='Xem thông tin cơ bản');suggestion.props.onPress();await h.settle();assert.equal(h.plans.length,1);assert.equal(h.plans[0].text,'Cho tôi xem thông tin cá nhân hiện tại của tôi.');}finally{h.dispose();}
+});
+
+test('the assistant header has no SOS button or emergency confirmation',()=>{const h=assistantHarness();try{assert.equal(h.find('assistant-sos'),undefined);}finally{h.dispose();}});

@@ -443,5 +443,9 @@
   "notificationUnread": "Unread",
   "notificationLoadFailed": "Could not load notifications",
   "notificationFilterEmpty": "No notifications in this category",
-  "notificationEmptyHint": "Health reminders and updates from your family will appear here."
+  "notificationEmptyHint": "Health reminders and updates from your family will appear here.",
+  "keyboardDone": "Done",
+  "addressDataTitle": "Address data",
+  "addressDataAttribution": "Ward data: Địa Chỉ Việt, with province and city names adapted.",
+  "addressDataLicense": "Creative Commons Attribution 4.0 license"
 }

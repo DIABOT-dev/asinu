@@ -1,3 +1,4 @@
+import { formatMeasurementValue } from "./measurement-ruler";
 import { useGuardedRouter as useRouter } from "@/hooks/useGuardedRouter";
 import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -522,14 +523,14 @@ export default function ProfileScreen({
       key: "heightCm",
       label: t("height"),
       value: profile?.heightCm
-        ? t("heightValue", { value: profile.heightCm })
+        ? t("heightValue", { value: formatMeasurementValue(profile.heightCm) })
         : tc("notUpdated"),
     },
     {
       key: "weightKg",
       label: t("weight"),
       value: profile?.weightKg
-        ? t("weightValue", { value: profile.weightKg })
+        ? t("weightValue", { value: formatMeasurementValue(profile.weightKg) })
         : tc("notUpdated"),
     },
     {
@@ -554,20 +555,29 @@ export default function ProfileScreen({
             styles.personalDetailRow,
             index < fields.length - 1 && styles.personalDetailRowDivider,
           ]}
-          onPress={() => setSelectedField(field.key)}
+          onPress={
+            field.key === "phone"
+              ? undefined
+              : () => setSelectedField(field.key)
+          }
+          disabled={field.key === "phone"}
           activeOpacity={0.7}
-          accessibilityRole="button"
+          accessibilityRole={field.key === "phone" ? "text" : "button"}
           accessibilityLabel={field.label}
-          accessibilityHint={t("editProfile")}
+          accessibilityHint={
+            field.key === "phone" ? undefined : t("editProfile")
+          }
         >
           <Text style={styles.personalDetailLabel}>{field.label}</Text>
           <Text style={styles.personalDetailValue}>{field.value}</Text>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={colors.textSecondary}
-            accessible={false}
-          />
+          {field.key !== "phone" && (
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={colors.textSecondary}
+              accessible={false}
+            />
+          )}
         </TouchableOpacity>
       ))}
     </View>

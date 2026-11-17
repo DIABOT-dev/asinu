@@ -167,25 +167,25 @@ export function fieldError(
   )
     return "bloodTypeInvalid";
   if (field === "address") {
-    const { province, ward, street } = draft as ProfileAddress;
-    const values = [province.trim(), ward.trim(), street.trim()];
+    const address = draft as ProfileAddress;
+    const { province, ward, street } = address;
     if (
-      values.some(Boolean) &&
-      (!values.every(Boolean) ||
-        province.length > 120 ||
-        ward.length > 120 ||
-        street.length > 300)
+      province.length > 120 ||
+      ward.length > 120 ||
+      street.length > 300 ||
+      [province, ward, street].some((value) => value.includes("\u0000"))
     )
       return "addressRequired";
-    if (values.some(Boolean)) {
-      const address = draft as ProfileAddress;
-      const selectedProvince = findProvince(address.provinceCode, province);
-      if (
-        !selectedProvince ||
-        !findWard(selectedProvince, address.wardCode, ward)
-      )
-        return "addressSelectionRequired";
-    }
+    const hasProvince = !!(province.trim() || address.provinceCode);
+    const hasWard = !!(ward.trim() || address.wardCode);
+    const selectedProvince = findProvince(address.provinceCode, province);
+    if (
+      (hasProvince && !selectedProvince) ||
+      (hasWard &&
+        (!selectedProvince ||
+          !findWard(selectedProvince, address.wardCode, ward)))
+    )
+      return "addressSelectionRequired";
   }
   return null;
 }
@@ -200,14 +200,14 @@ export function fieldUpdate(
       return { address: null };
     const province = findProvince(address.provinceCode, address.province);
     const ward = findWard(province, address.wardCode, address.ward);
-    if (!province || !ward)
+    if (fieldError(field, draft))
       throw new Error("Invalid administrative address selection");
     return {
       address: {
-        provinceCode: province.code,
-        province: province.name,
-        wardCode: ward.code,
-        ward: ward.name,
+        provinceCode: province?.code ?? "",
+        province: province?.name ?? "",
+        wardCode: ward?.code ?? "",
+        ward: ward?.name ?? "",
         street: address.street,
       },
     };

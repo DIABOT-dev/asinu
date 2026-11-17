@@ -176,7 +176,8 @@ await test("app screens do not mount chatbot launchers, modals, or navigation li
   for (const component of [
     "DailyCheckinCard",
     "InstantCheckinCard",
-    "EarlySignalCard",
+    "EarlySignalDialog",
+    "HomeConnections",
   ]) {
     assert.match(
       home,

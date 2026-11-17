@@ -118,5 +118,7 @@
   "earlyConsult": "Tham vấn chuyên gia",
   "earlyRetry": "Thử lại",
   "earlyOpen": "Xem sức khỏe gần đây",
-  "journalFutureDayAccessibility": "Ngày {{day}}, chưa đến ngày này."
+  "journalFutureDayAccessibility": "Ngày {{day}}, chưa đến ngày này.",
+  "earlyReviewSubtitle": "Xem lại các dấu hiệu sức khỏe đã ghi nhận",
+  "earlyCallError": "Chưa mở được cuộc gọi. Bạn hãy gọi 115 từ điện thoại nhé."
 }

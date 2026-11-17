@@ -443,5 +443,9 @@
   "notificationUnread": "Chưa đọc",
   "notificationLoadFailed": "Chưa tải được thông báo",
   "notificationFilterEmpty": "Chưa có thông báo trong mục này",
-  "notificationEmptyHint": "Nhắc nhở sức khỏe và tin từ gia đình sẽ xuất hiện ở đây."
+  "notificationEmptyHint": "Nhắc nhở sức khỏe và tin từ gia đình sẽ xuất hiện ở đây.",
+  "keyboardDone": "Xong",
+  "addressDataTitle": "Dữ liệu địa chỉ",
+  "addressDataAttribution": "Dữ liệu phường/xã: Địa Chỉ Việt, có điều chỉnh tên tỉnh/thành phố.",
+  "addressDataLicense": "Giấy phép Creative Commons Attribution 4.0"
 }

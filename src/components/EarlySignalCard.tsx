@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { ScaledText as Text } from "./ScaledText";
 import { AppAlertModal, useAppAlert } from "./AppAlertModal";
+import { AssistantChatMessage } from "../features/app-assistant/AssistantChatMessage";
 import {
   earlySignalApi,
   type EarlySignalAssessment,
@@ -26,6 +27,8 @@ type Props = {
   plain?: boolean;
   modalOnly?: boolean;
   onClose?: () => void;
+  conversation?: boolean;
+  onEmergency?: () => void;
 };
 
 const presentation = {
@@ -52,7 +55,7 @@ const attentionPresentation = {
   icon: "alert-circle-outline" as const,
 };
 
-export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = false, plain = false, modalOnly = false, onClose }: Props) {
+export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = false, plain = false, modalOnly = false, onClose, conversation = false, onEmergency }: Props) {
   const { t } = useTranslation("tree");
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const [assessment, setAssessment] = useState<EarlySignalAssessment | null>(
@@ -60,6 +63,7 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
   );
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
+  const evaluationInFlight = useRef(false);
   const [open, setOpen] = useState(modalOnly);
   const [loadFailed, setLoadFailed] = useState(false);
   const close = () => { setOpen(false); onClose?.(); };
@@ -84,6 +88,8 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
   );
 
   const evaluate = useCallback(async () => {
+    if (evaluationInFlight.current) return;
+    evaluationInFlight.current = true;
     setEvaluating(true);
     try {
       const result = await earlySignalApi.evaluate();
@@ -92,6 +98,7 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
     } catch {
       showAlert(t("earlyErrorTitle"), t("earlyErrorBody"));
     } finally {
+      evaluationInFlight.current = false;
       setEvaluating(false);
     }
   }, [showAlert, t]);
@@ -150,6 +157,33 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
     [assessment?.signals, currentSignalLabels, showsCurrentAttention]
   );
   const canOpenDetails = Boolean(assessment || showsCurrentAttention);
+
+  if (conversation) {
+    const urgent = !!assessment?.is_red_flag || (healthScore?.factors ?? []).some(factor => ['emergency_triggered','triage_severity_emergency'].includes(factor));
+    const message = [
+      urgent ? t('earlyRedFlagTitle') : canOpenDetails ? t(view.labelKey) : '',
+      summary || (!loading && !loadFailed ? t('earlyEmpty') : ''),
+      ...visibleSignals.map(signal => `• ${signal}`),
+      ...(assessment?.urgent_signs ?? []).map(signal => `• ${signal}`),
+      assessment?.suggested_specialty ? t('earlySpecialty', {specialty:assessment.suggested_specialty}) : '',
+      assessment?.is_red_flag ? t(assessment.family_notified_at ? 'earlyFamilySent' : 'earlyFamilyUnavailable') : '',
+      assessment?.disclaimer || '',
+    ].filter(Boolean).join('\n\n');
+    return <View testID="early-signal-conversation" style={{gap:12}}>
+      {loading && <ActivityIndicator color={colors.primary} accessibilityLabel={t('earlyTitle')} />}
+      {loadFailed && <Pressable accessibilityRole="button" onPress={load} style={styles.evaluateButton}>
+        <Text style={styles.body}>{t('earlyErrorBody')} {t('earlyRetry')}</Text>
+      </Pressable>}
+      {!!message && <View accessibilityRole={urgent ? 'alert' : undefined}>
+        <AssistantChatMessage message={{id:`early-${assessment?.id ?? 'current'}`,role:'assistant',text:message}} allowCollapse={!urgent} avatar="signal" />
+      </View>}
+      {urgent && onEmergency && <Pressable testID="early-conversation-emergency" accessibilityRole="button" onPress={onEmergency}
+        style={[styles.evaluateButton,{backgroundColor:colors.danger}]}><Text style={styles.evaluateText}>{t('earlyCall115')}</Text></Pressable>}
+      {!assessment && !loading && !loadFailed && <Pressable testID="early-conversation-evaluate" accessibilityRole="button" onPress={evaluate} disabled={evaluating}
+        style={styles.evaluateButton}>{evaluating ? <ActivityIndicator color={colors.surface} /> : <Text style={styles.evaluateText}>{t('earlyEvaluate')}</Text>}</Pressable>}
+      <AppAlertModal queued {...alertState} onDismiss={dismissAlert} />
+    </View>;
+  }
 
   if (assessment?.is_red_flag && !modalOnly) {
     return (

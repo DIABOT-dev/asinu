@@ -219,7 +219,7 @@
     "close": "Đóng trợ lý Asinu",
     "greeting": "Mình giúp gì cho bạn nhé?",
     "input": "Yêu cầu dành cho Asinu",
-    "placeholder": "Ví dụ: hôm nay tôi còn nhiệm vụ gì?",
+    "placeholder": "Hỏi Asinu ngay",
     "answer": "Bạn nói hoặc nhập thêm ở đây nhé…",
     "send": "Gửi yêu cầu",
     "review": "Bạn xem lại giúp mình nhé",
@@ -356,6 +356,34 @@
     },
     "featureUnavailable": "Tính năng này hiện chưa được mở cho tài khoản. Bạn có thể dùng các mục đang khả dụng trong app nhé.",
     "weatherSaved": "Đã bật thời tiết theo khu vực hiện tại.",
-    "supplementCreate": "Nhắc dùng thực phẩm bổ sung {{name}} mỗi ngày lúc {{times}}"
+    "supplementCreate": "Nhắc dùng thực phẩm bổ sung {{name}} mỗi ngày lúc {{times}}",
+    "entryLabel": "Trợ lý\nAsinu AI",
+    "title": "Trợ lý Asinu",
+    "subtitle": "Đồng hành cùng sức khỏe của bạn",
+    "welcome": "Chào bạn! Mình là Asinu. Bạn muốn xem thông tin hay cập nhật điều gì hôm nay?",
+    "photoLabel": "Ảnh",
+    "copyMessage": "Sao chép câu trả lời",
+    "copied": "Đã sao chép",
+    "copyError": "Chưa sao chép được nội dung. Bạn thử lại nhé.",
+    "likeMessage": "Câu trả lời hữu ích",
+    "dislikeMessage": "Câu trả lời chưa hữu ích",
+    "feedbackError": "Chưa xác nhận được đánh giá. Bạn thử lại nhé.",
+    "collapseMessage": "Thu gọn",
+    "expandMessage": "Xem thêm",
+    "healthNotice": "Asinu hỗ trợ theo dõi sức khỏe, không thay thế chẩn đoán hoặc điều trị của bác sĩ.",
+    "suggestions": {
+      "profile": {
+        "label": "Xem thông tin cơ bản",
+        "prompt": "Cho tôi xem thông tin cá nhân hiện tại của tôi."
+      },
+      "weight": {
+        "label": "Cập nhật cân nặng",
+        "prompt": "Tôi muốn cập nhật cân nặng. Hướng dẫn tôi mở phần sửa cân nặng."
+      },
+      "health": {
+        "label": "Xem hồ sơ sức khỏe",
+        "prompt": "Cho tôi xem hồ sơ sức khỏe đã ghi nhận."
+      }
+    }
   }
 }

@@ -163,7 +163,7 @@
   "phoneInvalid": "Enter a valid phone number.",
   "genderRequired": "Choose your gender.",
   "dateOfBirthInvalid": "Choose a valid birth date within the past 150 years.",
-  "addressRequired": "Enter the province or city, ward or commune, and street address.",
+  "addressRequired": "The address is invalid or exceeds the allowed length.",
   "provincePlaceholder": "Select province or city",
   "wardPlaceholder": "Select ward or commune",
   "streetPlaceholder": "Enter street address",

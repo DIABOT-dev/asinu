@@ -69,7 +69,8 @@
     "test:checkin-conclusion": "node scripts/check-checkin-conclusion.mjs",
     "test:checkin-presentation": "node scripts/check-checkin-presentation.mjs",
     "test:doctor-care": "node scripts/check-doctor-care.mjs",
-    "test:assistant-read-cache": "node --test scripts/check-assistant-read-cache.cjs"
+    "test:assistant-read-cache": "node --test scripts/check-assistant-read-cache.cjs",
+    "test:assistant-ui": "node --test scripts/check-assistant-chat-ui.cjs scripts/check-assistant-message-format.cjs"
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^15.0.2",

@@ -163,7 +163,7 @@
   "phoneInvalid": "Vui lòng nhập số điện thoại hợp lệ.",
   "genderRequired": "Vui lòng chọn giới tính.",
   "dateOfBirthInvalid": "Vui lòng chọn ngày sinh hợp lệ, không ở tương lai và trong 150 năm gần đây.",
-  "addressRequired": "Vui lòng nhập đầy đủ tỉnh/thành phố, phường/xã và số nhà, tên đường.",
+  "addressRequired": "Địa chỉ không hợp lệ hoặc vượt quá độ dài cho phép.",
   "provincePlaceholder": "Chọn tỉnh/thành phố",
   "wardPlaceholder": "Chọn phường/xã",
   "streetPlaceholder": "Nhập số nhà, tên đường",

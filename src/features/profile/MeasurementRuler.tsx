@@ -14,6 +14,7 @@ import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import {
   RULER_TICK_SPACING,
+  formatMeasurementValue,
   measurementRange,
   rulerOffsetForValue,
   rulerValueAtOffset,
@@ -126,12 +127,7 @@ export function MeasurementRuler({
     touching.current = true;
     onInteractionChange(true);
   };
-  const format = (number: number) =>
-    kind === "weight"
-      ? number.toFixed(
-          Math.min(2, Math.max(1, String(number).split(".")[1]?.length ?? 0))
-        )
-      : String(number);
+  const format = formatMeasurementValue;
 
   return (
     <View style={styles.container}>

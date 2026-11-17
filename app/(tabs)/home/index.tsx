@@ -10,8 +10,8 @@ import Animated, { Extrapolation, FadeIn, FadeInUp, interpolate, SharedValue, us
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image as ExpoImage } from 'expo-image';
 import { DailyCheckinCard, InstantCheckinCard } from '../../../src/components/DailyCheckinCard';
-import { EarlySignalCard } from '../../../src/components/EarlySignalCard';
-import { AsinuAssistantButton } from '../../../src/features/app-assistant/AsinuAssistantButton';
+import { HomeConnections } from '../../../src/components/HomeConnections';
+import { EarlySignalDialog } from '../../../src/features/early-signal/EarlySignalDialog';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
 import { isUnfinishedCheckin, readLocationDraft } from '../../../src/features/checkin/checkin-progress';
@@ -463,6 +463,7 @@ export default function HomeScreen() {
   // Refresh check-in and Care Circle flags whenever the home screen is focused.
   useFocusEffect(useCallback(() => { fetchFlags().catch(() => {}); }, [fetchFlags]));
   const router = useRouter();
+  useFocusEffect(useCallback(() => () => setShowEarlySignal(false), []));
   const {
     quickMetrics,
     missions,
@@ -484,6 +485,7 @@ export default function HomeScreen() {
   const profile = useAuthStore((state) => state.profile);
   const sessionToken = useAuthStore((state) => state.token);
   const profileId = profile?.id;
+  useEffect(() => { setShowEarlySignal(false); }, [profileId]);
   const guideScrollRef = useRef<ScrollView>(null);
   const guideScrollOffset = useRef(0);
   const unreadCount = useNotificationStore(s => s.unreadCount);
@@ -816,7 +818,6 @@ export default function HomeScreen() {
       {/* Notification Bell — chỉ hiện khi đã đăng nhập */}
       {profile && (
         <View style={[styles.headerActions, { top: insets.top + spacing.sm }]}>
-          <AsinuAssistantButton />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={tt('earlyTitle')}
@@ -831,7 +832,7 @@ export default function HomeScreen() {
           />
         </View>
       )}
-      {showEarlySignal && <EarlySignalCard healthScore={healthScore} modalOnly onClose={() => setShowEarlySignal(false)} />}
+      {showEarlySignal && <EarlySignalDialog healthScore={healthScore} onClose={() => setShowEarlySignal(false)} />}
 
       {!showInitialSkeleton && noDataError ? <StateError onRetry={refreshAll} message={tc('cannotLoadData')} /> : null}
       {!showInitialSkeleton && !hasData && !loading && !noDataError ? <StateError onRetry={refreshAll} message={tc('noData')} /> : null}
@@ -849,6 +850,7 @@ export default function HomeScreen() {
           <HomeTabSkeleton />
         ) : (
         <>
+        {profile && <HomeConnections />}
         {/* Immediate and quick-positive check-ins share the former metrics position. */}
         <Animated.View entering={FadeIn.delay(80).duration(350)}>
           <View style={styles.checkinStack}>
