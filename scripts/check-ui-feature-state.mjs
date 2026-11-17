@@ -1507,9 +1507,9 @@ const deferred = () => {
 
 await test('profile focus and mount together request subscription status exactly once', async () => {
   const r = runtime(); const calls = []; let clock = 10000;
-  const run = screenLifecycle('app/(tabs)/profile/index.tsx', text =>
+  const run = screenLifecycle('src/features/profile/ProfileScreen.tsx', text =>
     /^use(?:Focus)?Effect\(/.test(text) && text.includes('/api/subscriptions/status'), {
-    ...r.hooks, ...r.router, Date: { now: () => clock }, lastFetchRef: { current: 0 },
+    ...r.hooks, ...r.router, personalInformation: false, Date: { now: () => clock }, lastFetchRef: { current: 0 },
     profileReadyRef: { current: false }, setProfileReady() {}, setSubStatus() {},
     fetchLogs: async () => { calls.push('unused-logs'); }, fetchMissions: async () => { calls.push('unused-missions'); },
     apiClient: async path => { calls.push(path); return {}; },

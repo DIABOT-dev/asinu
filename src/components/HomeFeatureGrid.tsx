@@ -10,12 +10,16 @@ import { HealthCoinIcon } from '../features/v21/HealthCoinIcon';
 import { QuickActionTile } from './QuickActionTile';
 import { AppPermissionsModal } from '../features/profile/AppPermissionsModal';
 import { useLocalSearchParams } from 'expo-router';
+import { isExpertConsultationEnabled } from '../lib/appEnv';
 
 const actions = [
   { id: 'healthHistory', route: '/(tabs)/tree', image: require('../../assets/images/notifications/checkin-v1.png') },
   { id: 'medication', route: '/medication', image: require('../../assets/images/notifications/medication-v1.png') },
   { id: 'journal', route: '/logs', image: require('../../assets/images/notifications/checkin-v1.png') },
-  { id: 'expert', route: '/doctor-consultation', image: require('../../assets/images/notifications/expert-consultation-v1.png') },
+  { id: 'expert', route: '/doctor-consultation', image: require('../../assets/images/notifications/expert-consultation-v1.png'), expertOnly: true },
+  { id: 'consultationHistory', route: '/doctor-consultation-history', icon: 'chatbubbles-outline', expertOnly: true },
+  { id: 'consultationData', route: '/privacy-center', icon: 'finger-print-outline', expertOnly: true },
+  { id: 'carePlan', route: '/doctor-care', icon: 'clipboard-outline', expertOnly: true },
   { id: 'calls', route: '/checkin-call/settings', icon: 'options-outline' },
   { id: 'callPersonalization', route: '/checkin-call/voice-settings', icon: 'person-circle-outline' },
   { id: 'permissions', icon: 'shield-checkmark-outline' },
@@ -54,7 +58,8 @@ export function HomeFeatureGrid({ medicationEnabled, coinsEnabled }: {
   const columns = textScale >= 1.6 ? 2 : availableWidth < 336 || textScale >= 1.2 ? 3 : 4;
   const tileWidth = (availableWidth - 12 * (columns - 1)) / columns;
   const visible = actions.filter(action =>
-    (action.id !== 'medication' || medicationEnabled) && (action.id !== 'coins' || coinsEnabled));
+    (action.id !== 'medication' || medicationEnabled) && (action.id !== 'coins' || coinsEnabled)
+    && (!('expertOnly' in action) || !action.expertOnly || isExpertConsultationEnabled));
   const pageSize = columns * 2;
   const pages = Array.from({ length: Math.ceil(visible.length / pageSize) }, (_, index) =>
     visible.slice(index * pageSize, (index + 1) * pageSize));
@@ -62,7 +67,7 @@ export function HomeFeatureGrid({ medicationEnabled, coinsEnabled }: {
   useEffect(() => {
     setPage(0);
     scroller.current?.scrollTo({ x: 0, animated: false });
-  }, [availableWidth, columns, medicationEnabled, coinsEnabled]);
+  }, [availableWidth, columns, medicationEnabled, coinsEnabled, isExpertConsultationEnabled]);
 
   return <View testID="home-feature-grid" style={styles.section}
     onLayout={event => setMeasuredWidth(event.nativeEvent.layout.width)}>

@@ -1327,7 +1327,7 @@ await test('all bundled clips match their fixed translations, voice identity and
 });
 
 await test('the profile System section has no guide replay or read-aloud setting', () => {
-  const profileSource = read('app/(tabs)/profile/index.tsx');
+  const profileSource = read('src/features/profile/ProfileScreen.tsx');
   const source = ts.createSourceFile('profile.tsx', profileSource,
     ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const settings = [], sections = [];
@@ -1354,7 +1354,7 @@ await test('onboarding uses inline touch-through scrims, native text scaling and
   assert.match(source, /minHeight: 60/);
   assert.match(source, /useQueuedModalBusy/); assert.match(source, /!foreground \|\| keyboard \|\| backgroundCall/);
   assert.match(source, /onTouchEnd=.*acknowledge/);
-  for (const file of ['app/(tabs)/home/index.tsx', 'app/checkin/index.tsx', 'app/(tabs)/profile/index.tsx'])
+  for (const file of ['app/(tabs)/home/index.tsx', 'app/checkin/index.tsx', 'src/features/profile/ProfileScreen.tsx'])
     assert.doesNotMatch(read(file), /<CheckinGuideCarousel/);
   assert.match(source, /assets\/asinu_chat_sticker\.png/);
 });

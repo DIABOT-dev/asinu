@@ -322,7 +322,7 @@ assert.ok(
   doctorRoutes.length >= 6,
   "Dedicated Dr.Asinu routes were not discovered"
 );
-const consultationRoutes = new Set(['doctor-consultation', 'doctor-consultation/[taskId]', 'doctor-consultation-history', 'privacy-center']);
+const consultationRoutes = new Set(['doctor-consultation', 'doctor-consultation/[taskId]', 'doctor-consultation-history', 'doctor-care', 'privacy-center']);
 function filteredRoutes(enabled, consultationEnabled = true) {
   const { layout } = evaluate(
     `export const layout = (${stack.getText(root)});`,

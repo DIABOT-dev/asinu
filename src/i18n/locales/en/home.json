@@ -446,6 +446,9 @@
   "checkinClose": "Close",
   "healthFeedSectionTitle": "Asinu reminders",
   "quickActions": {
+    "consultationHistory": "Consultation history",
+    "consultationData": "Consultation data",
+    "carePlan": "Care plans",
     "title": "Quick actions",
     "healthHistory": "Health history",
     "medication": "Medicines",

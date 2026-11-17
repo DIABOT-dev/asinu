@@ -17,7 +17,9 @@ import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScaledTextInput as RNTextInput } from '../../src/components/ScaledTextInput';
 import { useAuthStore } from '../../src/features/auth/auth.store';
-import { authApi } from '../../src/features/auth/auth.api';
+import { authApi, type UpdateProfilePayload } from '../../src/features/auth/auth.api';
+import { ProfileFieldSheet } from '../../src/features/profile/ProfileFieldSheet';
+import type { PersonalProfileField } from '../../src/features/profile/profile-fields';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { apiClient } from '../../src/lib/apiClient';
 import { TERMS_URL, PRIVACY_URL } from '../../src/lib/links';
@@ -827,180 +829,54 @@ function Step1({
   consentAccepted, setConsentAccepted,
 }: Step1Props) {
   const { t } = useTranslation('onboarding');
-  const [showBirthYearPicker, setShowBirthYearPicker] = useState(false);
-  const [showHeightPicker, setShowHeightPicker] = useState(false);
-  const maxBirthYear = CURRENT_YEAR - 10;
-  const birthYears = useMemo(
-    () => Array.from({ length: maxBirthYear - 1920 + 1 }, (_, index) => String(maxBirthYear - index)),
-    [maxBirthYear],
-  );
-  const heightOptions = useMemo(
-    () => Array.from({ length: 201 }, (_, index) => String(250 - index)),
-    [],
-  );
-
-  const GENDER_OPTIONS = [
-    { value: 'Nam', labelKey: 'genderMale', icon: 'male-outline' },
-    { value: 'Nữ', labelKey: 'genderFemale', icon: 'female-outline' },
-    { value: 'Khác', labelKey: 'genderOther', icon: 'person-outline' },
+  const [selectedField, setSelectedField] = useState<PersonalProfileField | null>(null);
+  const localProfile = {
+    id: 'onboarding-draft', name: fullName, phone, gender,
+    dateOfBirth: birthYear ? `${birthYear}-01-01` : null,
+    heightCm: height ? Number(height) : null,
+    weightKg: weight ? Number(weight) : null,
+    bloodType: bloodType || null,
+  };
+  const confirmField = (update: UpdateProfilePayload) => {
+    if (selectedField === 'name' && update.name !== undefined) setFullName(update.name);
+    if (selectedField === 'phone' && update.phone !== undefined) setPhone(update.phone);
+    if (selectedField === 'gender' && update.gender !== undefined) setGender(update.gender);
+    if (selectedField === 'dateOfBirth' && update.dateOfBirth) setBirthYear(update.dateOfBirth.slice(0, 4));
+    if (selectedField === 'heightCm' && update.heightCm !== undefined) setHeight(String(update.heightCm));
+    if (selectedField === 'weightKg' && update.weightKg !== undefined) setWeight(String(update.weightKg));
+    if (selectedField === 'bloodType' && update.bloodType !== undefined) setBloodType(update.bloodType ?? '');
+  };
+  const fields: Array<{ field: PersonalProfileField; label: string; value: string; placeholder: string; error?: string; icon: keyof typeof Ionicons.glyphMap }> = [
+    { field: 'name', label: t('fullName'), value: fullName, placeholder: t('fullNamePlaceholder'), icon: 'person-outline' },
+    { field: 'dateOfBirth', label: t('birthYear'), value: birthYear, placeholder: t('birthYearPlaceholder'), error: birthYearError, icon: 'calendar-outline' },
+    { field: 'gender', label: t('gender'), value: gender ? t(gender === 'Nam' ? 'genderMale' : gender === 'Nữ' ? 'genderFemale' : 'genderOther') : '', placeholder: t('selectGender'), icon: 'people-outline' },
+    { field: 'heightCm', label: t('heightCm'), value: height, placeholder: t('heightPlaceholder'), error: heightError, icon: 'resize-outline' },
+    { field: 'weightKg', label: t('weightKg'), value: weight, placeholder: t('weightPlaceholder'), error: weightError, icon: 'scale-outline' },
+    { field: 'phone', label: t('phone'), value: phone, placeholder: t('phonePlaceholder'), error: phoneError, icon: 'call-outline' },
+    { field: 'bloodType', label: t('bloodType'), value: bloodType, placeholder: t('selectBloodType'), icon: 'water-outline' },
   ];
 
   return (
     <View style={stepStyles.container}>
-      {/* Full Name Input */}
-      <View style={stepStyles.fieldGroup}>
-        <SectionLabel label={t('fullName')} />
-        <View style={stepStyles.inputWrapper}>
-          <Ionicons name="person-outline" size={20} color="#008080" style={stepStyles.inputIcon} />
-          {isAppleSignIn ? (
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15.5, color: '#0F172A' }}>{fullName}</Text>
-            </View>
-          ) : (
-            <RNTextInput
-              style={stepStyles.inputField}
-              placeholder={t('fullNamePlaceholder')}
-              placeholderTextColor="#94A3B8"
-              value={fullName}
-              onChangeText={setFullName}
-              autoCapitalize="words"
-            />
-          )}
-        </View>
-      </View>
-
-      {/* Birth Year Input */}
-      <View style={stepStyles.fieldGroup}>
-        <SectionLabel label={t('birthYear')} />
-        <View style={stepStyles.inputWrapper}>
-          <Ionicons name="calendar-outline" size={20} color="#008080" style={stepStyles.inputIcon} />
-          <RNTextInput
-            style={stepStyles.inputField}
-            placeholder={t('birthYearPlaceholder')}
-            placeholderTextColor="#94A3B8"
-            value={birthYear}
-            onChangeText={setBirthYear}
-            keyboardType="numeric"
-            maxLength={4}
-          />
+      {fields.map(({ field, label, value, placeholder, error, icon }) => {
+        const readOnly = field === 'name' && isAppleSignIn;
+        return <View key={field} style={stepStyles.fieldGroup}>
+          <SectionLabel label={label} />
           <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('selectBirthYear')}
-            onPress={() => setShowBirthYearPicker(true)}
-            style={stepStyles.birthYearChevron}
+            style={stepStyles.selectionRow}
+            onPress={() => { if (!readOnly) setSelectedField(field); }}
+            disabled={readOnly}
+            accessibilityRole={readOnly ? 'text' : 'button'}
+            accessibilityLabel={label}
+            accessibilityValue={{ text: value || placeholder }}
           >
-            <Ionicons name="chevron-down" size={18} color="#94A3B8" />
+            <Ionicons name={icon} size={24} color="#008080" />
+            <Text style={[stepStyles.selectionValue, !value && stepStyles.selectionPlaceholder]}>{value || placeholder}</Text>
+            {!readOnly && <Ionicons name="chevron-forward" size={22} color="#64748B" />}
           </Pressable>
-        </View>
-        {!!birthYearError && <Text style={stepStyles.errorText}>{birthYearError}</Text>}
-      </View>
-
-      {/* Gender Selection */}
-      <View style={stepStyles.fieldGroup}>
-        <SectionLabel label={t('gender')} />
-        <View style={stepStyles.genderRow}>
-          {GENDER_OPTIONS.map(opt => {
-            const active = gender === opt.value;
-            return (
-              <Pressable
-                key={opt.value}
-                onPress={() => setGender(opt.value)}
-                style={[
-                  stepStyles.genderBtn,
-                  active && stepStyles.genderBtnActive,
-                ]}
-              >
-                <Ionicons
-                  name={opt.icon as any}
-                  size={18}
-                  color={active ? '#008080' : '#64748B'}
-                />
-                <Text style={[stepStyles.genderBtnText, active && stepStyles.genderBtnTextActive]}>
-                  {t(opt.labelKey)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Height Input */}
-      <View style={stepStyles.fieldGroup}>
-        <SectionLabel label={t('heightCm')} />
-        <View style={stepStyles.inputWrapper}>
-          <MaterialCommunityIcons name="ruler" size={20} color="#008080" style={stepStyles.inputIcon} />
-          <RNTextInput
-            style={stepStyles.inputField}
-            placeholder={t('heightPlaceholder')}
-            placeholderTextColor="#94A3B8"
-            value={height}
-            onChangeText={setHeight}
-            keyboardType="numeric"
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('selectHeight')}
-            onPress={() => setShowHeightPicker(true)}
-            style={stepStyles.birthYearChevron}
-          >
-            <Ionicons name="chevron-down" size={18} color="#94A3B8" />
-          </Pressable>
-        </View>
-        {!!heightError && <Text style={stepStyles.errorText}>{heightError}</Text>}
-      </View>
-
-      {/* Weight Input */}
-      <View style={stepStyles.fieldGroup}>
-        <SectionLabel label={t('weightKg')} />
-        <View style={stepStyles.inputWrapper}>
-          <Ionicons name="fitness-outline" size={20} color="#008080" style={stepStyles.inputIcon} />
-          <RNTextInput
-            style={stepStyles.inputField}
-            placeholder={t('weightPlaceholder')}
-            placeholderTextColor="#94A3B8"
-            value={weight}
-            onChangeText={setWeight}
-            keyboardType="numeric"
-          />
-        </View>
-        {!!weightError && <Text style={stepStyles.errorText}>{weightError}</Text>}
-      </View>
-
-      {/* Phone Input */}
-      <View style={stepStyles.fieldGroup}>
-        <SectionLabel label={t('phone')} />
-        <View style={stepStyles.inputWrapper}>
-          <Ionicons name="call-outline" size={20} color="#008080" style={stepStyles.inputIcon} />
-          <RNTextInput
-            style={stepStyles.inputField}
-            placeholder={t('phonePlaceholder')}
-            placeholderTextColor="#94A3B8"
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            maxLength={11}
-          />
-        </View>
-        {!!phoneError && <Text style={stepStyles.errorText}>{phoneError}</Text>}
-      </View>
-
-      {/* Blood Type Selector */}
-      <View style={stepStyles.fieldGroup}>
-        <SectionLabel label={t('bloodType')} />
-        <View style={stepStyles.bloodGrid}>
-          {BLOOD_TYPE_OPTIONS.map(opt => (
-            <View key={opt.value} style={stepStyles.bloodItem}>
-              <CustomChip
-                label={opt.value}
-                active={bloodType === opt.value}
-                onPress={() => setBloodType(bloodType === opt.value ? '' : opt.value)}
-                fullWidth
-              />
-            </View>
-          ))}
-        </View>
-      </View>
-
+          {!!error && <Text style={stepStyles.errorText}>{error}</Text>}
+        </View>;
+      })}
       {/* Security Privacy Notice */}
       <View style={stepStyles.securityCard}>
         <Ionicons name="shield-checkmark-outline" size={22} color="#008080" />
@@ -1025,105 +901,15 @@ function Step1({
         </Text>
       </View>
 
-      <Modal
-        visible={showBirthYearPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowBirthYearPicker(false)}
-      >
-        <Pressable
-          style={stepStyles.birthYearModalOverlay}
-          onPress={() => setShowBirthYearPicker(false)}
-        >
-          <Pressable style={stepStyles.birthYearModalCard} onPress={(event) => event.stopPropagation()}>
-            <View style={stepStyles.birthYearModalHeader}>
-              <Text style={stepStyles.birthYearModalTitle}>{t('selectBirthYear')}</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('closePicker')}
-                hitSlop={8}
-                onPress={() => setShowBirthYearPicker(false)}
-              >
-                <Ionicons name="close" size={22} color="#64748B" />
-              </Pressable>
-            </View>
-            <ScrollView
-              style={stepStyles.birthYearList}
-              contentContainerStyle={stepStyles.birthYearListContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {birthYears.map(year => {
-                const selected = birthYear === year;
-                return (
-                  <Pressable
-                    key={year}
-                    onPress={() => {
-                      setBirthYear(year);
-                      setShowBirthYearPicker(false);
-                    }}
-                    style={[stepStyles.birthYearOption, selected && stepStyles.birthYearOptionSelected]}
-                  >
-                    <Text style={[stepStyles.birthYearOptionText, selected && stepStyles.birthYearOptionTextSelected]}>
-                      {year}
-                    </Text>
-                    {selected && <Ionicons name="checkmark-circle" size={20} color="#008080" />}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        visible={showHeightPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowHeightPicker(false)}
-      >
-        <Pressable
-          style={stepStyles.birthYearModalOverlay}
-          onPress={() => setShowHeightPicker(false)}
-        >
-          <Pressable style={stepStyles.birthYearModalCard} onPress={(event) => event.stopPropagation()}>
-            <View style={stepStyles.birthYearModalHeader}>
-              <Text style={stepStyles.birthYearModalTitle}>{t('selectHeight')}</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('closePicker')}
-                hitSlop={8}
-                onPress={() => setShowHeightPicker(false)}
-              >
-                <Ionicons name="close" size={22} color="#64748B" />
-              </Pressable>
-            </View>
-            <ScrollView
-              style={stepStyles.birthYearList}
-              contentContainerStyle={stepStyles.birthYearListContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {heightOptions.map(value => {
-                const selected = height === value;
-                return (
-                  <Pressable
-                    key={value}
-                    onPress={() => {
-                      setHeight(value);
-                      setShowHeightPicker(false);
-                    }}
-                    style={[stepStyles.birthYearOption, selected && stepStyles.birthYearOptionSelected]}
-                  >
-                    <Text style={[stepStyles.birthYearOptionText, selected && stepStyles.birthYearOptionTextSelected]}>
-                      {t('heightValue', { value })}
-                    </Text>
-                    {selected && <Ionicons name="checkmark-circle" size={20} color="#008080" />}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {selectedField && <ProfileFieldSheet
+        key={selectedField}
+        field={selectedField}
+        profile={localProfile}
+        onConfirm={confirmField}
+        onClose={() => setSelectedField(null)}
+        allowEmptyPhone
+        birthYearOnly={selectedField === 'dateOfBirth' ? { min: 1920, max: CURRENT_YEAR - 10 } : undefined}
+      />}
     </View>
   );
 }
@@ -1668,6 +1454,9 @@ const stepStyles = StyleSheet.create({
   container: {
     gap: 18,
   },
+  selectionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 16 },
+  selectionValue: { flex: 1, fontSize: 16, color: '#0F172A' },
+  selectionPlaceholder: { color: '#64748B' },
   fieldGroup: {
     gap: 2,
   },
@@ -1682,66 +1471,16 @@ const stepStyles = StyleSheet.create({
     height: 52,
     position: 'relative',
   },
-  inputIcon: {
-    marginRight: 10,
-  },
   inputField: {
     flex: 1,
     fontSize: 15.5,
     color: '#0F172A',
     paddingRight: 48,
   },
-  birthYearChevron: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    width: 64,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
   errorText: {
     fontSize: 12.5,
     color: '#EF4444',
     marginTop: 4,
-  },
-  genderRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  genderBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 48,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-  },
-  genderBtnActive: {
-    backgroundColor: '#EAF8F6',
-    borderColor: '#008080',
-  },
-  genderBtnText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#475569',
-  },
-  genderBtnTextActive: {
-    color: '#008080',
-    fontWeight: '600',
-  },
-  bloodGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  bloodItem: {
-    width: '23%',
   },
   securityCard: {
     flexDirection: 'row',
@@ -1758,62 +1497,6 @@ const stepStyles = StyleSheet.create({
     color: '#475569',
     lineHeight: 18,
     fontWeight: '400',
-  },
-  birthYearModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  birthYearModalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 18,
-    maxHeight: '70%',
-    shadowColor: '#000000',
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
-  },
-  birthYearModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  birthYearModalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  birthYearList: {
-    maxHeight: 360,
-  },
-  birthYearListContent: {
-    paddingTop: 8,
-    paddingBottom: 4,
-  },
-  birthYearOption: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    borderRadius: 10,
-  },
-  birthYearOptionSelected: {
-    backgroundColor: '#E6F7F5',
-  },
-  birthYearOptionText: {
-    fontSize: 15,
-    color: '#334155',
-  },
-  birthYearOptionTextSelected: {
-    color: '#008080',
-    fontWeight: '700',
   },
   cardList: {
     gap: 10,

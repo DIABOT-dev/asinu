@@ -45,7 +45,7 @@ const flush = async () => {
 };
 
 function featureGridHarness({ language = 'vi', width = 393, multiplier = 1, fontScale = 1,
-  medicationEnabled = true, coinsEnabled = true } = {}) {
+  medicationEnabled = true, coinsEnabled = true, expertEnabled = true } = {}) {
   const pushes = [], catalog = JSON.parse(read(`src/i18n/locales/${language}/home.json`)).quickActions;
   let cursor = 0;
   const slots = [], pending = [], scrolls = [];
@@ -84,6 +84,8 @@ function featureGridHarness({ language = 'vi', width = 393, multiplier = 1, font
       const label = catalog[key.split('.')[1]]; assert.ok(label, `${language}/${key}`);
       return label.replace(/\{\{(\w+)\}\}/g, (_, name) => values[name]);
     } }) },
+    'expo-router': { useLocalSearchParams: () => ({}) },
+    '../lib/appEnv': { isExpertConsultationEnabled: expertEnabled },
     '../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => pushes.push(route) }) },
     '../hooks/useThemeColors': { useThemeColors: () => ({ colors: palette, isDark: false }) },
     '../stores/font-size.store': { useFontSizeStore: select => select({ multiplier }) },
@@ -110,14 +112,14 @@ for (const language of ['vi', 'en']) {
   await test(`${language}: Home shortcuts expose the real destinations with labels and a gold coin`, () => {
     const h = featureGridHarness({ language }), tree = h.render(), nodes = h.nodes(tree);
     const buttons = h.tiles();
-    assert.equal(buttons.length, 12);
+    assert.equal(buttons.length, 15);
     assert.equal(buttons[0].props.testID, 'home-feature-healthHistory');
     for (const button of buttons) {
       assert.equal(button.props.accessibilityRole, 'button'); assert.ok(button.props.accessibilityLabel);
       assert.ok(flatten(button.props.style({ pressed: false })).minHeight >= 44);
       button.props.onPress();
     }
-    assert.deepEqual(h.pushes, ['/(tabs)/tree', '/medication', '/logs', '/doctor-consultation', '/checkin-call/settings', '/checkin-call/voice-settings', '/care-circle',
+    assert.deepEqual(h.pushes, ['/(tabs)/tree', '/medication', '/logs', '/doctor-consultation', '/doctor-consultation-history', '/privacy-center', '/doctor-care', '/checkin-call/settings', '/checkin-call/voice-settings', '/care-circle',
       '/(tabs)/missions', '/coins', '/checkin-rewards', '/checkin-rewards/history']);
     const dialog = h.nodes(h.render()).find(node => node.type === 'PermissionModal');
     assert.equal(dialog.props.visible, true);
@@ -130,7 +132,7 @@ for (const language of ['vi', 'en']) {
   await test(`${language}: disabled medication and coin features have no Home shortcuts`, () => {
     const h = featureGridHarness({ language, medicationEnabled: false, coinsEnabled: false });
     const ids = h.tiles().map(node => node.props.testID);
-    assert.equal(ids.length, 10); assert.ok(!ids.includes('home-feature-medication')); assert.ok(!ids.includes('home-feature-coins'));
+    assert.equal(ids.length, 13); assert.ok(!ids.includes('home-feature-medication')); assert.ok(!ids.includes('home-feature-coins'));
     assert.equal(ids[0], 'home-feature-healthHistory');
     assert.ok(ids.includes('home-feature-expert'));
   });
@@ -146,7 +148,14 @@ for (const [width, multiplier, fontScale, columns] of [[393, 1, 1, 4], [430, 1, 
   });
 }
 
-for (const [width, multiplier, expected] of [[393, 1, [8, 4]], [320, 1, [6, 6]], [393, 1.6, [4, 4, 4]]]) {
+await test('consultation history, data and care plans follow the consultation kill-switch', () => {
+  const h = featureGridHarness({ expertEnabled: false });
+  const ids = h.tiles().map(node => node.props.testID);
+  for (const id of ['expert', 'consultationHistory', 'consultationData', 'carePlan']) assert.ok(!ids.includes(`home-feature-${id}`));
+  assert.ok(ids.includes('home-feature-family'));
+});
+
+for (const [width, multiplier, expected] of [[393, 1, [8, 7]], [320, 1, [6, 6, 3]], [393, 1.6, [4, 4, 4, 3]]]) {
   await test(`Home shortcuts paginate at ${width}px/font ${multiplier} and expose only the active page to accessibility`, () => {
     const h = featureGridHarness({ width, multiplier });
     const nodes = h.nodes(h.render());

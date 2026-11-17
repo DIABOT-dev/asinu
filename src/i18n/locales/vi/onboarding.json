@@ -441,5 +441,7 @@
   "goalUnderstandHealth": "Hiểu rõ tình trạng sức khoẻ",
   "goalDailyReminder": "Nhắc nhở đo chỉ số mỗi ngày",
   "goalMonitorChronic": "Theo dõi bệnh mãn tính",
-  "goalNutritionAdvice": "Lời khuyên dinh dưỡng & lối sống"
+  "goalNutritionAdvice": "Lời khuyên dinh dưỡng & lối sống",
+  "selectGender": "Chọn giới tính",
+  "selectBloodType": "Chọn nhóm máu"
 }

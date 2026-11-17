@@ -374,7 +374,7 @@ test('Native preview library is hidden in every build, including development', (
     if (previousEnvironment === undefined) delete process.env.EXPO_PUBLIC_APP_ENV;
     else process.env.EXPO_PUBLIC_APP_ENV = previousEnvironment;
   }
-  const file = ts.createSourceFile('profile.tsx', read('app/(tabs)/profile/index.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const file = ts.createSourceFile('profile.tsx', read('src/features/profile/ProfileScreen.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   let entry;
   const visit = node => {
     if (ts.isJsxAttribute(node) && node.name.getText(file) === 'onPress' && node.getText(file).includes('/checkin-call/ui-gallery')) entry = node;

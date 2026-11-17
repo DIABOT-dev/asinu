@@ -808,7 +808,7 @@ await test('all automatically displayed first-launch dialogs use the shared pres
   const layout = read('app/_layout.tsx');
   assert.match(layout, /<QueuedModalProvider>/); assert.match(layout, /<QueuedModalHost\s*\/>/);
   assert.ok(layout.indexOf('<QueuedModalProvider>') < layout.indexOf('<SessionProvider>'));
-  for (const file of ['app/(tabs)/profile/index.tsx', 'app/checkin-call/voice-settings.tsx', 'src/components/VoiceLogButton.tsx', 'src/components/EmergencySOSButton.tsx']) {
+  for (const file of ['src/features/profile/ProfileScreen.tsx', 'app/checkin-call/voice-settings.tsx', 'src/components/VoiceLogButton.tsx', 'src/components/EmergencySOSButton.tsx']) {
     assert.match(read(file), /<AppAlertModal\s+queued\b/, `${file} permission explanations must also wait for the presenter`);
   }
   const guide = read('src/components/CheckinGuideCarousel.tsx');

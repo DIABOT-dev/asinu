@@ -446,6 +446,9 @@
   "checkinClose": "Đóng",
   "healthFeedSectionTitle": "Asinu nhắc bạn",
   "quickActions": {
+    "consultationHistory": "Lịch sử tư vấn",
+    "consultationData": "Dữ liệu tư vấn",
+    "carePlan": "Kế hoạch chăm sóc",
     "title": "Thao tác nhanh",
     "healthHistory": "Lịch sức khỏe",
     "medication": "Nhắc thuốc",

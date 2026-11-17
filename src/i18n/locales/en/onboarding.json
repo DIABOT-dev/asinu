@@ -441,5 +441,7 @@
   "goalUnderstandHealth": "Understand my health status",
   "goalDailyReminder": "Daily health check reminders",
   "goalMonitorChronic": "Monitor chronic conditions",
-  "goalNutritionAdvice": "Nutrition & lifestyle advice"
+  "goalNutritionAdvice": "Nutrition & lifestyle advice",
+  "selectGender": "Select gender",
+  "selectBloodType": "Select blood type"
 }

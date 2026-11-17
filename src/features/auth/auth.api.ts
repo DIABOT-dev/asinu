@@ -20,6 +20,7 @@ export type RegisterPayload = {
 export type UpdateProfilePayload = {
   name?: string;
   phone?: string;
+  address?: { province: string; ward: string; street: string; provinceCode?: string; wardCode?: string } | null;
   dateOfBirth?: string;
   heightCm?: number;
   weightKg?: number;

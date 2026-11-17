@@ -1,12 +1,8 @@
 import { StyleSheet, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../ScaledText';
 import { colors, radius, spacing } from '../../styles';
 import { SkeletonBlock, SkeletonCard, SkeletonSectionTitle } from './Skeleton';
-
-const onPrimary = 'rgba(255,255,255,0.38)';
-const onPrimarySoft = 'rgba(255,255,255,0.24)';
 
 function RowCardSkeleton({
   lines = 2,
@@ -85,41 +81,18 @@ export function ProfileTabSkeleton() {
   return (
     <>
       <LoadingStatus />
-      <LinearGradient
-        colors={[colors.primary, colors.primaryDark]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.profileHero}
-      >
+      <View style={styles.profileHero}>
         <View style={styles.profileTop}>
-          <SkeletonBlock width={76} height={76} borderRadius={38} color={onPrimary} />
-          <View style={{ flex: 1, gap: 9 }}>
-            <SkeletonBlock width="42%" height={13} color={onPrimarySoft} />
-            <SkeletonBlock width="78%" height={24} color={onPrimary} />
-            <SkeletonBlock width="38%" height={12} color={onPrimarySoft} />
-          </View>
+          <SkeletonBlock width={112} height={112} borderRadius={56} />
         </View>
-        <SkeletonBlock width="56%" height={30} borderRadius={15} color={onPrimarySoft} />
-      </LinearGradient>
-
-      <SkeletonSectionTitle width="44%" />
-      {[0, 1, 2, 3].map((item) => (
-        <RowCardSkeleton key={item} />
-      ))}
-
-      <SkeletonSectionTitle width="36%" />
-      {[0, 1, 2].map((group) => (
-        <View key={group} style={styles.actionGroup}>
-          <SkeletonBlock width="30%" height={12} />
-          <View style={styles.actionGrid}>
-            {[0, 1].map((item) => (
-              <SkeletonCard key={item} style={styles.actionCard}>
-                <SkeletonBlock width={22} height={22} borderRadius={11} />
-                <SkeletonBlock width="70%" height={12} />
-              </SkeletonCard>
-            ))}
-          </View>
-        </View>
+        <SkeletonBlock width="42%" height={36} />
+        <SkeletonBlock width="100%" height={64} borderRadius={20} />
+      </View>
+      {[0, 1, 2, 3, 4].map((item) => (
+        <SkeletonCard key={item} style={styles.profileMenuRow}>
+          <SkeletonBlock width={26} height={26} borderRadius={13} />
+          <SkeletonBlock width="62%" height={18} />
+        </SkeletonCard>
       ))}
     </>
   );
@@ -255,14 +228,23 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   profileHero: {
-    borderRadius: radius.xl,
-    padding: spacing.xl,
-    gap: spacing.xl,
+    marginHorizontal: 16,
+    alignItems: 'center',
+    paddingBottom: 12,
+    gap: 12,
   },
   profileTop: {
+    alignItems: 'center',
+    paddingBottom: 14,
+  },
+  profileMenuRow: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    minHeight: 64,
+    borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: 12,
   },
   missionSkeletonRow: {
     paddingHorizontal: 8,

@@ -19,6 +19,7 @@ export type Profile = {
   name: string;
   email?: string;
   phone?: string;
+  address?: { province: string; ward: string; street: string; provinceCode?: string; wardCode?: string } | null;
   // Kept locally so flows that need provider-specific UX can distinguish
   // Apple from password and other social sign-ins after profile hydration.
   authProvider?: 'email' | 'phone' | SocialProvider;
