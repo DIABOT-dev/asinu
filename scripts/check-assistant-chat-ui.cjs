@@ -88,10 +88,10 @@ function translator(lang, namespace) {
   const values = JSON.parse(
     fs.readFileSync(`src/i18n/locales/${lang}/${namespace}.json`)
   );
-  return (key) => {
+  return (key, parameters = {}) => {
     const value = key.split(".").reduce((object, key) => object?.[key], values);
     assert.equal(typeof value, "string", key);
-    return value;
+    return value.replace(/\{\{(\w+)\}\}/g, (_, name) => String(parameters[name] ?? ""));
   };
 }
 function messageHarness({
@@ -427,8 +427,8 @@ function earlyHarness({
       "react-i18next": { useTranslation: () => ({ t }) },
       "./ScaledText": { ScaledText: "Text" },
       "./AppAlertModal": { AppAlertModal: "Alert", useAppAlert: () => alert },
-      "../features/app-assistant/AssistantChatMessage": {
-        AssistantChatMessage: "ChatMessage",
+      "../features/early-signal/EarlySignalDetails": {
+        EarlySignalDetails: "EarlyDetails",
       },
       "../features/early-signal/early-signal.api": {
         earlySignalApi: {
@@ -452,16 +452,49 @@ function earlyHarness({
       },
     });
   }
+  const { EarlySignalDetails } = moduleEvaluate(
+    "src/features/early-signal/EarlySignalDetails.tsx",
+    {
+      "react-native": {
+        ActivityIndicator: "ActivityIndicator",
+        Pressable: "Pressable",
+        View: "View",
+        StyleSheet: { create: (value) => value, hairlineWidth: 1 / 3 },
+      },
+      "@expo/vector-icons": { Ionicons: "Icon" },
+      "react-i18next": {
+        useTranslation: () => ({ t, i18n: { language: "vi" } }),
+      },
+      "../../components/ScaledText": { ScaledText: "Text" },
+      "../../hooks/useThemeColors": {
+        useThemeColors: () => ({ colors: theme.lightColors, isDark: false }),
+      },
+    }
+  );
+  const expand = (tree) =>
+    Array.isArray(tree)
+      ? tree.map(expand)
+      : tree && typeof tree === "object"
+      ? tree.type === "EarlyDetails"
+        ? EarlySignalDetails(tree.props)
+        : {
+            ...tree,
+            props: { ...tree.props, children: expand(tree.props?.children) },
+          }
+      : tree;
   const render = () =>
-    state.render(() =>
-      EarlySignalCard({
-        conversation: true,
-        healthScore,
-        onEmergency: () => {
-          emergencies++;
-        },
-      })
+    expand(
+      state.render(() =>
+        EarlySignalCard({
+          details: true,
+          healthScore,
+          onEmergency: () => {
+            emergencies++;
+          },
+        })
+      )
     );
+
   return {
     render,
     unmount: state.unmount,
@@ -491,10 +524,19 @@ test("early signals show the actual assessment in their own presentation and nev
   const h = earlyHarness({ assessment });
   h.render();
   await flush();
-  const message = nodes(h.render()).find((node) => node.type === "ChatMessage");
-  assert.ok(message.props.message.text.includes(assessment.summary));
-  assert.ok(message.props.message.text.includes(assessment.signals[0]));
-  assert.equal(message.props.avatar, "signal");
+  const tree = h.render();
+  const visible = JSON.stringify(tree);
+  assert.ok(visible.includes(assessment.summary));
+  assert.ok(visible.includes(assessment.signals[0]));
+  assert.ok(
+    nodes(tree).some((node) => node.props.testID === "early-signal-level")
+  );
+  assert.ok(
+    nodes(tree).some(
+      (node) => node.props.testID === "early-signal-recorded-signs"
+    )
+  );
+  assert.ok(!nodes(tree).some((node) => node.type === "ChatMessage"));
   assert.equal(h.evaluations, 0);
   h.unmount();
 });
@@ -514,17 +556,17 @@ test("urgent early signals retain every sign and the emergency action without co
   h.render();
   await flush();
   const tree = h.render(),
-    message = nodes(tree).find((node) => node.type === "ChatMessage");
-  assert.equal(message.props.allowCollapse, false);
-  assert.ok(message.props.message.text.includes("Dấu hiệu A"));
-  assert.ok(message.props.message.text.includes("Dấu hiệu B"));
+    visible = JSON.stringify(tree);
+  assert.ok(visible.includes("Dấu hiệu A"));
+  assert.ok(visible.includes("Dấu hiệu B"));
+  assert.ok(visible.includes("Chưa có người thân đủ quyền nhận cảnh báo"));
   assert.ok(
-    message.props.message.text.includes(
-      "Chưa có người thân đủ quyền nhận cảnh báo"
+    !nodes(tree).some(
+      (node) => node.props.numberOfLines || node.type === "ChatMessage"
     )
   );
   nodes(tree)
-    .find((node) => node.props.testID === "early-conversation-emergency")
+    .find((node) => node.props.testID === "early-signal-emergency")
     .props.onPress();
   assert.equal(h.emergencies, 1);
   h.unmount();
@@ -541,7 +583,7 @@ test("an empty early-signal view evaluates only after a deliberate press and blo
   await flush();
   assert.equal(h.evaluations, 0);
   const button = nodes(h.render()).find(
-    (node) => node.props.testID === "early-conversation-evaluate"
+    (node) => node.props.testID === "early-signal-evaluate"
   );
   const p = button.props.onPress();
   await button.props.onPress();
@@ -604,17 +646,106 @@ test("the three compact Home cards use real destinations and keep Asinu as a sep
   assert.deepEqual(routes, ["/care-circle", "/doctor-consultation"]);
 });
 
-test('Early signals open as a bottom modal with their own content and no assistant composer',()=>{
- const state=hooks();const store=select=>select({token:'fixture-token'});store.getState=()=>({token:'fixture-token'});
- const {EarlySignalDialog}=evaluate('src/features/early-signal/EarlySignalDialog.tsx',{
-  react:state.react,'react-native':{Linking:{openURL:async()=>{}},Pressable:'Pressable',ScrollView:'ScrollView',View:'View',StyleSheet:{create:value=>value,absoluteFill:{}}},
-  '@expo/vector-icons':{Ionicons:'Icon',MaterialCommunityIcons:'Icon'},'expo-router':{useIsFocused:()=>true},
-  'react-native-safe-area-context':{useSafeAreaInsets:()=>({top:59,bottom:34})},'react-i18next':{useTranslation:ns=>({t:translator('vi',ns)})},
-  '../../components/ScaledText':{ScaledText:'Text'},'../../components/QueuedModal':{QueuedModal:'QueuedModal'},'../../components/EarlySignalCard':{EarlySignalCard:'EarlySignalCard'},
-  '../profile/ProfileHealthcareBackground':{ProfileHealthcareBackground:'Backdrop'},'../../hooks/useThemeColors':{useThemeColors:()=>({colors:theme.lightColors})},'../auth/auth.store':{useAuthStore:store},
- });
- const tree=state.render(()=>EarlySignalDialog({onClose(){}}));assert.equal(tree.props.transparent,true);assert.equal(tree.props.visible,true);
- assert.equal(tree.props.children.props.style[0].justifyContent,'flex-end');
- assert.equal(nodes(tree).find(node=>node.props.testID==='early-signal-dialog').props.style[0].maxHeight,'85%');
- assert.ok(nodes(tree).some(node=>node.type==='EarlySignalCard'));assert.ok(!nodes(tree).some(node=>node.props.testID==='asinu-assistant-text'));state.unmount();
+test("Early signals open as a bottom modal with their own content and no assistant composer", () => {
+  const state = hooks();
+  const store = (select) => select({ token: "fixture-token" });
+  store.getState = () => ({ token: "fixture-token" });
+  const { EarlySignalDialog } = evaluate(
+    "src/features/early-signal/EarlySignalDialog.tsx",
+    {
+      react: state.react,
+      "react-native": {
+        Linking: { openURL: async () => {} },
+        Pressable: "Pressable",
+        ScrollView: "ScrollView",
+        View: "View",
+        StyleSheet: { create: (value) => value, absoluteFill: {} },
+      },
+      "@expo/vector-icons": {
+        Ionicons: "Icon",
+        MaterialCommunityIcons: "Icon",
+      },
+      "expo-router": { useIsFocused: () => true },
+      "react-native-safe-area-context": {
+        useSafeAreaInsets: () => ({ top: 59, bottom: 34 }),
+      },
+      "react-i18next": {
+        useTranslation: (ns) => ({ t: translator("vi", ns) }),
+      },
+      "../../components/ScaledText": { ScaledText: "Text" },
+      "../../components/QueuedModal": { QueuedModal: "QueuedModal" },
+      "../../components/EarlySignalCard": {
+        EarlySignalCard: "EarlySignalCard",
+      },
+      "../../hooks/useThemeColors": {
+        useThemeColors: () => ({ colors: theme.lightColors }),
+      },
+      "../auth/auth.store": { useAuthStore: store },
+    }
+  );
+  const tree = state.render(() => EarlySignalDialog({ onClose() {} }));
+  assert.equal(tree.props.transparent, true);
+  assert.equal(tree.props.visible, true);
+  assert.equal(tree.props.children.props.style[0].justifyContent, "flex-end");
+  assert.equal(
+    nodes(tree).find((node) => node.props.testID === "early-signal-dialog")
+      .props.style[0].maxHeight,
+    "85%"
+  );
+  assert.ok(nodes(tree).some((node) => node.type === "EarlySignalCard"));
+  assert.ok(
+    !nodes(tree).some((node) => node.props.testID === "asinu-assistant-text")
+  );
+  state.unmount();
+});
+
+test("early-signal loading and empty states never show an invented reassuring level", async () => {
+  const h = earlyHarness();
+  assert.ok(
+    nodes(h.render()).some(
+      (node) => node.props.testID === "early-signal-loading"
+    )
+  );
+  await flush();
+  const tree = h.render();
+  assert.ok(
+    nodes(tree).some((node) => node.props.testID === "early-signal-empty")
+  );
+  assert.ok(
+    !nodes(tree).some((node) => node.props.testID === "early-signal-level")
+  );
+  h.unmount();
+});
+test("early-signal follow-up, timestamp, and family notification remain separate readable sections", async () => {
+  const h = earlyHarness({
+    assessment: {
+      id: 10,
+      severity: "see_doctor",
+      summary: "Kết quả đã ghi nhận",
+      signals: ["Tín hiệu trong kết quả"],
+      urgent_signs: [],
+      suggested_specialty: "Chuyên khoa đã đề xuất",
+      created_at: "2026-11-17T07:30:00.000Z",
+      is_red_flag: true,
+      family_notified_at: "2026-11-17T07:31:00.000Z",
+    },
+  });
+  h.render();
+  await flush();
+  const tree = h.render();
+  for (const id of [
+    "early-signal-urgent-signs",
+    "early-signal-next-step",
+    "early-signal-family-status",
+  ].filter((id) => id !== "early-signal-urgent-signs"))
+    assert.ok(nodes(tree).some((node) => node.props.testID === id));
+  assert.ok(JSON.stringify(tree).includes("Chuyên khoa đã đề xuất"));
+  assert.ok(JSON.stringify(tree).includes("17/11/2026"));
+  assert.ok(!JSON.stringify(tree).includes("Invalid Date"));
+  h.unmount();
+});
+
+test('an urgent assessment without a red flag retains its clinic recommendation instead of becoming an emergency call',async()=>{
+ const h=earlyHarness({assessment:{id:12,severity:'urgent',is_red_flag:false,summary:'Kết quả gốc',signals:['Dấu hiệu trong kết quả'],urgent_signs:[],disclaimer:'Thông tin gốc'}});
+ h.render();await flush();const tree=h.render();assert.ok(JSON.stringify(tree).includes('Cần đi khám ngay'));assert.ok(!nodes(tree).some(node=>node.props.testID==='early-signal-emergency'));h.unmount();
 });

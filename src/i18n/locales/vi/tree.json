@@ -120,5 +120,13 @@
   "earlyOpen": "Xem sức khỏe gần đây",
   "journalFutureDayAccessibility": "Ngày {{day}}, chưa đến ngày này.",
   "earlyReviewSubtitle": "Xem lại các dấu hiệu sức khỏe đã ghi nhận",
-  "earlyCallError": "Chưa mở được cuộc gọi. Bạn hãy gọi 115 từ điện thoại nhé."
+  "earlyCallError": "Chưa mở được cuộc gọi. Bạn hãy gọi 115 từ điện thoại nhé.",
+  "earlyLoading": "Đang tải tín hiệu sớm…",
+  "earlyNoAssessment": "Chưa có bản tổng hợp",
+  "earlyLevelHeading": "Mức độ hiện tại",
+  "earlyRecordedSignals": "Dấu hiệu đã ghi nhận",
+  "earlyUrgentSignals": "Dấu hiệu cần ưu tiên",
+  "earlyNextStep": "Hướng kiểm tra",
+  "earlyUpdatedAt": "Cập nhật: {{time}}",
+  "earlyRefreshError": "Chưa làm mới được dữ liệu. Kết quả đang hiển thị là lần ghi nhận trước."
 }

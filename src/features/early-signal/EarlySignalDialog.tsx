@@ -7,7 +7,6 @@ import { useTranslation } from "react-i18next";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { QueuedModal } from "../../components/QueuedModal";
 import { EarlySignalCard } from "../../components/EarlySignalCard";
-import { ProfileHealthcareBackground } from "../profile/ProfileHealthcareBackground";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { useAuthStore } from "../auth/auth.store";
 import type { HealthScoreData } from "../checkin/checkin.api";
@@ -33,7 +32,7 @@ export function EarlySignalDialog({
     <QueuedModal
       visible={focused && !!token}
       transparent
-      animationType="fade"
+      animationType="slide"
       interruptible
       priority={10}
       statusBarTranslucent
@@ -57,7 +56,6 @@ export function EarlySignalDialog({
           accessibilityViewIsModal
           testID="early-signal-dialog"
         >
-          <ProfileHealthcareBackground />
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
           <View
             style={[
@@ -99,7 +97,7 @@ export function EarlySignalDialog({
             contentContainerStyle={[styles.content, { paddingBottom: 12 }]}
           >
             <EarlySignalCard
-              conversation
+              details
               healthScore={healthScore}
               onEmergency={() => {
                 if (useAuthStore.getState().token !== token) return;

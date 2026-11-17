@@ -120,5 +120,13 @@
   "earlyOpen": "View your recent health",
   "journalFutureDayAccessibility": "Day {{day}}, upcoming date.",
   "earlyReviewSubtitle": "Review your recorded health signals",
-  "earlyCallError": "Could not open the call. Please dial 115 on your phone."
+  "earlyCallError": "Could not open the call. Please dial 115 on your phone.",
+  "earlyLoading": "Loading early signals…",
+  "earlyNoAssessment": "No assessment yet",
+  "earlyLevelHeading": "Current concern level",
+  "earlyRecordedSignals": "Recorded signals",
+  "earlyUrgentSignals": "Priority signals",
+  "earlyNextStep": "Suggested follow-up",
+  "earlyUpdatedAt": "Updated: {{time}}",
+  "earlyRefreshError": "Could not refresh the data. The previous assessment is still shown."
 }
