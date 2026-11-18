@@ -14,7 +14,9 @@ export function CareCircleMemberStrip({ members, selectedId, onSelect, onAdd }: 
   onAdd: () => void;
 }) {
   const { t } = useTranslation('careCircle');
-  const { colors } = useThemeColors();
+  const { colors, isDark } = useThemeColors();
+  const selectedFill = isDark ? colors.primary : colors.primaryDark;
+  const selectedInitials = isDark ? colors.background : colors.surface;
   return (
     <View testID="care-circle-member-strip" style={styles.section}>
       <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>{t('familyConnectionsTitle')}</Text>
@@ -25,18 +27,20 @@ export function CareCircleMemberStrip({ members, selectedId, onSelect, onAdd }: 
             <Pressable key={member.id} testID={`care-circle-select-${member.id}`} accessibilityRole="button"
               accessibilityLabel={`${member.name}, ${member.relationship}`} accessibilityState={{ selected }}
               onPress={() => onSelect(member.id)} style={styles.member}>
-              <View style={[styles.avatarRing, { borderColor: selected ? colors.primaryText : colors.border }]}>
-                <Avatar name={member.name} imageUrl={member.avatarUrl} size={76} />
+              <View style={[styles.avatarRing, { borderColor: selected ? colors.primary : colors.border }]}>
+                <Avatar name={member.name} imageUrl={member.avatarUrl} size={76}
+                  containerStyle={{ backgroundColor: selected ? selectedFill : colors.primaryLight, borderWidth: 0 }}
+                  initialsStyle={{ fontSize: 26, color: selected ? selectedInitials : colors.primaryText }} />
               </View>
-              <Text style={[styles.name, { color: selected ? colors.primaryText : colors.textPrimary }]}>{member.name}</Text>
+              <Text style={[styles.name, { color: colors.textPrimary }]}>{member.name}</Text>
               <Text style={[styles.relationship, { color: colors.textSecondary }]}>{member.relationship}</Text>
             </Pressable>
           );
         })}
         <Pressable testID="care-circle-strip-add" accessibilityRole="button" accessibilityLabel={t('addRelative')}
           onPress={onAdd} style={styles.member}>
-          <View style={[styles.add, { borderColor: colors.primaryText }]}>
-            <Ionicons name="add" size={36} color={colors.primaryText} accessible={false} />
+          <View style={[styles.add, { borderColor: colors.primary }]}>
+            <Ionicons name="add" size={36} color={colors.primary} accessible={false} />
           </View>
           <Text style={[styles.name, { color: colors.primaryText }]}>{t('addRelativeShort')}</Text>
         </Pressable>
