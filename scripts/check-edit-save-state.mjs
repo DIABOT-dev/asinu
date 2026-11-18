@@ -88,7 +88,7 @@ function invitationHarness(language, qr = false) {
   };
   const deps = {
     useState: h.react.useState, useRef: h.react.useRef, useMemo: h.react.useMemo, useEffect: h.react.useEffect,
-    ...native, ...icons, Text: 'Text', TextInput: 'TextInput', Dropdown: 'Dropdown', AppAlertModal: 'AlertModal',
+    ...native, ...icons, Keyboard: { dismiss() {} }, Text: 'Text', TextInput: 'TextInput', Dropdown: 'Dropdown', AppAlertModal: 'AlertModal',
     Stack: { Screen: 'StackScreen' }, Animated: { View: 'AnimatedView' },
     GuideScrollScope: 'GuideScrollScope', GuideTarget: 'GuideTarget',
     FadeIn: { duration() { return this; } },
@@ -116,13 +116,16 @@ function invitationHarness(language, qr = false) {
   `, { react: h.react });
   const component = makeScreen(deps); const render = () => h.render(component);
   const flush = async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); };
-  const control = label => nodes(render()).find(node => node.type === 'Button' && node.props.accessibilityLabel === t(label));
+  const button = label => nodes(render()).find(node => node.type === 'Button' && node.props.accessibilityLabel === label);
+  const control = label => button(t(label));
   return { calls, render, t,
     async selectRecipient() {
       render(); h.effects(); await flush();
       if (!qr) {
         nodes(render()).find(node => node.type === 'TextInput').props.onChangeText('0900000001');
-        await control('search').props.onPress(); control('selectThisUser').props.onPress();
+        await button(tc('continue')).props.onPress();
+        assert.equal(nodes(render()).filter(node => node.type === 'Switch').length, 0);
+        control('selectThisUser').props.onPress();
       }
     },
     choose: id => {
@@ -130,6 +133,8 @@ function invitationHarness(language, qr = false) {
       field.props.onChange(field.props.options.find(option => option.id === id));
     },
     send: () => control('sendInvite').props.onPress(),
+    shareNotifications: value => nodes(render()).find(node => node.type === 'Switch' &&
+      node.props.accessibilityLabel === t('familyShareMyNotifications')).props.onValueChange(value),
   };
 }
 for (const language of ['vi', 'en']) for (const qr of [false, true]) {
@@ -137,10 +142,14 @@ for (const language of ['vi', 'en']) for (const qr of [false, true]) {
     const h = invitationHarness(language, qr);
     const initial = nodes(h.render());
     assert.ok(!initial.some(node => node.type === 'Text' && node.props.children === h.t('role')));
-    const fields = initial.filter(node => node.type === 'Dropdown');
+    assert.ok(!initial.some(node => node.type === 'Dropdown' || node.type === 'Switch'));
+    await h.selectRecipient();
+    const details = nodes(h.render());
+    const fields = details.filter(node => node.type === 'Dropdown');
     assert.equal(fields.length, 1); assert.equal(fields[0].props.searchable, true);
     assert.equal(fields[0].props.options.length, 54);
-    await h.selectRecipient();
+    assert.deepEqual(details.filter(node => node.type === 'Switch').map(node => node.props.accessibilityLabel),
+      ['permViewLogs', 'permReceiveAlerts', 'permAckEscalation', 'familyShareMyNotifications'].map(key => h.t(key)));
     for (const option of familyRelationships.FAMILY_RELATIONSHIPS) {
       h.choose(option.id); await h.send();
       const write = h.calls.writes.at(-1);
@@ -148,8 +157,11 @@ for (const language of ['vi', 'en']) for (const qr of [false, true]) {
       assert.equal(write.payload.relationship_type, option.id);
       assert.equal(write.payload.role, 'than-nhan');
       assert.deepEqual(write.payload.permissions, { can_view_logs: true, can_receive_alerts: true, can_ack_escalation: true });
+      assert.equal(write.payload.share_notifications, undefined);
     }
     assert.equal(h.calls.writes.length, 54);
+    h.shareNotifications(true); await h.send();
+    assert.equal(h.calls.writes.at(-1).payload.share_notifications, true);
   });
 }
 for (const language of ['vi', 'en']) {

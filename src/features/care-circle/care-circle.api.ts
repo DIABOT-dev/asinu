@@ -175,6 +175,7 @@ export type CreateInvitationPayload = {
   addressee_id: string;
   relationship_type?: string;
   role?: string;
+  share_notifications?: boolean;
   permissions: {
     can_view_logs: boolean;
     can_receive_alerts: boolean;
