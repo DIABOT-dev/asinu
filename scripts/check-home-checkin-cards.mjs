@@ -464,6 +464,43 @@ await test('Action groups reuse V2.1 access without requesting unused coin balan
   } finally { cleanup(); }
 });
 
+await test('Home shows the signed-in member’s coin balance just before the bell and opens coins', async () => {
+  const home = read('app/(tabs)/home/index.tsx');
+  assert.match(home, /<HomeCoinBalance \/>\s*<NotificationBell/);
+  let snapshot, focus, refresh, auth = { profile: { id: '7' }, token: 'session-a' };
+  let balance = 0;
+  const destinations = [];
+  const useAuthStore = Object.assign(select => select(auth), { getState: () => auth });
+  const { HomeCoinBalance } = evaluate(read('src/features/v21/HomeCoinBalance.tsx'), {
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    react: { useCallback: work => work, useState: () => [snapshot, value => { snapshot = value; }] },
+    'expo-router': { useFocusEffect: work => { focus = work; } },
+    'react-i18next': { useTranslation: () => ({ t: (_key, vars) => vars?.count, i18n: { language: 'vi' } }) },
+    'react-native': { Pressable: 'Button', StyleSheet: { create: value => value },
+      AppState: { addEventListener: () => ({ remove() {} }) } },
+    '../../components/ScaledText': { ScaledText: 'Text' },
+    '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => destinations.push(route) }) },
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
+    '../../lib/apiClient': { ApiError: Error },
+    '../../lib/health-action-events': { subscribeHealthAction: callback => { refresh = callback; return () => {}; } },
+    '../auth/auth.store': { useAuthStore },
+    './HealthCoinIcon': { HealthCoinIcon: 'CoinIcon' },
+    './v21.api': { v21Api: { coins: async () => ({ balance }) } },
+  });
+  assert.equal(HomeCoinBalance(), null);
+  const cleanup = focus();
+  try {
+    await flush();
+    assert.equal(HomeCoinBalance().props.children[1].props.children, '0');
+    HomeCoinBalance().props.onPress();
+    assert.deepEqual(destinations, ['/coins']);
+    balance = 35; refresh(); await flush();
+    assert.equal(HomeCoinBalance().props.children[1].props.children, '35');
+    auth = { profile: { id: '8' }, token: 'session-b' };
+    assert.equal(HomeCoinBalance(), null);
+  } finally { cleanup(); }
+});
+
 function harness({
   language = "vi",
   isDark = false,

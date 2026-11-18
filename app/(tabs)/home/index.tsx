@@ -12,6 +12,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { DailyCheckinCard, InstantCheckinCard } from '../../../src/components/DailyCheckinCard';
 import { HomeConnections } from '../../../src/components/HomeConnections';
 import { HomeProfileAvatar } from '../../../src/components/HomeProfileAvatar';
+import { HomeCoinBalance } from '../../../src/features/v21/HomeCoinBalance';
 import { EarlySignalDialog } from '../../../src/features/early-signal/EarlySignalDialog';
 import { RippleRefreshScrollView } from '../../../src/components/RippleRefresh';
 import { checkinApi } from '../../../src/features/checkin/checkin.api';
@@ -828,6 +829,7 @@ export default function HomeScreen() {
           >
             <MaterialCommunityIcons name="radar" size={30} color={healthScore?.factors.length ? colors.warning : colors.primaryText} />
           </Pressable>
+          <HomeCoinBalance />
           <NotificationBell
             unreadCount={unreadCount}
             onOpen={handleOpenNotifications}
