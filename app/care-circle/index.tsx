@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
@@ -431,9 +431,17 @@ export default function CareCircleScreen() {
           <View style={styles.familyHeader}>
             {profile ? <HomeProfileAvatar profile={profile} /> : <View style={styles.familyHeaderSide} />}
             <Text accessibilityRole="header" style={styles.familyTitle}>{t('familyConnectionsTitle')}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel={t('scanQr')} style={styles.familyHeaderSide}
+            <Pressable accessibilityRole="button" accessibilityLabel={t('scanQr')}
+              style={({ pressed }) => [styles.familyHeaderSide, pressed && styles.familyScanPressed]}
               onPress={() => router.push('/care-circle/scan')}>
-              <Ionicons name="qr-code-outline" size={26} color={colors.primaryText} accessible={false} />
+              <LinearGradient
+                colors={isDark ? ['#434770', '#20546B'] : ['#F0DBFC', '#B8F4FA']}
+                start={{ x: 0, y: 0.15 }}
+                end={{ x: 1, y: 0.85 }}
+                style={styles.familyScanTile}
+              >
+                <MaterialCommunityIcons name="qrcode-scan" size={29} color={isDark ? '#E2EEFF' : '#203F99'} accessible={false} />
+              </LinearGradient>
             </Pressable>
           </View>
           {!showInitialSkeleton && <CareCircleMemberStrip members={members} selectedId={selectedMember?.id} guidedMemberId={guidedMemberId} hideHeading
@@ -843,6 +851,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
   return StyleSheet.create({
     familyHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
     familyHeaderSide: { width: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+    familyScanTile: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    familyScanPressed: { opacity: 0.75 },
     familyTitle: { flex: 1, textAlign: 'center', fontSize: 21, fontWeight: '700', color: colors.textPrimary },
     familyReport: { paddingHorizontal: 16, paddingBottom: 24, gap: 10 },
     familyReportTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
