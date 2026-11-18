@@ -6,6 +6,7 @@ import { Image, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInitialLoadingGate } from '../../src/hooks/useInitialLoadingGate';
+import { useScaledFontSize } from '../../src/hooks/useScaledTypography';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { bottomTabBar } from '../../src/styles';
 import { useOnboardingGate } from '../../src/features/auth/useOnboardingGate';
@@ -71,7 +72,8 @@ export default function TabsLayout() {
   const { t } = useTranslation('common');
   const { colors } = useThemeColors();
   const { bottom } = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, fontScale } = useWindowDimensions();
+  const labelSize = Math.min(17, Math.round(useScaledFontSize(12) * fontScale));
   const sideInset = Math.max(bottomTabBar.horizontalInset, (width - bottomTabBar.maxWidth) / 2);
   const [tabIconSources, setTabIconSources] = useState<Array<TabIconSource | null>>(
     () => tabIconModules.map(() => null),
@@ -110,10 +112,13 @@ export default function TabsLayout() {
     () => ({
       headerShown: false,
       lazy: true,
-      tabBarActiveTintColor: colors.primary,
+      tabBarActiveTintColor: colors.primaryText,
       tabBarInactiveTintColor: colors.textSecondary,
       tabBarHideOnKeyboard: false,
-      tabBarShowLabel: false,
+      tabBarShowLabel: true,
+      tabBarLabelPosition: 'below-icon' as const,
+      tabBarAllowFontScaling: false,
+      tabBarLabelStyle: [styles.tabLabel, { fontSize: labelSize }],
       tabBarItemStyle: { flex: 1, minHeight: bottomTabBar.contentHeight },
       tabBarIconStyle: styles.iconBounds,
       tabBarStyle: {
@@ -129,7 +134,7 @@ export default function TabsLayout() {
         paddingTop: bottomTabBar.verticalPadding,
       },
     }),
-    [bottom, colors, sideInset]
+    [bottom, colors, labelSize, sideInset]
   );
 
   // Keep the whole visible tab bar in loading state until all three icons are ready.
@@ -220,6 +225,12 @@ const styles = StyleSheet.create({
   iconBounds: {
     width: 60,
     height: 38,
+  },
+  tabLabel: {
+    fontFamily: 'Inter_600SemiBold',
+    fontWeight: 'normal',
+    lineHeight: 22,
+    includeFontPadding: false,
   },
   iconFrame: {
     borderRadius: 999,

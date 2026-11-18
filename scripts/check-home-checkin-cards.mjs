@@ -272,17 +272,21 @@ await test('health history leaves the bottom bar and stays available through its
     'expo-asset': { Asset: {} },
     'expo-router': { Tabs },
     'react-i18next': { useTranslation: () => ({ t: key => key }) },
-    'react-native': { Image: 'Image', StyleSheet: { create: value => value }, useWindowDimensions: () => ({ width: 393 }), View: 'View' },
+    'react-native': { Image: 'Image', StyleSheet: { create: value => value }, useWindowDimensions: () => ({ width: 393, fontScale: 1 }), View: 'View' },
     'react-native-reanimated': {},
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ bottom: 0 }) },
     '../../src/hooks/useInitialLoadingGate': { useInitialLoadingGate: ready => { loading.push(ready); return !ready; } },
+    '../../src/hooks/useScaledTypography': { useScaledFontSize: size => size },
     '../../src/hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
     '../../src/styles': { bottomTabBar: { horizontalInset: 16, maxWidth: 600, contentHeight: 60, verticalPadding: 8, minimumBottomPadding: 8 } },
     '../../src/features/auth/useOnboardingGate': { useOnboardingGate: () => true },
   });
-  const screens = TabsLayout().props.children.filter(child => child?.type === 'TabScreen');
-  assert.deepEqual(screens.filter(screen => screen.props.options.href !== null).map(screen => screen.props.name),
-    ['home/index', 'care-circle/index', 'operations/index']);
+  const tabs = TabsLayout();
+  assert.equal(tabs.props.screenOptions.tabBarShowLabel, true);
+  assert.equal(tabs.props.screenOptions.tabBarLabelPosition, 'below-icon');
+  const screens = tabs.props.children.filter(child => child?.type === 'TabScreen');
+  assert.deepEqual(screens.filter(screen => screen.props.options.href !== null).map(screen => [screen.props.name, screen.props.options.title]),
+    [['home/index', 'tabHome'], ['care-circle/index', 'tabConnect'], ['operations/index', 'tabActions']]);
   assert.equal(screens.find(screen => screen.props.name === 'tree/index').props.options.href, null);
   assert.ok(fs.existsSync('app/(tabs)/tree/index.tsx'));
   assert.deepEqual(loading, [true], 'Hidden tabs do not delay the three visible icons');
