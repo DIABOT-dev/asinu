@@ -447,7 +447,9 @@
   "keyboardDone": "Xong",
   "addressDataTitle": "Dữ liệu địa chỉ",
   "addressDataAttribution": "Dữ liệu phường/xã: Địa Chỉ Việt, có điều chỉnh tên tỉnh/thành phố.",
-  "addressDataLicense": "Giấy phép Creative Commons Attribution 4.0",
+  "dataSourceLicense": "Giấy phép Creative Commons Attribution 4.0",
+  "weatherDataTitle": "Dữ liệu thời tiết",
+  "weatherDataAttribution": "Asinu tạo lời nhắc sinh hoạt dựa trên dữ liệu của MET Norway.",
   "tabActions": "Thao tác",
   "openProfile": "Mở trang Cá nhân"
 }

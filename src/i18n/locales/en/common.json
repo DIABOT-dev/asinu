@@ -447,7 +447,9 @@
   "keyboardDone": "Done",
   "addressDataTitle": "Address data",
   "addressDataAttribution": "Ward data: Địa Chỉ Việt, with province and city names adapted.",
-  "addressDataLicense": "Creative Commons Attribution 4.0 license",
+  "dataSourceLicense": "Creative Commons Attribution 4.0 license",
+  "weatherDataTitle": "Weather data",
+  "weatherDataAttribution": "Asinu creates daily-life reminders based on data from MET Norway.",
   "tabActions": "Actions",
   "openProfile": "Open personal settings"
 }

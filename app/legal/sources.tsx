@@ -22,7 +22,16 @@ export default function HealthSourcesScreen() {
             <Text style={styles.dataLink}>{t('addressDataAttribution')}</Text>
           </Pressable>
           <Pressable accessibilityRole="link" onPress={() => { void Linking.openURL('https://creativecommons.org/licenses/by/4.0/').catch(() => {}); }}>
-            <Text style={styles.dataLink}>{t('addressDataLicense')}</Text>
+            <Text style={styles.dataLink}>{t('dataSourceLicense')}</Text>
+          </Pressable>
+        </View>
+        <View style={styles.header}>
+          <Text style={styles.dataTitle}>{t('weatherDataTitle')}</Text>
+          <Pressable accessibilityRole="link" onPress={() => { void Linking.openURL('https://api.met.no/weatherapi/locationforecast/2.0/documentation').catch(() => {}); }}>
+            <Text style={styles.dataLink}>{t('weatherDataAttribution')}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="link" onPress={() => { void Linking.openURL('https://creativecommons.org/licenses/by/4.0/').catch(() => {}); }}>
+            <Text style={styles.dataLink}>{t('dataSourceLicense')}</Text>
           </Pressable>
         </View>
       </ScrollView>
