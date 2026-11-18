@@ -123,7 +123,7 @@
   "coinsHistoryTab": "History",
   "coinsTaskDaily": "Up to {{count}} per day",
   "coinsTaskWeekly": "Up to {{count}} per week",
-  "coinsFairness": "Every answer earns the same coins.",
+  "coinsFairness": "All answers earn equal coins.",
   "coinsExpiryShort": "Coins last 12 months.",
   "coinsPersonalShort": "Coins stay in your own account.",
   "coinsChooseReward": "Choose this reward",
