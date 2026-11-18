@@ -15,7 +15,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Stack } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { QueuedModal } from "../../components/QueuedModal";
@@ -1023,11 +1023,19 @@ export function MedicationScheduleSheet({
 }
 
 export default function MedicationOverviewScreen() {
-  const med = useMedicationOverview();
+  const { patientId } = useLocalSearchParams<{ patientId?: string }>();
+  const requested = Number(patientId);
+  const initialPatient = patientId === undefined ? undefined
+    : Number.isSafeInteger(requested) && requested > 0 ? requested : 0;
+  return <MedicationOverviewRoute key={initialPatient ?? 'default'} initialPatient={initialPatient} />;
+}
+
+function MedicationOverviewRoute({ initialPatient }: { initialPatient?: number }) {
+  const med = useMedicationOverview(initialPatient);
   const router = useGuardedRouter();
   const { colors } = useThemeColors();
   const insets = useSafeAreaInsets();
-  const [tab, setTab] = useState<Tab>("today");
+  const [tab, setTab] = useState<Tab>(initialPatient !== undefined ? "schedules" : "today");
   return (
     <View
       style={[

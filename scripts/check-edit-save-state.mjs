@@ -191,7 +191,7 @@ await test('family dropdown searches accents and unaccented text using the actua
   assert.equal(filterOptions(options, '').length, 54);
 });
 
-function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan', relationship = 'bo', permissions, update, canViewTheirs = false } = {}) {
+function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan', relationship = 'bo', permissions, update, canViewTheirs = false, canManageMedication = false } = {}) {
   theme.applyTheme(isDark ? 'dark' : 'light');
   const h = hooks();
   const t = translate(language, 'careCircle');
@@ -244,6 +244,16 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     '../../src/features/care-circle/components/CareCircleScanSpeech': { CareCircleScanSpeech: 'ScanSpeech' },
     '../../src/features/care-circle/components/CareCircleQuickActions': { CareCircleQuickActions: 'QuickActions' },
     '../../src/features/care-circle/components/CareCircleMemberStrip': { CareCircleMemberStrip: 'MemberStrip' },
+    '../../src/components/HomeProfileAvatar': { HomeProfileAvatar: 'HomeProfileAvatar' },
+    '../../src/features/care-circle/components/MemberOverviewCards': {
+      MemberHealthMetrics: 'MemberHealthMetrics', FamilyActionCard: 'FamilyActionCard',
+    },
+    '../../src/features/care-circle/useMemberOverview': {
+      useMemberOverview: (id, active, canRead) => ({
+        status: canRead ? 'ready' : 'denied',
+        canManageMedication: active && !!id && canManageMedication,
+      }),
+    },
     '../../src/components/HealthJournalCalendar': { HealthJournalCalendar: 'HealthJournalCalendar' },
     '../../src/features/care-circle/components/CareCircleInviteBanner': { CareCircleInviteBanner: 'InviteBanner' },
     '../../src/features/care-circle/components/CareCircleHeroBanner': { CareCircleHeroBanner: 'HeroBanner' },
@@ -296,6 +306,17 @@ await test('top member avatars select only that relative’s permitted calendar 
   h.care.connections = []; assert.equal(list().props.members.length, 0); assert.equal(calendar(), undefined);
   list().props.onAdd(); assert.deepEqual(h.calls.routes, ['/care-circle/invite']);
   assert.deepEqual(h.calls.writes, []);
+});
+await test('family scheduling opens the selected relative and leaves unsupported actions inactive', () => {
+  const h = connectionHarness({ canViewTheirs: true, canManageMedication: true });
+  h.focus();
+  const find = key => nodes(h.render()).find(node => node.type === 'FamilyActionCard' &&
+    node.props.title === translate('vi', 'careCircle')(key));
+  find('familyMedicationSetup').props.onPress();
+  assert.deepEqual(h.calls.routes, [{ pathname: '/medication', params: { patientId: 'relative' } }]);
+  for (const key of ['familyBpSetup', 'familyGlucoseSetup', 'familyVisitSetup']) {
+    assert.equal(find(key).props.onPress, undefined);
+  }
 });
 for (const language of ['vi', 'en']) {
   await test(`${language}: connected members expand inline and collapse without changing saved connections`, () => {

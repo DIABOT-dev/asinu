@@ -6,6 +6,7 @@ export type {
   CareCircleQrToken,
   CreateInvitationPayload,
   CreateQrInvitationPayload,
+  MemberHealthLog,
   MemberHealthSummary,
 } from './care-circle.api';
 export { useCareCircle } from './care-circle.hook';

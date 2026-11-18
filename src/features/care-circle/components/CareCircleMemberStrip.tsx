@@ -7,11 +7,12 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 
 export type CircleMember = { id: string; name: string; avatarUrl?: string; relationship: string };
 
-export function CareCircleMemberStrip({ members, selectedId, onSelect, onAdd }: {
+export function CareCircleMemberStrip({ members, selectedId, onSelect, onAdd, hideHeading }: {
   members: CircleMember[];
   selectedId?: string;
   onSelect: (id: string) => void;
   onAdd: () => void;
+  hideHeading?: boolean;
 }) {
   const { t } = useTranslation('careCircle');
   const { colors, isDark } = useThemeColors();
@@ -19,7 +20,7 @@ export function CareCircleMemberStrip({ members, selectedId, onSelect, onAdd }: 
   const selectedInitials = isDark ? colors.background : colors.surface;
   return (
     <View testID="care-circle-member-strip" style={styles.section}>
-      <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>{t('familyConnectionsTitle')}</Text>
+      {!hideHeading && <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>{t('familyConnectionsTitle')}</Text>}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.members}>
         {members.map(member => {
           const selected = member.id === selectedId;

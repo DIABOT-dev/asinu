@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const ts = require('typescript');
 const flush = async () => { for (let n = 0; n < 30; n++) await Promise.resolve(); };
 const defer = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
-function harness() {
+function harness(initialPatient) {
   const slots = [], timers=new Map(), clock={now:Date.now()}; let cursor = 0, effects = [], focusCallback;
   class Clock extends Date { constructor(...args){super(...(args.length?args:[clock.now]));} static now(){return clock.now;} }
   const memo = (fn, deps) => { const i = cursor++, old = slots[i]; if (!old || deps.some((x, n) => !Object.is(x, old.deps[n]))) slots[i] = { value: fn(), deps }; return slots[i].value; };
@@ -43,7 +43,7 @@ function harness() {
   // Execute the production controller with isolated network/native adapters.
   // eslint-disable-next-line no-new-func
   new Function('module', 'exports', 'require', 'setInterval', 'clearInterval', 'Date', code)(module, module.exports, key => { assert.ok(key in deps, key); return deps[key]; }, fn=>{const id=Symbol();timers.set(id,fn);return id;},id=>timers.delete(id),Clock);
-  const read = () => { cursor = 0; return module.exports.useMedicationOverview(); };
+  const read = () => { cursor = 0; return module.exports.useMedicationOverview(initialPatient); };
   const settle = async () => { for (let n = 0; n < 3; n++) { read(); const work = effects; effects = []; work.forEach(fn => fn()); await flush(); } return read(); };
   return { read, settle, calls, server, auth, toasts, errors, schedule, overview, clock, tick:async(ms=15000)=>{clock.now+=ms;for(const fn of timers.values())fn();await flush();}, refocus:()=>focusCallback(),blur: () => {slots.forEach(x => x?.cleanup?.());timers.clear();} };
 }
@@ -88,6 +88,20 @@ function answerActions(med, tab = 'today') {
     sheet: () => nodes(module.exports.MedicationScheduleSheet({ med })) };
 }
 (async () => {
+  await test('a family deep link loads only the requested relative', async () => {
+    const h = harness(2);
+    const med = await h.settle();
+    assert.equal(med.data.patientId, 2);
+    assert.deepEqual(h.calls.filter(([action]) => action === 'read').map(([, id]) => id), [2]);
+    h.blur();
+  });
+  await test('a family deep link without permission never opens personal medication', async () => {
+    const h = harness(3);
+    const med = await h.settle();
+    assert.equal(med.data, null);
+    assert.ok(!h.calls.some(([action]) => action === 'read'));
+    h.blur();
+  });
   await test('the redesigned header keeps Add available on both tabs and blocks it while saving', async () => {
     const h = harness(); await h.settle();
     for (const tab of ['today', 'schedules']) {

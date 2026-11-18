@@ -45,6 +45,9 @@ import { getConnectionEditChanges, type ConnectionEditValues } from '../../src/f
 import { CareCircleQrActions } from '../../src/features/care-circle/components/CareCircleQrActions';
 import { CareCircleQuickActions } from '../../src/features/care-circle/components/CareCircleQuickActions';
 import { CareCircleMemberStrip } from '../../src/features/care-circle/components/CareCircleMemberStrip';
+import { HomeProfileAvatar } from '../../src/components/HomeProfileAvatar';
+import { FamilyActionCard, MemberHealthMetrics } from '../../src/features/care-circle/components/MemberOverviewCards';
+import { useMemberOverview } from '../../src/features/care-circle/useMemberOverview';
 import { HealthJournalCalendar } from '../../src/components/HealthJournalCalendar';
 import { GuideScrollScope, GuideTarget } from '../../src/features/guidance/GuidanceProvider';
 
@@ -86,6 +89,7 @@ export default function CareCircleScreen() {
   const [focused, setFocused] = useState(false);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const scrollToMembersPending = useRef(false);
+  const membersOffset = useRef(0);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editConnection, setEditConnection] = useState<{
     id: string;
@@ -300,6 +304,13 @@ export default function CareCircleScreen() {
   const selectedConnection = connections.find(connection => connection.id === selectedMember?.id);
   const canViewSelected = selectedConnection && getConnectionHealthAccess(selectedConnection, profile?.id).canViewTheirs;
   const selectedUserId = selectedMember?.userId;
+  const overview = useMemberOverview(selectedUserId, focused, !!canViewSelected, calendarRefreshKey);
+  const openMedication = () => {
+    if (!selectedUserId || !overview.canManageMedication) return;
+    const context = currentConnectionContext.current;
+    if (context.userId !== profile?.id || !context.connections.some(connection => connection.id === selectedMember?.id)) return;
+    router.push({ pathname: '/medication', params: { patientId: selectedUserId } });
+  };
   const loadMemberCalendar = useCallback((month: string) =>
     careCircleApi.getMemberHealthCalendar(selectedUserId!, month), [selectedUserId]);
 
@@ -322,7 +333,22 @@ export default function CareCircleScreen() {
           }}
           showsVerticalScrollIndicator={false}
         >
-          {!showInitialSkeleton && <CareCircleMemberStrip members={members} selectedId={selectedMember?.id}
+          <View style={styles.familyHeader}>
+            {profile ? <HomeProfileAvatar profile={profile} /> : <View style={styles.familyHeaderSide} />}
+            <Text accessibilityRole="header" style={styles.familyTitle}>{t('familyConnectionsTitle')}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('members')} style={styles.familyHeaderSide}
+              onPress={() => {
+                if (membersExpanded) {
+                  guideScrollRef.current?.scrollTo({ y: Math.max(0, membersOffset.current - 12), animated: true });
+                } else {
+                  scrollToMembersPending.current = true;
+                  setMembersExpanded(true);
+                }
+              }}>
+              <Ionicons name="people-outline" size={26} color={colors.primaryText} accessible={false} />
+            </Pressable>
+          </View>
+          {!showInitialSkeleton && <CareCircleMemberStrip members={members} selectedId={selectedMember?.id} hideHeading
             onSelect={id => {
               if (currentConnectionContext.current.connections.some(connection => connection.id === id)) setSelectedConnectionId(id);
             }} onAdd={() => router.push('/care-circle/invite')} />}
@@ -330,7 +356,7 @@ export default function CareCircleScreen() {
             <View style={styles.selectedHealth} testID="care-circle-selected-health">
               <View style={styles.selectedHealthHeader}>
                 <Text accessibilityRole="header" style={styles.selectedHealthTitle}>{t('relativeHealthProfile', { name: selectedMember.name })}</Text>
-                {canViewSelected && <Pressable accessibilityRole="button" accessibilityLabel={t('viewHealthProfile')}
+                {canViewSelected && overview.status !== 'denied' && <Pressable accessibilityRole="button" accessibilityLabel={t('viewHealthProfile')}
                   style={styles.selectedHealthDetails} onPress={() => {
                     const context = currentConnectionContext.current;
                     const connection = context.connections.find(value => value.id === selectedMember.id);
@@ -338,10 +364,36 @@ export default function CareCircleScreen() {
                     router.push({ pathname: '/care-circle/member/[id]', params: { id: selectedMember.userId, name: selectedMember.name } });
                   }}><Text style={{ color: colors.primaryText }}>{t('profileDetails')}</Text></Pressable>}
               </View>
-              {canViewSelected ? focused && <HealthJournalCalendar key={`${profile?.id}:${selectedMember.userId}`}
-                loadReport={loadMemberCalendar} subjectName={selectedMember.name} refreshKey={calendarRefreshKey} />
-                : <Text style={styles.selectedHealthPrivate}>{t('healthAccessRequired')}</Text>}
+              <MemberHealthMetrics data={overview.data} status={overview.status}
+                onRetry={() => setCalendarRefreshKey(value => value + 1)} />
             </View>
+          )}
+          {!showInitialSkeleton && selectedMember && (
+            <>
+              <View style={styles.selectedHealth}>
+                <Text accessibilityRole="header" style={styles.selectedHealthTitle}>{t('familyNotifications')}</Text>
+                <FamilyActionCard title={t('familyOpenInbox')} icon="bell-outline" tone="primary"
+                  onPress={() => router.push('/notifications')} />
+                {overview.canSendGreeting && <FamilyActionCard title={t('familyGreetingCard')} icon="cards-heart-outline"
+                  tone="weight" onPress={() => router.push('/coins')} />}
+              </View>
+              {canViewSelected && overview.status !== 'denied' && focused && (
+                <View style={styles.selectedHealth}>
+                  <Text accessibilityRole="header" style={styles.selectedHealthTitle}>{t('familyHealthReport')}</Text>
+                  <HealthJournalCalendar key={`${profile?.id}:${selectedUserId}`} plain
+                    loadReport={loadMemberCalendar} subjectName={selectedMember.name} refreshKey={calendarRefreshKey} />
+                </View>
+              )}
+              <View style={styles.selectedHealth}>
+                <Text accessibilityRole="header" style={styles.selectedHealthTitle}>{t('familyTaskSetup')}</Text>
+                <FamilyActionCard title={t('familyMedicationSetup')} icon="pill" tone="medication"
+                  description={t(overview.canManageMedication ? 'familyMedicationSetupHint' : 'familyMedicationUnavailable')}
+                  onPress={overview.canManageMedication ? openMedication : undefined} />
+                <FamilyActionCard title={t('familyBpSetup')} icon="heart-pulse" tone="bloodPressure" description={t('familySetupUnavailable')} />
+                <FamilyActionCard title={t('familyGlucoseSetup')} icon="water-outline" tone="glucose" description={t('familySetupUnavailable')} />
+                <FamilyActionCard title={t('familyVisitSetup')} icon="calendar-clock" tone="meal" description={t('familySetupUnavailable')} />
+              </View>
+            </>
           )}
           <CareCircleQrActions />
           <View style={styles.quickActionsSection} testID="care-circle-actions-section">
@@ -507,9 +559,10 @@ export default function CareCircleScreen() {
               {/* Active Connections Section */}
               <View style={styles.activeSection} testID="care-circle-member-list"
                 onLayout={event => {
+                  membersOffset.current = event.nativeEvent.layout.y;
                   if (membersExpanded && scrollToMembersPending.current) {
                     scrollToMembersPending.current = false;
-                    guideScrollRef.current?.scrollTo({ y: Math.max(0, event.nativeEvent.layout.y - 12), animated: true });
+                    guideScrollRef.current?.scrollTo({ y: Math.max(0, membersOffset.current - 12), animated: true });
                   }
                 }}>
                 {membersExpanded && <View style={styles.activeSectionHeader}>
@@ -890,11 +943,13 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
   })!;
 
   return StyleSheet.create({
-    selectedHealth: { paddingHorizontal: 16, paddingBottom: 20, gap: 12 },
+    familyHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
+    familyHeaderSide: { width: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+    familyTitle: { flex: 1, textAlign: 'center', fontSize: 21, fontWeight: '700', color: colors.textPrimary },
+    selectedHealth: { paddingHorizontal: 16, paddingBottom: 24, gap: 10 },
     selectedHealthHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     selectedHealthTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: colors.textPrimary },
     selectedHealthDetails: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
-    selectedHealthPrivate: { fontSize: 14, color: colors.textSecondary },
     screen: {
       flex: 1,
     },

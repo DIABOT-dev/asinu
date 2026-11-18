@@ -59,6 +59,38 @@ export type CareCircleConnection = {
   updated_at: string;
 };
 
+export type MemberHealthOverview = {
+  name: string | null;
+  avatarUrl: string | null;
+  heightCm: string | number | null;
+  weightKg: string | number | null;
+  systolic: number | null;
+  diastolic: number | null;
+  pulse: number | null;
+  bloodPressureUnit: string | null;
+  glucose: string | number | null;
+  glucoseUnit: string | null;
+};
+
+type MemberLogReading = {
+  systolic?: number;
+  diastolic?: number;
+  value?: number | string;
+  unit?: string;
+  meal_text?: string;
+  amount_ml?: number;
+  dose_units?: number;
+};
+
+export type MemberHealthLog = {
+  id: string;
+  log_type: string;
+  occurred_at: string;
+  note: string | null;
+  metadata: MemberLogReading | null;
+  detail?: MemberLogReading | null;
+};
+
 export type MemberHealthSummary = {
   ok: boolean;
   patientName?: string;
@@ -304,17 +336,19 @@ export const careCircleApi = {
     return response.report;
   },
 
+  async getMemberHealthOverview(memberId: string, signal: AbortSignal) {
+    const response = await apiClient<{ ok: boolean; overview: MemberHealthOverview }>(
+      `/api/care-circle/member/${encodeURIComponent(memberId)}/health-overview`,
+      { signal }
+    );
+    return response.overview;
+  },
+
   async getPatientLogs(patientId: string) {
     const response = await apiClient<{
       ok: boolean;
       patientName: string;
-      logs: Array<{
-        id: number;
-        log_type: string;
-        occurred_at: string;
-        note: string | null;
-        metadata: any;
-      }>;
+      logs: MemberHealthLog[];
     }>(`/api/mobile/caregiver/logs/${patientId}`);
     return response;
   },
