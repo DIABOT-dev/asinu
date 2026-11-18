@@ -272,16 +272,6 @@ export default function DoctorConsultationHistoryScreen() {
           <View pointerEvents="none" style={styles.headerSpacer} />
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={tHome("doctorCareTitle")}
-          onPress={() => router.push("/doctor-care" as never)}
-          style={{ padding: 16 }}
-        >
-          <Text style={{ color: colors.primary, fontWeight: "600" }}>
-            {tHome("doctorCareTitle")}
-          </Text>
-        </Pressable>
         <SectionList
           sections={sections}
           stickySectionHeadersEnabled={false}
