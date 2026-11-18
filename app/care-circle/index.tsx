@@ -20,6 +20,7 @@ import { RippleRefreshScrollView } from '../../src/components/RippleRefresh';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Dropdown, DropdownOption } from '../../src/components/Dropdown';
 import { AppAlertModal, useAppAlert, type AlertButton } from '../../src/components/AppAlertModal';
+import { ModalToastHost } from '../../src/components/GlobalToastHost';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { Avatar } from '../../src/components/Avatar';
 import { Screen } from '../../src/components/Screen';
@@ -27,12 +28,13 @@ import { CareCircleTabSkeleton } from '../../src/components/state/MainScreenSkel
 import { useInitialLoadingGate } from '../../src/hooks/useInitialLoadingGate';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { showToast } from '../../src/stores/toast.store';
-import { careCircleApi, useCareCircle } from '../../src/features/care-circle';
+import { careCircleApi, useCareCircle, type CareCircleConnection } from '../../src/features/care-circle';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, getBottomTabBarHeight, iconColors, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { getApiErrorMessage } from '../../src/lib/apiClient';
+import { tokenStore } from '../../src/lib/tokenStore';
 import { getConnectionHealthAccess } from '../../src/features/care-circle/health-access';
 import { getFamilyRoleLabel } from '../../src/features/care-circle/family-roles';
 import {
@@ -49,12 +51,22 @@ import { useFamilyFeatures } from '../../src/features/care-circle/useMemberOverv
 import { HealthJournalCalendar } from '../../src/components/HealthJournalCalendar';
 import { GuideScrollScope } from '../../src/features/guidance/GuidanceProvider';
 
+type ConnectionEditTarget = {
+  id: string;
+  name: string;
+  role?: string;
+  accountId: string;
+  token: string;
+  isRequester: boolean;
+};
+
 export default function CareCircleScreen() {
   const guideScrollRef = useRef<ScrollView>(null);
   const guideScrollOffset = useRef(0);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const profile = useAuthStore((state) => state.profile);
+  const token = useAuthStore((state) => state.token);
   const { t } = useTranslation('careCircle');
   const { t: tc } = useTranslation('common');
   const scaledTypography = useScaledTypography();
@@ -84,20 +96,11 @@ export default function CareCircleScreen() {
   const [focused, setFocused] = useState(false);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const familyFeatures = useFamilyFeatures(focused && connections.length > 0, calendarRefreshKey);
-  const currentConnectionContext = useRef({ connections, userId: profile?.id, familyFeatures });
-  currentConnectionContext.current = { connections, userId: profile?.id, familyFeatures };
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editConnection, setEditConnection] = useState<{
-    id: string;
-    relationship_type?: string;
-    role?: string;
-    name: string;
-    permissions?: {
-      can_view_logs: boolean;
-      can_receive_alerts: boolean;
-      can_ack_escalation: boolean;
-    };
-  } | null>(null);
+  const currentConnectionContext = useRef({ connections, familyFeatures });
+  currentConnectionContext.current = { connections, familyFeatures };
+  const [editConnection, setEditConnection] = useState<ConnectionEditTarget | null>(null);
+  const editTarget = useRef<ConnectionEditTarget | null>(null);
+  const editModalVisible = !!editConnection && editConnection.accountId === profile?.id && editConnection.token === token;
   const [editRelationType, setEditRelationType] = useState<DropdownOption | null>(null);
   const [editPermissions, setEditPermissions] = useState({
     can_view_logs: true,
@@ -105,16 +108,17 @@ export default function CareCircleScreen() {
     can_ack_escalation: true,
   });
   const [savedEditValues, setSavedEditValues] = useState<ConnectionEditValues | null>(null);
+  const [shareNotifications, setShareNotifications] = useState(false);
   const editSaveInFlight = useRef(false);
-  const notificationAccessPending = useRef(new Set<string>());
   const editValues: ConnectionEditValues = {
     relationship_type: editRelationType?.id,
     role: editConnection?.role,
     permissions: editPermissions,
+    shareNotifications,
   };
   const editChanges = savedEditValues && getConnectionEditChanges(savedEditValues, editValues);
-  const isEditSaving = actionLoading === editConnection?.id;
-  const editSaveDisabled = !editConnection || !editChanges?.hasChanges || actionLoading !== null;
+  const isEditSaving = editModalVisible && actionLoading === editConnection?.id;
+  const editSaveDisabled = !editModalVisible || !editChanges?.hasChanges || actionLoading !== null;
 
   // Profile modal
   type ProfileTarget = {
@@ -224,11 +228,33 @@ export default function CareCircleScreen() {
     );
   };
 
-  const handleEditConnection = (connection: any) => {
+  const isCurrentAccount = (accountId: string, sessionToken: string) => {
+    const auth = useAuthStore.getState();
+    return auth.profile?.id === accountId && auth.token === sessionToken && tokenStore.getToken() === sessionToken;
+  };
+
+  const getAccountConnection = (id: string, accountId: string, sessionToken: string) => {
+    if (!isCurrentAccount(accountId, sessionToken)) return undefined;
+    return currentConnectionContext.current.connections.find(connection => connection.id === id &&
+      connection.status === 'accepted' &&
+      (String(connection.requester_id) === accountId || String(connection.addressee_id) === accountId));
+  };
+
+  const closeEdit = () => {
+    editTarget.current = null;
+    setEditConnection(null);
+  };
+
+  const handleEditConnection = (connection: CareCircleConnection, memberName: string, accountId: string, sessionToken: string) => {
     if (editSaveInFlight.current) {
       return;
     }
-    setEditConnection(connection);
+    const target = {
+      id: connection.id, name: memberName, role: connection.role, accountId, token: sessionToken,
+      isRequester: String(connection.requester_id) === accountId,
+    };
+    editTarget.current = target;
+    setEditConnection(target);
     const relationshipId = findFamilyRelationship(connection.relationship_type)?.id;
     const relOption = relationshipOptions.find(opt => opt.id === relationshipId) ||
       (connection.relationship_type ? { id: connection.relationship_type, label: connection.relationship_type } : null);
@@ -238,39 +264,64 @@ export default function CareCircleScreen() {
       can_receive_alerts: connection.permissions?.can_receive_alerts ?? true,
       can_ack_escalation: connection.permissions?.can_ack_escalation ?? true,
     };
+    const sharesNotifications = target.isRequester
+      ? connection.requester_shares_notifications === true
+      : connection.addressee_shares_notifications === true;
     setEditPermissions(permissions);
+    setShareNotifications(sharesNotifications);
     setSavedEditValues({
       relationship_type: relOption?.id,
       role: connection.role,
       permissions,
+      shareNotifications: sharesNotifications,
     });
-    setEditModalVisible(true);
   };
 
   const handleSaveEdit = async () => {
     if (!editConnection || editSaveDisabled || !editChanges || editSaveInFlight.current) {
       return;
     }
+    const { id, accountId, token: sessionToken } = editConnection;
+    const currentConnection = () => editTarget.current === editConnection
+      ? getAccountConnection(id, accountId, sessionToken)
+      : undefined;
+    const connection = currentConnection();
+    if (!connection) return;
+    const isRequester = String(connection.requester_id) === accountId;
     editSaveInFlight.current = true;
+    let savingNotificationAccess = false;
     try {
-      setActionLoading(editConnection.id);
-      if (Object.keys(editChanges.updates).length > 0) {
-        await updateConnection(editConnection.id, editChanges.updates);
+      setActionLoading(id);
+      if (isRequester && Object.keys(editChanges.updates).length > 0) {
+        await updateConnection(id, editChanges.updates);
+        if (!currentConnection()) return;
         // Retain successful changes if the permission update fails, so retry
         // only sends the portion that is still unsaved.
         setSavedEditValues(previous => previous && { ...previous, ...editChanges.updates });
       }
-      if (editChanges.permissionsChanged) {
-        await updatePermissions(editConnection.id, editValues.permissions);
+      if (isRequester && editChanges.permissionsChanged) {
+        await updatePermissions(id, editValues.permissions);
+        if (!currentConnection()) return;
         setSavedEditValues(previous => previous && { ...previous, permissions: editValues.permissions });
       }
-      setEditModalVisible(false);
-      showToast(t('editSuccess'), 'success');
-    } catch {
-      showToast(t('editError'), 'error');
+      if (editChanges.notificationAccessChanged) {
+        savingNotificationAccess = true;
+        await updateNotificationAccess(id, editValues.shareNotifications);
+        if (!currentConnection()) return;
+      }
+      closeEdit();
+      showToast(t(savingNotificationAccess
+        ? editValues.shareNotifications ? 'familyNotificationsShared' : 'familyNotificationsUnshared'
+        : 'editSuccess'), 'success');
+    } catch (error) {
+      if (currentConnection()) {
+        showToast(savingNotificationAccess
+          ? getApiErrorMessage(error, t, 'familyNotificationShareError')
+          : t('editError'), 'error');
+      }
     } finally {
       editSaveInFlight.current = false;
-      setActionLoading(null);
+      setActionLoading(previous => previous === id ? null : previous);
     }
   };
 
@@ -307,13 +358,8 @@ export default function CareCircleScreen() {
 
   const showMemberChoices = (id: string) => {
     const accountId = profile?.id;
-    if (!accountId) return;
-    const currentConnection = () => {
-      const context = currentConnectionContext.current;
-      if (context.userId !== accountId) return undefined;
-      return context.connections.find(connection => connection.id === id && connection.status === 'accepted' &&
-        (String(connection.requester_id) === String(accountId) || String(connection.addressee_id) === String(accountId)));
-    };
+    if (!accountId || !token) return;
+    const currentConnection = () => getAccountConnection(id, accountId, token);
     const member = members.find(person => person.id === id);
     const connection = currentConnection();
     if (!member || !connection) return;
@@ -346,20 +392,7 @@ export default function CareCircleScreen() {
       },
       {
         text: t('familyNotifications'), icon: 'bell-outline',
-        onPress: () => {
-          if (!currentConnection()) return;
-          if (!currentConnectionContext.current.familyFeatures?.coins) {
-            openMemberNotifications();
-            return;
-          }
-          showAlert(t('familyNotifications'), undefined, [
-            { text: t('familyOpenInbox'), icon: 'bell-outline', onPress: openMemberNotifications },
-            { text: t('familyGreetingCard'), icon: 'cards-heart-outline', onPress: () => {
-              if (currentConnection() && currentConnectionContext.current.familyFeatures?.coins) router.push('/coins');
-            } },
-            cancel,
-          ], undefined, layout);
-        },
+        onPress: openMemberNotifications,
       },
       {
         text: t('familyTaskSetup'), icon: 'calendar-clock',
@@ -382,60 +415,21 @@ export default function CareCircleScreen() {
       {
         text: t('connectionActionsTitle'), icon: 'account-cog-outline',
         onPress: () => {
-          const current = currentConnection();
-          if (!current) return;
-          const isRequester = String(current.requester_id) === String(accountId);
-          const sharesNotifications = isRequester
-            ? current.requester_shares_notifications === true : current.addressee_shares_notifications === true;
-          const options: AlertButton[] = [{
-            text: t('viewConnectionInfo'), icon: 'account-details-outline',
-            onPress: () => {
-              const latest = currentConnection();
-              if (!latest) return;
-              setProfileTarget({
-                name: member.name, avatarUrl: member.avatarUrl, relationship: member.relationship,
-                email: isRequester ? latest.addressee_email : latest.requester_email,
-                phone: isRequester ? latest.addressee_phone : latest.requester_phone,
-                role: getFamilyRoleLabel(latest.role, t),
-              });
+          if (!currentConnection()) return;
+          showAlert(t('connectionActionsTitle'), t('connectionActionsMessage', { name: member.name }), [
+            {
+              text: t('editConnection'), icon: 'pencil-outline',
+              onPress: () => {
+                const latest = currentConnection();
+                if (latest) handleEditConnection(latest, member.name, accountId, token);
+              },
             },
-          }];
-          if (isRequester) options.push({
-            text: t('editConnection'), icon: 'pencil-outline',
-            onPress: () => {
-              const latest = currentConnection();
-              if (latest) handleEditConnection({ ...latest, name: member.name });
+            {
+              text: t('deleteConnection'), style: 'destructive', icon: 'trash-can-outline',
+              onPress: () => { if (currentConnection()) handleDeleteConnection(id, member.name); },
             },
-          });
-          options.push({
-            text: t(sharesNotifications ? 'familyStopSharingNotifications' : 'familyShareMyNotifications'),
-            icon: sharesNotifications ? 'bell-off-outline' : 'bell-outline',
-            onPress: () => {
-              if (!currentConnection()) return;
-              const share = !sharesNotifications;
-              const label = t(share ? 'familyShareMyNotifications' : 'familyStopSharingNotifications');
-              showAlert(label, t(share ? 'familyShareNotificationsPrompt' : 'familyStopSharingNotificationsPrompt', { name: member.name }), [
-                cancel,
-                { text: t(share ? 'familyConfirmShareNotifications' : 'familyConfirmStopSharingNotifications'), onPress: async () => {
-                  if (!currentConnection() || notificationAccessPending.current.has(id)) return;
-                  notificationAccessPending.current.add(id);
-                  try {
-                    await updateNotificationAccess(id, share);
-                    if (currentConnection()) showToast(t(share ? 'familyNotificationsShared' : 'familyNotificationsUnshared'), 'success');
-                  } catch (error) {
-                    if (currentConnection()) showToast(getApiErrorMessage(error, t, 'familyNotificationShareError'), 'error');
-                  } finally {
-                    notificationAccessPending.current.delete(id);
-                  }
-                } },
-              ]);
-            },
-          });
-          options.push({
-            text: t('deleteConnection'), style: 'destructive', icon: 'trash-can-outline',
-            onPress: () => { if (currentConnection()) handleDeleteConnection(id, member.name); },
-          }, cancel);
-          showAlert(t('connectionActionsTitle'), t('connectionActionsMessage', { name: member.name }), options, undefined, layout);
+            cancel,
+          ], undefined, layout);
         },
       },
       cancel,
@@ -718,7 +712,7 @@ export default function CareCircleScreen() {
           visible={editModalVisible}
           animationType="slide"
           transparent={false}
-          onRequestClose={() => setEditModalVisible(false)}
+          onRequestClose={() => { if (!editSaveInFlight.current) closeEdit(); }}
         >
           <SafeAreaView style={styles.modalSafeArea}>
             <View style={styles.modalBgWrapper} pointerEvents="none">
@@ -745,6 +739,7 @@ export default function CareCircleScreen() {
                 <Text style={styles.modalSubtitle}>{editConnection?.name}</Text>
               </View>
 
+              {editConnection?.isRequester && <>
               <View style={styles.currentInfoBox}>
                 <View style={styles.currentInfoTextWrap}>
                   <Text style={styles.currentInfoTitle}>{t('currentInfo')}</Text>
@@ -785,13 +780,14 @@ export default function CareCircleScreen() {
                   triggerTextStyle={styles.dropdownTriggerText}
                 />
               </View>
+              </>}
 
               <View style={styles.modalSection}>
                 <Text style={styles.sectionLabel}>
                   {t('permissions')}
                 </Text>
                 <View style={styles.permCard}>
-                  {[
+                  {editConnection?.isRequester && [
                     {
                       key: 'can_view_logs' as const,
                       icon: 'eye-outline',
@@ -810,7 +806,7 @@ export default function CareCircleScreen() {
                       iconColor: '#0D9488',
                       label: t('permAckEscalation'),
                     },
-                  ].map((perm, index, arr) => (
+                  ].map(perm => (
                     <React.Fragment key={perm.key}>
                       <View style={styles.permRow}>
                         <Ionicons
@@ -822,6 +818,7 @@ export default function CareCircleScreen() {
                         <Text style={styles.permLabel}>{perm.label}</Text>
                         <Switch
                           value={editPermissions[perm.key]}
+                          accessibilityLabel={perm.label}
                           disabled={isEditSaving}
                           onValueChange={(val) =>
                             setEditPermissions((prev) => ({ ...prev, [perm.key]: val }))
@@ -831,16 +828,33 @@ export default function CareCircleScreen() {
                           ios_backgroundColor="#E2E8F0"
                         />
                       </View>
-                      {index < arr.length - 1 && <View style={styles.permDivider} />}
+                      <View style={styles.permDivider} />
                     </React.Fragment>
                   ))}
+                  <View style={styles.permRow}>
+                    <Ionicons name="mail-outline" size={22} color={themeColors.primaryDark} style={styles.permIcon} />
+                    <View style={styles.permCopy}>
+                      <Text style={[styles.permLabel, styles.permShareLabel]}>{t('familyShareMyNotifications')}</Text>
+                      <Text style={styles.permDescription}>{t('familyShareNotificationsDescription')}</Text>
+                    </View>
+                    <Switch
+                      value={shareNotifications}
+                      disabled={isEditSaving}
+                      accessibilityLabel={t('familyShareMyNotifications')}
+                      accessibilityHint={t('familyShareNotificationsDescription')}
+                      onValueChange={setShareNotifications}
+                      trackColor={{ false: '#E2E8F0', true: '#0D9488' }}
+                      thumbColor="#FFFFFF"
+                      ios_backgroundColor="#E2E8F0"
+                    />
+                  </View>
                 </View>
               </View>
 
               <View style={styles.modalButtonGroup}>
                 <TouchableOpacity
                   style={styles.modalCancelBtn}
-                  onPress={() => setEditModalVisible(false)}
+                  onPress={closeEdit}
                   disabled={isEditSaving}
                   activeOpacity={0.7}
                 >
@@ -863,6 +877,7 @@ export default function CareCircleScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
+            {editModalVisible && <ModalToastHost />}
           </SafeAreaView>
         </Modal>
       </Screen>
@@ -1412,6 +1427,18 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       fontSize: 15,
       fontWeight: '500',
       color: colors.textPrimary,
+    },
+    permCopy: {
+      flex: 1,
+      gap: spacing.xs,
+      paddingRight: spacing.sm,
+    },
+    permShareLabel: {
+      flex: 0,
+    },
+    permDescription: {
+      fontSize: 13,
+      color: colors.textSecondary,
     },
     permDivider: {
       height: 1,

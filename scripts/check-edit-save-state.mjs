@@ -203,16 +203,22 @@ await test('family dropdown searches accents and unaccented text using the actua
   assert.equal(filterOptions(options, '').length, 54);
 });
 
-function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan', relationship = 'bo', permissions, update, canViewTheirs = false, canManageMedication = false, coins = false } = {}) {
+function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan', relationship = 'bo', permissions, update, canViewTheirs = false, canManageMedication = false, coins = false, isRequester = true, sharesNotifications, peerSharesNotifications } = {}) {
   theme.applyTheme(isDark ? 'dark' : 'light');
   const h = hooks();
   const t = translate(language, 'careCircle');
   const tc = translate(language, 'common');
   const calls = { alerts: [], writes: [], toasts: [], routes: [], calendars: [] };
+  const auth = { profile: { id: 'me' }, token: 'access-token' };
+  let apiToken = auth.token;
+  const useAuthStore = Object.assign(select => select(auth), { getState: () => auth });
   const connection = {
-    id: 'connection', requester_id: 'me', addressee_id: 'relative', status: 'accepted',
+    id: 'connection', requester_id: isRequester ? 'me' : 'relative', addressee_id: isRequester ? 'relative' : 'me', status: 'accepted',
+    requester_name: 'Requester Display',
     addressee_name: 'Family Display', addressee_full_name: 'Family Member', addressee_avatar_url: 'https://example.invalid/avatar.jpg',
     addressee_email: 'relative@example.invalid', addressee_phone: '0900000000', addressee_can_view_logs: canViewTheirs,
+    requester_shares_notifications: isRequester ? sharesNotifications : peerSharesNotifications,
+    addressee_shares_notifications: isRequester ? peerSharesNotifications : sharesNotifications,
     relationship_type: relationship, role,
     permissions: permissions ?? { can_view_logs: true, can_receive_alerts: true, can_ack_escalation: true },
   };
@@ -228,7 +234,11 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     updatePermissions: (id, values) => write('permissions', id, values),
     updateNotificationAccess: async (id, share) => {
       calls.writes.push({ kind: 'notificationAccess', id, share });
-      connection.requester_shares_notifications = share;
+      const token = auth.token;
+      if (update) await update('notificationAccess', share);
+      if (auth.token !== token) return;
+      const permission = isRequester ? 'requester_shares_notifications' : 'addressee_shares_notifications';
+      connection[permission] = share;
     },
   };
   const { default: Screen } = evaluate(read('app/care-circle/index.tsx'), {
@@ -241,11 +251,12 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     '../../src/components/RippleRefresh': { RippleRefreshScrollView: 'ScrollView' },
     '../../src/components/Button': { Button: 'Button' }, '../../src/components/Dropdown': { Dropdown: 'Dropdown' },
     '../../src/components/AppAlertModal': { AppAlertModal: 'AlertModal', useAppAlert: () => ({ alertState: {}, dismissAlert() {}, showAlert: (...args) => calls.alerts.push(args) }) },
+    '../../src/components/GlobalToastHost': { ModalToastHost: 'ModalToastHost' },
     '../../src/components/Avatar': { Avatar: 'Avatar' },
     '../../src/components/ScaledText': { ScaledText: 'Text' }, '../../src/components/Screen': { Screen: 'Screen' },
     '../../src/components/state/MainScreenSkeletons': { CareCircleTabSkeleton: 'Skeleton' },
     '../../src/hooks/useInitialLoadingGate': { useInitialLoadingGate: () => false },
-    '../../src/features/auth/auth.store': { useAuthStore: select => select({ profile: { id: 'me' } }) },
+    '../../src/features/auth/auth.store': { useAuthStore },
     '../../src/stores/language.store': { useLanguageStore: () => ({ language }) },
     '../../src/stores/toast.store': { showToast: (...args) => calls.toasts.push(args) },
     '../../src/features/care-circle': { useCareCircle: () => care, careCircleApi: { getMemberHealthCalendar: async (id, month) => { calls.calendars.push({ id, month }); return {}; } } },
@@ -253,7 +264,8 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     '../../src/styles': theme, '../../src/hooks/useThemeColors': {
       useThemeColors: () => ({ isDark, colors: isDark ? theme.darkColors : theme.lightColors }),
     },
-    '../../src/lib/apiClient': { getApiErrorMessage: error => error.message },
+    '../../src/lib/apiClient': { getApiErrorMessage: (_error, t, fallback) => t(fallback) },
+    '../../src/lib/tokenStore': { tokenStore: { getToken: () => apiToken } },
     '../../src/features/care-circle/health-access': healthAccess,
     '../../src/features/care-circle/family-roles': familyRoles,
     '../../src/features/care-circle/family-relationships': familyRelationships,
@@ -294,6 +306,10 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
       dropdown.props.onChange(dropdown.props.options.find(option => option.id === id));
     },
     permission: (index, value) => nodes(modal()).filter(node => node.type === 'Switch')[index].props.onValueChange(value),
+    notificationSwitch: () => nodes(modal()).find(node => node.type === 'Switch' &&
+      node.props.accessibilityLabel === t('familyShareMyNotifications')),
+    switchAccount: () => { auth.profile = { id: 'other-account' }; auth.token = apiToken = 'other-token'; },
+    switchCredentials: () => { apiToken = 'other-token'; },
   };
 }
 await test('top avatars open the chosen relative’s actions and keep the calendar permission-aware', async () => {
@@ -335,38 +351,52 @@ await test('avatar choices open health, notifications and medication through the
   const tapAvatar = () => nodes(h.render()).find(node => node.type === 'MemberStrip').props.onSelect('second');
   const press = key => h.calls.alerts.at(-1)[2].find(action => action.text === t(key)).onPress();
   tapAvatar(); press('familyHealthTitle');
-  tapAvatar(); press('familyNotifications'); press('familyOpenInbox');
-  tapAvatar(); press('familyNotifications'); press('familyGreetingCard');
+  tapAvatar();
+  const menuCount = h.calls.alerts.length;
+  press('familyNotifications');
+  assert.equal(h.calls.alerts.length, menuCount);
   tapAvatar(); press('familyTaskSetup'); press('familyMedicationSetup');
   assert.deepEqual(h.calls.routes, [
     { pathname: '/care-circle/member/[id]', params: { id: 'second-relative', name: 'Another relative' } },
-    { pathname: '/care-circle/notifications/[id]', params: { id: 'second-relative' } }, '/coins',
+    { pathname: '/care-circle/notifications/[id]', params: { id: 'second-relative' } },
     { pathname: '/medication', params: { patientId: 'second-relative' } },
   ]);
   tapAvatar(); press('familyTaskSetup');
   h.care.connections.pop(); h.render();
   press('familyMedicationSetup');
-  assert.equal(h.calls.routes.length, 4);
+  assert.equal(h.calls.routes.length, 3);
 });
-await test('without greeting cards the notifications option still opens just the selected member’s inbox', () => {
+await test('the notifications option opens the member’s inbox without a submenu', () => {
   const h = connectionHarness();
   const t = translate('vi', 'careCircle');
   h.avatarMenu().find(action => action.text === t('familyNotifications')).onPress();
+  assert.equal(h.calls.alerts.length, 1);
   assert.deepEqual(h.calls.routes, [{ pathname: '/care-circle/notifications/[id]', params: { id: 'relative' } }]);
 });
-await test('sharing or revoking my inbox requires confirmation and reports each saved change', async () => {
-  const h = connectionHarness();
+await test('the edit permission defaults off, only writes on Save, and restores the saved value', async () => {
+  const h = connectionHarness({ peerSharesNotifications: true });
   const t = translate('vi', 'careCircle');
-  h.menu().find(action => action.text === t('familyShareMyNotifications')).onPress();
+  h.open();
+  assert.equal(h.notificationSwitch().props.value, false);
+  assert.equal(h.save().props.disabled, true);
+  h.notificationSwitch().props.onValueChange(true);
+  assert.equal(h.save().props.disabled, false);
+  h.notificationSwitch().props.onValueChange(false);
+  assert.equal(h.save().props.disabled, true);
+  h.notificationSwitch().props.onValueChange(true);
   assert.deepEqual(h.calls.writes, []);
-  await h.calls.alerts.at(-1)[2].find(action => action.text === t('familyConfirmShareNotifications')).onPress();
-  h.menu().find(action => action.text === t('familyStopSharingNotifications')).onPress();
-  await h.calls.alerts.at(-1)[2].find(action => action.text === t('familyConfirmStopSharingNotifications')).onPress();
+  await h.save().props.onPress();
+  assert.equal(h.modal(), undefined);
+  h.open();
+  assert.equal(h.notificationSwitch().props.value, true);
+  h.notificationSwitch().props.onValueChange(false);
+  await h.save().props.onPress();
   assert.deepEqual(h.calls.writes, [
     { kind: 'notificationAccess', id: h.connection.id, share: true },
     { kind: 'notificationAccess', id: h.connection.id, share: false },
   ]);
   assert.deepEqual(h.calls.toasts, [[t('familyNotificationsShared'), 'success'], [t('familyNotificationsUnshared'), 'success']]);
+  assert.equal(h.connection.addressee_shares_notifications, true);
 });
 await test('the member inbox shows only that member and clears visible entries when a later page loses access', async () => {
   const h = hooks();
@@ -431,16 +461,18 @@ for (const language of ['vi', 'en']) {
   });
 }
 for (const language of ['vi', 'en']) {
-  await test(`${language}: the avatar menu opens the selected member’s connection details`, () => {
+  await test(`${language}: connection options offer editing and removal only`, () => {
     const h = connectionHarness({ language });
+    const t = translate(language, 'careCircle');
     const { members } = nodes(h.render()).find(node => node.type === 'MemberStrip').props;
     assert.equal(members[0].name, h.connection.addressee_name);
     assert.equal(members[0].avatarUrl, h.connection.addressee_avatar_url);
-    h.menu().find(action => action.text === translate(language, 'careCircle')('viewConnectionInfo')).onPress();
-    const info = nodes(h.modal());
-    assert.ok(info.some(node => node.props.children === h.connection.addressee_email));
-    assert.ok(info.some(node => node.props.children === h.connection.addressee_phone));
-    assert.equal(info.find(node => node.type === 'Avatar').props.name, h.connection.addressee_name);
+    const options = h.menu();
+    assert.deepEqual(options.map(action => action.text), [t('editConnection'), t('deleteConnection'), translate(language, 'common')('cancel')]);
+    options[0].onPress();
+    const editor = nodes(h.modal());
+    assert.ok(editor.some(node => node.props.children === h.connection.addressee_name));
+    assert.ok(editor.some(node => node.props.children === t('familyShareNotificationsDescription')));
     assert.deepEqual(h.calls.routes, []);
   });
   await test(`${language}: health profile stays locked without consent and opens only while the current consent permits it`, () => {
@@ -530,6 +562,62 @@ await test('a failed permission write remains retryable without resending succes
   await h.save().props.onPress(); assert.equal(h.modal(), undefined);
   assert.deepEqual(h.calls.writes.map(call => call.kind), ['metadata', 'permissions', 'permissions']);
   h.open(); assert.equal(h.save().props.disabled, true);
+});
+await test('the other participant edits only their own inbox permission from its saved state', async () => {
+  const h = connectionHarness({ isRequester: false, sharesNotifications: true, peerSharesNotifications: true });
+  h.open();
+  assert.ok(!nodes(h.modal()).some(node => node.type === 'Dropdown'));
+  assert.equal(nodes(h.modal()).filter(node => node.type === 'Switch').length, 1);
+  assert.ok(h.notificationSwitch());
+  assert.equal(h.notificationSwitch().props.value, true);
+  h.notificationSwitch().props.onValueChange(false);
+  await h.save().props.onPress();
+  assert.deepEqual(h.calls.writes, [{ kind: 'notificationAccess', id: h.connection.id, share: false }]);
+  assert.equal(h.connection.requester_shares_notifications, true);
+  assert.equal(h.connection.addressee_shares_notifications, false);
+  h.open();
+  assert.equal(h.notificationSwitch().props.value, false);
+});
+await test('an inbox permission failure leaves the edit open and retries only the unsaved change', async () => {
+  let writes = 0;
+  const h = connectionHarness({ update: kind => {
+    if (kind === 'notificationAccess' && ++writes === 1) throw new Error('offline');
+  } });
+  const t = translate('vi', 'careCircle');
+  h.open(); h.choose('relationship', 'me'); h.permission(1, false);
+  h.notificationSwitch().props.onValueChange(true);
+  await h.save().props.onPress();
+  assert.ok(h.modal()); assert.equal(h.save().props.disabled, false);
+  assert.ok(nodes(h.modal()).some(node => node.type === 'ModalToastHost'));
+  assert.deepEqual(h.calls.toasts, [[t('familyNotificationShareError'), 'error']]);
+  await h.save().props.onPress();
+  assert.equal(h.modal(), undefined);
+  assert.deepEqual(h.calls.writes.map(call => call.kind), ['metadata', 'permissions', 'notificationAccess', 'notificationAccess']);
+  assert.deepEqual(h.calls.toasts.at(-1), [t('familyNotificationsShared'), 'success']);
+});
+await test('switching accounts closes a pending edit and stops further writes or feedback', async () => {
+  let resolve;
+  const pause = new Promise(done => { resolve = done; });
+  const h = connectionHarness({ update: kind => kind === 'metadata' ? pause : undefined });
+  h.open(); h.choose('relationship', 'me'); h.notificationSwitch().props.onValueChange(true);
+  const save = h.save().props.onPress;
+  const pending = save();
+  assert.deepEqual(h.calls.writes.map(call => call.kind), ['metadata']);
+  h.switchAccount();
+  assert.equal(h.modal(), undefined);
+  resolve(); await pending; await save();
+  assert.deepEqual(h.calls.writes.map(call => call.kind), ['metadata']);
+  assert.deepEqual(h.calls.toasts, []);
+});
+await test('rotated API credentials cannot submit an edit drafted by a previous login', async () => {
+  const h = connectionHarness();
+  h.open();
+  h.notificationSwitch().props.onValueChange(true);
+  const save = h.save().props.onPress;
+  h.switchCredentials();
+  await save();
+  assert.deepEqual(h.calls.writes, []);
+  assert.deepEqual(h.calls.toasts, []);
 });
 
 for (const language of ['vi', 'en']) {
