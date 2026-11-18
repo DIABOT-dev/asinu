@@ -41,7 +41,7 @@ export const coinDetailsStyles = StyleSheet.create({
   },
   noteIcon: { paddingTop: 2 },
   noticeText: { flex: 1, minWidth: 0, fontSize: 14, lineHeight: 21 },
-  notes: { gap: 12 },
+  noticeList: { flexDirection: "column", alignItems: "stretch" },
   noteRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   button: {
     minHeight: 52,

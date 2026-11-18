@@ -173,28 +173,40 @@ export function CoinEarnTab({ coins }: { coins: HealthCoinsController }) {
           <Empty icon="leaf-outline" text={t("journeyNoTasks")} />
         )}
       </View>
-      <CoinNotice text={t("coinsFairness")} />
-      <View style={s.notes}>
+      <View
+        style={[s.notice, s.noticeList, { backgroundColor: colors.primaryLight }]}
+      >
         <View style={s.noteRow}>
           <Ionicons
             name="time-outline"
-            size={19}
-            color={colors.textSecondary}
+            size={20}
+            color={colors.primaryText}
             style={s.noteIcon}
           />
-          <Text style={[s.noticeText, { color: colors.textSecondary }]}>
+          <Text style={[s.noticeText, { color: colors.primaryText }]}>
             {t("coinsExpiryShort")}
           </Text>
         </View>
         <View style={s.noteRow}>
           <Ionicons
             name="person-outline"
-            size={19}
-            color={colors.textSecondary}
+            size={20}
+            color={colors.primaryText}
             style={s.noteIcon}
           />
-          <Text style={[s.noticeText, { color: colors.textSecondary }]}>
+          <Text style={[s.noticeText, { color: colors.primaryText }]}>
             {t("coinsPersonalShort")}
+          </Text>
+        </View>
+        <View style={s.noteRow}>
+          <Ionicons
+            name="shield-checkmark-outline"
+            size={20}
+            color={colors.primaryText}
+            style={s.noteIcon}
+          />
+          <Text style={[s.noticeText, { color: colors.primaryText }]}>
+            {t("coinsFairness")}
           </Text>
         </View>
       </View>
