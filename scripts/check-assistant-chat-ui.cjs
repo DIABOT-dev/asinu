@@ -99,11 +99,12 @@ function messageHarness({
   isDark = false,
   role = "assistant",
   body = "Đã ghi 200 ml nước.",
-  copy = async () => {},
+  copy = async () => true,
 } = {}) {
   const state = hooks(),
     copied = [],
     ratings = [],
+    toasts = [],
     timers = new Map();
   let nextTimer = 0;
   const t = translator(language, "settings");
@@ -132,6 +133,7 @@ function messageHarness({
           isDark,
         }),
       },
+      "../../stores/toast.store": { showToast: (...args) => toasts.push(args) },
       "./AssistantMessageContent": { AssistantMessageContent: "RichMessage" },
       "./assistant-message-format": format,
       "../../../assets/asinu_assistant_listening_v1.png": "mascot",
@@ -154,6 +156,7 @@ function messageHarness({
     render,
     copied,
     ratings,
+    toasts,
     t,
     button: (key) =>
       nodes(render()).find((node) => node.props.accessibilityLabel === t(key)),
@@ -195,6 +198,7 @@ for (const language of ["vi", "en"])
       await flush();
       assert.deepEqual(h.copied, ["Đã ghi 200 ml nước."]);
       assert.ok(h.button("appAssistant.copied"));
+      assert.deepEqual(h.toasts, [[h.t("appAssistant.copied")]]);
       h.unmount();
     });
 test("only a long response can be collapsed, and copying always preserves the complete original response", async () => {
@@ -232,20 +236,18 @@ test("user messages have no assistant avatar or rating controls", () => {
   );
   h.unmount();
 });
-test("clipboard failure is visible and cannot display a false copied state", async () => {
-  const h = messageHarness({
-    copy: async () => {
-      throw Error("clipboard unavailable");
-    },
+for (const copy of [async () => false, async () => { throw Error("clipboard unavailable"); }])
+  test("clipboard failure is visible and cannot display a false copied state", async () => {
+    const h = messageHarness({ copy });
+    h.button("appAssistant.copyMessage").props.onPress();
+    await flush();
+    assert.ok(!h.button("appAssistant.copied"));
+    assert.deepEqual(h.toasts, []);
+    assert.ok(
+      nodes(h.render()).some((node) => node.props.accessibilityRole === "alert")
+    );
+    h.unmount();
   });
-  h.button("appAssistant.copyMessage").props.onPress();
-  await flush();
-  assert.ok(!h.button("appAssistant.copied"));
-  assert.ok(
-    nodes(h.render()).some((node) => node.props.accessibilityRole === "alert")
-  );
-  h.unmount();
-});
 test("Vietnamese numeric keyboards use Xong and English uses Done without overriding explicit labels", () => {
   for (const language of ["vi", "en"]) {
     const { ScaledTextInput } = evaluate("src/components/ScaledTextInput.tsx", {
@@ -295,18 +297,21 @@ test("measurement labels remove trailing zeroes while preserving real fractions"
   ])
     assert.equal(formatMeasurementValue(value), want);
 });
-function feedbackHarness({ initial = {}, post, read } = {}) {
+function feedbackHarness({ initial = {}, post, read, language = "vi" } = {}) {
   const state = hooks();
   let auth = { profile: { id: "A" }, token: "token-A" },
     server = { ...initial },
     reads = 0;
-  const posts = [];
+  const posts = [], toasts = [];
+  const t = translator(language, "settings");
   const store = (select) => select(auth);
   store.getState = () => auth;
   const { useAssistantMessageFeedback } = evaluate(
     "src/features/app-assistant/useAssistantMessageFeedback.ts",
     {
       react: state.react,
+      "react-i18next": { useTranslation: () => ({ t }) },
+      "../../stores/toast.store": { showToast: (...args) => toasts.push(args) },
       "../auth/auth.store": { useAuthStore: store },
       "../chat/chat.api": {
         chatApi: {
@@ -318,10 +323,8 @@ function feedbackHarness({ initial = {}, post, read } = {}) {
             posts.push(args);
             if (post) return post(...args);
             const [id, , type] = args;
-            const removed = server[id] === type;
-            if (removed) delete server[id];
-            else server[id] = type;
-            return { ok: true, action: removed ? "removed" : "saved" };
+            server[id] = type;
+            return { ok: true, action: "saved" };
           },
         },
       },
@@ -330,6 +333,8 @@ function feedbackHarness({ initial = {}, post, read } = {}) {
   return {
     render: () => state.render(useAssistantMessageFeedback),
     posts,
+    toasts,
+    t,
     unmount: state.unmount,
     switchAccount: () => {
       auth = { profile: { id: "B" }, token: "token-B" };
@@ -340,22 +345,30 @@ function feedbackHarness({ initial = {}, post, read } = {}) {
   };
 }
 const message = { id: "m1", role: "assistant", text: "Chiều cao: 176 cm" };
-test("feedback loads its account state and only an explicit rating sends the original response to the existing API", async () => {
-  const h = feedbackHarness({
-    initial: { "legacy-message": "dislike", "asinu-assistant:m1": "like" },
+for (const language of ["vi", "en"])
+  test(`${language}: feedback restores the saved choice, skips repeat taps and confirms a successful change`, async () => {
+    const h = feedbackHarness({
+      initial: { "legacy-message": "dislike", "asinu-assistant:m1": "like" },
+      language,
+    });
+    h.render();
+    await flush();
+    assert.deepEqual(h.render().ratings, { m1: "like" });
+    await h.render().rate(message, "like");
+    assert.deepEqual(h.posts, []);
+    assert.deepEqual(h.toasts, []);
+    const save = h.render().rate(message, "dislike");
+    assert.equal(h.render().ratings.m1, "like");
+    assert.deepEqual(h.toasts, []);
+    await save;
+    assert.equal(h.render().ratings.m1, "dislike");
+    assert.deepEqual(h.posts, [["asinu-assistant:m1", message.text, "dislike"]]);
+    assert.deepEqual(h.toasts, [[h.t("appAssistant.feedbackThanks"), "success", 3500]]);
+    await h.render().rate({ ...message, role: "user" }, "like");
+    assert.equal(h.posts.length, 1);
+    h.unmount();
   });
-  h.render();
-  await flush();
-  assert.equal(h.render().ratings.m1, "like");
-  assert.deepEqual(h.posts, []);
-  await h.render().rate(message, "like");
-  assert.equal(h.render().ratings.m1, undefined);
-  assert.deepEqual(h.posts, [["asinu-assistant:m1", message.text, "like"]]);
-  await h.render().rate({ ...message, role: "user" }, "dislike");
-  assert.equal(h.posts.length, 1);
-  h.unmount();
-});
-test("duplicate taps cannot toggle twice and late results cannot update another account", async () => {
+test("duplicate taps submit once and late results cannot update or thank another account", async () => {
   let resolve;
   const h = feedbackHarness({
     post: () =>
@@ -375,23 +388,33 @@ test("duplicate taps cannot toggle twice and late results cannot update another 
   await pending;
   await flush();
   assert.deepEqual(h.render().ratings, {});
+  assert.deepEqual(h.toasts, []);
   await stale(message, "like");
   assert.equal(h.posts.length, 1);
   h.unmount();
 });
-test("a failed feedback request is reconciled by a read and is never automatically posted a second time", async () => {
+test("a failed feedback request keeps the last confirmed choice and allows an explicit retry", async () => {
+  let attempts = 0;
   const h = feedbackHarness({
+    initial: { "asinu-assistant:m1": "like" },
     post: async () => {
-      throw Error("connection lost");
+      if (++attempts === 1) throw Error("connection lost");
+      return { ok: true, action: "saved" };
     },
   });
   h.render();
   await flush();
   await h.render().rate(message, "dislike");
   assert.equal(h.posts.length, 1);
-  assert.ok(h.reads >= 2);
+  assert.equal(h.reads, 1);
+  assert.equal(h.render().ratings.m1, "like");
+  assert.deepEqual(h.toasts, []);
   assert.equal(h.render().errors.m1, true);
   assert.equal(h.render().pending.m1, false);
+  await h.render().rate(message, "dislike");
+  assert.equal(h.posts.length, 2);
+  assert.equal(h.render().ratings.m1, "dislike");
+  assert.equal(h.toasts.length, 1);
   h.unmount();
 });
 

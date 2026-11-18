@@ -285,7 +285,7 @@ export default function ProfileScreen({
 
   const handleDeleteAccount = useCallback(async () => {
     try {
-      const result = await authApi.deleteAccount();
+      const result = await authApi.deleteAccount(profile?.id);
       if (result.ok) {
         await AsyncStorage.multiRemove([
           STORAGE_KEY_NOTIFICATIONS,
@@ -302,7 +302,7 @@ export default function ProfileScreen({
     } catch {
       throw new Error(ts("deleteErrorGeneric"));
     }
-  }, [logout, router, ts]);
+  }, [logout, profile?.id, router, ts]);
 
   const handlePickAvatar = async () => {
     if (avatarPickerInFlightRef.current) return;

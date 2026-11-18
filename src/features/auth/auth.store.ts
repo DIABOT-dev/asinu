@@ -249,7 +249,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       async deleteAccount() {
         set({ loading: true, error: undefined });
         try {
-          await authApi.deleteAccount();
+          await authApi.deleteAccount(get().profile?.id);
           useNotificationStore.getState().reset();
           await clearIvrVoiceQueue().catch(() => {});
           await tokenStore.clearToken();

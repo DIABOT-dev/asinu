@@ -10,8 +10,70 @@ export type ConversationDraft = {
   stalePreview: boolean;
 };
 export type StoredConversation = ConversationDraft & { messages: AssistantMessage[] };
-let queue: Promise<unknown> = Promise.resolve();
+let queue = Promise.resolve();
 const keyFor = (owner: string) => `assistant_chat_v1_${Array.from(owner, char => char.charCodeAt(0).toString(16)).join('_')}`;
+const draftKey = (owner: string, slot: number) => `${keyFor(owner)}_draft_${slot}`;
+const messageKey = (owner: string, index: number) => `${keyFor(owner)}_message_${index}`;
+type ConversationIndex = { version: 2; count: number; lastId?: string; draftSlot: 0 | 1 };
+const CHUNK_LENGTH = 600; // Up to 1,800 UTF-8 bytes per SecureStore value.
+const MAX_PARTS = 1024;
+const partKey = (key: string, index: number) => `${key}_part_${index}`;
+const parts = (raw: string) => {
+  const count = /^parts:(\d+)$/.exec(raw)?.[1];
+  if (!count) return 0;
+  if (Number(count) < 1 || Number(count) > MAX_PARTS) throw new Error('Invalid assistant conversation record');
+  return Number(count);
+};
+const index = (value: any): value is ConversationIndex => value?.version === 2 &&
+  Number.isSafeInteger(value.count) && value.count >= 0 && [0, 1].includes(value.draftSlot) &&
+  (value.count === 0 || typeof value.lastId === 'string');
+function enqueue<T>(operation: () => Promise<T>): Promise<T> {
+  const work = queue.then(operation);
+  queue = work.then(() => {}, () => {});
+  return work;
+}
+
+async function writeRecord(key: string, raw: string) {
+  const previous = await secureStorage.getItem(key);
+  const oldParts = previous ? parts(previous) : 0;
+  if (raw.length <= CHUNK_LENGTH) {
+    await Promise.all(Array.from({ length: oldParts }, (_, i) => secureStorage.removeItem(partKey(key, i))));
+    await secureStorage.setItem(key, raw);
+    return;
+  }
+  const chunks: string[] = [];
+  for (let start = 0; start < raw.length;) {
+    let end = Math.min(start + CHUNK_LENGTH, raw.length);
+    // Keep surrogate pairs together across UTF-8 encoding by the native store.
+    if (end < raw.length && raw.charCodeAt(end - 1) >= 0xD800 && raw.charCodeAt(end - 1) <= 0xDBFF) end--;
+    chunks.push(raw.slice(start, end));
+    start = end;
+  }
+  if (chunks.length > MAX_PARTS) throw new Error('Assistant conversation record too large');
+  await Promise.all(Array.from({ length: Math.max(oldParts - chunks.length, 0) }, (_, i) =>
+    secureStorage.removeItem(partKey(key, chunks.length + i))));
+  await secureStorage.setItem(key, `parts:${chunks.length}`);
+  for (const [i, chunk] of chunks.entries()) await secureStorage.setItem(partKey(key, i), chunk);
+}
+
+async function readRecord(key: string): Promise<unknown> {
+  const raw = await secureStorage.getItem(key);
+  if (!raw) throw new Error('Missing assistant conversation record');
+  const count = parts(raw);
+  if (!count) return JSON.parse(raw);
+  const chunks = await Promise.all(Array.from({ length: count }, (_, i) => secureStorage.getItem(partKey(key, i))));
+  if (chunks.some(chunk => chunk == null)) throw new Error('Incomplete assistant conversation record');
+  return JSON.parse(chunks.join(''));
+}
+
+async function removeRecord(key: string): Promise<boolean> {
+  const raw = await secureStorage.getItem(key);
+  if (!raw) return false;
+  await Promise.all(Array.from({ length: parts(raw) }, (_, i) => secureStorage.removeItem(partKey(key, i))));
+  await secureStorage.removeItem(key);
+  return true;
+}
+
 const message = (value: any): value is AssistantMessage => value && typeof value.id === 'string' &&
   ['user', 'assistant'].includes(value.role) && typeof value.text === 'string';
 function medicationPurpose(value: any): boolean {
@@ -54,38 +116,78 @@ function action(value: any): value is AssistantAction {
     default: return false;
   }
 }
-export async function readAssistantConversation(owner: string, current: () => boolean): Promise<StoredConversation | null> {
-  await queue.catch(() => {});
-  if (!current()) return null;
-  const raw = await secureStorage.getItem(keyFor(owner));
-  if (!raw || raw.length > 200000 || !current()) return null;
-  try {
-    const value = JSON.parse(raw);
-    if (!Array.isArray(value.messages) || typeof value.text !== 'string') return null;
-    const p = value.preview;
-    const preview = p && Array.isArray(p.actions) && p.actions.length <= 10 && p.actions.every(action) && typeof p.requestId === 'string' &&
-      typeof p.recordedAt === 'string' && Number.isFinite(Date.parse(p.recordedAt)) && Array.isArray(p.completed)
-      ? { ...p, completed: p.completed.filter((index: unknown) => Number.isInteger(index) && Number(index) >= 0 && Number(index) < p.actions.length) } : null;
-    const clarification = value.clarification && typeof value.clarification.original === 'string' && typeof value.clarification.question === 'string'
-      ? { original: value.clarification.original.slice(0, 6000), question: value.clarification.question.slice(0, 2000) } : undefined;
-    return { text: value.text.slice(0, 3000), clarification, preview, feedback: typeof value.feedback === 'string' ? value.feedback.slice(0, 4000) : '',
-      stalePreview: !!value.stalePreview, messages: value.messages.filter(message).slice(-24).map((m: AssistantMessage) => ({ id: m.id, role: m.role, text: m.text.slice(0, 8000) })) };
-  } catch { return null; }
+function validateDraft(value: any): ConversationDraft {
+  if (typeof value?.text !== 'string') throw new Error('Invalid assistant conversation draft');
+  const p = value.preview;
+  const preview = p && Array.isArray(p.actions) && p.actions.length <= 10 && p.actions.every(action) && typeof p.requestId === 'string' &&
+    typeof p.recordedAt === 'string' && Number.isFinite(Date.parse(p.recordedAt)) && Array.isArray(p.completed)
+    ? { ...p, completed: p.completed.filter((index: unknown) => Number.isInteger(index) && Number(index) >= 0 && Number(index) < p.actions.length) } : null;
+  const clarification = value.clarification && typeof value.clarification.original === 'string' && typeof value.clarification.question === 'string'
+    ? { original: value.clarification.original.slice(0, 6000), question: value.clarification.question.slice(0, 2000) } : undefined;
+  return { text: value.text.slice(0, 3000), clarification, preview,
+    feedback: typeof value.feedback === 'string' ? value.feedback.slice(0, 4000) : '', stalePreview: !!value.stalePreview };
 }
-export function saveAssistantConversation(owner: string, value: StoredConversation, current: () => boolean) {
-  const messages = value.messages.slice(-24).map(m => ({ ...m, text: m.text.slice(0, 8000) }));
-  while (messages.reduce((sum, item) => sum + item.text.length, 0) > 100000) messages.shift();
-  const snapshot = JSON.stringify({ ...value, messages });
-  const work = queue.catch(() => {}).then(async () => {
-    if (!current()) return;
-    await secureStorage.setItem(keyFor(owner), snapshot);
-    if (!current()) await secureStorage.removeItem(keyFor(owner));
+
+export function readAssistantConversation(owner: string, current: () => boolean): Promise<StoredConversation | null> {
+  return enqueue(async () => {
+    if (!current()) return null;
+    const raw = await secureStorage.getItem(keyFor(owner));
+    if (!raw || !current()) return null;
+    const value = JSON.parse(raw);
+    if (Array.isArray(value?.messages)) return { ...validateDraft(value), messages: value.messages.filter(message) };
+    if (!index(value)) throw new Error('Invalid assistant conversation index');
+    const draft = validateDraft(await readRecord(draftKey(owner, value.draftSlot)));
+    const messages: AssistantMessage[] = [];
+    for (let start = 0; start < value.count; start += 16) {
+      if (!current()) return null;
+      const batch = await Promise.all(Array.from({ length: Math.min(16, value.count - start) }, (_, i) =>
+        readRecord(messageKey(owner, start + i))));
+      if (!batch.every(message)) throw new Error('Invalid assistant conversation message');
+      messages.push(...batch);
+    }
+    return current() ? { ...draft, messages } : null;
   });
-  queue = work;
-  return work;
+}
+
+export function saveAssistantConversation(owner: string, value: StoredConversation, current: () => boolean) {
+  const { messages, ...draft } = value;
+  return enqueue(async () => {
+    if (!current()) return;
+    const raw = await secureStorage.getItem(keyFor(owner));
+    const previous = raw ? JSON.parse(raw) : null;
+    if (!current()) return;
+    if (previous && !index(previous) && !Array.isArray(previous.messages)) throw new Error('Invalid assistant conversation index');
+    const count = index(previous) ? previous.count : 0;
+    if (count > messages.length || (count > 0 && previous.lastId !== messages[count - 1].id))
+      throw new Error('Assistant conversation changed while saving');
+    if (Array.isArray(previous?.messages) && previous.messages.filter(message).some((old: AssistantMessage, i: number) =>
+      old.id !== messages[i]?.id)) throw new Error('Assistant conversation changed while migrating');
+    // Append new records before publishing the index. Existing message records
+    // are immutable, and a failed draft write leaves the previous slot readable.
+    const draftSlot = previous?.draftSlot === 0 ? 1 : 0;
+    for (let i = count; i < messages.length; i++) {
+      if (!current()) return;
+      await writeRecord(messageKey(owner, i), JSON.stringify(messages[i]));
+    }
+    if (!current()) return;
+    await writeRecord(draftKey(owner, draftSlot), JSON.stringify(draft));
+    if (!current()) return;
+    const next: ConversationIndex = { version: 2, count: messages.length, lastId: messages.at(-1)?.id, draftSlot };
+    await secureStorage.setItem(keyFor(owner), JSON.stringify(next));
+  });
 }
 export function clearAssistantConversation(owner: string) {
-  const work = queue.catch(() => {}).then(() => secureStorage.removeItem(keyFor(owner)));
-  queue = work;
-  return work;
+  return enqueue(async () => {
+    const raw = await secureStorage.getItem(keyFor(owner));
+    let prior;
+    try { prior = raw ? JSON.parse(raw) : null; } catch { /* Erase even if the index cannot be decoded. */ }
+    const count = index(prior) ? prior.count : 0;
+    await removeRecord(draftKey(owner, 0));
+    await removeRecord(draftKey(owner, 1));
+    // Include any contiguous records staged by an interrupted save.
+    for (let i = 0; i < count || await secureStorage.getItem(messageKey(owner, i)); i++) {
+      await removeRecord(messageKey(owner, i));
+    }
+    await secureStorage.removeItem(keyFor(owner));
+  });
 }

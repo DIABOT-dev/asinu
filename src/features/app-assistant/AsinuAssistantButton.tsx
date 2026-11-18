@@ -17,11 +17,12 @@ export function AsinuAssistantButton({
   const { colors } = useThemeColors();
   const { t } = useTranslation("settings");
   const token = useAuthStore((state) => state.token);
-  const [open, setOpen] = useState(false);
-  useFocusEffect(useCallback(() => () => setOpen(false), []));
+  const owner = useAuthStore((state) => state.profile?.id);
+  const [openFor, setOpenFor] = useState<{ owner?: string; token: string } | null>(null);
+  useFocusEffect(useCallback(() => () => setOpenFor(null), []));
   useEffect(() => {
-    setOpen(false);
-  }, [token]);
+    setOpenFor(null);
+  }, [token, owner]);
   return (
     <>
       <Pressable
@@ -29,7 +30,7 @@ export function AsinuAssistantButton({
         accessibilityRole="button"
         accessibilityLabel={t("appAssistant.open")}
         accessibilityHint={t("appAssistant.openHint")}
-        onPress={() => setOpen(true)}
+        onPress={() => { if (token) setOpenFor({ owner, token }); }}
         style={({ pressed }) => [
           variant === "card"
             ? [
@@ -53,7 +54,9 @@ export function AsinuAssistantButton({
           </Text>
         )}
       </Pressable>
-      {open && token && <AsinuAssistantDialog onClose={() => setOpen(false)} />}
+      {openFor && token === openFor.token && owner === openFor.owner && (
+        <AsinuAssistantDialog onClose={() => setOpenFor(null)} />
+      )}
     </>
   );
 }

@@ -1,6 +1,7 @@
 import { File } from 'expo-file-system';
 import { apiClient } from '../../lib/apiClient';
 import { tokenStore } from '../../lib/tokenStore';
+import { clearAssistantConversation } from '../app-assistant/assistant-conversation.storage';
 import { Profile } from './auth.store';
 
 const AUTH_TIMEOUT_MS = 30000;
@@ -116,8 +117,10 @@ export const authApi = {
   logout() {
     return apiClient<{ ok: boolean; message: string }>('/api/mobile/auth/logout', { method: 'POST' });
   },
-  deleteAccount() {
-    return apiClient<{ ok: boolean; message: string }>('/api/mobile/profile', { method: 'DELETE' });
+  async deleteAccount(owner?: string) {
+    const result = await apiClient<{ ok: boolean; message: string }>('/api/mobile/profile', { method: 'DELETE' });
+    if (result.ok && owner) await clearAssistantConversation(owner).catch(() => {});
+    return result;
   },
   async changePassword(currentPassword: string, newPassword: string) {
     const finishRotation = tokenStore.beginTokenRotation();

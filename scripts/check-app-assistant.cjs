@@ -235,12 +235,54 @@ test('a delayed history read after logout cannot hydrate the next account', asyn
 test('malformed saved commands cannot become pending confirmations and storage failure never falls back to plaintext', async () => {
   const h = conversationStorageHarness();
   await h.saveAssistantConversation('A', conversation('safe message'), () => true);
-  const key = h.calls[0];
-  h.values.set(key, JSON.stringify({ ...conversation('safe message'), preview: { actions: [{ type: 'navigate', destination: '/admin' }],
+  const key = 'assistant_chat_v1_41';
+  const index = JSON.parse(h.values.get(key));
+  const draft = `${key}_draft_${index.draftSlot}`;
+  h.values.set(draft, JSON.stringify({ ...conversation('safe message'), preview: { actions: [{ type: 'navigate', destination: '/admin' }],
     requestId: 'id', recordedAt: new Date().toISOString(), completed: [] } }));
   assert.equal((await h.readAssistantConversation('A', () => true)).preview, null);
   h.secure.setItem = async () => { throw Error('Keychain unavailable'); };
   await assert.rejects(h.saveAssistantConversation('A', conversation('must stay private'), () => true), /Keychain/);
+});
+test('legacy and new assistant transcripts survive exceeding the old message and storage limits', async () => {
+  const h = conversationStorageHarness();
+  const legacy = { ...conversation('Bản nháp'), messages: Array.from({ length: 40 }, (_, i) => ({
+    id: String(i), role: i % 2 ? 'user' : 'assistant', text: 'Tiếng Việt 🙂 '.repeat(400) + i,
+  })) };
+  assert.ok(JSON.stringify(legacy).length > 200000);
+  h.values.set('assistant_chat_v1_41', JSON.stringify(legacy));
+  await h.saveAssistantConversation('A', await h.readAssistantConversation('A', () => true), () => true);
+  const current = await h.readAssistantConversation('A', () => true);
+  assert.deepEqual(current.messages, legacy.messages);
+  const oldWrites = h.calls.length;
+  const next = { ...current, messages: [...current.messages, { id: 'new', role: 'user', text: 'Và hôm qua?' }] };
+  await h.saveAssistantConversation('A', next, () => true);
+  assert.deepEqual((await h.readAssistantConversation('A', () => true)).messages, next.messages);
+  assert.ok(h.calls.slice(oldWrites).every(key => !/_message_\d+$/u.test(key) || key.endsWith('_message_40')));
+  const valuesBeforeClear = [...h.values.keys()].filter(key => key.startsWith('assistant_chat_v1_41'));
+  assert.ok(valuesBeforeClear.length > 40);
+  await h.clearAssistantConversation('A');
+  assert.equal(h.values.size, 0);
+});
+test('the previous transcript stays readable if an append is interrupted by logout or storage failure', async () => {
+  const h = conversationStorageHarness();
+  const initial = conversation('older message');
+  await h.saveAssistantConversation('A', initial, () => true);
+  const next = { ...initial, text: 'new draft', messages: [...initial.messages, { id: '2', role: 'assistant', text: 'new message' }] };
+  const setItem = h.secure.setItem;
+  h.secure.setItem = async (key, value) => {
+    if (key.endsWith('_draft_1')) throw Error('Keychain locked');
+    await setItem(key, value);
+  };
+  await assert.rejects(h.saveAssistantConversation('A', next, () => true), /Keychain locked/u);
+  assert.deepEqual((await h.readAssistantConversation('A', () => true)).messages, initial.messages);
+  let current = true;
+  h.secure.setItem = async (key, value) => {
+    await setItem(key, value);
+    if (key.endsWith('_draft_1')) current = false;
+  };
+  await h.saveAssistantConversation('A', next, () => current);
+  assert.deepEqual((await h.readAssistantConversation('A', () => true)).messages, initial.messages);
 });
 test('restoring a pending medicine confirmation keeps verified tag metadata and rejects malformed or untrusted tags', async () => {
   const h = conversationStorageHarness();

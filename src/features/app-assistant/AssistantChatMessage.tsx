@@ -5,6 +5,7 @@ import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
+import { showToast } from "../../stores/toast.store";
 import { AssistantMessageContent } from "./AssistantMessageContent";
 import { parseAssistantMessage } from "./assistant-message-format";
 import type { AssistantMessage } from "./assistant-conversation.storage";
@@ -65,16 +66,21 @@ export function AssistantChatMessage({
     (message.text.length > 360 || message.text.split("\n").length > 6);
   const copy = async () => {
     try {
-      await Clipboard.setStringAsync(message.text);
+      if (!(await Clipboard.setStringAsync(message.text)))
+        throw new Error("Clipboard write failed");
       if (!active.current) return;
       setCopied(true);
       setCopyError(false);
+      showToast(t("appAssistant.copied"));
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
         if (active.current) setCopied(false);
       }, 1800);
     } catch {
-      if (active.current) setCopyError(true);
+      if (active.current) {
+        setCopied(false);
+        setCopyError(true);
+      }
     }
   };
   if (message.role === "user")

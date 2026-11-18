@@ -1,107 +1,104 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { showToast } from "../../stores/toast.store";
 import { useAuthStore } from "../auth/auth.store";
 import { chatApi } from "../chat/chat.api";
 import type { AssistantMessage } from "./assistant-conversation.storage";
 
 export type AssistantRating = "like" | "dislike";
+type RatingSession = {
+  owner: string;
+  token: string;
+  loading: boolean;
+  ratings: Record<string, AssistantRating>;
+  pending: Set<string>;
+};
 const prefix = "asinu-assistant:";
 export function useAssistantMessageFeedback() {
   const owner = useAuthStore((state) => state.profile?.id);
   const token = useAuthStore((state) => state.token);
+  const { t } = useTranslation("settings");
   const [ratings, setRatings] = useState<Record<string, AssistantRating>>({});
   const [pending, setPending] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
-  const generation = useRef(0);
-  const ready = useRef(false);
-  const locks = useRef(new Set<string>());
-  const isCurrent = (version: number) =>
-    generation.current === version &&
-    !!owner &&
-    !!token &&
-    useAuthStore.getState().profile?.id === owner &&
-    useAuthStore.getState().token === token;
-  const refresh = async (version: number) => {
-    const response = await chatApi.fetchFeedbacks();
-    if (!isCurrent(version)) return;
-    setRatings(
-      Object.fromEntries(
-        Object.entries(response)
-          .filter(
-            ([id, value]) =>
-              id.startsWith(prefix) && ["like", "dislike"].includes(value)
-          )
-          .map(([id, value]) => [id.slice(prefix.length), value])
-      )
-    );
-    ready.current = true;
+  const sessionRef = useRef<RatingSession | null>(null);
+  const session = sessionRef.current;
+  const isCurrent = (candidate: RatingSession) => {
+    const auth = useAuthStore.getState();
+    return sessionRef.current === candidate &&
+      auth.profile?.id === candidate.owner && auth.token === candidate.token;
   };
   useEffect(() => {
-    const version = ++generation.current;
-    ready.current = false;
-    locks.current = new Set();
     setRatings({});
     setPending({});
     setErrors({});
-    setLoading(true);
-    if (owner && token)
-      void refresh(version)
-        .catch(() => {})
-        .finally(() => {
-          if (isCurrent(version)) setLoading(false);
-        });
-    else setLoading(false);
+    setLoading(!!owner && !!token);
+    if (!owner || !token) return;
+    const currentSession: RatingSession = {
+      owner, token, loading: true, ratings: {}, pending: new Set(),
+    };
+    sessionRef.current = currentSession;
+    void chatApi.fetchFeedbacks()
+      .then(response => {
+        if (!isCurrent(currentSession)) return;
+        currentSession.ratings = Object.fromEntries(
+          Object.entries(response)
+            .filter(([id, value]) => id.startsWith(prefix) && (value === "like" || value === "dislike"))
+            .map(([id, value]) => [id.slice(prefix.length), value])
+        );
+        setRatings(currentSession.ratings);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!isCurrent(currentSession)) return;
+        currentSession.loading = false;
+        setLoading(false);
+      });
     return () => {
-      generation.current++;
+      sessionRef.current = null;
     };
   }, [owner, token]);
   const rate = async (message: AssistantMessage, rating: AssistantRating) => {
-    const version = generation.current;
     if (
       message.role !== "assistant" ||
-      !isCurrent(version) ||
-      locks.current.has(message.id)
+      !session || !isCurrent(session) || session.loading ||
+      session.pending.has(message.id) || session.ratings[message.id] === rating
     )
       return;
-    locks.current.add(message.id);
+    session.pending.add(message.id);
     setPending((previous) => ({ ...previous, [message.id]: true }));
     setErrors((previous) => ({ ...previous, [message.id]: false }));
     try {
-      // A failed prior read must be reconciled before another toggle can be sent.
-      if (!ready.current) {
-        await refresh(version);
-        return;
-      }
       const response = await chatApi.sendFeedback(
         prefix + message.id,
         message.text,
         rating
       );
-      if (!isCurrent(version)) return;
+      if (!isCurrent(session)) return;
       if (
         !response.ok ||
-        !["saved", "updated", "removed"].includes(response.action)
+        !["saved", "updated"].includes(response.action)
       )
         throw new Error("Invalid feedback response");
-      setRatings((previous) => {
-        const next = { ...previous };
-        if (response.action === "removed") delete next[message.id];
-        else next[message.id] = rating;
-        return next;
-      });
+      session.ratings = { ...session.ratings, [message.id]: rating };
+      setRatings(session.ratings);
+      showToast(t("appAssistant.feedbackThanks"), "success", 3500);
     } catch {
-      if (!isCurrent(version)) return;
-      ready.current = false;
+      if (!isCurrent(session)) return;
+      // A server commit may have succeeded even when the response never arrived.
+      // Let the user explicitly send either choice again using the idempotent API.
+      const knownRatings = { ...session.ratings };
+      delete knownRatings[message.id];
+      session.ratings = knownRatings;
       setErrors((previous) => ({ ...previous, [message.id]: true }));
-      try {
-        await refresh(version);
-      } catch {}
     } finally {
-      if (isCurrent(version)) {
-        locks.current.delete(message.id);
+      if (isCurrent(session)) {
+        session.pending.delete(message.id);
         setPending((previous) => ({ ...previous, [message.id]: false }));
       }
     }
   };
+  if (!session || !isCurrent(session)) return { ratings: {}, pending: {}, errors: {}, loading: !!owner && !!token, rate };
   return { ratings, pending, errors, loading, rate };
 }

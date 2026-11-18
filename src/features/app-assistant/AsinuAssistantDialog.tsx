@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { ScaledText as Text } from '../../components/ScaledText';
 import { ScaledTextInput as TextInput } from '../../components/ScaledTextInput';
 import { QueuedModal } from '../../components/QueuedModal';
-import { AppAlertModal } from '../../components/AppAlertModal';
+import { ModalToastHost } from '../../components/GlobalToastHost';
 import { AiDataConsentModal, hasAiDataConsent } from '../../components/AiDataConsentModal';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { ApiError, getApiErrorMessage } from '../../lib/apiClient';
@@ -22,6 +22,7 @@ import { renderVoiceAnswerButton, useVoiceAnswer } from '../guidance/VoiceAnswer
 import { executeAssistantActions, saveAssistantReading, applyAssistantTool, type AssistantAction } from './app-assistant.api';
 import { planAssistantWithReadCache as planAssistantActions } from './assistant-read-cache';
 import { useAssistantConversation } from './useAssistantConversation';
+import type { AssistantMessage } from './assistant-conversation.storage';
 import { AssistantMedicationPurpose } from './AssistantMedicationPurpose';
 import { AssistantChatMessage } from './AssistantChatMessage';
 import { AssistantThinkingIndicator } from './AssistantThinkingIndicator';
@@ -44,6 +45,22 @@ import { getNotificationPreferences, applyReminderTimes } from '../notifications
 const mascot = require('../../../assets/asinu_assistant_listening_v1.png');
 type Preview = { actions: AssistantAction[]; requestId: string; recordedAt: string; completed: Set<number> };
 type PermissionDecision = { granted: boolean };
+const MESSAGE_PAGE_SIZE = 48;
+const CONTEXT_TURN_LIMIT = 300;
+function recentRequestContext(messages: AssistantMessage[], currentText: string) {
+  // History is guidance for read-only follow-ups. Only the current request
+  // grants permission to act. Keep the displayed transcript unchanged.
+  const previous = messages.at(-1);
+  const omitLatest = previous?.role === 'user' && previous.text === currentText;
+  return (omitLatest ? messages.slice(0, -1) : messages).filter(message => message.role === 'user').slice(-2)
+    .map(({ role, text }) => {
+      const compact = text.replace(/\s+/gu, ' ').trim();
+      if (compact.length <= CONTEXT_TURN_LIMIT) return { role, text: compact };
+      const start = compact.slice(0, 195).replace(/[\uD800-\uDBFF]$/u, '');
+      const end = compact.slice(-100).replace(/^[\uDC00-\uDFFF]/u, '');
+      return { role, text: `${start} … ${end}` };
+    });
+}
 type PendingPermission = {
   operation: () => Promise<PermissionDecision>;
   resolve: (decision: PermissionDecision) => void;
@@ -76,11 +93,11 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [clarification, setClarification] = useState<{ original: string; question: string }>();
   const [consent, setConsent] = useState(false);
-  const [clearRequested, setClearRequested] = useState(false);
+  const [visibleMessageCount, setVisibleMessageCount] = useState(MESSAGE_PAGE_SIZE);
   const messageFeedback = useAssistantMessageFeedback();
   const scroll = useRef<ScrollView>(null);
   const followLatest = useRef(true);
-  useEffect(() => { setClearRequested(false); }, [focused, owner, token]);
+  useEffect(() => { setVisibleMessageCount(MESSAGE_PAGE_SIZE); }, [owner, token]);
   const [navigationClosing, setNavigationClosing] = useState(false);
   const pendingNavigation = useRef<string | null>(null);
   const presented = useRef(false);
@@ -172,7 +189,7 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
       history.append('user', requestedText.trim());
       const response = await planAssistantActions({ text: requestedText.trim(), current: { language, fontSize }, clarification,
         hiddenArticles: [...articles.hiddenIds].slice(-100), allowCuratedArticles: articles.canShowCurated,
-        conversation: history.messages.filter(message => message.role === 'user').slice(-8).map(({ role, text }) => ({ role, text: text.slice(0, 2000) })),
+        conversation: recentRequestContext(history.messages, requestedText.trim()),
       }, abort.current.signal);
       if (!current(version)) return;
       if (response.answer) { history.append('assistant', response.answer); setFeedback(''); }
@@ -279,14 +296,9 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
       case 'routine_reminders': return action.changes.map(change => t('appAssistant.reminderChange', { slot: t(`reminderAssistant.slots.${change.slot}`), before: change.before, time: change.time })).join('\n');
     }
   };
-  const reset = () => { history.edited(); setText(''); setPreview(null); setClarification(undefined); setFeedback(''); setError(false); setStalePreview(false); };
-  const clearHistory = async () => {
-    if (locked.current || voiceBusy || !current(revision.current)) return;
-    const version = revision.current;
-    locked.current = true; setBusy('saving');
-    try { await history.clear(); if (current(version)) { reset(); setClearRequested(false); } }
-    catch { if (current(version)) { setError(true); setFeedback(t('appAssistant.historyError')); } }
-    finally { locked.current = false; if (current(version)) setBusy(null); }
+  const discardDraft = () => {
+    history.edited(); setText(''); setPreview(null); setClarification(undefined);
+    setFeedback(''); setError(false); setStalePreview(false);
   };
   const queueNavigation = (destination: import('./app-assistant.api').AssistantDestination) => {
     const route = assistantRoute(destination, owner);
@@ -362,7 +374,7 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
   return <>
     <AiDataConsentModal visible={consent && focused} onDecline={() => { resume.current = false; resumeVoice.current = false; resumePhoto.current = false; setConsent(false); }}
       onAgree={() => { setConsent(false); if (resume.current) { resume.current = false; void submit.current(); } }} />
-    <QueuedModal visible={focused && !consent && !permissionPending && !navigationClosing && !clearRequested} transparent animationType="fade" interruptible priority={10} statusBarTranslucent onRequestClose={onClose}
+    <QueuedModal visible={focused && !consent && !permissionPending && !navigationClosing} transparent animationType="fade" interruptible priority={10} statusBarTranslucent onRequestClose={onClose}
       onDismiss={afterDialogDismiss} onShow={() => {
         presented.current = true;
         if (resumeVoice.current) { resumeVoice.current = false; void voice.press(); }
@@ -388,15 +400,13 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
             onScroll={event => { const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
               followLatest.current = contentSize.height - contentOffset.y - layoutMeasurement.height < 80; }}
             onContentSizeChange={() => { if (followLatest.current) scroll.current?.scrollToEnd({ animated: false }); }}>
-            <View style={styles.conversationToolbar}>
-              <Pressable accessibilityRole="button" accessibilityLabel={t('appAssistant.clearHistory')} disabled={unavailable}
-                onPress={() => { Keyboard.dismiss(); setClearRequested(true); }} style={styles.clearHistory}>
-                <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
-                <Text style={[styles.toolbarText, { color: colors.textSecondary }]}>{t('appAssistant.clearHistory')}</Text>
-              </Pressable>
-            </View>
+            {history.messages.length > visibleMessageCount && <Pressable accessibilityRole="button"
+              testID="asinu-assistant-older-messages" style={styles.edit}
+              onPress={() => { followLatest.current = false; setVisibleMessageCount(count => count + MESSAGE_PAGE_SIZE); }}>
+              <Text style={{ color: colors.primaryText }}>{t('appAssistant.olderMessages')}</Text>
+            </Pressable>}
             {history.messages.length === 0 && <AssistantChatMessage message={{ id: 'welcome', role: 'assistant', text: t('appAssistant.welcome') }} />}
-            {history.messages.map(message => <AssistantChatMessage key={message.id} message={message}
+            {history.messages.slice(-visibleMessageCount).map(message => <AssistantChatMessage key={message.id} message={message}
               rating={messageFeedback.ratings[message.id]} ratingBusy={messageFeedback.loading || messageFeedback.pending[message.id]}
               ratingError={messageFeedback.errors[message.id] ? t('appAssistant.feedbackError') : undefined}
               onRate={message.role === 'assistant' ? rating => { void messageFeedback.rate(message, rating); } : undefined} />)}
@@ -423,7 +433,7 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
               </View>)}
             </View>}
             {!!feedback && <Text accessibilityLiveRegion="polite" style={[styles.feedback, { color: error ? colors.danger : colors.primaryText }]}>{feedback}</Text>}
-            {busy && focused && !consent && !permissionPending && !navigationClosing && !clearRequested && <AssistantThinkingIndicator
+            {busy && focused && !consent && !permissionPending && !navigationClosing && <AssistantThinkingIndicator
               label={t(busy === 'saving' ? 'appAssistant.saving' : busy === 'photo' ? 'appAssistant.photoWorking' : 'appAssistant.working')} />}
 
             {!preview && !busy && !clarification && <View style={styles.suggestionArea}>
@@ -449,7 +459,7 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
               style={[styles.primary, { backgroundColor: colors.primaryText, opacity: unavailable || stalePreview ? 0.5 : 1 }]}>
               <Text style={[styles.primaryText, { color: colors.background }]}>{t('appAssistant.confirm')}</Text>
             </Pressable>
-            <Pressable accessibilityRole="button" disabled={unavailable} onPress={reset} style={styles.edit}>
+            <Pressable accessibilityRole="button" disabled={unavailable} onPress={discardDraft} style={styles.edit}>
               <Text style={{ color: colors.primaryText, fontSize: 16 }}>{t('appAssistant.newRequest')}</Text>
             </Pressable>
           </View> : <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -474,17 +484,10 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
               </Pressable>
             </View>
           </View>}
+          <ModalToastHost />
         </View>
       </KeyboardAvoidingView>
     </QueuedModal>
-    <AppAlertModal queued visible={focused && clearRequested && !consent && !permissionPending && !navigationClosing}
-      title={t('appAssistant.clearHistory')} message={t('appAssistant.clearQuestion')}
-      icon={{ name: 'trash-can-outline', color: colors.danger, background: 'none' }}
-      onDismiss={() => setClearRequested(false)}
-      buttons={[
-        { text: t('appAssistant.clearCancel'), style: 'cancel' },
-        { text: t('appAssistant.clearConfirm'), style: 'destructive', disabled: unavailable, onPress: clearHistory },
-      ]} />
   </>;
 }
 const styles = StyleSheet.create({
@@ -498,9 +501,6 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 12 },
   scroll: { flex: 1 },
   content: { gap: 16, paddingHorizontal: 14, paddingBottom: 20, maxWidth: 720, width: '100%', alignSelf: 'center' },
-  conversationToolbar: { alignItems: 'flex-end', marginBottom: -8 },
-  clearHistory: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  toolbarText: { fontSize: 12 },
   review: { gap: 16, padding: 16, borderRadius: 20 },
   sectionTitle: { fontSize: 18, fontWeight: '700' },
   reading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
