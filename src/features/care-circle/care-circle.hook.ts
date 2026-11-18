@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import i18n from '../../i18n';
+import { tokenStore } from '../../lib/tokenStore';
 import {
   careCircleApi,
   CareCircleConnection,
@@ -34,6 +35,7 @@ interface CareCircleStore {
     permissions: { can_view_logs: boolean; can_receive_alerts: boolean; can_ack_escalation: boolean }
   ) => Promise<CareCircleConnection>;
   updateHealthAccess: (connectionId: string, canViewLogs: boolean) => Promise<void>;
+  updateNotificationAccess: (connectionId: string, shareNotifications: boolean) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -185,6 +187,15 @@ export const useCareCircle = create<CareCircleStore>((set, get) => ({
     const updated = await careCircleApi.updateHealthAccess(connectionId, canViewLogs);
     set({ connections: get().connections.map((connection) =>
       connection.id === connectionId ? { ...connection, ...updated } : connection
+    ) });
+  },
+
+  updateNotificationAccess: async (connectionId, shareNotifications) => {
+    const token = tokenStore.getToken();
+    const access = await careCircleApi.updateNotificationAccess(connectionId, shareNotifications);
+    if (tokenStore.getToken() !== token) return;
+    set({ connections: get().connections.map(connection =>
+      connection.id === connectionId ? { ...connection, ...access } : connection
     ) });
   },
 

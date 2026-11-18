@@ -73,6 +73,7 @@ export default function CareCircleScreen() {
     deleteConnection,
     updateConnection,
     updatePermissions,
+    updateNotificationAccess,
     refresh,
     fetchInvitations,
     fetchConnections,
@@ -105,6 +106,7 @@ export default function CareCircleScreen() {
   });
   const [savedEditValues, setSavedEditValues] = useState<ConnectionEditValues | null>(null);
   const editSaveInFlight = useRef(false);
+  const notificationAccessPending = useRef(new Set<string>());
   const editValues: ConnectionEditValues = {
     relationship_type: editRelationType?.id,
     role: editConnection?.role,
@@ -323,6 +325,11 @@ export default function CareCircleScreen() {
       return !!flags?.medication && flags.patients.some(person => String(person.id) === member.userId);
     };
     const canViewHealth = getConnectionHealthAccess(connection, accountId).canViewTheirs;
+    const openMemberNotifications = () => {
+      if (currentConnection()) router.push({
+        pathname: '/care-circle/notifications/[id]', params: { id: member.userId },
+      });
+    };
     showAlert(member.name, undefined, [
       {
         text: t('familyHealthTitle'), icon: canViewHealth ? 'file-document-outline' : 'lock-outline',
@@ -342,11 +349,11 @@ export default function CareCircleScreen() {
         onPress: () => {
           if (!currentConnection()) return;
           if (!currentConnectionContext.current.familyFeatures?.coins) {
-            router.push('/notifications');
+            openMemberNotifications();
             return;
           }
           showAlert(t('familyNotifications'), undefined, [
-            { text: t('familyOpenInbox'), icon: 'bell-outline', onPress: () => { if (currentConnection()) router.push('/notifications'); } },
+            { text: t('familyOpenInbox'), icon: 'bell-outline', onPress: openMemberNotifications },
             { text: t('familyGreetingCard'), icon: 'cards-heart-outline', onPress: () => {
               if (currentConnection() && currentConnectionContext.current.familyFeatures?.coins) router.push('/coins');
             } },
@@ -378,6 +385,8 @@ export default function CareCircleScreen() {
           const current = currentConnection();
           if (!current) return;
           const isRequester = String(current.requester_id) === String(accountId);
+          const sharesNotifications = isRequester
+            ? current.requester_shares_notifications === true : current.addressee_shares_notifications === true;
           const options: AlertButton[] = [{
             text: t('viewConnectionInfo'), icon: 'account-details-outline',
             onPress: () => {
@@ -396,6 +405,30 @@ export default function CareCircleScreen() {
             onPress: () => {
               const latest = currentConnection();
               if (latest) handleEditConnection({ ...latest, name: member.name });
+            },
+          });
+          options.push({
+            text: t(sharesNotifications ? 'familyStopSharingNotifications' : 'familyShareMyNotifications'),
+            icon: sharesNotifications ? 'bell-off-outline' : 'bell-outline',
+            onPress: () => {
+              if (!currentConnection()) return;
+              const share = !sharesNotifications;
+              const label = t(share ? 'familyShareMyNotifications' : 'familyStopSharingNotifications');
+              showAlert(label, t(share ? 'familyShareNotificationsPrompt' : 'familyStopSharingNotificationsPrompt', { name: member.name }), [
+                cancel,
+                { text: t(share ? 'familyConfirmShareNotifications' : 'familyConfirmStopSharingNotifications'), onPress: async () => {
+                  if (!currentConnection() || notificationAccessPending.current.has(id)) return;
+                  notificationAccessPending.current.add(id);
+                  try {
+                    await updateNotificationAccess(id, share);
+                    if (currentConnection()) showToast(t(share ? 'familyNotificationsShared' : 'familyNotificationsUnshared'), 'success');
+                  } catch (error) {
+                    if (currentConnection()) showToast(getApiErrorMessage(error, t, 'familyNotificationShareError'), 'error');
+                  } finally {
+                    notificationAccessPending.current.delete(id);
+                  }
+                } },
+              ]);
             },
           });
           options.push({

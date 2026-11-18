@@ -214,6 +214,10 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     fetchInvitations: async () => {}, fetchConnections: async () => {}, refresh: async () => {},
     updateConnection: (id, values) => write('metadata', id, values),
     updatePermissions: (id, values) => write('permissions', id, values),
+    updateNotificationAccess: async (id, share) => {
+      calls.writes.push({ kind: 'notificationAccess', id, share });
+      connection.requester_shares_notifications = share;
+    },
   };
   const { default: Screen } = evaluate(read('app/care-circle/index.tsx'), {
     react: h.react, 'react-native': native, '@expo/vector-icons': icons,
@@ -324,13 +328,79 @@ await test('avatar choices open health, notifications and medication through the
   tapAvatar(); press('familyTaskSetup'); press('familyMedicationSetup');
   assert.deepEqual(h.calls.routes, [
     { pathname: '/care-circle/member/[id]', params: { id: 'second-relative', name: 'Another relative' } },
-    '/notifications', '/coins',
+    { pathname: '/care-circle/notifications/[id]', params: { id: 'second-relative' } }, '/coins',
     { pathname: '/medication', params: { patientId: 'second-relative' } },
   ]);
   tapAvatar(); press('familyTaskSetup');
   h.care.connections.pop(); h.render();
   press('familyMedicationSetup');
   assert.equal(h.calls.routes.length, 4);
+});
+await test('without greeting cards the notifications option still opens just the selected member’s inbox', () => {
+  const h = connectionHarness();
+  const t = translate('vi', 'careCircle');
+  h.avatarMenu().find(action => action.text === t('familyNotifications')).onPress();
+  assert.deepEqual(h.calls.routes, [{ pathname: '/care-circle/notifications/[id]', params: { id: 'relative' } }]);
+});
+await test('sharing or revoking my inbox requires confirmation and reports each saved change', async () => {
+  const h = connectionHarness();
+  const t = translate('vi', 'careCircle');
+  h.menu().find(action => action.text === t('familyShareMyNotifications')).onPress();
+  assert.deepEqual(h.calls.writes, []);
+  await h.calls.alerts.at(-1)[2].find(action => action.text === t('familyConfirmShareNotifications')).onPress();
+  h.menu().find(action => action.text === t('familyStopSharingNotifications')).onPress();
+  await h.calls.alerts.at(-1)[2].find(action => action.text === t('familyConfirmStopSharingNotifications')).onPress();
+  assert.deepEqual(h.calls.writes, [
+    { kind: 'notificationAccess', id: h.connection.id, share: true },
+    { kind: 'notificationAccess', id: h.connection.id, share: false },
+  ]);
+  assert.deepEqual(h.calls.toasts, [[t('familyNotificationsShared'), 'success'], [t('familyNotificationsUnshared'), 'success']]);
+});
+await test('the member inbox shows only that member and clears visible entries when a later page loses access', async () => {
+  const h = hooks();
+  const state = { token: 'viewer-token' };
+  const auth = Object.assign(select => select(state), { getState: () => state });
+  const calls = [];
+  class ApiError extends Error {
+    statusCode = 403;
+  }
+  const entry = { id: 31, type: 'general', title: 'Shared message', message: 'Member text', created_at: '2026-11-18T02:00:00Z' };
+  const { default: Screen } = evaluate("import React from 'react';\n" + read('app/care-circle/notifications/[id].tsx'), {
+    react: h.react,
+    'expo-router': { Stack: { Screen: 'StackScreen' }, useLocalSearchParams: () => ({ id: '7' }),
+      useFocusEffect: work => h.react.useEffect(work, []) },
+    'react-native': { ...native, FlatList: 'FlatList' },
+    'react-i18next': { useTranslation: namespace => ({ t: translate('vi', namespace), i18n: { language: 'vi' } }) },
+    'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
+    '../../../src/components/NotificationIcon': { NotificationIcon: 'NotificationIcon' },
+    '../../../src/components/ScaledText': { ScaledText: 'Text' },
+    '../../../src/components/Screen': { Screen: 'Screen' },
+    '../../../src/components/ScreenHeaderButton': { ScreenBackButton: 'BackButton' },
+    '../../../src/features/auth/auth.store': { useAuthStore: auth },
+    '../../../src/features/care-circle/care-circle.api': { careCircleApi: {
+      getMemberNotifications: async (id, before) => {
+        calls.push([id, before]);
+        if (before !== null) throw new ApiError();
+        return { memberName: 'Minh Anh', notifications: [entry], nextBefore: 31 };
+      },
+    } },
+    '../../../src/hooks/useGuardedRouter': { useGuardedRouter: () => ({ back() {} }) },
+    '../../../src/hooks/useThemeColors': { useThemeColors: () => ({ colors: theme.lightColors }) },
+    '../../../src/lib/apiClient': { ApiError },
+    '../../../src/styles': theme,
+  });
+  h.render(Screen); h.effects();
+  await Promise.resolve();
+  const render = () => nodes(h.render(Screen));
+  const list = () => render().find(node => node.type === 'FlatList');
+  assert.ok(render().some(node => node.props.children === 'Thông báo của Minh Anh'));
+  assert.deepEqual(list().props.data, [entry]);
+  list().props.ListFooterComponent.props.onPress();
+  await Promise.resolve();
+  assert.deepEqual(calls, [['7', null], ['7', 31]]);
+  assert.deepEqual(list().props.data, []);
+  const message = translate('vi', 'careCircle')('familyNotificationsAccessRequired');
+  assert.ok(nodes(list().props.ListEmptyComponent).some(node => node.props.children === message));
 });
 for (const language of ['vi', 'en']) {
   await test(`${language}: the header opens QR scanning and the lower actions are absent`, () => {

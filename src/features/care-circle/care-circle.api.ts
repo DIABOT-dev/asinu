@@ -36,6 +36,8 @@ export type CareCircleConnection = {
   status: "accepted";
   /** This user's consent is independent from the requester's permission. */
   addressee_can_view_logs?: boolean;
+  requester_shares_notifications?: boolean;
+  addressee_shares_notifications?: boolean;
   relationship_type?: string;
   role?: string;
   permissions: {
@@ -57,6 +59,20 @@ export type CareCircleConnection = {
   addressee_gender?: string;
   created_at: string;
   updated_at: string;
+};
+
+export type MemberNotification = {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  created_at: string;
+};
+
+export type MemberNotifications = {
+  memberName: string | null;
+  notifications: MemberNotification[];
+  nextBefore: number | null;
 };
 
 export type MemberHealthOverview = {
@@ -334,6 +350,23 @@ export const careCircleApi = {
       `/api/care-circle/member/${encodeURIComponent(memberId)}/health-calendar?month=${encodeURIComponent(month)}`
     );
     return response.report;
+  },
+
+  async getMemberNotifications(memberId: string, before: number | null, signal: AbortSignal) {
+    const query = before === null ? "" : `?before=${before}`;
+    return apiClient<MemberNotifications>(
+      `/api/care-circle/member/${encodeURIComponent(memberId)}/notifications${query}`, { signal }
+    );
+  },
+
+  async updateNotificationAccess(connectionId: string, shareNotifications: boolean) {
+    const response = await apiClient<{ access: Pick<CareCircleConnection,
+      'requester_shares_notifications' | 'addressee_shares_notifications'
+    > }>(`/api/care-circle/connections/${encodeURIComponent(connectionId)}/notification-access`, {
+      method: "PUT",
+      body: { share_notifications: shareNotifications },
+    });
+    return response.access;
   },
 
   async getMemberHealthOverview(memberId: string, signal: AbortSignal) {
