@@ -415,9 +415,11 @@ await test('guide topics stay in sync with the backend compact interview without
   const grouped = backend.statements.filter(ts.isVariableStatement).flatMap(node => [...node.declarationList.declarations])
     .find(node => node.name.getText(backend) === 'EIGHT_GROUPS');
   assert.ok(grouped);
-  const required = new Function(`const ${declaration.getText(backend)}; const ${grouped.getText(backend)}; return EIGHT_GROUPS;`)()
-    .map(([field, group]) => [field, group]);
-  assert.deepEqual(PRACTICE_CHECKIN_GROUPS.map(([field, group]) => [field, group]), required);
+  const { EIGHT_GROUPS } = evaluate(`const ${declaration.getText(backend)};
+    const ${grouped.getText(backend)};
+    export { EIGHT_GROUPS };`);
+  assert.deepEqual(PRACTICE_CHECKIN_GROUPS.map(([field, group]) => [field, group]),
+    EIGHT_GROUPS.map(([field, group]) => [field, group]));
 });
 // Verify the redesigned choices still report the original API status values.
 const choiceFile = ts.createSourceFile('choice.tsx', read('src/features/checkin/CheckinStatusChoice.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);

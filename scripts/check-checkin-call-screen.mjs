@@ -374,36 +374,8 @@ test('Native preview library is hidden in every build, including development', (
     if (previousEnvironment === undefined) delete process.env.EXPO_PUBLIC_APP_ENV;
     else process.env.EXPO_PUBLIC_APP_ENV = previousEnvironment;
   }
-  const file = ts.createSourceFile('profile.tsx', read('src/features/profile/ProfileScreen.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  let entry;
-  const visit = node => {
-    if (ts.isJsxAttribute(node) && node.name.getText(file) === 'onPress' && node.getText(file).includes('/checkin-call/ui-gallery')) entry = node;
-    ts.forEachChild(node, visit);
-  };
-  visit(file); assert.ok(entry);
-  let gatedEntry;
-  for (let node = entry.parent; node; node = node.parent) {
-    if (ts.isJsxExpression(node) && node.expression && ts.isBinaryExpression(node.expression)
-      && node.expression.getText(file).includes('isCheckinUiGalleryEnabled')) {
-      gatedEntry = node.expression;
-      break;
-    }
-  }
-  assert.ok(gatedEntry, 'The profile preview entry must have a development gate');
-  const source = `import React from 'react';
-    import { isDevBuild, isCheckinUiGalleryEnabled } from '../../../src/lib/appEnv';
-    const TouchableOpacity = 'Button', View = 'View', Text = 'Text', Ionicons = 'Icon';
-    const styles = {}, t = key => key, router = { push() {} };
-    export default () => (${gatedEntry.getText(file)});`;
-  for (const isDevelopment of [false, true]) for (const environment of ['dev', 'staging', 'prod']) for (const isCheckinUiGalleryEnabled of [false, true]) {
-    const { default: PreviewEntry } = evaluate(source, {
-      react: { __esModule: true, default: React },
-      '../../../src/lib/appEnv': { isDevBuild: environment === 'dev', isCheckinUiGalleryEnabled },
-    }, isDevelopment);
-    const rendered = PreviewEntry();
-    assert.equal(React.isValidElement(rendered), isDevelopment && environment === 'dev' && isCheckinUiGalleryEnabled,
-      `Unexpected preview visibility: __DEV__=${isDevelopment}, environment=${environment}`);
-  }
+  assert.doesNotMatch(read('src/features/profile/ProfileScreen.tsx'), /\/checkin-call\/ui-gallery/,
+    'Profile must keep the native preview library shortcut hidden');
 });
 
 console.log(`Check-in screen: ${checks} rendered JSX regressions passed.`);

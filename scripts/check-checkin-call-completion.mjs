@@ -21,6 +21,7 @@ async function test(label, work) { await work(); checks++; console.log(`PASS ${l
 const call = { attemptId: 'attempt', episodeId: 'episode' };
 const closed = { id: 'attempt', episode_id: 'episode', target_role: 'USER', state: 'CANCELLED', episode_state: 'CANCELLED' };
 const { isCheckinCallAttemptClosed } = evaluate('src/features/checkin-call/checkin-call.state.ts', {});
+const triage = evaluate('src/features/checkin/wait-for-triage.ts', {});
 
 function harness({ calls = [call], attempt = closed, saveError, fetchError, ok = true } = {}) {
   const events = [];
@@ -39,6 +40,7 @@ function harness({ calls = [call], attempt = closed, saveError, fetchError, ok =
   });
   const { checkinApi } = evaluate('src/features/checkin/checkin.api.ts', {
     '../checkin-call/checkin-call.completion': { withManualCheckinCallCompletion },
+    './wait-for-triage': triage,
     '../../lib/apiClient': { apiClient: async url => {
       events.push(`save:${url}`);
       if (saveError) throw saveError;

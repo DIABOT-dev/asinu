@@ -580,6 +580,8 @@ function evaluateArticle(file, imports = {}) {
   const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: {
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
   } }).outputText;
+  // Execute the local article module with test dependencies.
+  // eslint-disable-next-line no-new-func
   new Function('module', 'exports', 'require', source)(result, result.exports, name => {
     assert.ok(name in imports, `Missing article adapter: ${name}`); return imports[name];
   });
