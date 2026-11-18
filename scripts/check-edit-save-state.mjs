@@ -234,7 +234,9 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     '../../src/stores/toast.store': { showToast: (...args) => calls.toasts.push(args) },
     '../../src/features/care-circle': { useCareCircle: () => care, careCircleApi: { getMemberHealthCalendar: async (id, month) => { calls.calendars.push({ id, month }); return {}; } } },
     '../../src/hooks/useScaledTypography': { useScaledTypography: () => theme.typography },
-    '../../src/styles': theme, '../../src/hooks/useThemeColors': { useThemeColors: () => ({ isDark }) },
+    '../../src/styles': theme, '../../src/hooks/useThemeColors': {
+      useThemeColors: () => ({ isDark, colors: isDark ? theme.darkColors : theme.lightColors }),
+    },
     '../../src/lib/apiClient': { getApiErrorMessage: error => error.message },
     '../../src/features/care-circle/health-access': healthAccess,
     '../../src/features/care-circle/family-roles': familyRoles,

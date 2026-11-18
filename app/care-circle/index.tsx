@@ -58,7 +58,7 @@ export default function CareCircleScreen() {
   const { t } = useTranslation('careCircle');
   const { t: tc } = useTranslation('common');
   const scaledTypography = useScaledTypography();
-  const { isDark } = useThemeColors();
+  const { colors: themeColors, isDark } = useThemeColors();
   const styles = useMemo(() => createStyles(scaledTypography, isDark), [scaledTypography, isDark]);
   const { alertState, showAlert, dismissAlert } = useAppAlert();
 
@@ -435,12 +435,12 @@ export default function CareCircleScreen() {
               style={({ pressed }) => [styles.familyHeaderSide, pressed && styles.familyScanPressed]}
               onPress={() => router.push('/care-circle/scan')}>
               <LinearGradient
-                colors={isDark ? ['#434770', '#20546B'] : ['#F0DBFC', '#B8F4FA']}
+                colors={[themeColors.primaryLight, themeColors.emeraldLight]}
                 start={{ x: 0, y: 0.15 }}
                 end={{ x: 1, y: 0.85 }}
                 style={styles.familyScanTile}
               >
-                <MaterialCommunityIcons name="qrcode-scan" size={29} color={isDark ? '#E2EEFF' : '#203F99'} accessible={false} />
+                <MaterialCommunityIcons name="qrcode-scan" size={29} color={themeColors.primaryText} accessible={false} />
               </LinearGradient>
             </Pressable>
           </View>
