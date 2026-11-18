@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
+import { useLoadOnScrollEnd } from "../../hooks/useLoadOnScrollEnd";
 import { HealthCoinIcon } from "./HealthCoinIcon";
 import {
   CoinEarnTab,
@@ -41,6 +42,9 @@ export function CoinDetailsPanel({
 }) {
   const { t } = useTranslation("v21");
   const { colors, isDark } = useThemeColors();
+  const pagingScroll = useLoadOnScrollEnd(() => {
+    if (tab === "history" && !coins.historyError) void coins.more();
+  }, tab, tab === "history" && coins.hasMore);
   return (
     <View style={styles.panel}>
       <LinearGradient
@@ -107,6 +111,8 @@ export function CoinDetailsPanel({
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        contentContainerStyle={pagingScroll.minimumContentSize}
+        {...(tab === "history" ? pagingScroll.scrollProps : undefined)}
       >
         {tab === "earn" ? (
           <CoinEarnTab coins={coins} />

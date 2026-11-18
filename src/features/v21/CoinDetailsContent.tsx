@@ -484,7 +484,7 @@ export function CoinHistoryTab({ coins }: { coins: HealthCoinsController }) {
   const { colors } = useThemeColors();
   return (
     <View style={s.content}>
-      {!coins.history.length && (
+      {!coins.history.length && !coins.loading && !coins.historyLoading && (
         <Empty text={t("emptyHistory")} icon="time-outline" />
       )}
       <View style={s.list}>
@@ -572,11 +572,13 @@ export function CoinHistoryTab({ coins }: { coins: HealthCoinsController }) {
           </View>
         ))}
       </View>
-      {coins.hasMore && (
+      {coins.historyLoading && (
+        <ActivityIndicator color={colors.primary} accessibilityLabel={t("loading")} />
+      )}
+      {coins.historyError && (
         <CoinButton
           secondary
-          label={t("more")}
-          busy={coins.busy}
+          label={t("retry")}
           onPress={() => void coins.more()}
         />
       )}

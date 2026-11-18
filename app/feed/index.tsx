@@ -23,6 +23,7 @@ import { useGuardedRouter as useRouter } from "@/hooks/useGuardedRouter";
 import { HealthFeedThumbnail } from "../../src/features/health-feed/HealthFeedThumbnail";
 import { useHealthFeedDismissals } from "../../src/features/health-feed/useHealthFeedDismissals";
 import { useAuthStore } from "../../src/features/auth/auth.store";
+import { appendDistinctPage, SCROLL_PAGE_SIZE, useLoadOnScrollEnd } from "../../src/hooks/useLoadOnScrollEnd";
 
 async function healthFeedApi<T>(path: string, options?: any) {
   return apiClient<T>(`/api/health-feed${path}`, options);
@@ -89,18 +90,18 @@ export default function FeedListScreen() {
   const { hiddenIds, hydrated, canShowCurated } =
     useHealthFeedDismissals();
   const requestVersion = useRef(0);
-  const dataOwner = useRef<{ userId: string; token: string | null } | null>(
-    null,
-  );
-  const ownsData =
-    dataOwner.current?.userId === userId && dataOwner.current?.token === token;
-
   const [activeTab, setActiveTab] = useState<"feed" | "saved">("feed");
+  const dataOwner = useRef<{ userId: string; token: string | null; tab: typeof activeTab } | null>(null);
+  const ownsData = dataOwner.current?.userId === userId &&
+    dataOwner.current?.token === token && dataOwner.current?.tab === activeTab;
   const [feedItems, setFeedItems] = useState<any[]>([]);
   const [savedItems, setSavedItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [enabled, setEnabled] = useState(true);
+  const [pageLoading, setPageLoading] = useState(false);
+  const [error, setError] = useState<"initial" | "next" | null>(null);
+  const nextBefore = useRef<string | null>(null);
+  const paging = useRef(false);
 
   const brandGreen = isDark ? "#2DD4BF" : "#0D9488";
   const isCurrentSession = useCallback(() => {
@@ -115,53 +116,88 @@ export default function FeedListScreen() {
       version === requestVersion.current && isCurrentSession();
     if (
       dataOwner.current?.userId !== userId ||
-      dataOwner.current?.token !== token
+      dataOwner.current?.token !== token ||
+      dataOwner.current?.tab !== activeTab
     ) {
       setFeedItems([]);
       setSavedItems([]);
       setEnabled(true);
     }
-    dataOwner.current = { userId, token };
+    dataOwner.current = { userId, token, tab: activeTab };
+    nextBefore.current = null;
+    paging.current = true;
+    setPageLoading(false);
+    setError(null);
     setLoading(true);
     try {
-      const feedRes = await healthFeedApi<any>("/feed");
+      const response = await healthFeedApi<any>(`/${activeTab}?limit=${SCROLL_PAGE_SIZE}`);
       if (!current()) return;
-      if (feedRes.ok && feedRes.enabled === false) {
+      if (response.ok && response.enabled === false) {
         setEnabled(false);
         setFeedItems([]);
         setSavedItems([]);
         return;
       }
+      if (!response.ok || !Array.isArray(response[activeTab])) throw new Error("Content unavailable");
       setEnabled(true);
-      if (feedRes.ok && Array.isArray(feedRes.feed)) {
-        setFeedItems(feedRes.feed);
-      }
-      const savedRes = await healthFeedApi<any>("/saved");
-      if (!current()) return;
-      if (savedRes.ok && Array.isArray(savedRes.saved)) {
-        setSavedItems(savedRes.saved);
-      }
-    } catch (err) {
-      if (current()) console.warn("[Feed] Content unavailable");
+      const setItems = activeTab === "feed" ? setFeedItems : setSavedItems;
+      setItems(response[activeTab].slice(0, SCROLL_PAGE_SIZE));
+      nextBefore.current = response.nextBefore ?? null;
+    } catch {
+      if (current()) setError("initial");
     } finally {
-      if (current()) setLoading(false);
+      if (current()) {
+        paging.current = false;
+        setLoading(false);
+      }
     }
-  }, [userId, token, isCurrentSession]);
+  }, [userId, token, activeTab, isCurrentSession]);
 
   useFocusEffect(
     useCallback(() => {
       void loadData();
       return () => {
         requestVersion.current += 1;
+        nextBefore.current = null;
+        paging.current = false;
       };
     }, [loadData]),
   );
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+  const loadMore = async () => {
+    const before = nextBefore.current;
+    if (!before || paging.current || !ownsData || !enabled || !isCurrentSession()) return;
+    const version = requestVersion.current;
+    const current = () => version === requestVersion.current && isCurrentSession();
+    paging.current = true;
+    setPageLoading(true);
+    setError(null);
+    try {
+      const response = await healthFeedApi<any>(`/${activeTab}?limit=${SCROLL_PAGE_SIZE}&before=${encodeURIComponent(before)}`);
+      if (!current()) return;
+      if (response.ok && response.enabled === false) {
+        setEnabled(false);
+        setFeedItems([]);
+        setSavedItems([]);
+        nextBefore.current = null;
+        return;
+      }
+      if (!response.ok || !Array.isArray(response[activeTab])) throw new Error("Content unavailable");
+      const setItems = activeTab === "feed" ? setFeedItems : setSavedItems;
+      setItems((previous) => appendDistinctPage(previous, response[activeTab].slice(0, SCROLL_PAGE_SIZE)));
+      nextBefore.current = response.nextBefore === before ? null : response.nextBefore ?? null;
+    } catch {
+      if (current()) setError("next");
+    } finally {
+      if (current()) {
+        paging.current = false;
+        setPageLoading(false);
+      }
+    }
   };
+  const pagingScroll = useLoadOnScrollEnd(() => {
+    if (!error) void loadMore();
+  }, activeTab, ownsData && enabled && nextBefore.current !== null);
 
   const handleItemPress = async (item: any) => {
     if (!isCurrentSession()) return;
@@ -326,19 +362,22 @@ export default function FeedListScreen() {
 
       {/* Main Content List */}
       <ScrollView
+        key={activeTab}
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: insets.bottom + spacing.xl },
+          pagingScroll.minimumContentSize,
         ]}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing || loading}
-            onRefresh={handleRefresh}
+            refreshing={loading}
+            onRefresh={loadData}
             colors={[brandGreen]}
             tintColor={brandGreen}
           />
         }
         showsVerticalScrollIndicator={false}
+        {...pagingScroll.scrollProps}
       >
         {!enabled && ownsData ? (
           <View style={styles.emptyContainer}>
@@ -353,7 +392,7 @@ export default function FeedListScreen() {
             <View style={styles.emptyContainer}>
               {loading || !hydrated || !ownsData ? (
                 <ActivityIndicator color={brandGreen} />
-              ) : (
+              ) : error ? null : (
                 <>
                   <Ionicons
                     name="newspaper-outline"
@@ -417,7 +456,7 @@ export default function FeedListScreen() {
               );
             })
           )
-        ) : visibleSavedItems.length === 0 ? (
+        ) : visibleSavedItems.length === 0 && !loading && ownsData && !error ? (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconBadge}>
               <Ionicons name="bookmark-outline" size={32} color={brandGreen} />
@@ -462,6 +501,18 @@ export default function FeedListScreen() {
               </Text>
             </Pressable>
           ))
+        )}
+        {ownsData && pageLoading && (
+          <ActivityIndicator style={styles.pageFooter} color={brandGreen} accessibilityLabel={tc("loading")} />
+        )}
+        {ownsData && error && (
+          <Pressable
+            accessibilityRole="button"
+            style={styles.pageFooter}
+            onPress={error === "next" ? loadMore : loadData}
+          >
+            <Text style={{ color: brandGreen }}>{tc("retry")}</Text>
+          </Pressable>
         )}
       </ScrollView>
     </Screen>
@@ -612,6 +663,12 @@ function createStyles(
       fontWeight: "700",
       color: themeColors.textPrimary,
       textAlign: "center",
+    },
+    pageFooter: {
+      minHeight: 48,
+      justifyContent: "center",
+      alignItems: "center",
+      marginTop: spacing.sm,
     },
     emptySub: {
       fontSize: 14,

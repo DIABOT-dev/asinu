@@ -221,9 +221,9 @@ export const v21Api = {
     }),
   flags: () => apiClient<V21Flags>("/api/mobile/v21/config"),
   coins: () => apiClient<CoinToday>("/api/mobile/coins/today"),
-  history: (before?: string) =>
-    apiClient<{ items: CoinEntry[] }>(
-      `/api/mobile/coins/history?before=${encodeURIComponent(before || "")}`,
+  history: (before?: string, limit?: number) =>
+    apiClient<{ items: CoinEntry[]; nextBefore?: string | null }>(
+      `/api/mobile/coins/history?before=${encodeURIComponent(before || "")}${limit === undefined ? "" : `&limit=${limit}`}`,
     ),
   rewards: () => apiClient<RewardCatalog>("/api/mobile/rewards"),
   openCard: (id: string) => apiClient<{ card: FamilyGreetingCard; received: boolean }>(

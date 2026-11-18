@@ -1190,7 +1190,7 @@ function coinDetailsHarness() {
   const storage = new Map();
   const calls = { redeems: [], toasts: [], errors: [], history: [] };
   const reward = { code: "GREETING_CARD", cost: 50, daily_limit: 1, monthly_limit: 0 };
-  const server = { balance: 100, pendingCoins: null, pendingRedeem: null, pendingStorage: null, failRedeem: false, pages: { "": [] } };
+  const server = { balance: 100, pendingCoins: null, pendingRedeem: null, pendingStorage: null, failRedeem: false, pages: {} };
   const t = key => key;
   const useAuthStore = Object.assign(select => select(auth), { getState: () => auth });
   const data = () => ({ ...journeyData(), balance: server.balance });
@@ -1198,6 +1198,7 @@ function coinDetailsHarness() {
     react: r.hooks,
     "expo-router": r.router,
     "../../hooks/useGuardedRouter": { useGuardedRouter: () => ({ push() {} }) },
+    "../../hooks/useLoadOnScrollEnd": evaluate("src/hooks/useLoadOnScrollEnd.ts", { react: r.hooks }),
     "react-i18next": { useTranslation: () => ({ t }) },
     "@react-native-async-storage/async-storage": { __esModule: true, default: {
       getItem: async key => server.pendingStorage ? await server.pendingStorage : storage.get(key) ?? null,
@@ -1210,7 +1211,10 @@ function coinDetailsHarness() {
     "./v21.api": { v21Api: {
       coins: async () => server.pendingCoins ?? data(),
       rewards: async () => ({ items: [reward], recipients: [{ id: 7, name: "Fixture recipient" }], templates: [{ code: "fixture-card", title: "Fixture card", title_en: "Fixture card" }] }),
-      history: async before => { calls.history.push(before || ""); return { items: server.pages[before || ""] ?? [] }; },
+      history: async (before, limit) => {
+        calls.history.push({ before, limit });
+        return server.pages[before || ""] ?? { items: [], nextBefore: null };
+      },
       redeem: async (code, id, payload) => {
         calls.redeems.push({ code, id, payload });
         if (server.pendingRedeem) await server.pendingRedeem;
@@ -1277,12 +1281,15 @@ await test("leaving the coin screen before request preparation prevents a redemp
 
 await test("coin history loads the next cursor once, removes duplicate entries and stops at the last page", async () => {
   const h = coinDetailsHarness();
-  h.server.pages[""] = Array.from({ length: 30 }, (_, index) => entry(60 - index, 2));
-  h.server.pages["31"] = [entry(31, 2), entry(30, 2)];
+  h.server.pages[""] = { items: Array.from({ length: 10 }, (_, index) => entry(60 - index, 2)), nextBefore: "51" };
+  h.server.pages["51"] = { items: [entry(51, 2), entry(50, 2)], nextBefore: null };
   await h.settle(); assert.equal(h.read().hasMore, true);
-  await h.read().more();
-  assert.deepEqual(h.calls.history, ["", "31"]);
-  assert.equal(h.read().history.length, 31); assert.equal(h.read().hasMore, false);
+  assert.equal(h.read().history.length, 10);
+  assert.deepEqual(h.calls.history, [{ before: undefined, limit: 10 }]);
+  const more = h.read().more;
+  await Promise.all([more(), more()]);
+  assert.deepEqual(h.calls.history, [{ before: undefined, limit: 10 }, { before: "51", limit: 10 }]);
+  assert.equal(h.read().history.length, 11); assert.equal(h.read().hasMore, false);
   await h.read().more(); assert.equal(h.calls.history.length, 2); h.blur();
 });
 

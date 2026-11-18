@@ -351,6 +351,10 @@ function screenHarness(options = {}) {
     "../../src/hooks/useThemeColors": {
       useThemeColors: () => ({ isDark: false, colors: palette }),
     },
+    "../../src/hooks/useLoadOnScrollEnd": evaluateArticle(
+      "src/hooks/useLoadOnScrollEnd.ts",
+      { react },
+    ),
     "@/hooks/useGuardedRouter": {
       useGuardedRouter: () => ({
         push: (route) => routes.push(route),
@@ -367,13 +371,15 @@ function screenHarness(options = {}) {
     "../../src/lib/apiClient": {
       apiClient: async (path, config) => {
         requests.push({ path, method: config?.method });
-        if (path === "/api/health-feed/feed")
+        const url = new URL(path, "https://asinu.invalid");
+        if (options.page && url.searchParams.has("limit")) return options.page(url);
+        if (url.pathname === "/api/health-feed/feed")
           return {
             ok: true,
             enabled: true,
             feed: options.curated ? [] : [readArticle],
           };
-        if (path === "/api/health-feed/saved")
+        if (url.pathname === "/api/health-feed/saved")
           return {
             ok: true,
             saved: [
@@ -495,6 +501,58 @@ await test("saved articles remain readable without a hide action", async () => {
   );
   assert.equal(h.hideButtons().length, 0);
   assert.deepEqual(h.calls, []);
+  h.unmount();
+});
+
+await test("health feed and saved lists request the next 10 only when scrolling near the bottom", async () => {
+  const articles = Array.from({ length: 20 }, (_, index) => ({
+    id: `page-${index}`,
+    content_id: `article-${index}`,
+    title: `Paged article ${index}`,
+    message: "Fixture summary",
+    feed_type: "article",
+  }));
+  let finishPage;
+  const h = screenHarness({ page(url) {
+    const tab = url.pathname.endsWith("/saved") ? "saved" : "feed";
+    if (url.searchParams.has("before")) {
+      return new Promise(resolve => {
+        finishPage = () => resolve({ ok: true, [tab]: articles.slice(9, 19), nextBefore: null });
+      });
+    }
+    return { ok: true, enabled: true, [tab]: articles.slice(0, 10), nextBefore: "cursor=10" };
+  } });
+  const scroll = (y) => h.all().find(node => node.type === "ScrollView").props.onScroll({
+    nativeEvent: { contentOffset: { y }, contentSize: { height: 1800 }, layoutMeasurement: { height: 700 } },
+  });
+  const count = () => h.all().filter(node => node.props?.accessibilityLabel?.startsWith("Paged article")).length;
+  for (const [index, tab] of ["feed", "saved"].entries()) {
+    if (index) h.all().filter(node => node.props?.accessibilityRole === "tab")[index].props.onPress();
+    await h.settle();
+    assert.equal(count(), 10);
+    assert.equal(h.requests.length, index * 2 + 1);
+    h.all().find(node => node.type === "ScrollView").props.onLayout({
+      nativeEvent: { layout: { height: 700 } },
+    });
+    await h.settle();
+    assert.ok(h.all().find(node => node.type === "ScrollView").props.contentContainerStyle.some(
+      (style) => style?.minHeight === 708,
+    ));
+    assert.equal(h.requests.length, index * 2 + 1);
+    scroll(0);
+    scroll(400);
+    assert.equal(h.requests.length, index * 2 + 1);
+    scroll(960);
+    scroll(1050);
+    assert.equal(h.requests.length, index * 2 + 2);
+    assert.equal(h.requests.at(-2).path, `/api/health-feed/${tab}?limit=10`);
+    assert.equal(h.requests.at(-1).path, `/api/health-feed/${tab}?limit=10&before=cursor%3D10`);
+    finishPage();
+    await h.settle();
+    assert.equal(count(), 19);
+    scroll(1090);
+    assert.equal(h.requests.length, index * 2 + 2);
+  }
   h.unmount();
 });
 
