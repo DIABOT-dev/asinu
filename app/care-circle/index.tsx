@@ -28,7 +28,7 @@ import { CareCircleTabSkeleton } from '../../src/components/state/MainScreenSkel
 import { useInitialLoadingGate } from '../../src/hooks/useInitialLoadingGate';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import { showToast } from '../../src/stores/toast.store';
-import { careCircleApi, useCareCircle, type CareCircleConnection } from '../../src/features/care-circle';
+import { useCareCircle, type CareCircleConnection } from '../../src/features/care-circle';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { colors, getBottomTabBarHeight, iconColors, spacing } from '../../src/styles';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
@@ -48,7 +48,6 @@ import { CareCircleQrActions } from '../../src/features/care-circle/components/C
 import { CareCircleMemberStrip } from '../../src/features/care-circle/components/CareCircleMemberStrip';
 import { HomeProfileAvatar } from '../../src/components/HomeProfileAvatar';
 import { useFamilyFeatures } from '../../src/features/care-circle/useMemberOverview';
-import { HealthJournalCalendar } from '../../src/components/HealthJournalCalendar';
 import { GuideScrollScope } from '../../src/features/guidance/GuidanceProvider';
 
 type ConnectionEditTarget = {
@@ -85,6 +84,7 @@ export default function CareCircleScreen() {
     deleteConnection,
     updateConnection,
     updatePermissions,
+    updateHealthAccess,
     updateNotificationAccess,
     refresh,
     fetchInvitations,
@@ -94,8 +94,8 @@ export default function CareCircleScreen() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [focused, setFocused] = useState(false);
-  const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
-  const familyFeatures = useFamilyFeatures(focused && connections.length > 0, calendarRefreshKey);
+  const [familyFeaturesRevision, setFamilyFeaturesRevision] = useState(0);
+  const familyFeatures = useFamilyFeatures(focused && connections.length > 0, familyFeaturesRevision);
   const currentConnectionContext = useRef({ connections, familyFeatures });
   currentConnectionContext.current = { connections, familyFeatures };
   const [editConnection, setEditConnection] = useState<ConnectionEditTarget | null>(null);
@@ -146,7 +146,7 @@ export default function CareCircleScreen() {
   useFocusEffect(
     useCallback(() => {
       setFocused(true);
-      setCalendarRefreshKey(value => value + 1);
+      setFamilyFeaturesRevision(value => value + 1);
       fetchInvitations(true);
       fetchConnections(true);
       return () => setFocused(false);
@@ -260,7 +260,7 @@ export default function CareCircleScreen() {
       (connection.relationship_type ? { id: connection.relationship_type, label: connection.relationship_type } : null);
     setEditRelationType(relOption || null);
     const permissions = {
-      can_view_logs: connection.permissions?.can_view_logs === true,
+      can_view_logs: getConnectionHealthAccess(connection, accountId).sharingMine,
       can_receive_alerts: connection.permissions?.can_receive_alerts ?? true,
       can_ack_escalation: connection.permissions?.can_ack_escalation ?? true,
     };
@@ -288,6 +288,7 @@ export default function CareCircleScreen() {
     const connection = currentConnection();
     if (!connection) return;
     const isRequester = String(connection.requester_id) === accountId;
+    const healthAccessChanged = editValues.permissions.can_view_logs !== savedEditValues?.permissions.can_view_logs;
     editSaveInFlight.current = true;
     let savingNotificationAccess = false;
     try {
@@ -299,8 +300,12 @@ export default function CareCircleScreen() {
         // only sends the portion that is still unsaved.
         setSavedEditValues(previous => previous && { ...previous, ...editChanges.updates });
       }
-      if (isRequester && editChanges.permissionsChanged) {
-        await updatePermissions(id, editValues.permissions);
+      if (editChanges.permissionsChanged) {
+        if (isRequester) {
+          await updatePermissions(id, editValues.permissions);
+        } else if (healthAccessChanged) {
+          await updateHealthAccess(id, editValues.permissions.can_view_logs);
+        }
         if (!currentConnection()) return;
         setSavedEditValues(previous => previous && { ...previous, permissions: editValues.permissions });
       }
@@ -312,7 +317,9 @@ export default function CareCircleScreen() {
       closeEdit();
       showToast(t(savingNotificationAccess
         ? editValues.shareNotifications ? 'familyNotificationsShared' : 'familyNotificationsUnshared'
-        : 'editSuccess'), 'success');
+        : healthAccessChanged
+          ? editValues.permissions.can_view_logs ? 'healthAccessGranted' : 'healthAccessRevoked'
+          : 'editSuccess'), 'success');
     } catch (error) {
       if (currentConnection()) {
         showToast(savingNotificationAccess
@@ -349,12 +356,7 @@ export default function CareCircleScreen() {
     };
   });
   const selectedMember = members.find(member => member.id === selectedConnectionId) || members[0];
-  const selectedConnection = connections.find(connection => connection.id === selectedMember?.id);
-  const canViewSelected = selectedConnection && getConnectionHealthAccess(selectedConnection, profile?.id).canViewTheirs;
   const guidedMemberId = connections.find(connection => getConnectionHealthAccess(connection, profile?.id).canViewTheirs)?.id;
-  const selectedUserId = selectedMember?.userId;
-  const loadMemberCalendar = useCallback((month: string) =>
-    careCircleApi.getMemberHealthCalendar(selectedUserId!, month), [selectedUserId]);
 
   const showMemberChoices = (id: string) => {
     const accountId = profile?.id;
@@ -447,7 +449,7 @@ export default function CareCircleScreen() {
           onScroll={event => { guideScrollOffset.current = event.nativeEvent.contentOffset.y; }}
           scrollEventThrottle={32}
           refreshing={refreshing}
-          onRefresh={() => { void refresh(); setCalendarRefreshKey(value => value + 1); }}
+          onRefresh={() => { void refresh(); setFamilyFeaturesRevision(value => value + 1); }}
           style={styles.container}
           contentContainerStyle={{
             paddingTop: 10,
@@ -473,13 +475,6 @@ export default function CareCircleScreen() {
           </View>
           {!showInitialSkeleton && <CareCircleMemberStrip members={members} selectedId={selectedMember?.id} guidedMemberId={guidedMemberId} hideHeading
             onSelect={showMemberChoices} onAdd={() => router.push('/care-circle/invite')} />}
-          {!showInitialSkeleton && selectedMember && canViewSelected && focused && (
-            <View style={styles.familyReport}>
-              <Text accessibilityRole="header" style={styles.familyReportTitle}>{t('familyHealthReport')}</Text>
-              <HealthJournalCalendar key={`${profile?.id}:${selectedUserId}`} plain
-                loadReport={loadMemberCalendar} subjectName={selectedMember.name} refreshKey={calendarRefreshKey} />
-            </View>
-          )}
           <CareCircleQrActions />
           {showInitialSkeleton ? (
             <CareCircleTabSkeleton />
@@ -787,12 +782,13 @@ export default function CareCircleScreen() {
                   {t('permissions')}
                 </Text>
                 <View style={styles.permCard}>
-                  {editConnection?.isRequester && [
+                  {editConnection && [
                     {
                       key: 'can_view_logs' as const,
                       icon: 'eye-outline',
                       iconColor: '#0284C7',
-                      label: t('permViewLogs'),
+                      label: t('shareMyHealthProfile', { name: editConnection.name }),
+                      description: t('permViewLogsDesc'),
                     },
                     {
                       key: 'can_receive_alerts' as const,
@@ -806,7 +802,7 @@ export default function CareCircleScreen() {
                       iconColor: '#0D9488',
                       label: t('permAckEscalation'),
                     },
-                  ].map(perm => (
+                  ].filter(perm => editConnection.isRequester || perm.key === 'can_view_logs').map(perm => (
                     <React.Fragment key={perm.key}>
                       <View style={styles.permRow}>
                         <Ionicons
@@ -815,10 +811,14 @@ export default function CareCircleScreen() {
                           color={perm.iconColor}
                           style={styles.permIcon}
                         />
-                        <Text style={styles.permLabel}>{perm.label}</Text>
+                        <View style={styles.permCopy}>
+                          <Text style={[styles.permLabel, styles.permShareLabel]}>{perm.label}</Text>
+                          {perm.description && <Text style={styles.permDescription}>{perm.description}</Text>}
+                        </View>
                         <Switch
                           value={editPermissions[perm.key]}
                           accessibilityLabel={perm.label}
+                          accessibilityHint={perm.description}
                           disabled={isEditSaving}
                           onValueChange={(val) =>
                             setEditPermissions((prev) => ({ ...prev, [perm.key]: val }))
@@ -902,8 +902,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     familyScanTile: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
     familyScanPressed: { opacity: 0.75 },
     familyTitle: { flex: 1, textAlign: 'center', fontSize: 21, fontWeight: '700', color: colors.textPrimary },
-    familyReport: { paddingHorizontal: 16, paddingBottom: 24, gap: 10 },
-    familyReportTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
     screen: {
       flex: 1,
     },

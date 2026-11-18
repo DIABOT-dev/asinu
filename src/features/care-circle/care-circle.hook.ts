@@ -184,7 +184,9 @@ export const useCareCircle = create<CareCircleStore>((set, get) => ({
   },
 
   updateHealthAccess: async (connectionId, canViewLogs) => {
+    const token = tokenStore.getToken();
     const updated = await careCircleApi.updateHealthAccess(connectionId, canViewLogs);
+    if (tokenStore.getToken() !== token) return;
     set({ connections: get().connections.map((connection) =>
       connection.id === connectionId ? { ...connection, ...updated } : connection
     ) });

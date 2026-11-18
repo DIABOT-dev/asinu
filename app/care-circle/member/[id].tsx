@@ -131,7 +131,7 @@ const normalizeMemberTreeSummary = (raw: MemberHealthSummary['treeSummary']): Tr
   };
 };
 
-type Tab = 'calendar' | 'overview' | 'logs' | 'checkins';
+type Tab = 'overview' | 'checkins' | 'calendar' | 'logs';
 
 type CheckinSession = {
   id: number;
@@ -308,15 +308,6 @@ function MemberLogsScreen({ id, name, accountId }: { id: string; name?: string; 
       {/* Tab bar */}
       <View style={styles.tabBar}>
         <Pressable
-          style={[styles.tab, activeTab === 'calendar' && styles.tabActive]}
-          onPress={() => setActiveTab('calendar')}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === 'calendar' }}
-        >
-          <Ionicons name="calendar-outline" size={18} color={activeTab === 'calendar' ? colors.primary : colors.textSecondary} />
-          <Text style={[styles.tabText, activeTab === 'calendar' && styles.tabTextActive]}>{t('tabHealthCalendar')}</Text>
-        </Pressable>
-        <Pressable
           style={[styles.tab, activeTab === 'overview' && styles.tabActive]}
           onPress={() => setActiveTab('overview')}
           accessibilityRole="tab"
@@ -332,21 +323,6 @@ function MemberLogsScreen({ id, name, accountId }: { id: string; name?: string; 
           </Text>
         </Pressable>
         <Pressable
-          style={[styles.tab, activeTab === 'logs' && styles.tabActive]}
-          onPress={() => { setLogFilter(null); setActiveTab('logs'); }}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === 'logs' }}
-        >
-          <MaterialCommunityIcons
-            name="clipboard-list-outline"
-            size={16}
-            color={activeTab === 'logs' ? colors.primary : colors.textSecondary}
-          />
-          <Text style={[styles.tabText, activeTab === 'logs' && styles.tabTextActive]}>
-            {t('tabLogs')}
-          </Text>
-        </Pressable>
-        <Pressable
           style={[styles.tab, activeTab === 'checkins' && styles.tabActive]}
           onPress={() => setActiveTab('checkins')}
           accessibilityRole="tab"
@@ -359,6 +335,30 @@ function MemberLogsScreen({ id, name, accountId }: { id: string; name?: string; 
           />
           <Text style={[styles.tabText, activeTab === 'checkins' && styles.tabTextActive]}>
             {t('tabCheckins')}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.tab, activeTab === 'calendar' && styles.tabActive]}
+          onPress={() => setActiveTab('calendar')}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === 'calendar' }}
+        >
+          <Ionicons name="calendar-outline" size={18} color={activeTab === 'calendar' ? colors.primary : colors.textSecondary} />
+          <Text style={[styles.tabText, activeTab === 'calendar' && styles.tabTextActive]}>{t('tabHealthCalendar')}</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.tab, activeTab === 'logs' && styles.tabActive]}
+          onPress={() => { setLogFilter(null); setActiveTab('logs'); }}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === 'logs' }}
+        >
+          <MaterialCommunityIcons
+            name="clipboard-list-outline"
+            size={16}
+            color={activeTab === 'logs' ? colors.primary : colors.textSecondary}
+          />
+          <Text style={[styles.tabText, activeTab === 'logs' && styles.tabTextActive]}>
+            {t('tabLogs')}
           </Text>
         </Pressable>
       </View>

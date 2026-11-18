@@ -232,6 +232,7 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     fetchInvitations: async () => {}, fetchConnections: async () => {}, refresh: async () => {},
     updateConnection: (id, values) => write('metadata', id, values),
     updatePermissions: (id, values) => write('permissions', id, values),
+    updateHealthAccess: (id, share) => write('healthAccess', id, { addressee_can_view_logs: share }),
     updateNotificationAccess: async (id, share) => {
       calls.writes.push({ kind: 'notificationAccess', id, share });
       const token = auth.token;
@@ -312,7 +313,7 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     switchCredentials: () => { apiToken = 'other-token'; },
   };
 }
-await test('top avatars open the chosen relative’s actions and keep the calendar permission-aware', async () => {
+await test('top avatars open the chosen relative’s actions without showing a health report on Connections', () => {
   const t = translate('vi', 'careCircle');
   const h = connectionHarness({ canViewTheirs: true }); h.focus();
   const list = () => nodes(h.render()).find(node => node.type === 'MemberStrip');
@@ -321,10 +322,9 @@ await test('top avatars open the chosen relative’s actions and keep the calend
   assert.ok(all.findIndex(node => node.type === 'MemberStrip') < all.findIndex(node => node.type === 'QrActions'));
   assert.equal(h.calls.alerts.length, 0);
   assert.ok(!all.some(node => node.type === 'Text' &&
-    ['familyHealthTitle', 'familyNotifications', 'familyTaskSetup'].some(key => node.props.children === t(key))));
+    ['familyHealthTitle', 'familyNotifications', 'familyTaskSetup', 'familyHealthReport'].some(key => node.props.children === t(key))));
   assert.equal(list().props.selectedId, h.connection.id);
-  await calendar().props.loadReport('2026-11');
-  assert.deepEqual(h.calls.calendars, [{ id: 'relative', month: '2026-11' }]);
+  assert.equal(calendar(), undefined);
   h.care.connections.push({ ...h.connection, id: 'second', addressee_id: 'second-relative', addressee_name: 'Another relative', addressee_can_view_logs: false });
   list().props.onSelect('second'); assert.equal(list().props.selectedId, 'second'); assert.equal(calendar(), undefined);
   assert.equal(h.calls.alerts.at(-1)[0], 'Another relative');
@@ -341,6 +341,7 @@ await test('top avatars open the chosen relative’s actions and keep the calend
   open.onPress(); assert.deepEqual(h.calls.routes, []); assert.equal(calendar(), undefined);
   h.care.connections = []; assert.equal(list().props.members.length, 0); assert.equal(calendar(), undefined);
   list().props.onAdd(); assert.deepEqual(h.calls.routes, ['/care-circle/invite']);
+  assert.deepEqual(h.calls.calendars, []);
   assert.deepEqual(h.calls.writes, []);
 });
 await test('avatar choices open health, notifications and medication through the selected relative', () => {
@@ -563,11 +564,11 @@ await test('a failed permission write remains retryable without resending succes
   assert.deepEqual(h.calls.writes.map(call => call.kind), ['metadata', 'permissions', 'permissions']);
   h.open(); assert.equal(h.save().props.disabled, true);
 });
-await test('the other participant edits only their own inbox permission from its saved state', async () => {
+await test('the addressee edits their own inbox permission from its saved state', async () => {
   const h = connectionHarness({ isRequester: false, sharesNotifications: true, peerSharesNotifications: true });
   h.open();
   assert.ok(!nodes(h.modal()).some(node => node.type === 'Dropdown'));
-  assert.equal(nodes(h.modal()).filter(node => node.type === 'Switch').length, 1);
+  assert.equal(nodes(h.modal()).filter(node => node.type === 'Switch').length, 2);
   assert.ok(h.notificationSwitch());
   assert.equal(h.notificationSwitch().props.value, true);
   h.notificationSwitch().props.onValueChange(false);
@@ -577,6 +578,24 @@ await test('the other participant edits only their own inbox permission from its
   assert.equal(h.connection.addressee_shares_notifications, false);
   h.open();
   assert.equal(h.notificationSwitch().props.value, false);
+});
+await test('the addressee grants and revokes their own profile access without changing the requester grant', async () => {
+  const h = connectionHarness({ isRequester: false });
+  const t = translate('vi', 'careCircle');
+  for (const share of [true, false]) {
+    h.open();
+    const toggle = nodes(h.modal()).find(node => node.type === 'Switch' &&
+      node.props.accessibilityLabel === t('shareMyHealthProfile', { name: 'Requester Display' }));
+    assert.equal(toggle.props.value, !share);
+    assert.equal(h.save().props.disabled, true);
+    toggle.props.onValueChange(share);
+    await h.save().props.onPress();
+    assert.equal(h.modal(), undefined);
+    assert.equal(h.connection.permissions.can_view_logs, true);
+    assert.equal(h.connection.addressee_can_view_logs, share);
+    assert.deepEqual(h.calls.toasts.at(-1), [t(share ? 'healthAccessGranted' : 'healthAccessRevoked'), 'success']);
+  }
+  assert.deepEqual(h.calls.writes.map(call => call.kind), ['healthAccess', 'healthAccess']);
 });
 await test('an inbox permission failure leaves the edit open and retries only the unsaved change', async () => {
   let writes = 0;
