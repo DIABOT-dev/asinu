@@ -22,7 +22,7 @@ function nodes(tree, includeHidden = false) {
   if (Array.isArray(tree)) return tree.flatMap(child => nodes(child, includeHidden));
   if (!tree || typeof tree !== 'object') return [];
   const styles = [tree.props?.style].flat(Infinity);
-  if (!includeHidden && styles.some(style => style?.display === 'none')) return [];
+  if (!includeHidden && (tree.props?.accessibilityElementsHidden || styles.some(style => style?.display === 'none'))) return [];
   return [tree, ...nodes(tree.props?.children, includeHidden)];
 }
 function text(tree) {
@@ -164,7 +164,6 @@ function harness({ personalInformation: initialPersonalInformation = false, canG
     '../../../src/features/profile/ProfileDevicePermissions': { ProfileDevicePermissions: 'DevicePermissions' },
     '../../../src/features/profile/TaskReminderPermission': { TaskReminderPermission: 'TaskReminderPermission' },
     '../../../src/features/profile/SpecialistSharingPermission': { SpecialistSharingPermission: 'SpecialistSharingPermission' },
-    '../../../src/features/profile/ReminderSettingsEntry': { ReminderSettingsEntry: 'ReminderSettingsEntry' },
     '../../../src/features/v21/useProfileCoins': { useProfileCoins: () => { calls.coinReads++; return coinSummary; } },
     '../../../src/features/v21/HealthCoinIcon': { HealthCoinIcon: 'HealthCoinIcon' },
     '../../../src/features/care-circle/components/QrCameraPermissionRow': { QrCameraPermissionRow: 'CameraPermissionRow' },
@@ -248,7 +247,7 @@ for (const language of ['vi', 'en']) {
     assert.deepEqual(groups.map(dropdowns), [
       [],
       [h.t('sectionAccount')],
-      [h.t('sectionSettings'), h.t('sectionData'), h.t('sectionSystem')],
+      [h.t('sectionSettings'), h.t('sectionSystem')],
     ]);
   });
   await test(`${language}: opening Profile never reads coins or shows a duplicate coin entry`, () => {
@@ -262,7 +261,7 @@ for (const language of ['vi', 'en']) {
   });
   await test(`${language}: all quick-action destinations stay out of expanded Profile menus`, () => {
     const h = harness({ language, doctorEnabled: true });
-    for (const section of ['sectionAccount', 'sectionSettings', 'sectionData', 'sectionSystem']) h.toggleSection(h.t(section));
+    for (const section of ['sectionAccount', 'sectionSettings', 'sectionSystem']) h.toggleSection(h.t(section));
     const quickActions = read('src/components/HomeFeatureGrid.tsx');
     const quickRoutes = [...quickActions.matchAll(/route:\s*['"]([^'"]+)['"]/g)].map(match => match[1]);
     for (const required of ['/doctor-consultation-history', '/privacy-center', '/doctor-care', '/logs', '/doctor-consultation', '/checkin-call/settings', '/coins', '/(tabs)/missions', '/checkin-rewards', '/checkin-rewards/history']) assert.ok(quickRoutes.includes(required), required);
@@ -310,70 +309,26 @@ for (const language of ['vi', 'en']) {
       const h=harness({language,isDark,doctorEnabled:true,profile:{hasPassword:true}});
       const initial=h.render();
       const headings=nodes(initial).filter(node=>node.props.accessibilityRole==='button'&&'expanded' in(node.props.accessibilityState||{})).map(node=>node.props.accessibilityLabel);
-      assert.deepEqual(headings,[h.t('sectionAccount'),h.t('sectionSettings'),h.t('sectionData'),h.t('sectionSystem')]);
+      assert.deepEqual(headings,[h.t('sectionAccount'),h.t('sectionSettings'),h.t('sectionSystem')]);
       const account=h.toggleSection(h.t('sectionAccount'));
       assert.ok(text(account).includes(h.t('subscription')));assert.ok(text(account).includes(h.t('changePassword')));
       assert.ok(!text(account).includes(h.t('wallet')), 'Wallet is temporarily hidden from Profile');
-      h.toggleSection(h.t('sectionSettings'));h.toggleSection(h.t('sectionData'));const all=h.toggleSection(h.t('sectionSystem'));
+      h.toggleSection(h.t('sectionSettings'));const all=h.toggleSection(h.t('sectionSystem'));
       assert.ok(text(all).includes(h.ts('helpSupport')));
       assert.ok(!nodes(all).some(node=>node.props.accessibilityLabel===h.t('sectionHealth')));
       assert.ok(!text(all).includes(h.ts('doctorConsultationHistory')));assert.ok(!text(all).includes(h.ts('privacyCenterTitle')));
       const closed=h.toggleSection(h.t('sectionAccount'));assert.ok(!text(closed).includes(h.t('subscription')));assert.ok(text(closed).includes(h.ts('helpSupport')));
       h.open();assert.equal(h.modal().props.field,'name');
     });
-    await test(`${language}/${isDark ? 'dark' : 'light'}: data preferences stay separate from device permissions and reminder time settings`, () => {
-      const h = harness({ language, isDark });
-      const deviceControls = tree => nodes(tree).filter(node => node.type === 'DevicePermissions');
-      const taskReminderControls = tree => nodes(tree).filter(node => node.type === 'TaskReminderPermission');
-      const reminderControls = tree => nodes(tree).filter(node => node.type === 'ReminderSettingsEntry');
-      assert.equal(deviceControls(h.render()).length, 0);
-      assert.equal(taskReminderControls(h.render()).length, 0);
-      const settingsOpen = h.toggleSection(h.t('sectionSettings'));
-      assert.equal(deviceControls(settingsOpen).length, 0);
-      assert.equal(taskReminderControls(settingsOpen).length, 0, 'Reminder permission is separate from reminder time settings');
-      assert.equal(reminderControls(settingsOpen).length, 1, 'Reminder times belong to app settings');
-      assert.equal(reminderControls(h.toggleSection(h.t('sectionSettings'))).length, 0);
-      assert.equal(deviceControls(h.toggleSection(h.t('sectionSystem'))).length, 0);
-      const expanded = h.toggleSection(h.t('sectionData'));
-      assert.equal(deviceControls(expanded).length, 0, 'Device access belongs to the Quick actions permission dialog');
-      assert.equal(taskReminderControls(expanded).length, 1, 'The task reminder preference remains available');
-      assert.equal(reminderControls(expanded).length, 0, 'Permissions grant access without duplicating reminder settings');
-      assert.equal(nodes(expanded).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')).length, 1);
-      const aiSwitches = nodes(expanded).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings'));
-      assert.equal(aiSwitches.length, 1, 'AI data consent remains an explicit preference');
-      assert.ok(!nodes(expanded).some(node => node.props.accessibilityLabel === h.ts('specialistSharing')), 'Specialist sharing follows the existing feature flag');
-      aiSwitches[0].props.onValueChange(true);
-      assert.equal(nodes(h.render()).find(node => node.type === 'AiDataConsentModal').props.visible, true, 'Allowing AI still requires its explicit consent dialog');
-      const closed = h.toggleSection(h.t('sectionData'));
-      assert.equal(deviceControls(closed).length, 0);
-      assert.equal(taskReminderControls(closed).length, 0);
-      assert.ok(!nodes(closed).some(node => node.type === 'ReminderSettingsEntry'));
-      assert.ok(!nodes(closed).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')));
-      assert.ok(!nodes(closed).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings')));
-    });
-    await test(`${language}/${isDark ? 'dark' : 'light'}: reopening data preferences preserves mounted controls while collapsed rows are hidden and inaccessible`, () => {
+    await test(`${language}/${isDark ? 'dark' : 'light'}: all data and reminder permissions have moved out of Profile`, () => {
       const h = harness({ language, isDark, doctorEnabled: true });
-      const panel = tree => nodes(tree, true).find(node => node.props.testID === 'profile-data-controls');
-      const first = panel(h.render());
-      assert.ok(first, 'Permission status can load before opening the dropdown');
-      const controlTypes = ['TaskReminderPermission', 'SpecialistSharingPermission'];
-      for (let cycle = 0; cycle < 5; cycle++) {
-        for (const expanded of [true, false]) {
-          const tree = h.toggleSection(h.t('sectionData'));
-          const current = panel(tree);
-          assert.ok(current, 'Closing the dropdown must not unmount permission controls');
-          assert.equal(current.props.key, first.props.key);
-          assert.equal(current.props.accessibilityElementsHidden, !expanded);
-          assert.equal(current.props.importantForAccessibility, expanded ? 'auto' : 'no-hide-descendants');
-          assert.equal(current.props.pointerEvents, expanded ? 'auto' : 'none');
-          for (const type of controlTypes) {
-            assert.equal(nodes(current, true).filter(node => node.type === type).length, 1, `${type} remains mounted`);
-            assert.equal(nodes(tree).filter(node => node.type === type).length, expanded ? 1 : 0, `${type} is only visible when expanded`);
-          }
-        }
-      }
-      h.updateProfile({ id: 'another-profile' });
-      assert.notEqual(panel(h.render()).props.key, first.props.key, 'Permission state must reset for another account');
+      for (const section of ['sectionAccount', 'sectionSettings', 'sectionSystem']) h.toggleSection(h.t(section));
+      const all = nodes(h.render(), true);
+      assert.ok(!all.some(node => node.props.testID === 'profile-data-controls'));
+      assert.ok(!all.some(node => node.props.accessibilityLabel === h.t('sectionData')));
+      for (const type of ['TaskReminderPermission', 'SpecialistSharingPermission', 'ReminderSettingsEntry', 'AiDataConsentModal'])
+        assert.ok(!all.some(node => node.type === type));
+      assert.ok(!all.some(node => node.type === 'Switch'));
     });
     await test(`${language}/${isDark ? 'dark' : 'light'}: font and language modals show previews, retain selections and dismiss without changes`, () => {
       const h = harness({ language, isDark });

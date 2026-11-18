@@ -91,6 +91,16 @@ function featureGridHarness({ language = 'vi', width = 393, multiplier = 1, font
     '../stores/font-size.store': { useFontSizeStore: select => select({ multiplier }) },
     '../features/v21/HealthCoinIcon': { HealthCoinIcon: 'GoldCoin' },
     '../features/profile/AppPermissionsModal': { AppPermissionsModal: 'PermissionModal' },
+    '../features/profile/ReminderSettingsEntry': { ReminderSettingsEntry: ({ variant, style }) => {
+      assert.equal(variant, 'tile');
+      return jsx(QuickActionTile, {
+        testID: 'home-feature-reminderSchedule',
+        label: JSON.parse(read(`src/i18n/locales/${language}/profile.json`)).reminderSchedule,
+        style,
+        icon: jsx('Icon', { name: 'alarm-outline' }),
+        onPress: () => {}, // Access and navigation are exercised in check-ui-feature-state.mjs.
+      });
+    } },
   });
   const render = () => {
     cursor = 0;
@@ -112,7 +122,7 @@ for (const language of ['vi', 'en']) {
   await test(`${language}: Action groups expose the real destinations with labels and a gold coin`, () => {
     const h = featureGridHarness({ language }), tree = h.render(), nodes = h.nodes(tree);
     const buttons = h.tiles();
-    assert.equal(buttons.length, 15);
+    assert.equal(buttons.length, 16);
     assert.equal(buttons[0].props.testID, 'home-feature-healthHistory');
     for (const button of buttons) {
       assert.equal(button.props.accessibilityRole, 'button'); assert.ok(button.props.accessibilityLabel);
@@ -132,7 +142,7 @@ for (const language of ['vi', 'en']) {
   await test(`${language}: disabled medication and coin features have no Action groups`, () => {
     const h = featureGridHarness({ language, medicationEnabled: false, coinsEnabled: false });
     const ids = h.tiles().map(node => node.props.testID);
-    assert.equal(ids.length, 13); assert.ok(!ids.includes('home-feature-medication')); assert.ok(!ids.includes('home-feature-coins'));
+    assert.equal(ids.length, 14); assert.ok(!ids.includes('home-feature-medication')); assert.ok(!ids.includes('home-feature-coins'));
     assert.equal(ids[0], 'home-feature-healthHistory');
     assert.ok(ids.includes('home-feature-expert'));
   });
@@ -161,8 +171,8 @@ for (const [width, multiplier] of [[393, 1], [320, 1], [393, 1.6]]) {
     assert.ok(!nodes.some(n => n.type === 'ScrollView'));
     const groups = nodes.filter(n => n.props?.testID?.startsWith('operations-group-'));
     assert.deepEqual(groups.map(n => n.props.testID), ['operations-group-health', 'operations-group-consultation', 'operations-group-connections', 'operations-group-rewards']);
-    assert.deepEqual(groups.map(g => h.nodes(g).filter(n => n.type === 'Pressable').length), [3, 4, 4, 4]);
-    assert.equal(h.tiles().length, 15);
+    assert.deepEqual(groups.map(g => h.nodes(g).filter(n => n.type === 'Pressable').length), [4, 4, 4, 4]);
+    assert.equal(h.tiles().length, 16);
   });
 }
 await test('a disabled consultation feature removes the entire empty group', () => {
@@ -279,12 +289,12 @@ await test('health history leaves the bottom bar and stays available through its
 });
 
 function permissionModalHarness({ language = 'vi', platform = 'ios', request } = {}) {
-  const catalogs = Object.fromEntries(['settings', 'common', 'checkinCall'].map(name =>
+  const catalogs = Object.fromEntries(['settings', 'common', 'checkinCall', 'profile'].map(name =>
     [name, JSON.parse(read(`src/i18n/locales/${language}/${name}.json`))]));
   const translate = (namespace, key) => key.split('.').reduce((value, part) => value?.[part], catalogs[namespace]);
-  const calls = { requests: [], close: 0, native: 0, nativeReads: 0, nativeOff: 0 };
+  const calls = { requests: [], close: 0, native: 0, nativeReads: 0, nativeOff: 0, toasts: [] };
   const auth = { token: 'account-a' };
-  let cursor = 0, visible = true, focusCleanup;
+  let cursor = 0, visible = true, focusCleanup, lastTree;
   const slots = [], effects = [];
   const states = Object.fromEntries(['notifications', 'microphone', 'photos'].map(kind => [kind, {
     permission: { granted: kind === 'microphone', canAskAgain: true, accessPrivileges: kind === 'photos' ? 'limited' : 'all' },
@@ -294,6 +304,7 @@ function permissionModalHarness({ language = 'vi', platform = 'ios', request } =
       calls.requests.push(kind);
       if (request) await request();
       states[kind].permission.granted = value;
+      return states[kind].permission;
     },
   }]));
   const hooks = {
@@ -309,6 +320,12 @@ function permissionModalHarness({ language = 'vi', platform = 'ios', request } =
     },
   };
   let nativeAccess = { notifications: true, channels: true, fullScreen: false };
+  const data = { ai: false, feed: false, busy: false, prompt: null, refresh: async () => {},
+    change: (kind, value) => { data.prompt = value ? kind : null; },
+    cancel: () => { data.prompt = null; }, agreeAi: () => { data.ai = true; data.prompt = null; },
+    agreeFeed: () => { data.feed = true; data.prompt = null; } };
+  const camera = { granted: false };
+
   const { AppPermissionsModal } = evaluate(read('src/features/profile/AppPermissionsModal.tsx'), {
     react: hooks, 'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': { Platform: { OS: platform }, AppState: { addEventListener: () => ({ remove() {} }) },
@@ -320,28 +337,36 @@ function permissionModalHarness({ language = 'vi', platform = 'ios', request } =
     '../../components/ScaledText': { ScaledText: 'Text' },
     '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {}, isDark: false }) },
     'expo-router': { useFocusEffect: work => { focusCleanup ??= work(); } },
-    'react-i18next': { useTranslation: namespace => ({ t: key => {
-      const value = translate(namespace, key); assert.equal(typeof value, 'string', `${namespace}/${key}`); return value;
+    'react-i18next': { useTranslation: namespace => ({ t: (key, args = {}) => {
+      const value = translate(namespace, key); assert.equal(typeof value, 'string', `${namespace}/${key}`); return value.replace(/\{\{(\w+)\}\}/g, (_, k) => args[k] ?? '');
     } }) },
     './useDevicePermission': { useDevicePermission: kind => states[kind] },
-    '../care-circle/useQrCameraPermission': { useQrCameraPermission: () => ({ permission: { granted: false }, pending: false,
-      change: async () => { calls.requests.push('camera'); } }) },
+    '../care-circle/useQrCameraPermission': { useQrCameraPermission: () => ({ permission: camera, pending: false,
+      change: async value => { calls.requests.push('camera'); camera.granted = value; return camera; } }) },
     '../auth/auth.store': { useAuthStore: Object.assign(select => select(auth), { getState: () => auth }) },
     '../../lib/android-checkin-call': { getAndroidCallPermissions: async () => { calls.nativeReads++; return nativeAccess; },
       openAndroidCallSettings: async () => { calls.nativeOff++; nativeAccess = { ...nativeAccess, fullScreen: false }; return true; } },
     '../../lib/android-call-access': { requestAndroidCallAccess: async () => {
       calls.native++; nativeAccess = { notifications: true, channels: true, fullScreen: true }; return true;
     } },
-    '../../stores/toast.store': { showToast: () => assert.fail('No error toast expected') },
+    '../../stores/toast.store': { showToast: (...args) => calls.toasts.push(args) },
+    '../../components/AiDataConsentModal': { AiDataConsentModal: 'AiConsent' },
+    './useDataReminderPermissions': { useDataReminderPermissions: () => data },
+    './useTaskReminderPreference': { useTaskReminderPreference: () => ({ enabled: false, available: true, loading: false,
+      pending: false, failed: false, change: async () => {}, refresh: () => {} }) },
+    './useSpecialistSharingPermission': { useSpecialistSharingPermission: () => ({ decision: null }) },
+    './SpecialistSharingPermission': { SpecialistSharingDialog: 'SharingDialog' },
+    '../../lib/appEnv': { isDoctorFeaturesEnabled: false },
   });
   const onClose = () => { calls.close++; visible = false; };
   const render = () => { cursor = 0; const tree = AppPermissionsModal({ visible, onClose });
-    effects.splice(0).forEach(work => work()); return tree;
+    lastTree = tree;
+    effects.splice(0).forEach(work => work()); return nodes(tree).find(node => node.type === 'QueuedPermissionDialog');
   };
   const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes)
     : [tree, ...nodes(tree.props?.children)];
   const switches = () => nodes(render()).filter(node => node.type === 'Switch');
-  return { calls, states, auth, render, translate, switches,
+  return { calls, states, auth, render, translate, switches, dialogs: () => nodes(lastTree),
     settle: async () => { render(); await flush(); return render(); },
     blur: () => focusCleanup(),
     change: async (index, enabled = true) => { switches()[index].props.onValueChange(enabled); await render().props.onDismiss(); },
@@ -351,7 +376,7 @@ for (const language of ['vi', 'en']) {
   await test(`${language}: permission switches show actual OS states and opening never requests access`, async () => {
     const h = permissionModalHarness({ language }), dialog = await h.settle();
     assert.equal(dialog.type, 'QueuedPermissionDialog');
-    assert.equal(h.switches().length, 4);
+    assert.equal(h.switches().length, 7);
     assert.equal(h.switches()[0].props.value, false);
     assert.equal(h.switches()[1].props.value, true);
     assert.equal(h.switches()[3].props.value, true, 'Limited photo access is already granted');
@@ -364,6 +389,7 @@ for (const language of ['vi', 'en']) {
     assert.equal(h.render().props.visible, true); assert.equal(h.switches()[0].props.value, true);
     await h.change(0, false);
     assert.equal(h.switches()[0].props.value, false);
+    assert.deepEqual(h.calls.toasts.map(x => x[1]), ['success', 'success']);
   });
 }
 await test('repeated permission callbacks share one pending request and a blurred screen cannot reopen the dialog', async () => {
@@ -375,6 +401,18 @@ await test('repeated permission callbacks share one pending request and a blurre
   h.blur(); complete(); await Promise.all([first, duplicate]);
   assert.equal(h.render().props.visible, false);
 });
+await test('data permissions live inside Permissions and yield the presenter for explicit AI consent', async () => {
+  const h = permissionModalHarness(); await h.settle();
+  const labels = h.switches().map(node => node.props.accessibilityLabel);
+  for (const key of ['aiDataConsentSettings', 'taskReminders']) assert.ok(labels.includes(h.translate('settings', key)));
+  assert.ok(labels.includes(h.translate('profile', 'healthFeed')));
+  h.switches().find(node => node.props.accessibilityLabel === h.translate('settings', 'aiDataConsentSettings')).props.onValueChange(true);
+  assert.equal(h.render().props.visible, false);
+  const consent = h.dialogs().find(node => node.type === 'AiConsent');
+  assert.equal(consent.props.visible, true); assert.deepEqual(h.calls.requests, []);
+  consent.props.onDecline(); assert.equal(h.render().props.visible, true);
+  assert.deepEqual(h.calls.toasts, []);
+});
 await test('a stale permission switch cannot request access for a different account', async () => {
   const h = permissionModalHarness(); await h.settle();
   h.switches()[0].props.onValueChange(true);
@@ -383,7 +421,7 @@ await test('a stale permission switch cannot request access for a different acco
 });
 await test('Android call switch refreshes native state after granting and revoking through Settings', async () => {
   const h = permissionModalHarness({ platform: 'android' }); await h.settle();
-  assert.equal(h.switches().length, 5); assert.equal(h.switches()[4].props.value, false);
+  assert.equal(h.switches().length, 8); assert.equal(h.switches()[4].props.value, false);
   assert.equal(h.calls.native, 0);
   await h.change(4); await h.settle();
   assert.equal(h.calls.native, 1); assert.equal(h.switches()[4].props.value, true);

@@ -6,6 +6,8 @@ import {
   Pressable,
   StyleSheet,
   View,
+  type StyleProp,
+  type ViewStyle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -19,8 +21,15 @@ import {
 } from "../../lib/device-permission-events";
 import { getNotificationPreferences } from "../notifications/notifications.api";
 import { useAuthStore } from "../auth/auth.store";
+import { QuickActionTile } from "../../components/QuickActionTile";
 
-export function ReminderSettingsEntry() {
+export function ReminderSettingsEntry({
+  variant = "row",
+  style,
+}: {
+  variant?: "row" | "tile";
+  style?: StyleProp<ViewStyle>;
+} = {}) {
   const { t } = useTranslation("profile");
   const { t: ts } = useTranslation("settings");
   const { colors } = useThemeColors();
@@ -128,6 +137,31 @@ export function ReminderSettingsEntry() {
       : remindersEnabled === null && !loading
       ? "taskRemindersStatusUnavailable"
       : null;
+  if (variant === "tile") {
+    return (
+      <QuickActionTile
+        testID="home-feature-reminderSchedule"
+        label={t("reminderSchedule")}
+        disabled={disabled}
+        busy={loading || opening}
+        hint={hint && !loading ? ts(hint) : undefined}
+        onPress={() => void open()}
+        style={style}
+        icon={
+          loading || opening ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : (
+            <Ionicons
+              name="alarm-outline"
+              size={36}
+              color={colors.primaryText}
+              accessible={false}
+            />
+          )
+        }
+      />
+    );
+  }
   return (
     <Pressable
       accessibilityRole="button"

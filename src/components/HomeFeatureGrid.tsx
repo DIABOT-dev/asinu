@@ -11,6 +11,7 @@ import { QuickActionTile } from './QuickActionTile';
 import { AppPermissionsModal } from '../features/profile/AppPermissionsModal';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { isExpertConsultationEnabled } from '../lib/appEnv';
+import { ReminderSettingsEntry } from '../features/profile/ReminderSettingsEntry';
 
 const actions = [
   {
@@ -28,6 +29,7 @@ const actions = [
     route: '/logs',
     image: require('../../assets/images/notifications/checkin-v1.png'),
   },
+  { id: 'reminderSchedule' },
   {
     id: 'expert',
     route: '/doctor-consultation',
@@ -83,7 +85,7 @@ const actions = [
 ] as const;
 
 const featureGroups = [
-  { id: 'health', actions: ['healthHistory', 'medication', 'journal'] },
+  { id: 'health', actions: ['healthHistory', 'medication', 'journal', 'reminderSchedule'] },
   {
     id: 'consultation',
     actions: ['expert', 'consultationHistory', 'consultationData', 'carePlan'],
@@ -95,7 +97,7 @@ const featureGroups = [
   { id: 'rewards', actions: ['missions', 'coins', 'dailyGift', 'giftHistory'] },
 ] as const;
 
-/** Navigation only: destinations load their own data. All groups remain visible while scrolling. */
+/** All groups remain visible while scrolling; reminder access follows notification permissions. */
 export function HomeFeatureGrid({
   medicationEnabled,
   coinsEnabled,
@@ -167,7 +169,13 @@ export function HomeFeatureGrid({
               )}
             </Text>
             <View style={styles.grid}>
-              {items.map((action) => (
+              {items.map((action) => action.id === 'reminderSchedule' ? (
+                <ReminderSettingsEntry
+                  key={action.id}
+                  variant="tile"
+                  style={{ width: tileWidth }}
+                />
+              ) : (
                 <QuickActionTile
                   key={action.id}
                   testID={`home-feature-${action.id}`}

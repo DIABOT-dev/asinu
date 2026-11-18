@@ -479,6 +479,18 @@ await test("leaving Overview ignores a pending health result", async () => {
 
 function reminderHarness() {
   const r = runtime();
+  const { QuickActionTile } = evaluate("src/components/QuickActionTile.tsx", {
+    react: {},
+    "react-native": {
+      Pressable: "Button",
+      View: "View",
+      StyleSheet: { create: (value) => value },
+    },
+    "./ScaledText": { ScaledText: "Text" },
+    "../hooks/useThemeColors": {
+      useThemeColors: () => ({ colors: {}, isDark: false }),
+    },
+  });
   const listeners = new Set();
   const auth = { token: "session-a" };
   const server = { allowed: false, pending: null, error: false, remindersEnabled: true, preferenceError: false, pendingPrefs: null };
@@ -503,6 +515,7 @@ function reminderHarness() {
       "@expo/vector-icons": { Ionicons: "Icon" },
       "react-i18next": { useTranslation: () => ({ t: (key) => key }) },
       "../../components/ScaledText": { ScaledText: "Text" },
+      "../../components/QuickActionTile": { QuickActionTile },
       "../../hooks/useGuardedRouter": {
         useGuardedRouter: () => ({ push: (path) => calls.routes.push(path) }),
       },
@@ -524,13 +537,17 @@ function reminderHarness() {
       },
     },
   );
+  const renderTile = () => {
+    const tile = ReminderSettingsEntry({ variant: "tile" });
+    return QuickActionTile(tile.props);
+  };
   return {
     ...r,
     auth,
     server,
     calls,
-    read: () => r.render(ReminderSettingsEntry),
-    settle: () => r.settle(ReminderSettingsEntry),
+    read: () => r.render(renderTile),
+    settle: () => r.settle(renderTile),
     foreground: () => listeners.forEach((listener) => listener("active")),
   };
 }
@@ -1448,7 +1465,7 @@ await test("a backend rejection or failed save never displays a false reminder p
   const h = taskReminderHarness(); h.server.savedOverride = false; await h.settle(); await h.read().change(true);
   assert.equal(h.read().enabled, false);
   h.server.savedOverride = null; h.server.writeError = true; await h.read().change(true);
-  assert.equal(h.read().enabled, false); assert.equal(h.read().pending, false); assert.equal(h.calls.toasts.length, 1); h.blur();
+  assert.equal(h.read().enabled, false); assert.equal(h.read().pending, false); assert.equal(h.calls.toasts.length, 2); h.blur();
 });
 await test("duplicate task reminder toggles write once and wait for server confirmation", async () => {
   const h = taskReminderHarness(); await h.settle(); let finish;
@@ -2339,4 +2356,80 @@ await test('mission progress is bounded and only actual completion moves a row i
   assert.equal(summary.props.progress, 1); assert.equal(summary.props.goal, 3); h.blur();
 });
 
+function dataPermissionHarness() {
+  const r = runtime(), auth = { token: 'session-a' };
+  let visible = true;
+  const server = { ai: false, feed: false, fail: false, pending: null };
+  const calls = { writes: [], toasts: [] };
+  const { useDataReminderPermissions: runDataPermissions } = evaluate('src/features/profile/useDataReminderPermissions.ts', {
+    react: r.hooks, 'expo-router': r.router,
+    'react-native': { AppState: { addEventListener: () => ({ remove() {} }) } },
+    'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    '../auth/auth.store': { useAuthStore: Object.assign(select => select(auth), { getState: () => auth }) },
+    '../../lib/aiDataConsent': {
+      hasAiDataConsent: async () => server.ai,
+      revokeAiDataConsent: async () => { calls.writes.push(['ai', false]); if (server.fail) throw new Error('offline'); server.ai = false; },
+    },
+    '../../stores/health-feed-preference': {
+      getHealthFeedPreference: async () => server.feed,
+      setHealthFeedPreference: async value => {
+        calls.writes.push(['feed', value]);
+        if (server.pending) await server.pending;
+        if (server.fail) throw new Error('offline');
+        server.feed = value; return value;
+      },
+    },
+    '../../stores/toast.store': { showToast: (...args) => calls.toasts.push(args) },
+  });
+  const render = () => runDataPermissions(visible);
+  return { ...r, auth, server, calls, read: () => r.render(render), settle: () => r.settle(render),
+    close: async () => { visible = false; return r.settle(render); } };
+}
+await test('opening relocated data permissions reads state without granting consent or sending notifications', async () => {
+  const h = dataPermissionHarness(); await h.settle();
+  assert.equal(h.read().ai, false); assert.equal(h.read().feed, false);
+  h.read().agreeAi(); h.read().agreeFeed();
+  assert.deepEqual(h.calls.writes, []); assert.deepEqual(h.calls.toasts, []); h.blur();
+});
+await test('health feed requires confirmation, reports both saved states, and blocks duplicate writes', async () => {
+  const h = dataPermissionHarness(); await h.settle();
+  h.read().change('feed', true); assert.equal(h.read().prompt, 'feed');
+  assert.deepEqual(h.calls.writes, []);
+  h.read().cancel(); h.read().agreeFeed(); assert.deepEqual(h.calls.writes, []);
+  h.read().change('feed', true); h.read().agreeFeed(); await flush();
+  assert.equal(h.read().feed, true);
+  assert.deepEqual(h.calls.toasts.at(-1), ['healthFeedEnabled', 'success']);
+  let finish; h.server.pending = new Promise(resolve => { finish = resolve; });
+  h.read().change('feed', false); h.read().change('feed', false);
+  assert.equal(h.read().busy, true); assert.equal(h.calls.writes.length, 2);
+  finish(); await flush(); assert.equal(h.read().feed, false);
+  assert.deepEqual(h.calls.toasts.at(-1), ['healthFeedDisabled', 'success']); h.blur();
+});
+await test('AI denial is a cancellation and withdrawing existing consent reports the saved result', async () => {
+  const h = dataPermissionHarness(); await h.settle();
+  h.read().change('ai', true); assert.equal(h.read().prompt, 'ai');
+  h.read().cancel(); h.read().agreeAi(); assert.equal(h.read().ai, false);
+  assert.deepEqual(h.calls.writes, []); assert.deepEqual(h.calls.toasts, []);
+  h.read().change('ai', true); h.server.ai = true; h.read().agreeAi();
+  assert.deepEqual(h.calls.toasts.at(-1), ['aiDataConsentGranted', 'success']);
+  h.read().change('ai', false); await flush(); assert.equal(h.read().ai, false);
+  assert.deepEqual(h.calls.writes, [['ai', false]]);
+  assert.deepEqual(h.calls.toasts.at(-1), ['aiDataConsentRevoked', 'success']); h.blur();
+});
+await test('failed data preference saves keep the confirmed switch and show an error', async () => {
+  const h = dataPermissionHarness(); h.server.feed = true; await h.settle(); h.server.fail = true;
+  h.read().change('feed', false); await flush();
+  assert.equal(h.read().feed, true); assert.equal(h.read().busy, false);
+  assert.deepEqual(h.calls.toasts.at(-1), ['saveError', 'error']); h.blur();
+});
+for (const leave of ['account', 'close', 'blur']) {
+  await test(`${leave}: stale data permission confirmations and responses cannot change another session`, async () => {
+    const h = dataPermissionHarness(); await h.settle(); h.read().change('feed', true);
+    const stale = h.read();
+    if (leave === 'account') h.auth.token = 'session-b';
+    else if (leave === 'close') await h.close();
+    else h.blur();
+    stale.agreeFeed(); assert.deepEqual(h.calls.writes, []); assert.deepEqual(h.calls.toasts, []); h.blur();
+  });
+}
 console.log(`UI feature state: ${checks} runtime checks passed.`);

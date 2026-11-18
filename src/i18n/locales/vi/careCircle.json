@@ -1,4 +1,8 @@
 {
+  "familyConnectionsTitle": "Kết nối người thân",
+  "addRelativeShort": "Thêm",
+  "relativeHealthProfile": "Hồ sơ sức khỏe của {{name}}",
+  "profileDetails": "Chi tiết",
   "title": "Vòng kết nối",
   "subtitle": "Quản lý kết nối với gia đình và người thân",
   "headerSubtitle": "Gia đình & người thân",

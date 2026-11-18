@@ -22,20 +22,10 @@ import {
   Pressable,
   Share,
   StyleSheet,
-  Switch,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  AiDataConsentModal,
-  hasAiDataConsent,
-  revokeAiDataConsent,
-} from "../../../src/components/AiDataConsentModal";
-import {
-  AppAlertModal,
-  useAppAlert,
-} from "../../../src/components/AppAlertModal";
 import DeleteAccountModal from "../../../src/components/DeleteAccountModal";
 import { RippleRefreshScrollView } from "../../../src/components/RippleRefresh";
 import { ScaledText as Text } from "../../../src/components/ScaledText";
@@ -48,22 +38,14 @@ import { useAuthStore } from "../../../src/features/auth/auth.store";
 import { FontSizePickerModal } from "../../../src/features/profile/FontSizePickerModal";
 import { LanguagePickerModal } from "../../../src/features/profile/LanguagePickerModal";
 import { ProfileHealthcareBackground } from "../../../src/features/profile/ProfileHealthcareBackground";
-import { ReminderSettingsEntry } from "../../../src/features/profile/ReminderSettingsEntry";
-import { SpecialistSharingPermission } from "../../../src/features/profile/SpecialistSharingPermission";
-import { TaskReminderPermission } from "../../../src/features/profile/TaskReminderPermission";
 import { PlanDetailsModal } from "../../../src/features/subscription/components/PlanDetailsModal";
 import { localizedPlanName } from "../../../src/features/subscription/planName";
 import { useInitialLoadingGate } from "../../../src/hooks/useInitialLoadingGate";
 import { useScaledTypography } from "../../../src/hooks/useScaledTypography";
 import { useThemeColors } from "../../../src/hooks/useThemeColors";
 import { apiClient, getApiErrorMessage } from "../../../src/lib/apiClient";
-import { isDoctorFeaturesEnabled } from "../../../src/lib/appEnv";
 import { runNativePermission } from "../../../src/lib/native-permissions";
 import { useFontSizeStore } from "../../../src/stores/font-size.store";
-import {
-  getHealthFeedPreference,
-  setHealthFeedPreference,
-} from "../../../src/stores/health-feed-preference";
 import { useLanguageStore } from "../../../src/stores/language.store";
 import { setPendingToast, showToast } from "../../../src/stores/toast.store";
 import { colors, getBottomTabBarHeight, spacing } from "../../../src/styles";
@@ -92,7 +74,7 @@ type SubStatus = {
   expiresAt: string | null;
 };
 
-type ProfileSection = "account" | "settings" | "preferences" | "system";
+type ProfileSection = "account" | "settings" | "system";
 
 export default function ProfileScreen({
   personalInformation = false,
@@ -139,16 +121,11 @@ export default function ProfileScreen({
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
-  const [showAiConsentModal, setShowAiConsentModal] = useState(false);
-  const [healthFeedEnabled, setHealthFeedEnabled] = useState(true);
-  const [aiConsentEnabled, setAiConsentEnabled] = useState(false);
-  const { alertState, showAlert, dismissAlert } = useAppAlert();
   const [expandedSections, setExpandedSections] = useState<
     Record<ProfileSection, boolean>
   >({
     account: false,
     settings: false,
-    preferences: false,
     system: false,
   });
 
@@ -202,77 +179,6 @@ export default function ProfileScreen({
       ? ts("fontLarge")
       : ts("fontXLarge");
   const langLabel = language === "vi" ? ts("languageVi") : ts("languageEn");
-
-  useEffect(() => {
-    if (personalInformation) return;
-    let cancelled = false;
-    Promise.all([getHealthFeedPreference(), hasAiDataConsent()]).then(
-      ([feedEnabled, consentEnabled]) => {
-        if (cancelled) return;
-        setHealthFeedEnabled(feedEnabled);
-        setAiConsentEnabled(consentEnabled);
-      }
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [personalInformation]);
-
-  const saveHealthFeedPreference = useCallback(
-    async (enabled: boolean) => {
-      setHealthFeedEnabled(enabled);
-      try {
-        const savedValue = await setHealthFeedPreference(enabled);
-        setHealthFeedEnabled(savedValue);
-        showToast(
-          ts(savedValue ? "healthFeedEnabled" : "healthFeedDisabled"),
-          "success"
-        );
-      } catch {
-        setHealthFeedEnabled(!enabled);
-      }
-    },
-    [ts]
-  );
-
-  const handleToggleHealthFeed = useCallback(
-    (enabled: boolean) => {
-      if (!enabled) {
-        void saveHealthFeedPreference(false);
-        return;
-      }
-
-      showAlert(
-        t("healthFeed"),
-        ts("healthFeedToggleDesc"),
-        [
-          { text: tc("cancel"), style: "cancel" },
-          {
-            text: ts("healthFeedEnableAction"),
-            onPress: () => void saveHealthFeedPreference(true),
-          },
-        ],
-        { name: "newspaper-variant-outline", color: colors.primary }
-      );
-    },
-    [saveHealthFeedPreference, showAlert, t, tc, ts]
-  );
-
-  const handleToggleAiConsent = useCallback(
-    (enabled: boolean) => {
-      if (enabled) {
-        setShowAiConsentModal(true);
-        return;
-      }
-      void revokeAiDataConsent()
-        .then(() => {
-          setAiConsentEnabled(false);
-          showToast(ts("aiDataConsentRevoked"), "success");
-        })
-        .catch(() => showToast(tc("saveError"), "error"));
-    },
-    [ts, tc]
-  );
 
   // Edit form state
   const [selectedField, setSelectedField] =
@@ -911,99 +817,8 @@ export default function ProfileScreen({
                             {langLabel}
                           </Text>
                         </TouchableOpacity>
-
-                        <ReminderSettingsEntry />
                       </View>
                     )}
-                  </View>
-
-                  <View style={styles.menuSection}>
-                    {renderSectionHeader(
-                      "preferences",
-                      t("sectionData"),
-                      <Ionicons
-                        name="shield-checkmark-outline"
-                        size={26}
-                        color={colors.primaryText}
-                      />
-                    )}
-                    {/* Keep data preferences mounted while the dropdown is collapsed. */}
-                    <View
-                      key={profile?.id ?? "signed-out"}
-                      testID="profile-data-controls"
-                      style={[
-                        styles.cardsStack,
-                        !expandedSections.preferences &&
-                          styles.collapsedSection,
-                      ]}
-                      accessibilityElementsHidden={
-                        !expandedSections.preferences
-                      }
-                      importantForAccessibility={
-                        expandedSections.preferences
-                          ? "auto"
-                          : "no-hide-descendants"
-                      }
-                      pointerEvents={
-                        expandedSections.preferences ? "auto" : "none"
-                      }
-                    >
-                      {isDoctorFeaturesEnabled && (
-                        <SpecialistSharingPermission />
-                      )}
-
-                      {/* Quyền dùng Asinu AI */}
-                      <View style={styles.actionCard}>
-                        <View style={styles.rowIconWrap}>
-                          <Ionicons
-                            name="sparkles-outline"
-                            size={24}
-                            color="#10b981"
-                          />
-                        </View>
-                        <Text allowFontScaling style={styles.rowLabel}>
-                          {ts("aiDataConsentSettings")}
-                        </Text>
-                        <Switch
-                          accessibilityLabel={ts("aiDataConsentSettings")}
-                          accessibilityState={{ checked: aiConsentEnabled }}
-                          value={aiConsentEnabled}
-                          onValueChange={handleToggleAiConsent}
-                          trackColor={{
-                            false: "#d1d5db",
-                            true: colors.primary,
-                          }}
-                          thumbColor={colors.surface}
-                          ios_backgroundColor="#d1d5db"
-                        />
-                      </View>
-
-                      <TaskReminderPermission />
-                      <View style={styles.actionCard}>
-                        <View style={styles.rowIconWrap}>
-                          <Ionicons
-                            name="bookmark-outline"
-                            size={24}
-                            color="#8b5cf6"
-                          />
-                        </View>
-                        <Text allowFontScaling style={styles.rowLabel}>
-                          {t("healthFeed")}
-                        </Text>
-                        <Switch
-                          accessibilityLabel={t("healthFeed")}
-                          accessibilityState={{ checked: healthFeedEnabled }}
-                          value={healthFeedEnabled}
-                          onValueChange={handleToggleHealthFeed}
-                          trackColor={{
-                            false: "#d1d5db",
-                            true: colors.primary,
-                          }}
-                          thumbColor={colors.surface}
-                          ios_backgroundColor="#d1d5db"
-                        />
-                      </View>
-                    </View>
                   </View>
 
                   {/* ==================== 03 BOTTOM: TRỢ GIÚP & THÔNG TIN ==================== */}
@@ -1264,26 +1079,6 @@ export default function ProfileScreen({
           />
         </Suspense>
       )}
-
-      <AiDataConsentModal
-        visible={showAiConsentModal}
-        onAgree={() => {
-          setAiConsentEnabled(true);
-          setShowAiConsentModal(false);
-          showToast(ts("aiDataConsentGranted"), "success");
-        }}
-        onDecline={() => {
-          void revokeAiDataConsent()
-            .then(() => {
-              setAiConsentEnabled(false);
-              setShowAiConsentModal(false);
-              showToast(ts("aiDataConsentRevoked"), "success");
-            })
-            .catch(() => showToast(tc("saveError"), "error"));
-        }}
-      />
-
-      <AppAlertModal queued {...alertState} onDismiss={dismissAlert} />
 
       {/* ==================== LOGOUT CONFIRM MODAL ==================== */}
       <Modal
@@ -1609,7 +1404,6 @@ function createStyles(
       paddingBottom: 8,
       backgroundColor: "transparent",
     },
-    collapsedSection: { display: "none" },
     actionCard: {
       minHeight: 56,
       paddingVertical: 13,

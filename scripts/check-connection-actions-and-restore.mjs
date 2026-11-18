@@ -191,7 +191,7 @@ for (const language of ['vi', 'en']) {
     const router = { canGoBack: () => canGoBack, back: () => calls.push('back'), replace: route => calls.push(route) };
     const { default: PlansScreen } = evaluate('app/subscription/plans.tsx', {
       react: h.react, 'react-native': native,
-      'expo-router': { Stack: { Screen: 'StackScreen' }, useFocusEffect: fn => {
+      'expo-router': { Stack: { Screen: 'StackScreen' }, useLocalSearchParams: () => ({}), useFocusEffect: fn => {
         currentFocus = fn;
         h.react.useEffect(() => { cleanup?.(); cleanup = fn(); }, [fn]);
       } },

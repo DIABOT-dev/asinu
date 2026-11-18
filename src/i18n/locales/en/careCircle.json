@@ -1,4 +1,8 @@
 {
+  "familyConnectionsTitle": "Family connections",
+  "addRelativeShort": "Add",
+  "relativeHealthProfile": "Health profile of {{name}}",
+  "profileDetails": "Details",
   "title": "Care Circle",
   "subtitle": "Manage connections with your family and relatives",
   "headerSubtitle": "Family & relatives",

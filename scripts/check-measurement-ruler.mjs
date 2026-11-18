@@ -199,6 +199,9 @@ function harness(kind, initial, initiallyDisabled = false) {
     scale: () =>
       nodes(render()).find((node) => node.type === "AnimatedImage").props.style
         .transform[1].scale.value,
+    widthScale: () =>
+      nodes(render()).find((node) => node.type === "AnimatedImage").props.style
+        .transform.find((transform) => "scaleX" in transform).scaleX,
     unmount: () => {
       slots.forEach((slot) => slot?.cleanup?.());
     },
@@ -253,12 +256,14 @@ for (const [kind, initial, step] of [
   test(`${kind}: a horizontal drag updates the preview and stays busy until it settles`, () => {
     const h = harness(kind, initial),
       offset = h.offsets.at(-1),
-      before = h.scale();
+      before = h.scale(),
+      widthBefore = h.widthScale();
     h.list().props.onScrollBeginDrag();
     h.list().props.onScroll(h.event(offset + 10));
     assert.equal(h.value, Number((Number(initial) + step).toFixed(1)));
     assert.equal(h.interactions.at(-1), true);
     assert.ok(kind === "height" ? h.scale() > before : h.scale() === before);
+    assert.ok(kind === "weight" ? h.widthScale() > widthBefore : h.widthScale() === widthBefore);
     h.list().props.onScrollEndDrag(h.event(offset + 12));
     assert.equal(h.interactions.at(-1), true);
     h.advanceTimers();

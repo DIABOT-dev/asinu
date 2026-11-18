@@ -196,7 +196,7 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
   const h = hooks();
   const t = translate(language, 'careCircle');
   const tc = translate(language, 'common');
-  const calls = { alerts: [], writes: [], toasts: [], routes: [], scrolls: [] };
+  const calls = { alerts: [], writes: [], toasts: [], routes: [], scrolls: [], calendars: [] };
   const connection = {
     id: 'connection', requester_id: 'me', addressee_id: 'relative', status: 'accepted',
     addressee_name: 'Family Display', addressee_full_name: 'Family Member', addressee_avatar_url: 'https://example.invalid/avatar.jpg',
@@ -211,12 +211,13 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     return { ...connection };
   };
   const care = { connections: [connection], invitations: [], loading: false, refreshing: false,
+    fetchInvitations: async () => {}, fetchConnections: async () => {}, refresh: async () => {},
     updateConnection: (id, values) => write('metadata', id, values),
     updatePermissions: (id, values) => write('permissions', id, values),
   };
   const { default: Screen } = evaluate(read('app/care-circle/index.tsx'), {
     react: h.react, 'react-native': native, '@expo/vector-icons': icons,
-    'expo-linear-gradient': { LinearGradient: 'Gradient' }, 'expo-router': { Stack: { Screen: 'StackScreen' }, useFocusEffect() {} },
+    'expo-linear-gradient': { LinearGradient: 'Gradient' }, 'expo-router': { Stack: { Screen: 'StackScreen' }, useFocusEffect: work => h.react.useEffect(work, []) },
     'react-i18next': { useTranslation: namespace => ({ t: namespace === 'common' ? tc : t }) },
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView', useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
     'react-native-svg': { __esModule: true, default: 'Svg', Path: 'Path' },
@@ -231,7 +232,7 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     '../../src/features/auth/auth.store': { useAuthStore: select => select({ profile: { id: 'me' } }) },
     '../../src/stores/language.store': { useLanguageStore: () => ({ language }) },
     '../../src/stores/toast.store': { showToast: (...args) => calls.toasts.push(args) },
-    '../../src/features/care-circle': { useCareCircle: () => care },
+    '../../src/features/care-circle': { useCareCircle: () => care, careCircleApi: { getMemberHealthCalendar: async (id, month) => { calls.calendars.push({ id, month }); return {}; } } },
     '../../src/hooks/useScaledTypography': { useScaledTypography: () => theme.typography },
     '../../src/styles': theme, '../../src/hooks/useThemeColors': { useThemeColors: () => ({ isDark }) },
     '../../src/lib/apiClient': { getApiErrorMessage: error => error.message },
@@ -242,6 +243,8 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     '../../src/features/care-circle/components/CareCircleQrActions': { CareCircleQrActions: 'QrActions' },
     '../../src/features/care-circle/components/CareCircleScanSpeech': { CareCircleScanSpeech: 'ScanSpeech' },
     '../../src/features/care-circle/components/CareCircleQuickActions': { CareCircleQuickActions: 'QuickActions' },
+    '../../src/features/care-circle/components/CareCircleMemberStrip': { CareCircleMemberStrip: 'MemberStrip' },
+    '../../src/components/HealthJournalCalendar': { HealthJournalCalendar: 'HealthJournalCalendar' },
     '../../src/features/care-circle/components/CareCircleInviteBanner': { CareCircleInviteBanner: 'InviteBanner' },
     '../../src/features/care-circle/components/CareCircleHeroBanner': { CareCircleHeroBanner: 'HeroBanner' },
     '../../src/features/care-circle/components/CareCircleEmptyState': { CareCircleEmptyState: 'EmptyState' },
@@ -260,7 +263,7 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     nodes(render()).find(node => node.type === 'Button' && node.props.accessibilityLabel === tc('notificationMoreActions')).props.onPress();
     return calls.alerts.at(-1)[2];
   };
-  return { calls, connection, modal, render, menu,
+  return { calls, connection, care, modal, render, menu, focus: () => { render(); h.effects(); return render(); },
     toggleMembers: () => membersToggle().props.onToggleMembers(),
     membersExpanded: () => membersToggle().props.expanded,
     membersLayout: y => nodes(render()).find(node => node.props?.testID === 'care-circle-member-list').props.onLayout({ nativeEvent: { layout: { y } } }),
@@ -275,6 +278,25 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     permission: (index, value) => nodes(modal()).filter(node => node.type === 'Switch')[index].props.onValueChange(value),
   };
 }
+await test('top member avatars select only that relative’s permitted calendar and recheck revoked access', async () => {
+  const h = connectionHarness({ canViewTheirs: true }); h.focus();
+  const list = () => nodes(h.render()).find(node => node.type === 'MemberStrip');
+  const calendar = () => nodes(h.render()).find(node => node.type === 'HealthJournalCalendar');
+  let all = nodes(h.render());
+  assert.ok(all.findIndex(node => node.type === 'MemberStrip') < all.findIndex(node => node.type === 'QrActions'));
+  assert.equal(list().props.selectedId, h.connection.id);
+  await calendar().props.loadReport('2026-11');
+  assert.deepEqual(h.calls.calendars, [{ id: 'relative', month: '2026-11' }]);
+  h.care.connections.push({ ...h.connection, id: 'second', addressee_id: 'second-relative', addressee_name: 'Another relative', addressee_can_view_logs: false });
+  list().props.onSelect('second'); assert.equal(list().props.selectedId, 'second'); assert.equal(calendar(), undefined);
+  list().props.onSelect(h.connection.id);
+  const open = nodes(h.render()).find(node => node.props.accessibilityLabel === translate('vi', 'careCircle')('viewHealthProfile'));
+  h.connection.addressee_can_view_logs = false;
+  open.props.onPress(); assert.deepEqual(h.calls.routes, []); assert.equal(calendar(), undefined);
+  h.care.connections = []; assert.equal(list().props.members.length, 0); assert.equal(calendar(), undefined);
+  list().props.onAdd(); assert.deepEqual(h.calls.routes, ['/care-circle/invite']);
+  assert.deepEqual(h.calls.writes, []);
+});
 for (const language of ['vi', 'en']) {
   await test(`${language}: connected members expand inline and collapse without changing saved connections`, () => {
     const h = connectionHarness({ language });

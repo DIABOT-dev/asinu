@@ -184,8 +184,10 @@ export function useSpecialistSharingPermission() {
         "success"
       );
     } catch {
-      if (current(decision.version) && saving.current === decision)
+      if (current(decision.version) && saving.current === decision) {
         setSaveError(true);
+        showToast(t("privacyRequestError"), "error");
+      }
     } finally {
       if (saving.current === decision) {
         saving.current = null;
