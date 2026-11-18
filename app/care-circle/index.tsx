@@ -43,13 +43,11 @@ import {
 } from '../../src/features/care-circle/family-relationships';
 import { getConnectionEditChanges, type ConnectionEditValues } from '../../src/features/care-circle/connection-edit';
 import { CareCircleQrActions } from '../../src/features/care-circle/components/CareCircleQrActions';
-import { CareCircleQuickActions } from '../../src/features/care-circle/components/CareCircleQuickActions';
 import { CareCircleMemberStrip } from '../../src/features/care-circle/components/CareCircleMemberStrip';
 import { HomeProfileAvatar } from '../../src/components/HomeProfileAvatar';
-import { FamilyActionCard, MemberHealthMetrics } from '../../src/features/care-circle/components/MemberOverviewCards';
-import { useMemberOverview } from '../../src/features/care-circle/useMemberOverview';
+import { useFamilyFeatures } from '../../src/features/care-circle/useMemberOverview';
 import { HealthJournalCalendar } from '../../src/components/HealthJournalCalendar';
-import { GuideScrollScope, GuideTarget } from '../../src/features/guidance/GuidanceProvider';
+import { GuideScrollScope } from '../../src/features/guidance/GuidanceProvider';
 
 export default function CareCircleScreen() {
   const guideScrollRef = useRef<ScrollView>(null);
@@ -80,16 +78,13 @@ export default function CareCircleScreen() {
     fetchConnections,
   } = useCareCircle();
 
-  const currentConnectionContext = useRef({ connections, userId: profile?.id });
-  currentConnectionContext.current = { connections, userId: profile?.id };
-
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [membersExpanded, setMembersExpanded] = useState(false);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [focused, setFocused] = useState(false);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
-  const scrollToMembersPending = useRef(false);
-  const membersOffset = useRef(0);
+  const familyFeatures = useFamilyFeatures(focused && connections.length > 0, calendarRefreshKey);
+  const currentConnectionContext = useRef({ connections, userId: profile?.id, familyFeatures });
+  currentConnectionContext.current = { connections, userId: profile?.id, familyFeatures };
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editConnection, setEditConnection] = useState<{
     id: string;
@@ -303,16 +298,116 @@ export default function CareCircleScreen() {
   const selectedMember = members.find(member => member.id === selectedConnectionId) || members[0];
   const selectedConnection = connections.find(connection => connection.id === selectedMember?.id);
   const canViewSelected = selectedConnection && getConnectionHealthAccess(selectedConnection, profile?.id).canViewTheirs;
+  const guidedMemberId = connections.find(connection => getConnectionHealthAccess(connection, profile?.id).canViewTheirs)?.id;
   const selectedUserId = selectedMember?.userId;
-  const overview = useMemberOverview(selectedUserId, focused, !!canViewSelected, calendarRefreshKey);
-  const openMedication = () => {
-    if (!selectedUserId || !overview.canManageMedication) return;
-    const context = currentConnectionContext.current;
-    if (context.userId !== profile?.id || !context.connections.some(connection => connection.id === selectedMember?.id)) return;
-    router.push({ pathname: '/medication', params: { patientId: selectedUserId } });
-  };
   const loadMemberCalendar = useCallback((month: string) =>
     careCircleApi.getMemberHealthCalendar(selectedUserId!, month), [selectedUserId]);
+
+  const showMemberChoices = (id: string) => {
+    const accountId = profile?.id;
+    if (!accountId) return;
+    const currentConnection = () => {
+      const context = currentConnectionContext.current;
+      if (context.userId !== accountId) return undefined;
+      return context.connections.find(connection => connection.id === id && connection.status === 'accepted' &&
+        (String(connection.requester_id) === String(accountId) || String(connection.addressee_id) === String(accountId)));
+    };
+    const member = members.find(person => person.id === id);
+    const connection = currentConnection();
+    if (!member || !connection) return;
+    setSelectedConnectionId(id);
+    const layout = { layout: 'actions' as const };
+    const cancel: AlertButton = { text: tc('cancel'), style: 'cancel', icon: 'close' };
+    const canManageMedication = () => {
+      const flags = currentConnectionContext.current.familyFeatures;
+      return !!flags?.medication && flags.patients.some(person => String(person.id) === member.userId);
+    };
+    const canViewHealth = getConnectionHealthAccess(connection, accountId).canViewTheirs;
+    showAlert(member.name, undefined, [
+      {
+        text: t('familyHealthTitle'), icon: canViewHealth ? 'file-document-outline' : 'lock-outline',
+        disabled: !canViewHealth, accessibilityHint: canViewHealth ? undefined : t('healthAccessRequired'),
+        onPress: () => {
+          const current = currentConnection();
+          if (!current) return;
+          if (!getConnectionHealthAccess(current, accountId).canViewTheirs) {
+            showAlert(t('healthProfilePrivate'), t('healthAccessRequired'));
+            return;
+          }
+          router.push({ pathname: '/care-circle/member/[id]', params: { id: member.userId, name: member.name } });
+        },
+      },
+      {
+        text: t('familyNotifications'), icon: 'bell-outline',
+        onPress: () => {
+          if (!currentConnection()) return;
+          if (!currentConnectionContext.current.familyFeatures?.coins) {
+            router.push('/notifications');
+            return;
+          }
+          showAlert(t('familyNotifications'), undefined, [
+            { text: t('familyOpenInbox'), icon: 'bell-outline', onPress: () => { if (currentConnection()) router.push('/notifications'); } },
+            { text: t('familyGreetingCard'), icon: 'cards-heart-outline', onPress: () => {
+              if (currentConnection() && currentConnectionContext.current.familyFeatures?.coins) router.push('/coins');
+            } },
+            cancel,
+          ], undefined, layout);
+        },
+      },
+      {
+        text: t('familyTaskSetup'), icon: 'calendar-clock',
+        onPress: () => {
+          if (!currentConnection()) return;
+          if (!canManageMedication()) {
+            showAlert(t('familyTaskSetup'), t('familyMedicationUnavailable'));
+            return;
+          }
+          showAlert(t('familyTaskSetup'), undefined, [{
+            text: t('familyMedicationSetup'), icon: 'pill',
+            onPress: () => {
+              if (currentConnection() && canManageMedication()) {
+                router.push({ pathname: '/medication', params: { patientId: member.userId } });
+              }
+            },
+          }, cancel], undefined, layout);
+        },
+      },
+      {
+        text: t('connectionActionsTitle'), icon: 'account-cog-outline',
+        onPress: () => {
+          const current = currentConnection();
+          if (!current) return;
+          const isRequester = String(current.requester_id) === String(accountId);
+          const options: AlertButton[] = [{
+            text: t('viewConnectionInfo'), icon: 'account-details-outline',
+            onPress: () => {
+              const latest = currentConnection();
+              if (!latest) return;
+              setProfileTarget({
+                name: member.name, avatarUrl: member.avatarUrl, relationship: member.relationship,
+                email: isRequester ? latest.addressee_email : latest.requester_email,
+                phone: isRequester ? latest.addressee_phone : latest.requester_phone,
+                role: getFamilyRoleLabel(latest.role, t),
+              });
+            },
+          }];
+          if (isRequester) options.push({
+            text: t('editConnection'), icon: 'pencil-outline',
+            onPress: () => {
+              const latest = currentConnection();
+              if (latest) handleEditConnection({ ...latest, name: member.name });
+            },
+          });
+          options.push({
+            text: t('deleteConnection'), style: 'destructive', icon: 'trash-can-outline',
+            onPress: () => { if (currentConnection()) handleDeleteConnection(id, member.name); },
+          }, cancel);
+          showAlert(t('connectionActionsTitle'), t('connectionActionsMessage', { name: member.name }), options, undefined, layout);
+        },
+      },
+      cancel,
+    ], undefined, layout);
+  };
 
   return (
     <>
@@ -336,76 +431,21 @@ export default function CareCircleScreen() {
           <View style={styles.familyHeader}>
             {profile ? <HomeProfileAvatar profile={profile} /> : <View style={styles.familyHeaderSide} />}
             <Text accessibilityRole="header" style={styles.familyTitle}>{t('familyConnectionsTitle')}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel={t('members')} style={styles.familyHeaderSide}
-              onPress={() => {
-                if (membersExpanded) {
-                  guideScrollRef.current?.scrollTo({ y: Math.max(0, membersOffset.current - 12), animated: true });
-                } else {
-                  scrollToMembersPending.current = true;
-                  setMembersExpanded(true);
-                }
-              }}>
-              <Ionicons name="people-outline" size={26} color={colors.primaryText} accessible={false} />
+            <Pressable accessibilityRole="button" accessibilityLabel={t('scanQr')} style={styles.familyHeaderSide}
+              onPress={() => router.push('/care-circle/scan')}>
+              <Ionicons name="qr-code-outline" size={26} color={colors.primaryText} accessible={false} />
             </Pressable>
           </View>
-          {!showInitialSkeleton && <CareCircleMemberStrip members={members} selectedId={selectedMember?.id} hideHeading
-            onSelect={id => {
-              if (currentConnectionContext.current.connections.some(connection => connection.id === id)) setSelectedConnectionId(id);
-            }} onAdd={() => router.push('/care-circle/invite')} />}
-          {!showInitialSkeleton && selectedMember && (
-            <View style={styles.selectedHealth} testID="care-circle-selected-health">
-              <View style={styles.selectedHealthHeader}>
-                <Text accessibilityRole="header" style={styles.selectedHealthTitle}>{t('relativeHealthProfile', { name: selectedMember.name })}</Text>
-                {canViewSelected && overview.status !== 'denied' && <Pressable accessibilityRole="button" accessibilityLabel={t('viewHealthProfile')}
-                  style={styles.selectedHealthDetails} onPress={() => {
-                    const context = currentConnectionContext.current;
-                    const connection = context.connections.find(value => value.id === selectedMember.id);
-                    if (String(context.userId) !== String(profile?.id) || !connection || !getConnectionHealthAccess(connection, context.userId).canViewTheirs) return;
-                    router.push({ pathname: '/care-circle/member/[id]', params: { id: selectedMember.userId, name: selectedMember.name } });
-                  }}><Text style={{ color: colors.primaryText }}>{t('profileDetails')}</Text></Pressable>}
-              </View>
-              <MemberHealthMetrics data={overview.data} status={overview.status}
-                onRetry={() => setCalendarRefreshKey(value => value + 1)} />
+          {!showInitialSkeleton && <CareCircleMemberStrip members={members} selectedId={selectedMember?.id} guidedMemberId={guidedMemberId} hideHeading
+            onSelect={showMemberChoices} onAdd={() => router.push('/care-circle/invite')} />}
+          {!showInitialSkeleton && selectedMember && canViewSelected && focused && (
+            <View style={styles.familyReport}>
+              <Text accessibilityRole="header" style={styles.familyReportTitle}>{t('familyHealthReport')}</Text>
+              <HealthJournalCalendar key={`${profile?.id}:${selectedUserId}`} plain
+                loadReport={loadMemberCalendar} subjectName={selectedMember.name} refreshKey={calendarRefreshKey} />
             </View>
           )}
-          {!showInitialSkeleton && selectedMember && (
-            <>
-              <View style={styles.selectedHealth}>
-                <Text accessibilityRole="header" style={styles.selectedHealthTitle}>{t('familyNotifications')}</Text>
-                <FamilyActionCard title={t('familyOpenInbox')} icon="bell-outline" tone="primary"
-                  onPress={() => router.push('/notifications')} />
-                {overview.canSendGreeting && <FamilyActionCard title={t('familyGreetingCard')} icon="cards-heart-outline"
-                  tone="weight" onPress={() => router.push('/coins')} />}
-              </View>
-              {canViewSelected && overview.status !== 'denied' && focused && (
-                <View style={styles.selectedHealth}>
-                  <Text accessibilityRole="header" style={styles.selectedHealthTitle}>{t('familyHealthReport')}</Text>
-                  <HealthJournalCalendar key={`${profile?.id}:${selectedUserId}`} plain
-                    loadReport={loadMemberCalendar} subjectName={selectedMember.name} refreshKey={calendarRefreshKey} />
-                </View>
-              )}
-              <View style={styles.selectedHealth}>
-                <Text accessibilityRole="header" style={styles.selectedHealthTitle}>{t('familyTaskSetup')}</Text>
-                <FamilyActionCard title={t('familyMedicationSetup')} icon="pill" tone="medication"
-                  description={t(overview.canManageMedication ? 'familyMedicationSetupHint' : 'familyMedicationUnavailable')}
-                  onPress={overview.canManageMedication ? openMedication : undefined} />
-                <FamilyActionCard title={t('familyBpSetup')} icon="heart-pulse" tone="bloodPressure" description={t('familySetupUnavailable')} />
-                <FamilyActionCard title={t('familyGlucoseSetup')} icon="water-outline" tone="glucose" description={t('familySetupUnavailable')} />
-                <FamilyActionCard title={t('familyVisitSetup')} icon="calendar-clock" tone="meal" description={t('familySetupUnavailable')} />
-              </View>
-            </>
-          )}
           <CareCircleQrActions />
-          <View style={styles.quickActionsSection} testID="care-circle-actions-section">
-            <Text allowFontScaling accessibilityRole="header" style={styles.quickActionsTitle}>{t('actions')}</Text>
-            <CareCircleQuickActions count={connections.length} expanded={membersExpanded}
-              onInvite={() => router.push('/care-circle/invite')}
-              onScan={() => router.push('/care-circle/scan')}
-              onToggleMembers={() => {
-                scrollToMembersPending.current = !membersExpanded;
-                setMembersExpanded(expanded => !expanded);
-              }} />
-          </View>
           {showInitialSkeleton ? (
             <CareCircleTabSkeleton />
           ) : (
@@ -556,148 +596,6 @@ export default function CareCircleScreen() {
                 </View>
               )}
 
-              {/* Active Connections Section */}
-              <View style={styles.activeSection} testID="care-circle-member-list"
-                onLayout={event => {
-                  membersOffset.current = event.nativeEvent.layout.y;
-                  if (membersExpanded && scrollToMembersPending.current) {
-                    scrollToMembersPending.current = false;
-                    guideScrollRef.current?.scrollTo({ y: Math.max(0, membersOffset.current - 12), animated: true });
-                  }
-                }}>
-                {membersExpanded && <View style={styles.activeSectionHeader}>
-                  <Ionicons name="people-outline" size={24} color={colors.primaryDark} />
-                  <Text style={styles.activeSectionTitle}>
-                    {t('activeConnections', { count: connections.length })}
-                  </Text>
-                </View>}
-
-                {membersExpanded && ((loading || refreshing) && connections.length === 0 ? (
-                  <ActivityIndicator size="large" color="#0D9488" style={styles.loader} />
-                ) : connections.length === 0 ? (
-                  <Text style={styles.noMembers}>{t('noConnections')}</Text>
-                ) : (
-                  /* Active Connection Cards */
-                  <View style={styles.connectionsList}>
-                    {connections.map((connection, connectionIndex) => {
-                      const healthAccess = getConnectionHealthAccess(connection, profile?.id);
-                      const displayRole = getFamilyRoleLabel(connection.role, t);
-                      const isRequester = String(connection.requester_id) === String(profile?.id);
-                      const otherUserId = isRequester ? connection.addressee_id : connection.requester_id;
-                      const otherUserFullName = isRequester
-                        ? connection.addressee_full_name
-                        : connection.requester_full_name;
-                      const otherUserEmail = isRequester
-                        ? connection.addressee_email
-                        : connection.requester_email;
-                      const otherUserPhone = isRequester
-                        ? connection.addressee_phone
-                        : connection.requester_phone;
-
-                      const displayRelationship = isRequester
-                        ? getRelationshipLabel(connection.relationship_type)
-                        : reverseRelationship(connection.relationship_type, connection.requester_gender);
-
-                      const otherName = (isRequester ? connection.addressee_name : connection.requester_name)?.trim()
-                        || otherUserFullName?.trim() || t('thisPerson');
-                      const avatarUrl = (isRequester ? connection.addressee_avatar_url : connection.requester_avatar_url) || undefined;
-                      const showInfo = () => {
-                        const context = currentConnectionContext.current;
-                        if (String(context.userId) !== String(profile?.id)
-                          || !context.connections.some((member) => member.id === connection.id)) return;
-                        setProfileTarget({
-                          name: otherName, avatarUrl, email: otherUserEmail, phone: otherUserPhone,
-                          relationship: displayRelationship, role: displayRole,
-                        });
-                      };
-                      const openHealthProfile = () => {
-                        const context = currentConnectionContext.current;
-                        if (String(context.userId) !== String(profile?.id)) return;
-                        const current = context.connections.find((member) => member.id === connection.id);
-                        if (!current || !getConnectionHealthAccess(current, context.userId).canViewTheirs) {
-                          showAlert(t('healthProfilePrivate'), t('healthAccessRequired'));
-                          return;
-                        }
-                        router.push({ pathname: '/care-circle/member/[id]', params: { id: String(otherUserId), name: otherName } });
-                      };
-
-                      return (
-                        <View
-                          key={connection.id}
-                          style={styles.connectionCard}
-                        >
-                          {/* Compact member row */}
-                          <View style={styles.connectionCardHeader}>
-                            <GuideTarget step="circle.member" enabled={connectionIndex === 0 && healthAccess.canViewTheirs} name={otherName} style={{ flex: 1 }}>
-                            <TouchableOpacity
-                              style={styles.connectionHeaderLeft}
-                              activeOpacity={0.75}
-                              accessibilityRole="button"
-                              accessibilityLabel={otherName}
-                              onPress={healthAccess.canViewTheirs ? openHealthProfile : showInfo}
-                            >
-                              <Avatar name={otherName} imageUrl={avatarUrl} size={48} />
-                              <Text style={styles.connectionCardName}>{otherName}</Text>
-                            </TouchableOpacity>
-                            </GuideTarget>
-
-                            <TouchableOpacity
-                              accessibilityRole="button"
-                              accessibilityLabel={tc('notificationMoreActions')}
-                              onPress={() => {
-                                const options: AlertButton[] = [
-                                  { text: t('viewConnectionInfo'), icon: 'account-details-outline', onPress: showInfo },
-                                  {
-                                    text: t('viewHealthProfile'),
-                                    icon: healthAccess.canViewTheirs ? 'file-document-outline' : 'lock-outline',
-                                    disabled: !healthAccess.canViewTheirs,
-                                    accessibilityHint: healthAccess.canViewTheirs ? undefined : t('healthAccessRequired'),
-                                    onPress: openHealthProfile,
-                                  },
-                                ];
-                                if (isRequester) {
-                                  options.push({
-                                    text: t('editConnection'),
-                                    icon: 'pencil-outline',
-                                    onPress: () =>
-                                      handleEditConnection({
-                                        ...connection,
-                                        name: otherName,
-                                      }),
-                                  });
-                                }
-                                options.push(
-                                  {
-                                    text: t('deleteConnection'),
-                                    style: 'destructive',
-                                    icon: 'trash-can-outline',
-                                    onPress: () => handleDeleteConnection(connection.id, otherName),
-                                  },
-                                  { text: tc('cancel'), style: 'cancel', icon: 'close' }
-                                );
-                                showAlert(t('connectionActionsTitle'), t('connectionActionsMessage', { name: otherName }), options, undefined, { layout: 'actions' });
-                              }}
-                              style={styles.moreActionsBtn}
-                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            >
-                              {actionLoading === connection.id ? (
-                                <ActivityIndicator size="small" color={colors.textSecondary} />
-                              ) : (
-                                <Ionicons
-                                  name="ellipsis-horizontal"
-                                  size={18}
-                                  color={isDark ? colors.textSecondary : '#1E293B'}
-                                />
-                              )}
-                            </TouchableOpacity>
-                          </View>
-
-                        </View>
-                      );
-                    })}
-                  </View>
-                ))}
-              </View>
             </>
           )}
         </RippleRefreshScrollView>
@@ -946,10 +844,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
     familyHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
     familyHeaderSide: { width: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
     familyTitle: { flex: 1, textAlign: 'center', fontSize: 21, fontWeight: '700', color: colors.textPrimary },
-    selectedHealth: { paddingHorizontal: 16, paddingBottom: 24, gap: 10 },
-    selectedHealthHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    selectedHealthTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: colors.textPrimary },
-    selectedHealthDetails: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
+    familyReport: { paddingHorizontal: 16, paddingBottom: 24, gap: 10 },
+    familyReportTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
     screen: {
       flex: 1,
     },
@@ -957,15 +853,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       flex: 1,
       backgroundColor: 'transparent',
     },
-    quickActionsSection: {
-      width: '100%',
-      maxWidth: 452,
-      alignSelf: 'center',
-      paddingHorizontal: spacing.lg,
-      marginBottom: spacing.lg,
-      gap: 16,
-    },
-    quickActionsTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
     // Hero Banner Card
     heroCardShadowWrap: {
       marginHorizontal: spacing.lg,
@@ -1073,32 +960,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       fontWeight: '600',
       color: '#FFFFFF',
     },
-    // Active Connections Section
-    activeSection: {
-      marginBottom: spacing.lg,
-    },
-    activeSectionHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: 12,
-      minHeight: 56,
-      gap: 8,
-      marginBottom: spacing.sm + 2,
-    },
-    activeSectionTitle: {
-      flex: 1,
-      fontSize: 18,
-      fontWeight: '700',
-      color: colors.textPrimary,
-    },
-    noMembers: {
-      marginLeft: 36,
-      marginRight: spacing.lg,
-      paddingVertical: 12,
-      fontSize: 16,
-      color: colors.textSecondary,
-    },
     emptyCard: {
       marginHorizontal: spacing.lg,
       borderRadius: 24,
@@ -1147,43 +1008,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, isDark
       fontSize: 14,
       fontWeight: '600',
       color: '#0D9488',
-    },
-    // Connections List
-    connectionsList: {
-      marginHorizontal: spacing.lg,
-      gap: spacing.md,
-    },
-    connectionCard: {
-      minHeight: 64,
-      paddingVertical: 8,
-      paddingLeft: 12,
-      backgroundColor: 'transparent',
-    },
-    connectionCardHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    connectionHeaderLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 14,
-      flex: 1,
-    },
-    connectionCardName: {
-      flex: 1,
-      fontSize: 18,
-      fontWeight: '700',
-      color: isDark ? colors.textPrimary : '#0F172A',
-      lineHeight: 24,
-    },
-    moreActionsBtn: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginLeft: 10,
     },
     // Generic Section & Cards (Invitations)
     section: {

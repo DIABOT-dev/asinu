@@ -191,12 +191,12 @@ await test('family dropdown searches accents and unaccented text using the actua
   assert.equal(filterOptions(options, '').length, 54);
 });
 
-function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan', relationship = 'bo', permissions, update, canViewTheirs = false, canManageMedication = false } = {}) {
+function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan', relationship = 'bo', permissions, update, canViewTheirs = false, canManageMedication = false, coins = false } = {}) {
   theme.applyTheme(isDark ? 'dark' : 'light');
   const h = hooks();
   const t = translate(language, 'careCircle');
   const tc = translate(language, 'common');
-  const calls = { alerts: [], writes: [], toasts: [], routes: [], scrolls: [], calendars: [] };
+  const calls = { alerts: [], writes: [], toasts: [], routes: [], calendars: [] };
   const connection = {
     id: 'connection', requester_id: 'me', addressee_id: 'relative', status: 'accepted',
     addressee_name: 'Family Display', addressee_full_name: 'Family Member', addressee_avatar_url: 'https://example.invalid/avatar.jpg',
@@ -242,17 +242,13 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     '../../src/features/care-circle/connection-edit': connectionEdit,
     '../../src/features/care-circle/components/CareCircleQrActions': { CareCircleQrActions: 'QrActions' },
     '../../src/features/care-circle/components/CareCircleScanSpeech': { CareCircleScanSpeech: 'ScanSpeech' },
-    '../../src/features/care-circle/components/CareCircleQuickActions': { CareCircleQuickActions: 'QuickActions' },
     '../../src/features/care-circle/components/CareCircleMemberStrip': { CareCircleMemberStrip: 'MemberStrip' },
     '../../src/components/HomeProfileAvatar': { HomeProfileAvatar: 'HomeProfileAvatar' },
-    '../../src/features/care-circle/components/MemberOverviewCards': {
-      MemberHealthMetrics: 'MemberHealthMetrics', FamilyActionCard: 'FamilyActionCard',
-    },
     '../../src/features/care-circle/useMemberOverview': {
-      useMemberOverview: (id, active, canRead) => ({
-        status: canRead ? 'ready' : 'denied',
-        canManageMedication: active && !!id && canManageMedication,
-      }),
+      useFamilyFeatures: active => active ? {
+        medication: canManageMedication, coins,
+        patients: care.connections.map(member => ({ id: member.addressee_id })),
+      } : undefined,
     },
     '../../src/components/HealthJournalCalendar': { HealthJournalCalendar: 'HealthJournalCalendar' },
     '../../src/features/care-circle/components/CareCircleInviteBanner': { CareCircleInviteBanner: 'InviteBanner' },
@@ -260,23 +256,17 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     '../../src/features/care-circle/components/CareCircleEmptyState': { CareCircleEmptyState: 'EmptyState' },
     '../../src/features/guidance/GuidanceProvider': { GuideScrollScope: 'GuideScrollScope', GuideTarget: 'GuideTarget' },
   });
-  const render = () => {
-    const tree = h.render(Screen);
-    const scroll = nodes(tree).find(node => node.props?.nativeScrollRef);
-    if (scroll) scroll.props.nativeScrollRef.current = { scrollTo: options => calls.scrolls.push(options) };
-    return tree;
-  };
+  const render = () => h.render(Screen);
   const modal = () => nodes(render()).find(node => node.type === 'Modal' && node.props.visible);
-  const membersToggle = () => nodes(render()).find(node => node.type === 'QuickActions');
-  const menu = () => {
-    if (!membersToggle().props.expanded) membersToggle().props.onToggleMembers();
-    nodes(render()).find(node => node.type === 'Button' && node.props.accessibilityLabel === tc('notificationMoreActions')).props.onPress();
+  const avatarMenu = () => {
+    nodes(render()).find(node => node.type === 'MemberStrip').props.onSelect(connection.id);
     return calls.alerts.at(-1)[2];
   };
-  return { calls, connection, care, modal, render, menu, focus: () => { render(); h.effects(); return render(); },
-    toggleMembers: () => membersToggle().props.onToggleMembers(),
-    membersExpanded: () => membersToggle().props.expanded,
-    membersLayout: y => nodes(render()).find(node => node.props?.testID === 'care-circle-member-list').props.onLayout({ nativeEvent: { layout: { y } } }),
+  const menu = () => {
+    avatarMenu().find(action => action.text === t('connectionActionsTitle')).onPress();
+    return calls.alerts.at(-1)[2];
+  };
+  return { calls, connection, care, modal, render, menu, avatarMenu, focus: () => { render(); h.effects(); return render(); },
     open: () => {
       menu().find(button => button.text === t('editConnection')).onPress();
     },
@@ -288,62 +278,80 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     permission: (index, value) => nodes(modal()).filter(node => node.type === 'Switch')[index].props.onValueChange(value),
   };
 }
-await test('top member avatars select only that relative’s permitted calendar and recheck revoked access', async () => {
+await test('top avatars open the chosen relative’s actions and keep the calendar permission-aware', async () => {
+  const t = translate('vi', 'careCircle');
   const h = connectionHarness({ canViewTheirs: true }); h.focus();
   const list = () => nodes(h.render()).find(node => node.type === 'MemberStrip');
   const calendar = () => nodes(h.render()).find(node => node.type === 'HealthJournalCalendar');
-  let all = nodes(h.render());
+  const all = nodes(h.render());
   assert.ok(all.findIndex(node => node.type === 'MemberStrip') < all.findIndex(node => node.type === 'QrActions'));
+  assert.equal(h.calls.alerts.length, 0);
+  assert.ok(!all.some(node => node.type === 'Text' &&
+    ['familyHealthTitle', 'familyNotifications', 'familyTaskSetup'].some(key => node.props.children === t(key))));
   assert.equal(list().props.selectedId, h.connection.id);
   await calendar().props.loadReport('2026-11');
   assert.deepEqual(h.calls.calendars, [{ id: 'relative', month: '2026-11' }]);
   h.care.connections.push({ ...h.connection, id: 'second', addressee_id: 'second-relative', addressee_name: 'Another relative', addressee_can_view_logs: false });
   list().props.onSelect('second'); assert.equal(list().props.selectedId, 'second'); assert.equal(calendar(), undefined);
+  assert.equal(h.calls.alerts.at(-1)[0], 'Another relative');
+  assert.equal(h.calls.alerts.at(-1)[2].find(action => action.text === t('familyHealthTitle')).disabled, true);
+  assert.deepEqual(h.calls.routes, []);
   list().props.onSelect(h.connection.id);
-  const open = nodes(h.render()).find(node => node.props.accessibilityLabel === translate('vi', 'careCircle')('viewHealthProfile'));
-  h.connection.addressee_can_view_logs = false;
-  open.props.onPress(); assert.deepEqual(h.calls.routes, []); assert.equal(calendar(), undefined);
+  const choices = h.calls.alerts.at(-1)[2];
+  assert.deepEqual(choices.slice(0, 3).map(action => action.text),
+    ['familyHealthTitle', 'familyNotifications', 'familyTaskSetup'].map(key => t(key)));
+  choices[2].onPress();
+  assert.equal(h.calls.alerts.at(-1)[1], t('familyMedicationUnavailable'));
+  const open = choices[0];
+  h.connection.addressee_can_view_logs = false; h.render();
+  open.onPress(); assert.deepEqual(h.calls.routes, []); assert.equal(calendar(), undefined);
   h.care.connections = []; assert.equal(list().props.members.length, 0); assert.equal(calendar(), undefined);
   list().props.onAdd(); assert.deepEqual(h.calls.routes, ['/care-circle/invite']);
   assert.deepEqual(h.calls.writes, []);
 });
-await test('family scheduling opens the selected relative and leaves unsupported actions inactive', () => {
-  const h = connectionHarness({ canViewTheirs: true, canManageMedication: true });
+await test('avatar choices open health, notifications and medication through the selected relative', () => {
+  const t = translate('vi', 'careCircle');
+  const h = connectionHarness({ canViewTheirs: true, canManageMedication: true, coins: true });
   h.focus();
-  const find = key => nodes(h.render()).find(node => node.type === 'FamilyActionCard' &&
-    node.props.title === translate('vi', 'careCircle')(key));
-  find('familyMedicationSetup').props.onPress();
-  assert.deepEqual(h.calls.routes, [{ pathname: '/medication', params: { patientId: 'relative' } }]);
-  for (const key of ['familyBpSetup', 'familyGlucoseSetup', 'familyVisitSetup']) {
-    assert.equal(find(key).props.onPress, undefined);
-  }
+  h.care.connections.push({ ...h.connection, id: 'second', addressee_id: 'second-relative', addressee_name: 'Another relative' });
+  const tapAvatar = () => nodes(h.render()).find(node => node.type === 'MemberStrip').props.onSelect('second');
+  const press = key => h.calls.alerts.at(-1)[2].find(action => action.text === t(key)).onPress();
+  tapAvatar(); press('familyHealthTitle');
+  tapAvatar(); press('familyNotifications'); press('familyOpenInbox');
+  tapAvatar(); press('familyNotifications'); press('familyGreetingCard');
+  tapAvatar(); press('familyTaskSetup'); press('familyMedicationSetup');
+  assert.deepEqual(h.calls.routes, [
+    { pathname: '/care-circle/member/[id]', params: { id: 'second-relative', name: 'Another relative' } },
+    '/notifications', '/coins',
+    { pathname: '/medication', params: { patientId: 'second-relative' } },
+  ]);
+  tapAvatar(); press('familyTaskSetup');
+  h.care.connections.pop(); h.render();
+  press('familyMedicationSetup');
+  assert.equal(h.calls.routes.length, 4);
 });
 for (const language of ['vi', 'en']) {
-  await test(`${language}: connected members expand inline and collapse without changing saved connections`, () => {
+  await test(`${language}: the header opens QR scanning and the lower actions are absent`, () => {
     const h = connectionHarness({ language });
+    const t = translate(language, 'careCircle');
     const initial = nodes(h.render());
     const qrIndex = initial.findIndex(node => node.type === 'QrActions');
-    assert.ok(qrIndex >= 0 && qrIndex < initial.findIndex(node => node.type === 'QuickActions'));
+    assert.ok(qrIndex > initial.findIndex(node => node.type === 'MemberStrip'));
     assert.ok(flatten(initial.find(node => node.type === 'Screen').props.style).paddingTop >= 59);
-    assert.ok(initial.some(node => node.type === 'Text' && node.props.children === translate(language, 'careCircle')('actions')));
-    assert.ok(!initial.some(node => node.type === 'ScanSpeech' || node.type === 'Image' && String(node.props.source).includes('asinu-pointing-both-sides')));
-    const more = () => nodes(h.render()).some(node => node.props?.accessibilityLabel === translate(language, 'common')('notificationMoreActions'));
-    assert.equal(h.membersExpanded(), false); assert.equal(more(), false);
-    h.toggleMembers(); assert.equal(h.membersExpanded(), true); assert.equal(more(), true);
-    h.membersLayout(480); assert.deepEqual(h.calls.scrolls, [{ y: 468, animated: true }]);
-    h.membersLayout(500); assert.equal(h.calls.scrolls.length, 1, 'A layout refresh cannot repeatedly move the member list');
-    h.toggleMembers(); assert.equal(h.membersExpanded(), false); assert.equal(more(), false);
+    assert.ok(!initial.some(node => ['care-circle-actions-section', 'care-circle-member-list'].includes(node.props?.testID)));
+    const scan = initial.find(node => node.type === 'Button' && node.props.accessibilityLabel === t('scanQr'));
+    assert.ok(initial.indexOf(scan) < qrIndex);
+    scan.props.onPress();
+    assert.deepEqual(h.calls.routes, ['/care-circle/scan']);
     assert.deepEqual(h.calls.writes, []); assert.deepEqual(h.calls.toasts, []);
   });
 }
 for (const language of ['vi', 'en']) {
-  await test(`${language}: member rows show only the display name and avatar while information is opened from the menu`, () => {
-    const h = connectionHarness({ language }); h.toggleMembers();
-    const row = nodes(h.render()).find(node => node.props?.accessibilityLabel === h.connection.addressee_name);
-    const labels = nodes(row).filter(node => node.type === 'Text');
-    assert.deepEqual(labels.map(node => node.props.children), [h.connection.addressee_name]);
-    assert.equal(labels[0].props.numberOfLines, undefined);
-    assert.equal(nodes(row).find(node => node.type === 'Avatar').props.imageUrl, h.connection.addressee_avatar_url);
+  await test(`${language}: the avatar menu opens the selected member’s connection details`, () => {
+    const h = connectionHarness({ language });
+    const { members } = nodes(h.render()).find(node => node.type === 'MemberStrip').props;
+    assert.equal(members[0].name, h.connection.addressee_name);
+    assert.equal(members[0].avatarUrl, h.connection.addressee_avatar_url);
     h.menu().find(action => action.text === translate(language, 'careCircle')('viewConnectionInfo')).onPress();
     const info = nodes(h.modal());
     assert.ok(info.some(node => node.props.children === h.connection.addressee_email));
@@ -352,13 +360,13 @@ for (const language of ['vi', 'en']) {
     assert.deepEqual(h.calls.routes, []);
   });
   await test(`${language}: health profile stays locked without consent and opens only while the current consent permits it`, () => {
-    const label = translate(language, 'careCircle')('viewHealthProfile');
+    const label = translate(language, 'careCircle')('familyHealthTitle');
     const locked = connectionHarness({ language });
-    const lockedAction = locked.menu().find(action => action.text === label);
+    const lockedAction = locked.avatarMenu().find(action => action.text === label);
     assert.equal(lockedAction.disabled, true); assert.equal(lockedAction.icon, 'lock-outline');
     lockedAction.onPress(); assert.deepEqual(locked.calls.routes, []);
     const allowed = connectionHarness({ language, canViewTheirs: true });
-    const allowedAction = allowed.menu().find(action => action.text === label);
+    const allowedAction = allowed.avatarMenu().find(action => action.text === label);
     assert.equal(allowedAction.disabled, false); allowedAction.onPress();
     assert.deepEqual(allowed.calls.routes, [{ pathname: '/care-circle/member/[id]', params: { id: 'relative', name: allowed.connection.addressee_name } }]);
     allowed.connection.addressee_can_view_logs = false; allowed.render();

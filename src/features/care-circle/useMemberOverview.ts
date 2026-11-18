@@ -12,9 +12,8 @@ type HealthState = {
   data?: MemberHealthOverview;
 };
 
-export function useMemberOverview(memberId: string | undefined, active: boolean, canRead: boolean, revision: number) {
+export function useFamilyFeatures(active: boolean, revision: number) {
   const token = useAuthStore(state => state.token);
-  const [health, setHealth] = useState<HealthState>();
   const [features, setFeatures] = useState<{ owner: string; revision: number; flags: V21Flags }>();
 
   useEffect(() => {
@@ -27,7 +26,13 @@ export function useMemberOverview(memberId: string | undefined, active: boolean,
     });
     return () => { current = false; };
   }, [active, revision, token]);
+  return active && features?.owner === token && features.revision === revision ? features.flags : undefined;
+}
 
+export function useMemberOverview(memberId: string | undefined, active: boolean, canRead: boolean, revision: number) {
+  const token = useAuthStore(state => state.token);
+  const [health, setHealth] = useState<HealthState>();
+  const flags = useFamilyFeatures(active, revision);
   useEffect(() => {
     if (!token || !memberId || !active || !canRead) {
       setHealth(undefined);
@@ -47,12 +52,10 @@ export function useMemberOverview(memberId: string | undefined, active: boolean,
 
   const visibleHealth = active && canRead && health?.owner === token &&
     health.memberId === memberId && health.revision === revision ? health : undefined;
-  const flags = active && features?.owner === token && features.revision === revision ? features.flags : undefined;
 
   return {
     data: visibleHealth?.data,
     status: canRead ? visibleHealth?.status ?? 'loading' as const : 'denied' as const,
     canManageMedication: !!memberId && !!flags?.medication && flags.patients.some(person => String(person.id) === memberId),
-    canSendGreeting: flags?.coins === true,
   };
 }
