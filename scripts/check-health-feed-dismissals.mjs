@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import path from "node:path";
 import ts from "typescript";
 import { create } from "zustand";
 
@@ -587,6 +588,36 @@ function evaluateArticle(file, imports = {}) {
   });
   return result.exports;
 }
+
+await test("article covers stay distinct and match across the feed, saved list and reader", () => {
+  const componentPath = "src/features/health-feed/HealthFeedThumbnail.tsx";
+  const componentSource = fs.readFileSync(componentPath, "utf8");
+  const assets = Object.fromEntries(
+    [...componentSource.matchAll(/require\("([^"]+)"\)/g)].map(([, asset]) => {
+      const filename = path.join(path.dirname(componentPath), asset);
+      assert.ok(fs.existsSync(filename), filename);
+      return [asset, filename];
+    })
+  );
+  const { HealthFeedThumbnail } = evaluateArticle(componentPath, {
+    ...assets,
+    "expo-image": { Image: "Image" },
+    "react/jsx-runtime": { jsx: (type, props) => ({ type, props }) },
+  });
+  const coverFor = (item) => HealthFeedThumbnail({ item }).props.source;
+  const covers = fs.readdirSync("assets/images/health-feed").filter((name) => name.endsWith(".webp"));
+  assert.ok(covers.length > 0);
+
+  for (const filename of covers) {
+    const id = path.basename(filename, ".webp");
+    const expected = path.join("assets/images/health-feed", filename);
+    assert.equal(coverFor({ id }), expected);
+    assert.equal(coverFor({ id: "feed-entry-id", content_id: id, feed_type: "family_note" }), expected);
+  }
+  assert.equal(coverFor({ id: "curated-1" }), coverFor({ id: "family-why-parents-hide-symptoms" }));
+  assert.equal(coverFor({ id: "constructor", feed_type: "warning" }), assets["../../../assets/images/home/checkin-unwell-background-v1.png"]);
+});
+
 const articleFormat = evaluateArticle('src/features/health-feed/article-format.ts');
 const articleFixture = articleFormat.normalizeHealthArticle({ id: 'article-one', title: 'Bài viết đã biên tập', summary: 'Mở bài ngắn.', body: 'Nội dung thân bài cần được chia sẻ đầy đủ.\n\n## Điều cần nhớ\n\n3. Mục thứ ba\n5. Mục thứ năm\n\n- Ý nhỏ\n  dòng tiếp theo', checklist: ['Tên ý: Phần giải thích chi tiết.'], content_type: 'family_note', is_saved: false });
 await test('article formatting preserves explicit headings, list numbering, continuations and all supplied words', () => {
