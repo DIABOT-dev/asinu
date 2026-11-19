@@ -54,8 +54,6 @@ export const coinDetailsStyles = StyleSheet.create({
     paddingVertical: 12,
   },
   buttonText: { fontSize: 16, fontWeight: "700", textAlign: "center" },
-  reward: { gap: 12, paddingVertical: 10 },
-  rewardHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
   empty: {
     alignItems: "center",
     gap: 12,
@@ -63,6 +61,7 @@ export const coinDetailsStyles = StyleSheet.create({
     paddingVertical: 32,
   },
   emptyText: { fontSize: 15, lineHeight: 23, textAlign: "center" },
+  selectionContent: { gap: 24 },
   selectionHeading: { flexDirection: "row", alignItems: "center", gap: 8 },
   back: {
     width: 44,

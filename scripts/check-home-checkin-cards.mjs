@@ -130,7 +130,10 @@ for (const language of ['vi', 'en']) {
       button.props.onPress();
     }
     assert.deepEqual(h.pushes, ['/(tabs)/tree', '/medication', '/logs', '/doctor-consultation', '/doctor-consultation-history', '/privacy-center', '/doctor-care', '/care-circle', '/checkin-call/settings', '/checkin-call/voice-settings',
-      '/(tabs)/missions', '/coins', '/checkin-rewards', '/checkin-rewards/history']);
+      '/(tabs)/missions', '/coins', '/coins/redeem', '/checkin-rewards/history']);
+    const shop = buttons.find(node => node.props.testID === 'home-feature-coinShop');
+    assert.equal(shop.props.accessibilityLabel, language === 'vi' ? 'Đổi xu' : 'Coin shop');
+    assert.ok(h.nodes(shop).some(node => node.type === 'Icon' && node.props.name === 'storefront-outline'));
     const dialog = h.nodes(h.render()).find(node => node.type === 'PermissionModal');
     assert.equal(dialog.props.visible, true);
     dialog.props.onClose();
@@ -142,7 +145,11 @@ for (const language of ['vi', 'en']) {
   await test(`${language}: disabled medication and coin features have no Action groups`, () => {
     const h = featureGridHarness({ language, medicationEnabled: false, coinsEnabled: false });
     const ids = h.tiles().map(node => node.props.testID);
-    assert.equal(ids.length, 14); assert.ok(!ids.includes('home-feature-medication')); assert.ok(!ids.includes('home-feature-coins'));
+    assert.equal(ids.length, 13);
+    for (const id of ['medication', 'coins', 'coinShop', 'dailyGift']) {
+      assert.ok(!ids.includes(`home-feature-${id}`));
+    }
+    assert.ok(ids.includes('home-feature-giftHistory'));
     assert.equal(ids[0], 'home-feature-healthHistory');
     assert.ok(ids.includes('home-feature-expert'));
   });
@@ -179,12 +186,19 @@ await test('a disabled consultation feature removes the entire empty group', () 
   const h = featureGridHarness({ expertEnabled: false });
   assert.ok(!h.nodes(h.render()).some(n => n.props?.testID === 'operations-group-consultation'));
 });
-await test('expert consultation retains its doctor portrait and destination inside the care group', () => {
+await test('expert consultation shows an unframed portrait and opens the consultation screen', () => {
   const h = featureGridHarness({ medicationEnabled: false, coinsEnabled: false });
   const group = h.nodes(h.render()).find(n => n.props?.testID === 'operations-group-consultation');
   const nodes = h.nodes(group);
-  assert.ok(nodes.some(n => n.type === 'Image' && n.props.source.endsWith('expert-consultation-v1.png')));
-  nodes.find(n => n.props?.testID === 'home-feature-expert').props.onPress();
+  const expert = nodes.find(n => n.props?.testID === 'home-feature-expert');
+  const portrait = h.nodes(expert).find(n => n.type === 'Image');
+  assert.ok(portrait.props.source.endsWith('expert-consultation-cutout.png'));
+  const frameStyle = (tile) => flatten(tile.props.children({ pressed: false }).props.children[0].props.style);
+  assert.equal(frameStyle(expert).borderWidth, undefined);
+  assert.equal(frameStyle(expert).backgroundColor, undefined);
+  assert.equal(frameStyle(expert).elevation, undefined);
+  assert.equal(frameStyle(nodes.find(n => n.props?.testID === 'home-feature-consultationHistory')).borderWidth, 1);
+  expert.props.onPress();
   assert.equal(h.pushes.at(-1), '/doctor-consultation');
 });
 

@@ -1151,11 +1151,12 @@ for (const language of ["vi", "en"]) {
       assert.equal(progress.at(-1).props.accessibilityValue.max, 5);
       assert.ok(nodes.some((node) => node.props.children === t("balance", { count: 24 })));
       for (const count of [10, 5, 2, 20]) assert.ok(nodes.some((node) => node.props.children === t("taskCoins", { count })));
-      const details = nodes.find(
-        (node) => node.props.accessibilityRole === "button",
+      const buttons = nodes.filter((node) => node.props.accessibilityRole === "button");
+      assert.deepEqual(
+        buttons.map((node) => node.props.accessibilityLabel),
+        [language === "vi" ? "Cách nhận xu" : "How to earn coins"],
       );
-      assert.equal(details.props.accessibilityLabel, t("rules"));
-      details.props.onPress();
+      buttons[0].props.onPress();
       assert.equal(opened, 1);
     });
   }
@@ -1184,11 +1185,11 @@ await test("granting notifications in-app immediately updates reminder access wi
   assert.equal(reminder.calls.reads, reads);
 });
 
-function coinDetailsHarness() {
+function coinDetailsHarness(options) {
   const r = runtime();
   const auth = { profile: { id: "alice" } };
   const storage = new Map();
-  const calls = { redeems: [], toasts: [], errors: [], history: [] };
+  const calls = { redeems: [], toasts: [], errors: [], history: [], rewards: 0 };
   const reward = { code: "GREETING_CARD", cost: 50, daily_limit: 1, monthly_limit: 0 };
   const server = { balance: 100, pendingCoins: null, pendingRedeem: null, pendingStorage: null, failRedeem: false, pages: {} };
   const t = key => key;
@@ -1210,7 +1211,10 @@ function coinDetailsHarness() {
     "./V21Layout": { v21Error: error => calls.errors.push(error) },
     "./v21.api": { v21Api: {
       coins: async () => server.pendingCoins ?? data(),
-      rewards: async () => ({ items: [reward], recipients: [{ id: 7, name: "Fixture recipient" }], templates: [{ code: "fixture-card", title: "Fixture card", title_en: "Fixture card" }] }),
+      rewards: async () => {
+        calls.rewards++;
+        return { items: [reward], recipients: [{ id: 7, name: "Fixture recipient" }], templates: [{ code: "fixture-card", title: "Fixture card", title_en: "Fixture card" }] };
+      },
       history: async (before, limit) => {
         calls.history.push({ before, limit });
         return server.pages[before || ""] ?? { items: [], nextBefore: null };
@@ -1224,11 +1228,20 @@ function coinDetailsHarness() {
       },
     } },
   });
+  const render = () => useHealthCoins(options);
+  const read = () => r.render(render);
   return { ...r, auth, server, calls, storage, reward, data,
-    read: () => r.render(useHealthCoins), settle: () => r.settle(useHealthCoins),
-    prepare: () => { r.render(useHealthCoins).selectReward(reward); r.render(useHealthCoins).selectRecipient(7); r.render(useHealthCoins).selectTemplate("fixture-card"); },
+    read, settle: () => r.settle(render),
+    prepare: () => { read().selectReward(reward); read().selectRecipient(7); read().selectTemplate("fixture-card"); },
   };
 }
+await test("the coin earning view loads its balance without requesting shop data or history", async () => {
+  const h = coinDetailsHarness({ includeRedemption: false });
+  await h.settle();
+  assert.equal(h.read().data.balance, 100);
+  assert.equal(h.calls.rewards, 0);
+  assert.deepEqual(h.calls.history, []);
+});
 await test("coin details load backend values and require a recipient and template before redemption", async () => {
   const h = coinDetailsHarness(); await h.settle();
   assert.equal(h.read().data.balance, 100);
@@ -1311,17 +1324,18 @@ await test("an older reminder preference result cannot undo a newer withdrawal",
   assert.equal(h.read().props.disabled, true); h.blur();
 });
 
-await test("the real card reward view allows a free preview with insufficient coins but keeps redemption disabled", () => {
+await test("the reward grid uses the account balance and allows a free card preview when redemption is unavailable", () => {
   const r = runtime();
   const recipient = { id: 7, name: "Fixture family" };
   const template = { code: "MISS_YOU", title: "Fixture card", title_en: "Fixture card", body: "Fixture greeting" };
   const reward = { code: "GREETING_CARD", cost: 50 };
+  const ticket = { code: "DRAW_TICKET", cost: 40 };
   const coins = {
     busy: false, selected: null, recipient: recipient.id, template: template.code,
-    data: { balance: 12 }, catalog: { items: [reward], recipients: [recipient], templates: [template] },
+    data: { balance: 12 }, catalog: { items: [reward, ticket], recipients: [recipient], templates: [template], drawPeriodId: "test-draw" },
     selectReward: item => { coins.selected = item; }, cancelReward() {},
   };
-  const { CoinSpendTab } = evaluate("src/features/v21/CoinDetailsContent.tsx", {
+  const { CoinRewardSelection } = evaluate("src/features/v21/CoinDetailsContent.tsx", {
     react: r.hooks,
     "@expo/vector-icons": { Ionicons: "Icon", MaterialCommunityIcons: "Icon" },
     "react-native": { ActivityIndicator: "Spinner", Pressable: "Pressable", View: "View", useWindowDimensions: () => ({ width: 393 }) },
@@ -1333,10 +1347,44 @@ await test("the real card reward view allows a free preview with insufficient co
     "./coin-details.styles": { coinDetailsStyles: {} },
     "./GreetingCard": { GreetingCard: "GreetingCard" },
   });
-  const preview = journeyNodes(r.render(() => CoinSpendTab({ coins }))).find(node => node.props?.label === "greetingPreview");
+  let width = 393;
+  let openedDrawRules = 0;
+  const { CoinRewardsCatalog } = evaluate("src/features/v21/CoinRewardsCatalog.tsx", {
+    "@expo/vector-icons": { Ionicons: "Icon" },
+    "expo-image": { Image: "Image" },
+    "react-native": {
+      Pressable: "Pressable", View: "View", useWindowDimensions: () => ({ width }),
+      StyleSheet: { create: styles => styles },
+    },
+    "react-i18next": {
+      useTranslation: () => ({ t: (key, options) => options ? `${key}:${options.count}` : key, i18n: { language: "vi" } }),
+    },
+    "../../components/ScaledText": { ScaledText: "Text" },
+    "../../hooks/useThemeColors": { useThemeColors: () => ({ colors: {} }) },
+    "../../hooks/useScaledTypography": { useScaledFontSize: n => n },
+    "./HealthCoinIcon": { HealthCoinIcon: "Coin" },
+    "../../../assets/images/rewards/product-photos-v2/reward-ticket-photo-v2.png": "Ticket",
+  });
+  const readCatalog = () => journeyNodes(CoinRewardsCatalog({
+    catalog: coins.catalog, balance: coins.data.balance, onSelect: coins.selectReward, busy: coins.busy,
+    onDrawRules: () => openedDrawRules++,
+  }));
+  const grid = readCatalog();
+  assert.deepEqual(
+    grid.filter(node => node.props.accessibilityRole === "progressbar").map(node => node.props.accessibilityValue),
+    [{ min: 0, max: 50, now: 12 }, { min: 0, max: 40, now: 12 }],
+  );
+  assert.ok(grid.some(node => node.props.children === "missingCoins:28"));
+  assert.ok(grid.some(node => node.props.children === "rewardNextShortfall:28"));
+  assert.equal(grid.some(node => node.props.accessibilityLabel === "coinsChooseReward"), false);
+  grid.find(node => node.props.accessibilityLabel === "rewardDrawRules").props.onPress();
+  assert.equal(openedDrawRules, 1);
+  assert.ok(grid.some(node => node.props.style?.some?.(style => style?.flexBasis === "46%")));
+  width = 320;
+  assert.ok(readCatalog().some(node => node.props.style?.some?.(style => style?.flexBasis === "100%")));
+  const preview = grid.find(node => node.props.accessibilityLabel === "greetingPreview");
   assert.equal(preview.props.disabled, false); preview.props.onPress();
-  const selection = r.render(() => CoinSpendTab({ coins }));
-  const readSelection = () => r.render(() => selection.type(selection.props));
+  const readSelection = () => r.render(() => CoinRewardSelection({ coins, reward: coins.selected }));
   const review = journeyNodes(readSelection()).find(node => node.props?.label === "coinsReviewAction");
   assert.equal(review.props.disabled, false); review.props.onPress();
   const nodes = journeyNodes(readSelection());

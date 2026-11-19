@@ -4,7 +4,7 @@ import { ScaledText as Text } from './ScaledText';
 import { useThemeColors } from '../hooks/useThemeColors';
 
 export function QuickActionTile({ label, icon, onPress, style, testID, accessibilityLabel,
-  expanded, badgeCount, disabled = false, busy = false, hint }: {
+  expanded, badgeCount, disabled = false, busy = false, hint, framed = true }: {
   label: string;
   icon: ReactNode;
   onPress: () => void;
@@ -16,6 +16,7 @@ export function QuickActionTile({ label, icon, onPress, style, testID, accessibi
   disabled?: boolean;
   busy?: boolean;
   hint?: string;
+  framed?: boolean;
 }) {
   const { colors, isDark } = useThemeColors();
   return <Pressable testID={testID} accessibilityRole="button"
@@ -23,7 +24,7 @@ export function QuickActionTile({ label, icon, onPress, style, testID, accessibi
     accessibilityState={{ expanded, disabled, busy }} disabled={disabled}
     onPress={onPress} style={({ pressed }) => [styles.tile, style, { opacity: disabled ? 0.55 : pressed ? 0.75 : 1 }]}>
     {({ pressed }) => <>
-      <View style={[styles.iconFrame, {
+      <View style={[styles.iconSlot, framed && styles.iconFrame, framed && {
         backgroundColor: pressed || expanded ? colors.primaryLight : colors.surface,
         borderColor: expanded ? colors.primaryText : isDark ? colors.border : '#E7F0EC',
         shadowOpacity: isDark ? 0 : 0.05,
@@ -43,8 +44,8 @@ export function QuickActionTile({ label, icon, onPress, style, testID, accessibi
 
 const styles = StyleSheet.create({
   tile: { alignItems: 'center', minHeight: 112, gap: 10 },
-  iconFrame: { width: 64, height: 64, borderRadius: 21, borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center',
+  iconSlot: { width: 64, height: 64, alignItems: 'center', justifyContent: 'center' },
+  iconFrame: { borderRadius: 21, borderWidth: 1,
     shadowColor: '#234B42', shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 2 },
   label: { fontSize: 14, fontWeight: '600', textAlign: 'center', width: '100%' },
   hint: { fontSize: 12, textAlign: 'center', width: '100%' },

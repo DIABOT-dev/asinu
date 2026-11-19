@@ -21,7 +21,8 @@ export function HomeConnections() {
           {
             label: t("connectionExpert"),
             route: "/doctor-consultation",
-            image: require("../../assets/images/notifications/expert-consultation-v1.png"),
+            // Stock photo by Tima Miroshnichenko, Pexels photo 8376280.
+            image: require("../../assets/images/care-circle/expert-consultation-cutout.png"),
           },
         ]
       : []),
@@ -48,6 +49,7 @@ export function HomeConnections() {
             source={entry.image}
             style={styles.image}
             resizeMode="contain"
+            resizeMethod="resize"
             accessible={false}
           />
           <Text style={[styles.label, { color: colors.textPrimary }]}>

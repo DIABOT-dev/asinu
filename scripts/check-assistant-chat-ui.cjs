@@ -642,13 +642,17 @@ test("the three compact Home cards use real destinations and keep Asinu as a sep
     },
     "../lib/appEnv": { isExpertConsultationEnabled: true },
     "../../assets/images/care-circle/family_3d_art.png": "family",
-    "../../assets/images/notifications/expert-consultation-v1.png": "expert",
+    "../../assets/images/care-circle/expert-consultation-cutout.png": "expert",
   });
   const tree = HomeConnections();
   assert.equal(
     nodes(tree).find((node) => node.type === "AssistantEntry").props.variant,
     "card"
   );
+  const images = nodes(tree).filter((node) => node.type === "Image");
+  assert.deepEqual(images.map((node) => node.props.source), ["family", "expert"]);
+  assert.deepEqual(images[0].props.style, images[1].props.style);
+  assert.ok(images.every((node) => node.props.resizeMode === "contain"));
   for (const button of nodes(tree).filter(
     (node) => node.type === "Pressable"
   )) {

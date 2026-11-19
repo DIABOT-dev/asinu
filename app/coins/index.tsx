@@ -7,7 +7,7 @@ import { useHealthCoins } from "../../src/features/v21/useHealthCoins";
 
 export default function CoinsScreen() {
   const { t } = useTranslation("v21");
-  const coins = useHealthCoins();
+  const coins = useHealthCoins({ includeRedemption: false });
   return (
     <V21Layout
       title={t("coinsTitle")}

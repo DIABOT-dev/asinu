@@ -33,7 +33,7 @@ const actions = [
   {
     id: 'expert',
     route: '/doctor-consultation',
-    image: require('../../assets/images/notifications/expert-consultation-v1.png'),
+    image: require('../../assets/images/care-circle/expert-consultation-cutout.png'),
     expertOnly: true,
   },
   {
@@ -71,11 +71,12 @@ const actions = [
     route: '/(tabs)/missions',
     image: require('../assets/tab-icons/mission.png'),
   },
-  { id: 'coins', route: '/coins' },
+  { id: 'coins', route: '/coins', coinsOnly: true },
   {
-    id: 'dailyGift',
-    route: '/checkin-rewards',
-    image: require('../../assets/images/notifications/gift-v1.png'),
+    id: 'coinShop',
+    route: '/coins/redeem',
+    icon: 'storefront-outline',
+    coinsOnly: true,
   },
   {
     id: 'giftHistory',
@@ -94,7 +95,7 @@ const featureGroups = [
     id: 'connections',
     actions: ['family', 'calls', 'callPersonalization', 'permissions'],
   },
-  { id: 'rewards', actions: ['missions', 'coins', 'dailyGift', 'giftHistory'] },
+  { id: 'rewards', actions: ['missions', 'coins', 'coinShop', 'giftHistory'] },
 ] as const;
 
 /** All groups remain visible while scrolling; reminder access follows notification permissions. */
@@ -134,7 +135,7 @@ export function HomeFeatureGrid({
   const visible = actions.filter(
     (action) =>
       (action.id !== 'medication' || medicationEnabled) &&
-      (action.id !== 'coins' || coinsEnabled) &&
+      (!('coinsOnly' in action) || coinsEnabled) &&
       (!('expertOnly' in action) ||
         !action.expertOnly ||
         isExpertConsultationEnabled)
@@ -180,6 +181,7 @@ export function HomeFeatureGrid({
                   key={action.id}
                   testID={`home-feature-${action.id}`}
                   label={t(`quickActions.${action.id}`)}
+                  framed={action.id !== 'expert'}
                   onPress={() =>
                     'route' in action
                       ? router.push(action.route)

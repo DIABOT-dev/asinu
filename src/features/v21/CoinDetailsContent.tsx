@@ -13,7 +13,7 @@ import { useScaledFontSize } from "../../hooks/useScaledTypography";
 import { HealthCoinIcon } from "./HealthCoinIcon";
 import { coinDetailsStyles as s } from "./coin-details.styles";
 import type { HealthCoinsController } from "./useHealthCoins";
-import type { CoinTask } from "./v21.api";
+import type { CoinTask, Reward } from "./v21.api";
 import { GreetingCard } from "./GreetingCard";
 
 type Icon = ComponentProps<typeof Ionicons>["name"];
@@ -256,11 +256,16 @@ function RadioOption({
   );
 }
 
-function CoinRewardSelection({ coins }: { coins: HealthCoinsController }) {
+export function CoinRewardSelection({
+  coins,
+  reward,
+}: {
+  coins: HealthCoinsController;
+  reward: Reward;
+}) {
   const { t, i18n } = useTranslation("v21");
   const { colors } = useThemeColors();
   const [reviewing, setReviewing] = useState(false);
-  const reward = coins.selected!;
   const recipient = coins.catalog?.recipients.find(
     (person) => person.id === coins.recipient,
   );
@@ -273,19 +278,19 @@ function CoinRewardSelection({ coins }: { coins: HealthCoinsController }) {
     (reward.code !== "GREETING_CARD" || Boolean(recipient && template));
 
   return (
-    <View style={s.content}>
+    <View style={s.selectionContent}>
       <View style={s.selectionHeading}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("back")}
-          onPress={() =>
-            reviewing ? setReviewing(false) : coins.cancelReward()
-          }
-          disabled={coins.busy}
-          style={s.back}
-        >
-          <Ionicons name="arrow-back" size={22} color={colors.primaryText} />
-        </Pressable>
+        {reviewing && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("back")}
+            onPress={() => setReviewing(false)}
+            disabled={coins.busy}
+            style={s.back}
+          >
+            <Ionicons name="arrow-back" size={22} color={colors.primaryText} />
+          </Pressable>
+        )}
         <Text style={[s.sectionTitle, s.copy, { color: colors.textPrimary }]}>
           {t(reviewing ? "coinsReviewTitle" : reward.code)}
         </Text>
@@ -413,80 +418,6 @@ function CoinRewardSelection({ coins }: { coins: HealthCoinsController }) {
         disabled={coins.busy}
         onPress={coins.cancelReward}
       />
-    </View>
-  );
-}
-
-export function CoinSpendTab({ coins }: { coins: HealthCoinsController }) {
-  const { t } = useTranslation("v21");
-  const { colors } = useThemeColors();
-  const compact = useCompactRows();
-  if (coins.selected)
-    return <CoinRewardSelection key={coins.selected.code} coins={coins} />;
-  return (
-    <View style={s.content}>
-      <View style={s.list}>
-        {!coins.catalog?.items.length && (
-          <Empty text={t("noRewards")} icon="gift-outline" />
-        )}
-        {coins.catalog?.items.map((reward) => {
-          const missing = Math.max(0, reward.cost - (coins.data?.balance ?? 0));
-          return (
-            <View key={reward.code} style={s.reward}>
-              <View style={s.rewardHeader}>
-                <View style={s.icon}>
-                  <Ionicons
-                    name={
-                      reward.code === "GREETING_CARD"
-                        ? "mail-open-outline"
-                        : "ticket-outline"
-                    }
-                    size={30}
-                    color={colors.primaryText}
-                  />
-                </View>
-                <View style={s.copy}>
-                  <Text style={[s.title, { color: colors.textPrimary }]}>
-                    {t(reward.code)}
-                  </Text>
-                  {compact && (
-                    <View style={{ alignSelf: "flex-start" }}>
-                      <CoinAmount count={reward.cost} />
-                    </View>
-                  )}
-                </View>
-                {!compact && <CoinAmount count={reward.cost} />}
-              </View>
-              <CoinButton
-                secondary
-                label={
-                  missing
-                    ? t("missingCoins", { count: missing })
-                    : t("coinsChooseReward")
-                }
-                disabled={coins.busy || missing > 0}
-                onPress={() => coins.selectReward(reward)}
-              />
-              {reward.code === "GREETING_CARD" && missing > 0 && (
-                <CoinButton
-                  secondary
-                  label={t("greetingPreview")}
-                  disabled={coins.busy}
-                  onPress={() => coins.selectReward(reward)}
-                />
-              )}
-            </View>
-          );
-        })}
-      </View>
-      {coins.catalog?.drawPeriodId && (
-        <CoinButton
-          secondary
-          label={t("drawRules")}
-          onPress={coins.openDrawRules}
-        />
-      )}
-      <CoinNotice icon="information-circle-outline" text={t("coinLimits")} />
     </View>
   );
 }

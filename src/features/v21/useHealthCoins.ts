@@ -21,7 +21,9 @@ function coinPage({ items, nextBefore }: { items: CoinEntry[]; nextBefore?: stri
   return { items: page, before: items.length > SCROLL_PAGE_SIZE ? page.at(-1)!.id : nextBefore ?? null };
 }
 
-export function useHealthCoins() {
+export function useHealthCoins({
+  includeRedemption = true,
+}: { includeRedemption?: boolean } = {}) {
   const { t } = useTranslation("v21");
   const router = useRouter();
   const owner = useAuthStore((state) => state.profile?.id);
@@ -68,8 +70,10 @@ export function useHealthCoins() {
     try {
       const [data, catalog, history] = await Promise.all([
         v21Api.coins(),
-        v21Api.rewards(),
-        v21Api.history(undefined, SCROLL_PAGE_SIZE),
+        includeRedemption ? v21Api.rewards() : null,
+        includeRedemption
+          ? v21Api.history(undefined, SCROLL_PAGE_SIZE)
+          : { items: [] },
       ]);
       if (!current() || request !== generation.current) return;
       const page = coinPage(history);
@@ -81,7 +85,7 @@ export function useHealthCoins() {
     } finally {
       if (current() && request === generation.current) setLoading(false);
     }
-  }, [owner, token, current, t]);
+  }, [owner, token, current, t, includeRedemption]);
 
   useFocusEffect(
     useCallback(() => {
