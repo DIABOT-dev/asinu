@@ -2,7 +2,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { Avatar } from '../../../components/Avatar';
 import { ScaledText as Text } from '../../../components/ScaledText';
 import { useScaledFontSize } from '../../../hooks/useScaledTypography';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -27,20 +26,6 @@ function CategoryIcon({ name, tone }: { name: IconName; tone: Tone }) {
 function positive(value: string | number | null | undefined) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : null;
-}
-
-export function MemberProfileCard({ name, avatarUrl }: { name: string; avatarUrl?: string }) {
-  const { colors } = useThemeColors();
-  return (
-    <View style={[styles.identity, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <View style={[styles.identityAvatar, { borderColor: colors.primary }]}>
-        <Avatar name={name} imageUrl={avatarUrl} size={60}
-          containerStyle={{ backgroundColor: colors.primaryLight, borderWidth: 0 }}
-          initialsStyle={{ color: colors.primaryText, fontSize: 23 }} />
-      </View>
-      <Text accessibilityRole="header" style={[styles.identityName, { color: colors.textPrimary }]}>{name}</Text>
-    </View>
-  );
 }
 
 export function MemberHealthMetrics({ data, status, onRetry }: {
@@ -133,9 +118,6 @@ export function FamilyActionCard({ title, description, icon, tone, onPress, tile
 }
 
 const styles = StyleSheet.create({
-  identity: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: 20, borderWidth: 1 },
-  identityAvatar: { padding: 3, borderRadius: 36, borderWidth: 1.5 },
-  identityName: { flex: 1, minWidth: 0, fontSize: 21, fontWeight: '700' },
   copy: { flex: 1, minWidth: 0, gap: 2 },
   caption: { fontSize: 13 },
   icon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },

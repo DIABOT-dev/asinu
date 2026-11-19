@@ -16,7 +16,7 @@ import { ScreenBackButton } from '../../../src/components/ScreenHeaderButton';
 import { HealthJournalCalendar } from '../../../src/components/HealthJournalCalendar';
 import { ApiError, getApiErrorMessage } from '../../../src/lib/apiClient';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
-import { FamilyActionCard, MemberHealthMetrics, MemberProfileCard } from '../../../src/features/care-circle/components/MemberOverviewCards';
+import { FamilyActionCard, MemberHealthMetrics } from '../../../src/features/care-circle/components/MemberOverviewCards';
 import { useMemberOverview } from '../../../src/features/care-circle/useMemberOverview';
 
 // ── Log type config ──────────────────────────────────────────────
@@ -280,7 +280,6 @@ function MemberLogsScreen({ id, name, accountId }: { id: string; name?: string; 
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {activeTab === 'overview' && focused && (
           <>
-            {overview.status === 'ready' && <MemberProfileCard name={displayName} avatarUrl={overview.data?.avatarUrl ?? undefined} />}
             <Text accessibilityRole="header" style={styles.familySectionTitle}>{t('familyHealthOverview')}</Text>
             <MemberHealthMetrics data={overview.data} status={overview.status} onRetry={() => setRefreshKey(value => value + 1)} />
             {overview.status !== 'denied' && (
