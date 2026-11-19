@@ -360,7 +360,11 @@ export function MedicationOverviewPanel({
                   color={colors.primaryText}
                 />
                 <Text style={[s.caption, caption, s.copy]}>
-                  {t("remindersOff")}
+                  {med.data.self
+                    ? t("remindersOff")
+                    : personName
+                      ? t("remindersOffForMember", { name: personName })
+                      : t("remindersOffForFamily")}
                 </Text>
               </View>
             )}
