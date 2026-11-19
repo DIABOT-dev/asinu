@@ -9,12 +9,14 @@ type ConditionDraft = {
   summary: string;
   answers: ScreeningAnswer[];
   locale: "" | "vi" | "en";
+  screeningConfirmed: boolean;
 };
 
 const empty: ConditionDraft = {
   summary: "",
   answers: [],
   locale: "",
+  screeningConfirmed: false,
 };
 const stores = new Map<string, ReturnType<typeof createHealthStoreStorage>>();
 const storageFor = (scope: string) => {
@@ -45,29 +47,32 @@ function restore(raw: string | null): ConditionDraft {
     ) {
       return empty;
     }
+    const locale: ConditionDraft["locale"] = ["vi", "en"].includes(value.locale) ? value.locale : "";
+    const answers: ScreeningAnswer[] =
+      value.version === 2 &&
+      Array.isArray(value.answers) &&
+      value.answers.length <= 5 &&
+      value.answers.every(
+        (answer: ScreeningAnswer) =>
+          answer &&
+          [
+            "red_flags",
+            "associated",
+            "onset",
+            "progression",
+            "impact",
+          ].includes(answer.step) &&
+          Array.isArray(answer.values) &&
+          answer.values.every((item) => typeof item === "string") &&
+          typeof answer.text === "string"
+      )
+        ? value.answers
+        : [];
     return {
       summary: typeof value.summary === "string" ? value.summary : "",
-      locale: ["vi", "en"].includes(value.locale) ? value.locale : "",
-      answers:
-        value.version === 2 &&
-        Array.isArray(value.answers) &&
-        value.answers.length <= 5 &&
-        value.answers.every(
-          (answer: ScreeningAnswer) =>
-            answer &&
-            [
-              "red_flags",
-              "associated",
-              "onset",
-              "progression",
-              "impact",
-            ].includes(answer.step) &&
-            Array.isArray(answer.values) &&
-            answer.values.every((item) => typeof item === "string") &&
-            typeof answer.text === "string"
-        )
-          ? value.answers
-          : [],
+      locale,
+      answers,
+      screeningConfirmed: value.screeningConfirmed === true && !!locale && answers.length === 5,
     };
   } catch {
     return empty;
@@ -131,25 +136,25 @@ export function useConsultationDraft(owner: string | null, scope = "") {
         latest.current.owner !== owner ||
         latest.current.scope !== scope ||
         !latest.current.ready ||
-        submitted.current
+        submitted.current ||
+        (key === "summary" && latest.current.values.summary === value)
       ) {
-        return;
+        return false;
       }
+      const resetAnswers = key === "summary" || (key === "locale" && value !== latest.current.values.locale);
       const next = {
         ...latest.current,
         values: {
           ...latest.current.values,
-          ...(key === "summary" ||
-          (key === "locale" && value !== latest.current.values.locale)
-            ? { answers: [] }
-            : {}),
+          ...(resetAnswers ? { answers: [] } : {}),
+          ...(resetAnswers || key === "answers" ? { screeningConfirmed: false } : {}),
           [key]: value,
         },
       };
       latest.current = next;
       setState(next);
       if (!owner || healthStoreSession.capture().owner !== owner) {
-        return;
+        return true;
       }
       // Enqueue in the input event itself: Back can unmount before effects run.
       // The shared adapter serializes reads/writes/deletion and rejects stale sessions.
@@ -165,21 +170,34 @@ export function useConsultationDraft(owner: string | null, scope = "") {
             )
           : storage.removeItem(scope);
       operation.catch(() => {});
+      return true;
     },
     [owner, scope]
   );
 
-  const clear = useCallback(async () => {
+  const clear = useCallback(async ({ discard = false } = {}) => {
     if (
       currentOwner.current !== owner ||
       currentScope.current !== scope ||
-      healthStoreSession.capture().owner !== owner
+      healthStoreSession.capture().owner !== owner ||
+      (discard && (submitted.current || !latest.current.ready))
     ) {
-      return;
+      return false;
     }
     submitted.current = true;
-    await storage.removeItem(scope).catch(() => {});
-    // Keep the completed screen inert until navigation removes it.
+    try {
+      await storage.removeItem(scope);
+      // Keep this form inert until navigation or a fresh form replaces it.
+      return true;
+    } catch (error) {
+      if (discard) {
+        if (currentOwner.current === owner && currentScope.current === scope) {
+          submitted.current = false;
+        }
+        throw error;
+      }
+      return false;
+    }
   }, [owner, scope]);
 
   return { values, ready, update, clear };

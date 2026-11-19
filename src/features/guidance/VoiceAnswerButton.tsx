@@ -18,13 +18,14 @@ type VoiceAnswerOptions = {
   practiceExample?: string;
   purpose?: 'checkin' | 'reminder' | 'assistant';
   sessionKey?: string | null;
+  isSessionCurrent?: () => boolean;
   onNotice?: (message: string, tone: 'info' | 'error') => void;
   /** A modal owner can dismiss its presenter before opening an OS permission sheet. */
   withPermissionPrompt?: (operation: () => Promise<PermissionDecision>) => Promise<PermissionDecision>;
 };
 
 /** Keep this controller in the route owner when its button is rendered in a modal portal. */
-export function useVoiceAnswer({ onText, onInterimText, onBeforeAi, onProcessingChange, disabled = false, practice = false, practiceExample, purpose = 'checkin', sessionKey, onNotice, withPermissionPrompt }: VoiceAnswerOptions) {
+export function useVoiceAnswer({ onText, onInterimText, onBeforeAi, onProcessingChange, disabled = false, practice = false, practiceExample, purpose = 'checkin', sessionKey, isSessionCurrent, onNotice, withPermissionPrompt }: VoiceAnswerOptions) {
   const { t, i18n } = useTranslation('onboarding');
   const focused = useIsFocused();
   const [recording, setRecording] = useState(false);
@@ -61,10 +62,10 @@ export function useVoiceAnswer({ onText, onInterimText, onBeforeAi, onProcessing
     return () => { alive.current = false; cancel(); sub.remove(); };
   }, [focused, sessionKey]);
   const press = async () => {
-    if (locked.current || disabled || !alive.current) {return;}
+    if (locked.current || disabled || !alive.current || isSessionCurrent?.() === false) {return;}
     locked.current = true;
     const version = live.current || recorder.current ? revision.current : ++revision.current;
-    const current = () => alive.current && version === revision.current;
+    const current = () => alive.current && version === revision.current && (isSessionCurrent?.() ?? true);
     let transcribing = false;
     let waitingForLiveResult = false;
     setBusy(true);
@@ -165,15 +166,17 @@ export function useVoiceAnswer({ onText, onInterimText, onBeforeAi, onProcessing
 }
 
 /** No recording lifecycle lives in the portal: hiding a modal cannot stop its owner. */
-export function renderVoiceAnswerButton({ press, label, t, recording, busy, disabled, focused, purpose }: ReturnType<typeof useVoiceAnswer>, { iconOnly = false }: { iconOnly?: boolean } = {}) {
-  return <Pressable testID={purpose === 'reminder' ? 'reminder-voice-answer' : purpose === 'assistant' ? 'assistant-voice-answer' : 'checkin-voice-answer'} accessibilityRole="button" accessibilityLabel={label} disabled={busy || disabled || !focused}
+export function renderVoiceAnswerButton({ press, label, t, recording, busy, disabled, focused, purpose }: ReturnType<typeof useVoiceAnswer>, {
+  iconOnly = false, color = c.primary, testID,
+}: { iconOnly?: boolean; color?: string; testID?: string } = {}) {
+  return <Pressable testID={testID ?? (purpose === 'reminder' ? 'reminder-voice-answer' : purpose === 'assistant' ? 'assistant-voice-answer' : 'checkin-voice-answer')} accessibilityRole="button" accessibilityLabel={label} disabled={busy || disabled || !focused}
     accessibilityHint={recording ? t('guidance.voiceStopHint') : undefined}
     accessibilityState={{ disabled: busy || disabled || !focused, busy }}
     onPress={() => void press()} style={({ pressed }) => ({ minHeight: 56, minWidth: 56, padding: 12, borderRadius: 14,
       alignItems: 'center', justifyContent: 'center', gap: 4,
       opacity: busy || disabled ? 0.5 : pressed ? 0.8 : 1 })}>
-    {busy ? <ActivityIndicator color={c.primary} /> : <Ionicons name={recording ? 'stop-circle-outline' : 'mic-outline'} size={28} color={c.primary} />}
-    {!iconOnly && <Text allowFontScaling style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>
+    {busy ? <ActivityIndicator color={color} /> : <Ionicons name={recording ? 'stop-circle-outline' : 'mic-outline'} size={28} color={color} />}
+    {!iconOnly && <Text allowFontScaling style={{ fontSize: 14, fontWeight: '600', color }}>
       {busy ? t('guidance.voiceProcessing') : label}
     </Text>}
   </Pressable>;

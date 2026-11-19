@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '../../lib/apiClient';
 import { isExpertConsultationEnabled } from '../../lib/appEnv';
 
-export type DoctorSpecialty = { code: string; name: string };
+export type DoctorSpecialty = { code: string; name: string; routingTenantId?: string };
 export type DoctorRecommendation = {
   doctorId: string;
   fullName: string;
@@ -31,6 +31,7 @@ export function useConsultationDirectory() {
   const latest = useRef(state);
   latest.current = state;
   const version = useRef(0);
+  const specialtyVersion = useRef(0);
 
   const publish = useCallback((change: Partial<typeof initial>) => {
     latest.current = { ...latest.current, ...change };
@@ -78,21 +79,27 @@ export function useConsultationDirectory() {
       publish({ loading: false });
       return;
     }
+    const specialtyRequest = ++specialtyVersion.current;
     const request = ++version.current;
     publish({ loading: true, error: false });
     try {
       const response = await apiClient<{ data?: { items: DoctorSpecialty[] } }>(
         '/api/doctor/specialty-options',
       );
-      if (request !== version.current) {
+      if (specialtyRequest !== specialtyVersion.current) {
         return;
       }
       const items = response.data?.items ?? [];
+      if (request !== version.current) {
+        // The specialty list can still be used when a newer choice is loading.
+        publish({ specialties: items });
+        return;
+      }
       const specialty = items.some(
         (item) => item.code === latest.current.selectedSpecialty,
       )
         ? latest.current.selectedSpecialty
-        : items[0]?.code || '';
+        : '';
       const changed = specialty !== latest.current.selectedSpecialty;
       publish({
         specialties: items,
@@ -157,6 +164,7 @@ export function useConsultationDirectory() {
 
   const cancelRequests = useCallback(() => {
     version.current++;
+    specialtyVersion.current++;
   }, []);
   useEffect(() => {
     refresh();

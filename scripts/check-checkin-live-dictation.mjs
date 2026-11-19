@@ -193,6 +193,20 @@ test('backgrounding or leaving a question cancels live recognition without filli
   }
 });
 
+test('a stale voice session cannot deliver speech before its screen rerenders', async () => {
+  const h = buttonHarness();
+  let current = true;
+  h.props.isSessionCurrent = () => current;
+  try {
+    h.render().props.onPress(); await tick();
+    assert.equal(h.native.starts.length, 1);
+    current = false;
+    h.native.result('late text', true); h.native.emit('end');
+    assert.deepEqual(h.preview, []);
+    assert.deepEqual(h.texts, []);
+  } finally { h.unmount(); }
+});
+
 test('speech permission denial never starts capture and keeps the mic usable', async () => {
   const h = buttonHarness({ permission: false });
   try {

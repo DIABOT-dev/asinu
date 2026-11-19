@@ -644,6 +644,29 @@ export default function DoctorConsultationThreadScreen() {
     }
   };
 
+  const renderAttachmentPreview = (attachment: Attachment, messageId: string) => {
+    const isImage = attachment.mime_type?.startsWith("image/");
+    return (
+      <Pressable
+        accessibilityRole={isImage ? "imagebutton" : "button"}
+        accessibilityLabel={attachment.name}
+        onPress={() => void openAttachment(messageId, attachment.url)}
+        style={isImage ? undefined : styles.messageDocument}
+      >
+        {isImage ? (
+          <Image source={{ uri: attachment.url }} style={styles.messageAttachment} />
+        ) : (
+          <>
+            <Ionicons accessible={false} name="document-text-outline" size={20} color={colors.primaryText} />
+            <Text style={[styles.messageDocumentLabel, { color: colors.primaryText }]}>
+              {t("doctorConsultationOpenDocument")}
+            </Text>
+          </>
+        )}
+      </Pressable>
+    );
+  };
+
   const playVoice = async (messageId: string, url: string) => {
     try {
       if (playingMessageId === messageId) {
@@ -1253,18 +1276,7 @@ export default function DoctorConsultationThreadScreen() {
                         </Text>
                       ) : attachment ? (
                         <View style={styles.attachmentContent}>
-                          <Pressable
-                            accessibilityRole="imagebutton"
-                            accessibilityLabel={attachment.name}
-                            onPress={() =>
-                              void openAttachment(message.id, attachment.url)
-                            }
-                          >
-                            <Image
-                              source={{ uri: attachment.url }}
-                              style={styles.messageAttachment}
-                            />
-                          </Pressable>
+                          {renderAttachmentPreview(attachment, message.id)}
                           <View style={styles.attachmentBottomRow}>
                             <Text
                               numberOfLines={1}
@@ -1524,18 +1536,7 @@ export default function DoctorConsultationThreadScreen() {
                       </View>
                     ) : attachment ? (
                       <View style={styles.attachmentContent}>
-                        <Pressable
-                          accessibilityRole="imagebutton"
-                          accessibilityLabel={attachment.name}
-                          onPress={() =>
-                            void openAttachment(message.id, attachment.url)
-                          }
-                        >
-                          <Image
-                            source={{ uri: attachment.url }}
-                            style={styles.messageAttachment}
-                          />
-                        </Pressable>
+                        {renderAttachmentPreview(attachment, message.id)}
                         <Text
                           style={[
                             styles.attachmentName,
@@ -2079,6 +2080,17 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 15,
     lineHeight: 22,
+  },
+  messageDocument: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 44,
+  },
+  messageDocumentLabel: {
+    flexShrink: 1,
+    fontSize: 14,
+    fontWeight: "700",
   },
   messageAttachment: {
     aspectRatio: 1,
