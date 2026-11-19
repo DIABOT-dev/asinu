@@ -1235,8 +1235,9 @@ function coinDetailsHarness(options) {
         calls.rewards++;
         return { items: [reward], recipients: [{ id: 7, name: "Fixture recipient" }], templates: [{ code: "fixture-card", title: "Fixture card", title_en: "Fixture card" }] };
       },
-      history: async (before, limit) => {
-        calls.history.push({ before, limit });
+      history: async (before, limit, scope) => {
+        calls.history.push({ before, limit, ...(scope && { scope }) });
+        if (server.failHistory) throw new Error("Fixture history unavailable");
         return server.pages[before || ""] ?? { items: [], nextBefore: null };
       },
       redeem: async (code, id, payload) => {
@@ -1326,6 +1327,101 @@ await test("coin history loads the next cursor once, removes duplicate entries a
   await h.read().more(); assert.equal(h.calls.history.length, 2); h.blur();
 });
 
+await test("reward usage history paginates with its own scope and shows only actual spending", async () => {
+  const h = coinDetailsHarness({ historyScope: "usage" });
+  h.server.pages[""] = { items: [entry(60, 2), entry(59, -2, "EXPIRE")], nextBefore: "59" };
+  h.server.pages["59"] = { items: [entry(58, 50, "REFUND"), entry(57, -50, "REDEEM")], nextBefore: "57" };
+  h.server.pages["57"] = { items: [entry(56, -40, "REDEEM")], nextBefore: null };
+  await h.settle();
+  assert.deepEqual(h.read().history, []);
+  assert.equal(h.read().hasMore, true);
+  await h.read().more();
+  assert.deepEqual(h.read().history.map(item => item.id), ["57"]);
+  await h.read().more();
+  assert.deepEqual(h.read().history.map(item => item.id), ["57", "56"]);
+  assert.equal(h.read().hasMore, false);
+  assert.deepEqual(h.calls.history, [
+    { before: undefined, limit: 10, scope: "usage" },
+    { before: "59", limit: 10, scope: "usage" },
+    { before: "57", limit: 10, scope: "usage" },
+  ]);
+  h.blur();
+});
+
+await test("earned coins use a scoped history and recover from a failed first page", async () => {
+  const h = coinDetailsHarness({ includeRedemption: false, historyScope: "earned" });
+  h.server.failHistory = true;
+  await h.settle();
+  assert.equal(h.read().data.balance, 100);
+  assert.equal(h.calls.rewards, 0);
+  assert.equal(h.read().historyError, true);
+  h.server.failHistory = false;
+  h.server.pages[""] = { items: [entry(20, 50, "REFUND"), entry(19, -50, "REDEEM"), entry(18, 10, "CHECKIN")], nextBefore: "18" };
+  h.server.pages["18"] = { items: [entry(17, -5, "EXPIRE"), entry(16, 5, "MED_ANSWER")], nextBefore: null };
+  await h.read().more();
+  await h.read().more();
+  assert.deepEqual(h.read().history.map(item => item.id), ["18", "16"]);
+  assert.equal(h.read().historyError, false);
+  assert.equal(h.read().hasMore, false);
+  assert.deepEqual(h.calls.history, [
+    { before: undefined, limit: 10, scope: "earned" },
+    { before: undefined, limit: 10, scope: "earned" },
+    { before: "18", limit: 10, scope: "earned" },
+  ]);
+  h.blur();
+});
+
+await test("the health coin header opens earning history separately from the earning guide", () => {
+  const r = runtime();
+  let opens = 0;
+  const coins = { data: journeyData(), open: () => { opens++; } };
+  const { CoinDetailsModal, CoinHistoryButton } = evaluate("src/features/v21/CoinDetailsModal.tsx", {
+    "@expo/vector-icons": { Ionicons: "Icon" },
+    "expo-linear-gradient": { LinearGradient: "Gradient" },
+    "react-native": {
+      Modal: "Modal", Pressable: "Pressable", ScrollView: "Scroll", View: "View",
+      StyleSheet: { create: styles => styles }, useWindowDimensions: () => ({ height: 800 }),
+    },
+    "react-i18next": { useTranslation: () => ({ t: key => key }) },
+    "react-native-safe-area-context": { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
+    "../../components/ScaledText": { ScaledText: "Text" },
+    "../../hooks/useThemeColors": { useThemeColors: () => ({ colors: {} }) },
+    "../../hooks/useLoadOnScrollEnd": { useLoadOnScrollEnd: () => ({}) },
+    "./HealthCoinIcon": { HealthCoinIcon: "Coin" },
+    "./CoinDetailsContent": { CoinEarnTab: "EarnTab", CoinHistoryTab: "HistoryTab" },
+  });
+  const { default: CoinsScreen } = evaluate("app/coins/index.tsx", {
+    react: r.hooks,
+    "react-native": { RefreshControl: "Refresh" },
+    "react-i18next": { useTranslation: () => ({ t: key => key }) },
+    "../../src/features/v21/V21Layout": { V21Layout: "Layout" },
+    "../../src/features/v21/HealthCoinJourney": { HealthCoinJourney: "Journey" },
+    "../../src/features/v21/CoinDetailsModal": { CoinDetailsModal, CoinHistoryButton },
+    "../../src/features/v21/useHealthCoins": { useHealthCoins: (options) => {
+      assert.deepEqual(options, { includeRedemption: false, historyScope: "earned" });
+      return coins;
+    } },
+  });
+  const read = () => r.render(CoinsScreen);
+  const button = read().props.headerAction;
+  assert.equal(button.props.label, "coinEarnHistory");
+  const panelNodes = () => {
+    const modal = journeyNodes(read()).find(node => node.type === CoinDetailsModal);
+    const panel = journeyNodes(CoinDetailsModal(modal.props)).find(node => typeof node.type === "function");
+    return journeyNodes(panel.type(panel.props));
+  };
+  button.props.onPress();
+  const history = panelNodes();
+  assert.ok(history.some(node => node.props.children === "coinEarnHistory"));
+  assert.equal(history.find(node => node.type === "HistoryTab").props.scope, "earned");
+  journeyNodes(read()).find(node => node.type === "Journey").props.onOpenDetails();
+  const guide = panelNodes();
+  assert.ok(guide.some(node => node.type === "EarnTab"));
+  assert.ok(guide.some(node => node.props.children === "coinsEarnTitle"));
+  assert.ok(!guide.some(node => node.props.children === "balance"));
+  assert.equal(opens, 2);
+});
+
 await test("withdrawing task reminders immediately locks reminder times without leaving Profile", async () => {
   const h = reminderHarness(); h.server.allowed = true; await h.settle();
   h.server.remindersEnabled = false; permissionEvents.notifyTaskReminderPreferenceChanged(); await h.settle();
@@ -1344,22 +1440,35 @@ await test("an older reminder preference result cannot undo a newer withdrawal",
   assert.equal(h.read().props.disabled, true); h.blur();
 });
 
-await test("the reward grid uses the account balance and allows a free card preview when redemption is unavailable", () => {
+await test("the reward shop uses real categories and opens greeting recipient, message and review in order", () => {
   const r = runtime();
-  const recipient = { id: 7, name: "Fixture family" };
+  const selectionRuntime = runtime();
+  const catalogRuntime = runtime();
+  let redeemed = 0;
+  const recipient = { id: 7, name: "Fixture family", avatarUrl: "https://images.example.test/family.jpg" };
+  const relativeWithoutPhoto = { id: 8, name: "Fixture sibling", avatarUrl: null };
   const template = { code: "MISS_YOU", title: "Fixture card", title_en: "Fixture card", body: "Fixture greeting" };
   const reward = { code: "GREETING_CARD", cost: 50 };
   const ticket = { code: "DRAW_TICKET", cost: 40 };
   const coins = {
-    busy: false, selected: null, recipient: recipient.id, template: template.code,
-    data: { balance: 12 }, catalog: { items: [reward, ticket], recipients: [recipient], templates: [template], drawPeriodId: "test-draw" },
-    selectReward: item => { coins.selected = item; }, cancelReward() {},
+    busy: false, selected: null, recipient: null, template: null,
+    data: { balance: 12 }, catalog: { items: [reward, ticket], recipients: [recipient, relativeWithoutPhoto], templates: [template], drawPeriodId: "test-draw" },
+    selectReward: item => { coins.selected = item; },
+    selectRecipient: id => { coins.recipient = id; },
+    selectTemplate: code => { coins.template = code; },
+    cancelReward() { coins.selected = null; },
+    redeem: async () => { redeemed++; },
   };
-  const { CoinRewardSelection } = evaluate("src/features/v21/CoinDetailsContent.tsx", {
-    react: r.hooks,
+  const { CoinAmount, CoinRewardSelection } = evaluate("src/features/v21/CoinDetailsContent.tsx", {
+    react: selectionRuntime.hooks,
     "@expo/vector-icons": { Ionicons: "Icon", MaterialCommunityIcons: "Icon" },
     "react-native": { ActivityIndicator: "Spinner", Pressable: "Pressable", View: "View", useWindowDimensions: () => ({ width: 393 }) },
-    "react-i18next": { useTranslation: () => ({ t: key => key, i18n: { language: "vi" } }) },
+    "react-i18next": { useTranslation: () => ({
+      t: (key, options) => key === "greetingSendConfirm" ? `${key}:${options.count}` : key,
+      i18n: { language: "vi" },
+    }) },
+    "../../components/AppAlertModal": { AppAlertModal: "ConfirmDialog" },
+    "../../components/Avatar": { Avatar: "Avatar" },
     "../../components/ScaledText": { ScaledText: "Text" },
     "../../hooks/useThemeColors": { useThemeColors: () => ({ colors: {} }) },
     "../../hooks/useScaledTypography": { useScaledFontSize: n => n },
@@ -1370,10 +1479,11 @@ await test("the reward grid uses the account balance and allows a free card prev
   let width = 393;
   let openedDrawRules = 0;
   const { CoinRewardsCatalog } = evaluate("src/features/v21/CoinRewardsCatalog.tsx", {
+    react: catalogRuntime.hooks,
     "@expo/vector-icons": { Ionicons: "Icon" },
     "expo-image": { Image: "Image" },
     "react-native": {
-      Pressable: "Pressable", View: "View", useWindowDimensions: () => ({ width }),
+      Pressable: "Pressable", ScrollView: "ScrollView", View: "View", useWindowDimensions: () => ({ width }),
       StyleSheet: { create: styles => styles },
     },
     "react-i18next": {
@@ -1384,34 +1494,146 @@ await test("the reward grid uses the account balance and allows a free card prev
     "../../hooks/useScaledTypography": { useScaledFontSize: n => n },
     "./HealthCoinIcon": { HealthCoinIcon: "Coin" },
     "../../../assets/images/rewards/product-photos-v2/reward-ticket-photo-v2.png": "Ticket",
+    "../../../assets/images/rewards/family-greeting-card-cover.jpg": "GreetingCover",
   });
-  const readCatalog = () => journeyNodes(CoinRewardsCatalog({
+  const readCatalog = () => journeyNodes(catalogRuntime.render(() => CoinRewardsCatalog({
     catalog: coins.catalog, balance: coins.data.balance, onSelect: coins.selectReward, busy: coins.busy,
     onDrawRules: () => openedDrawRules++,
-  }));
+  })));
   const grid = readCatalog();
+  assert.ok(grid.some(node => node.type === "Image" && node.props.source === "GreetingCover" && node.props.contentFit === "cover"));
   assert.deepEqual(
     grid.filter(node => node.props.accessibilityRole === "progressbar").map(node => node.props.accessibilityValue),
     [{ min: 0, max: 50, now: 12 }, { min: 0, max: 40, now: 12 }],
   );
-  assert.ok(grid.some(node => node.props.children === "missingCoins:28"));
+  assert.ok(grid.some(node => node.props.children === "rewardMissingLabel"));
+  assert.ok(grid.some(node => node.props.children === "cost:28"));
   assert.ok(grid.some(node => node.props.children === "rewardNextShortfall:28"));
   assert.equal(grid.some(node => node.props.accessibilityLabel === "coinsChooseReward"), false);
   grid.find(node => node.props.accessibilityLabel === "rewardDrawRules").props.onPress();
   assert.equal(openedDrawRules, 1);
-  assert.ok(grid.some(node => node.props.style?.some?.(style => style?.flexBasis === "46%")));
+  assert.ok(grid.some(node => node.props.style?.some?.(style => style?.width === "48%")));
+  grid.find(node => node.props.accessibilityLabel === "rewardCategoryDraw").props.onPress();
+  const filtered = readCatalog();
+  assert.equal(filtered.find(node => node.props.accessibilityLabel === "rewardCategoryDraw").props.accessibilityState.selected, true);
+  assert.deepEqual(filtered.filter(node => node.props.accessibilityRole === "progressbar").map(node => node.props.accessibilityLabel), ["DRAW_TICKET"]);
+  filtered.find(node => node.props.accessibilityLabel === "rewardCategoryAll").props.onPress();
+  assert.equal(readCatalog().filter(node => node.props.accessibilityRole === "progressbar").length, 2);
+
+  coins.catalog.items = [reward];
+  const singleReward = readCatalog();
+  const tabs = singleReward.filter(node => node.props.accessibilityRole === "tab");
+  assert.deepEqual(tabs.map(tab => tab.props.accessibilityLabel), [
+    "rewardCategoryAll", "rewardCategoryGreeting", "rewardCategoryDraw",
+  ]);
+  assert.ok(singleReward.some(node => node.props.style?.some?.(style => style?.width === "48%")));
+  tabs[2].props.onPress();
+  const emptyCategory = readCatalog();
+  assert.equal(emptyCategory.find(node => node.props.accessibilityLabel === "rewardCategoryDraw").props.accessibilityState.selected, true);
+  assert.ok(emptyCategory.some(node => node.props.children === "rewardCategoryEmpty"));
+  assert.ok(!emptyCategory.some(node => node.props.accessibilityRole === "progressbar"));
+  emptyCategory.find(node => node.props.accessibilityLabel === "rewardCategoryAll").props.onPress();
   width = 320;
-  assert.ok(readCatalog().some(node => node.props.style?.some?.(style => style?.flexBasis === "100%")));
+  assert.ok(readCatalog().some(node => node.props.style?.some?.(style => style?.width === "100%")));
+  coins.catalog.items = [];
+  const emptyCatalog = readCatalog();
+  assert.equal(emptyCatalog.filter(node => node.props.accessibilityRole === "tab").length, 3);
+  assert.ok(emptyCatalog.some(node => node.props.children === "noRewards"));
   const preview = grid.find(node => node.props.accessibilityLabel === "greetingPreview");
-  assert.equal(preview.props.disabled, false); preview.props.onPress();
-  const readSelection = () => r.render(() => CoinRewardSelection({ coins, reward: coins.selected }));
-  const review = journeyNodes(readSelection()).find(node => node.props?.label === "coinsReviewAction");
+  assert.equal(preview.props.disabled, false);
+  const { default: RedeemCoinsScreen } = evaluate("app/coins/redeem.tsx", {
+    react: r.hooks,
+    "@expo/vector-icons": { Ionicons: "Icon" },
+    "react-native": { Pressable: "Pressable", RefreshControl: "Refresh", StyleSheet: { create: styles => styles } },
+    "react-i18next": { useTranslation: () => ({ t: key => key }) },
+    "../../src/hooks/useGuardedRouter": { useGuardedRouter: () => ({}) },
+    "../../src/hooks/useThemeColors": { useThemeColors: () => ({ colors: {} }) },
+    "../../src/features/v21/V21Layout": { V21Layout: "Layout" },
+    "../../src/features/v21/CoinDetailsModal": { CoinDetailsModal: "Details", CoinHistoryButton: "HistoryButton" },
+    "../../src/features/v21/CoinDetailsContent": { CoinRewardSelection },
+    "../../src/features/v21/CoinRewardsCatalog": { CoinRewardsCatalog: "Catalog" },
+    "../../src/features/v21/useHealthCoins": { useHealthCoins: () => coins },
+  });
+  const readScreen = () => r.render(RedeemCoinsScreen);
+  journeyNodes(readScreen()).find(node => node.type === "Catalog").props.onSelect(reward);
+  const readSelection = () => selectionRuntime.render(() => CoinRewardSelection(
+    journeyNodes(readScreen()).find(node => node.type === CoinRewardSelection).props,
+  ));
+  const firstStep = journeyNodes(readSelection());
+  assert.ok(!firstStep.some(node => node.type === "GreetingCard" || node.props.accessibilityLabel === "chooseTemplate"));
+  assert.equal(firstStep.find(node => node.props.label === "common:continue").props.disabled, true);
+  const readAvatar = (person) => {
+    const row = firstStep.find(node => node.props.label === person.name);
+    return journeyNodes(row.type(row.props)).find(node => node.type === "Avatar").props;
+  };
+  assert.equal(readAvatar(recipient).imageUrl, recipient.avatarUrl);
+  assert.equal(readAvatar(relativeWithoutPhoto).imageUrl, undefined);
+  assert.equal(readAvatar(relativeWithoutPhoto).name, relativeWithoutPhoto.name);
+  firstStep.find(node => node.props.label === recipient.name).props.onPress();
+  const continueButton = journeyNodes(readSelection()).find(node => node.props.label === "common:continue");
+  assert.equal(continueButton.props.disabled, false);
+  continueButton.props.onPress();
+  const messages = journeyNodes(readSelection());
+  assert.ok(!messages.some(node => node.type === CoinAmount || node.props.text === "missingCoins"));
+  assert.ok(messages.some(node => node.props.accessibilityLabel === "chooseTemplate"));
+  assert.ok(!messages.some(node => node.props.accessibilityLabel === "chooseRecipient"));
+  assert.ok(!messages.some(node => node.props.children === "greetingTo"));
+  assert.equal(messages.find(node => node.props.label === "greetingPreviewCard").props.disabled, true);
+  messages.find(node => node.props.accessibilityLabel === template.title).props.onPress();
+  const review = journeyNodes(readSelection()).find(node => node.props?.label === "greetingPreviewCard");
   assert.equal(review.props.disabled, false); review.props.onPress();
   const nodes = journeyNodes(readSelection());
+  assert.equal(readScreen().props.title, "greetingTitle");
+  assert.ok(!nodes.some(node => node.type === CoinAmount || node.props.text === "missingCoins"));
   assert.equal(nodes.find(node => node.type === "GreetingCard").props.template, template);
-  assert.equal(nodes.find(node => node.props?.label === "redeem").props.disabled, true);
+  const send = () => journeyNodes(readSelection()).find(node => node.props.label === "greetingSend");
+  const dialog = () => journeyNodes(readSelection()).find(node => node.type === "ConfirmDialog").props;
+  assert.equal(dialog().visible, false);
+  assert.equal(send().props.disabled, false);
+  send().props.onPress();
+  assert.equal(dialog().visible, true);
+  assert.equal(dialog().title, "greetingSendConfirm:50");
+  assert.equal(dialog().message, "missingCoins");
+  assert.equal(dialog().buttons.find(button => button.text === "greetingSend").disabled, true);
+  assert.equal(redeemed, 0);
+  dialog().onDismiss();
+  assert.equal(dialog().visible, false);
   coins.data.balance = 50;
-  assert.equal(journeyNodes(readSelection()).find(node => node.props?.label === "redeem").props.disabled, false);
+  send().props.onPress();
+  const confirm = dialog().buttons.find(button => button.text === "greetingSend");
+  assert.equal(confirm.disabled, false);
+  assert.equal(redeemed, 0);
+  dialog().onDismiss();
+  confirm.onPress();
+  assert.equal(redeemed, 1);
+  readScreen().props.onBack();
+  assert.ok(journeyNodes(readSelection()).some(node => node.props.accessibilityLabel === "chooseTemplate"));
+  readScreen().props.onBack();
+  assert.ok(journeyNodes(readSelection()).some(node => node.props.accessibilityLabel === "chooseRecipient"));
+  assert.ok(!journeyNodes(readSelection()).some(node => node.type === "GreetingCard"));
+  coins.catalog.items = [reward];
+  assert.ok(readCatalog().some(node => node.props.accessibilityLabel === "greetingSend"));
+});
+
+await test("greeting stationery uses one border and displays the full message on the letter", () => {
+  const { GreetingCard } = evaluate("src/features/v21/GreetingCard.tsx", {
+    "@expo/vector-icons": { Ionicons: "Icon" },
+    "react-native": { Platform: { select: platforms => platforms.ios }, StyleSheet: { create: styles => styles }, Text: "NativeText", View: "View" },
+    "react-i18next": { useTranslation: () => ({ t: key => key, i18n: { language: "vi" } }) },
+    "../../components/ScaledText": { ScaledText: "Text" },
+    "../../hooks/useScaledTypography": { useScaledFontSize: size => size },
+  });
+  const template = { code: "MISS_YOU", title: "Lời chúc", body: "Chúc mọi điều tốt lành.", title_en: "Best wishes" };
+  for (const compact of [false, true]) {
+    const card = journeyNodes(GreetingCard({ template, recipientName: "Fixture name", compact, selected: compact }));
+    const bordered = card.filter(node => {
+      const style = Object.assign({}, ...[node.props.style].flat());
+      return style.borderWidth > 0;
+    });
+    assert.equal(bordered.length, 1);
+    assert.equal(bordered[0].props.testID, "family-greeting-card");
+    assert.equal(card.find(node => node.props.children === template.body).props.numberOfLines, compact ? 2 : undefined);
+  }
 });
 
 function greetingHarness() {

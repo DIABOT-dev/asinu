@@ -52,7 +52,7 @@ export type Reward = {
 export type RewardCatalog = {
   items: Reward[];
   templates: GreetingTemplate[];
-  recipients: Patient[];
+  recipients: Array<Patient & { avatarUrl?: string | null }>;
   drawPeriodId?: string | null;
 };
 export type GreetingTemplate = {
@@ -82,6 +82,7 @@ export type CoinEntry = {
   reward_status?: string;
   catalog_code?: string;
 };
+export type CoinHistoryScope = "usage" | "earned";
 export type MedKind = "MEDICINE" | "SUPPLEMENT";
 export type MedPurposeCode =
   | "fever_reduction"
@@ -221,10 +222,14 @@ export const v21Api = {
     }),
   flags: () => apiClient<V21Flags>("/api/mobile/v21/config"),
   coins: () => apiClient<CoinToday>("/api/mobile/coins/today"),
-  history: (before?: string, limit?: number) =>
-    apiClient<{ items: CoinEntry[]; nextBefore?: string | null }>(
-      `/api/mobile/coins/history?before=${encodeURIComponent(before || "")}${limit === undefined ? "" : `&limit=${limit}`}`,
-    ),
+  history: (before?: string, limit?: number, scope?: CoinHistoryScope) => {
+    const query = new URLSearchParams({ before: before ?? "" });
+    if (limit !== undefined) query.set("limit", String(limit));
+    if (scope) query.set("scope", scope);
+    return apiClient<{ items: CoinEntry[]; nextBefore?: string | null }>(
+      `/api/mobile/coins/history?${query}`,
+    );
+  },
   rewards: () => apiClient<RewardCatalog>("/api/mobile/rewards"),
   openCard: (id: string) => apiClient<{ card: FamilyGreetingCard; received: boolean }>(
     `/api/mobile/rewards/cards/${encodeURIComponent(id)}/open`, { method: "POST", body: {} },

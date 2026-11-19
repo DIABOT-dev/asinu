@@ -222,62 +222,83 @@ export function MedicationOverviewPanel({
           ))}
         </View>
         {med.patients.length > 1 && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${t("forWhom")} ${personName || ""}`}
-            accessibilityState={{ expanded: choosePatient, disabled: med.busy }}
-            disabled={med.busy}
-            onPress={() => setChoosePatient(!choosePatient)}
-            style={s.patient}
+          <View
+            style={[
+              s.patientCard,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
           >
-            <Ionicons
-              name="person-outline"
-              size={19}
-              color={colors.primaryText}
-            />
-            <Text style={[s.title, tint, s.copy]}>
-              {personName || t("forWhom")}
-            </Text>
-            <Ionicons
-              name={choosePatient ? "chevron-up" : "chevron-down"}
-              size={18}
-              color={colors.textSecondary}
-            />
-          </Pressable>
-        )}
-        {choosePatient && (
-          <ScrollView style={s.people} contentContainerStyle={s.peopleContent}>
-            {med.patients.map((person) => (
-              <Pressable
-                key={person.id}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: person.id === med.patientId }}
-                accessibilityLabel={
-                  Number(person.id) === Number(med.self)
-                    ? t("myself")
-                    : person.name
-                }
-                onPress={() => {
-                  med.selectPatient(person.id);
-                  setChoosePatient(false);
-                }}
-                style={s.row}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${t("forWhom")} ${personName || ""}`}
+              accessibilityState={{
+                expanded: choosePatient,
+                disabled: med.busy,
+              }}
+              disabled={med.busy}
+              onPress={() => setChoosePatient((open) => !open)}
+              style={s.patient}
+            >
+              <Ionicons
+                name="person-outline"
+                size={19}
+                color={colors.primaryText}
+              />
+              <Text style={[s.title, tint, s.copy]}>
+                {personName || t("forWhom")}
+              </Text>
+              <Ionicons
+                name={choosePatient ? "chevron-up" : "chevron-down"}
+                size={18}
+                color={colors.textSecondary}
+              />
+            </Pressable>
+            {choosePatient && (
+              <ScrollView
+                style={[s.people, { borderTopColor: colors.border }]}
+                contentContainerStyle={s.peopleContent}
               >
-                <Text style={[s.title, title, s.copy]}>
-                  {Number(person.id) === Number(med.self)
-                    ? t("myself")
-                    : person.name}
-                </Text>
-                {person.id === med.patientId && (
-                  <Ionicons
-                    name="checkmark"
-                    size={21}
-                    color={colors.primaryText}
-                  />
-                )}
-              </Pressable>
-            ))}
-          </ScrollView>
+                {med.patients.map((person) => {
+                  const selected = person.id === med.patientId;
+                  const label =
+                    Number(person.id) === Number(med.self)
+                      ? t("myself")
+                      : person.name;
+                  return (
+                    <Pressable
+                      key={person.id}
+                      accessibilityRole="radio"
+                      accessibilityState={{
+                        checked: selected,
+                        disabled: med.busy,
+                      }}
+                      accessibilityLabel={label}
+                      disabled={med.busy}
+                      onPress={() => {
+                        med.selectPatient(person.id);
+                        setChoosePatient(false);
+                      }}
+                      style={({ pressed }) => [
+                        s.patientOption,
+                        (selected || pressed) && {
+                          backgroundColor: colors.primaryLight,
+                        },
+                      ]}
+                    >
+                      <Text style={[s.title, title, s.copy]}>{label}</Text>
+                      {selected && (
+                        <Ionicons
+                          name="checkmark"
+                          size={21}
+                          color={colors.primaryText}
+                        />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
         )}
       </View>
       <ScrollView

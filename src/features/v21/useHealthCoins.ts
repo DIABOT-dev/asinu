@@ -12,18 +12,34 @@ import {
   v21Api,
   type CoinToday,
   type CoinEntry,
+  type CoinHistoryScope,
   type RewardCatalog,
   type Reward,
 } from "./v21.api";
 
-function coinPage({ items, nextBefore }: { items: CoinEntry[]; nextBefore?: string | null }) {
+const earnReasons = new Set(["CHECKIN", "MED_ANSWER", "VITAL", "GIFT_OPEN", "WEEKLY"]);
+
+function coinPage(
+  { items, nextBefore }: { items: CoinEntry[]; nextBefore?: string | null },
+  scope?: CoinHistoryScope
+) {
   const page = items.slice(0, SCROLL_PAGE_SIZE);
-  return { items: page, before: items.length > SCROLL_PAGE_SIZE ? page.at(-1)!.id : nextBefore ?? null };
+  return {
+    items:
+      scope === "usage"
+        ? page.filter((entry) => entry.reason === "REDEEM" && entry.delta < 0)
+        : scope === "earned"
+          ? page.filter((entry) => entry.delta > 0 && earnReasons.has(entry.reason))
+          : page,
+    before:
+      items.length > SCROLL_PAGE_SIZE ? page.at(-1)!.id : nextBefore ?? null,
+  };
 }
 
 export function useHealthCoins({
   includeRedemption = true,
-}: { includeRedemption?: boolean } = {}) {
+  historyScope,
+}: { includeRedemption?: boolean; historyScope?: CoinHistoryScope } = {}) {
   const { t } = useTranslation("v21");
   const router = useRouter();
   const owner = useAuthStore((state) => state.profile?.id);
@@ -71,21 +87,22 @@ export function useHealthCoins({
       const [data, catalog, history] = await Promise.all([
         v21Api.coins(),
         includeRedemption ? v21Api.rewards() : null,
-        includeRedemption
-          ? v21Api.history(undefined, SCROLL_PAGE_SIZE)
+        includeRedemption || historyScope
+          ? v21Api.history(undefined, SCROLL_PAGE_SIZE, historyScope).catch(() => null)
           : { items: [] },
       ]);
       if (!current() || request !== generation.current) return;
-      const page = coinPage(history);
-      setSnapshot({ owner, token, data, catalog, history: page.items });
-      historyBefore.current = page.before;
-      setHasMore(page.before !== null);
+      const page = history ? coinPage(history, historyScope) : null;
+      setSnapshot({ owner, token, data, catalog, history: page?.items ?? [] });
+      historyBefore.current = page?.before ?? null;
+      setHasMore(historyBefore.current !== null);
+      setHistoryError(!history);
     } catch (error) {
       if (current() && request === generation.current) v21Error(error, t);
     } finally {
       if (current() && request === generation.current) setLoading(false);
     }
-  }, [owner, token, current, t, includeRedemption]);
+  }, [owner, token, current, t, includeRedemption, historyScope]);
 
   useFocusEffect(
     useCallback(() => {
@@ -162,7 +179,7 @@ export function useHealthCoins({
     if (
       ownsOperation() ||
       loading ||
-      !before ||
+      (!before && !historyError) ||
       !ownsSnapshot ||
       !current()
     )
@@ -173,7 +190,10 @@ export function useHealthCoins({
     setHistoryError(false);
     const request = generation.current;
     try {
-      const page = coinPage(await v21Api.history(before, SCROLL_PAGE_SIZE));
+      const page = coinPage(
+        await v21Api.history(before ?? undefined, SCROLL_PAGE_SIZE, historyScope),
+        historyScope
+      );
       if (!current() || request !== generation.current) return;
       setSnapshot((previous) => ({
         ...previous,
@@ -215,7 +235,9 @@ export function useHealthCoins({
       } as any);
     },
     selectRecipient: (id: number) => {
-      if (!ownsOperation()) setRecipient(id);
+      if (ownsOperation() || id === recipient) return;
+      setRecipient(id);
+      setTemplate(null);
     },
     selectTemplate: (code: string) => {
       if (!ownsOperation()) setTemplate(code);

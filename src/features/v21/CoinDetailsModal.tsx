@@ -16,8 +16,47 @@ import { useLoadOnScrollEnd } from "../../hooks/useLoadOnScrollEnd";
 import { HealthCoinIcon } from "./HealthCoinIcon";
 import { CoinEarnTab, CoinHistoryTab } from "./CoinDetailsContent";
 import type { HealthCoinsController } from "./useHealthCoins";
+import type { CoinHistoryScope } from "./v21.api";
 
-export type CoinDetailsSection = "earn" | "history";
+type CoinDetailsSection = "earn" | "history" | CoinHistoryScope;
+const sectionTitles = {
+  earn: "coinsEarnTitle",
+  history: "history",
+  usage: "coinUsageHistory",
+  earned: "coinEarnHistory",
+} as const;
+
+export function CoinHistoryButton({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
+  const { colors } = useThemeColors();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.historyButton,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+          opacity: pressed ? 0.7 : 1,
+        },
+      ]}
+    >
+      <Ionicons
+        accessible={false}
+        name="time-outline"
+        size={23}
+        color={colors.primaryText}
+      />
+    </Pressable>
+  );
+}
 
 function CoinDetailsPanel({
   coins,
@@ -28,7 +67,9 @@ function CoinDetailsPanel({
 }) {
   const { t } = useTranslation("v21");
   const { colors, isDark } = useThemeColors();
-  const isHistory = section === "history";
+  const isHistory = section !== "earn";
+  const scope =
+    section === "usage" || section === "earned" ? section : undefined;
   const pagingScroll = useLoadOnScrollEnd(
     () => {
       if (isHistory && !coins.historyError) void coins.more();
@@ -50,11 +91,13 @@ function CoinDetailsPanel({
             accessibilityRole="header"
             style={[styles.title, { color: colors.textPrimary }]}
           >
-            {t(isHistory ? "history" : "coinsEarnTitle")}
+            {t(sectionTitles[section])}
           </Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {coins.data && t("balance", { count: coins.data.balance })}
-          </Text>
+          {isHistory && coins.data && (
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              {t("balance", { count: coins.data.balance })}
+            </Text>
+          )}
         </View>
         <Pressable
           accessibilityRole="button"
@@ -74,7 +117,7 @@ function CoinDetailsPanel({
         {...(isHistory ? pagingScroll.scrollProps : undefined)}
       >
         {isHistory ? (
-          <CoinHistoryTab coins={coins} />
+          <CoinHistoryTab coins={coins} scope={scope} />
         ) : (
           <CoinEarnTab coins={coins} />
         )}
@@ -130,6 +173,14 @@ export function CoinDetailsModal({
 }
 
 const styles = StyleSheet.create({
+  historyButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+  },
   root: { flex: 1, justifyContent: "flex-end" },
   sheet: {
     width: "100%",
