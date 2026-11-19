@@ -22,7 +22,7 @@ function nodes(tree, includeHidden = false) {
   if (Array.isArray(tree)) return tree.flatMap(child => nodes(child, includeHidden));
   if (!tree || typeof tree !== 'object') return [];
   const styles = [tree.props?.style].flat(Infinity);
-  if (!includeHidden && styles.some(style => style?.display === 'none')) return [];
+  if (!includeHidden && (tree.props?.accessibilityElementsHidden || styles.some(style => style?.display === 'none'))) return [];
   return [tree, ...nodes(tree.props?.children, includeHidden)];
 }
 function text(tree) {
@@ -31,16 +31,18 @@ function text(tree) {
   return tree && typeof tree === 'object' ? text(tree.props?.children) : '';
 }
 const theme = evaluate(read('src/styles/theme.ts'));
+const administrative = evaluate(read('src/features/profile/administrative-units.ts'), { './data/vietnam-administrative-units.json': JSON.parse(read('src/features/profile/data/vietnam-administrative-units.json')) });
 class ApiError extends Error {
   constructor(statusCode) { super('Fixture API failure'); this.statusCode = statusCode; }
 }
 
-function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multiplier = 1, isDark = false, doctorEnabled = false, profile: profileOverrides = {}, coins: coinOverrides = {} } = {}) {
+function harness({ personalInformation: initialPersonalInformation = false, canGoBack = true, standalone = false, language = 'vi', bloodType = 'A+', save, uploadAvatar, multiplier = 1, isDark = false, doctorEnabled = false, profile: profileOverrides = {}, coins: coinOverrides = {}, platform = 'ios', linkError = false } = {}) {
   const slots = [];
   let cursor = 0;
+  let personalInformation = initialPersonalInformation;
   let pendingEffects = [];
   let needsRender = false;
-  const calls = { saves: [], uploads: [], toasts: [], profileWrites: [], focus: 0, routes: [], fontSizes: [], languages: [] };
+  const calls = { saves: [], uploads: [], toasts: [], profileWrites: [], focus: 0, routes: [], fontSizes: [], languages: [], coinReads: 0, links: [] };
   const preferences = { fontScale: 'normal', language };
   const profile = { id: 'profile-fixture', name: 'Demo', phone: '', age: 40, gender: 'Nam',
     heightCm: 170, weightKg: 70, bloodType, chronicDiseases: [], ...profileOverrides };
@@ -86,12 +88,18 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
   useAuthStore.setState = update => { Object.assign(auth, update); calls.profileWrites.push(update); };
   const animation = { delay() { return this; }, duration() { return this; } };
   const imports = {
+    './ProfileFieldSheet': { ProfileFieldSheet: 'ProfileFieldSheet' },
+    './measurement-ruler': evaluate(read('src/features/profile/measurement-ruler.ts')),
+    './profile-fields': evaluate(read('src/features/profile/profile-fields.ts'), { './administrative-units': administrative }),
     react: { __esModule: true, default: hooks, ...hooks },
     'react-native': {
       ...Object.fromEntries(['ActivityIndicator', 'Image', 'KeyboardAvoidingView', 'Modal', 'Pressable', 'ScrollView', 'Switch', 'TouchableOpacity', 'View'].map(name => [name, name])),
-      Dimensions: { get: () => ({ width: 390, height: 844 }) }, Platform: { OS: 'ios' },
+      Dimensions: { get: () => ({ width: 390, height: 844 }) }, Platform: { OS: platform },
       StyleSheet: { create: value => value, absoluteFillObject: {} },
-      Linking: { openURL: async () => {} }, Share: { share: async () => {} },
+      Linking: { openURL: async url => {
+        calls.links.push(url);
+        if (linkError) throw new Error('Fixture link unavailable');
+      } }, Share: { share: async () => {} },
     },
     '@expo/vector-icons': { FontAwesome5: 'Icon', Ionicons: 'Icon', MaterialCommunityIcons: 'Icon' },
     'expo-image-picker': {
@@ -104,13 +112,14 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     'react-i18next': { useTranslation: ns => ({ t: translate(ns), i18n: { language } }) },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
     'expo-linear-gradient': { LinearGradient: 'LinearGradient' },
-    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => calls.routes.push(route), replace() {}, back() {} }) },
+    '@/hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => calls.routes.push(route), replace: route => calls.routes.push(route), canGoBack: () => canGoBack, back: () => calls.routes.push('back') }) },
     '../../../src/components/AppAlertModal': { AppAlertModal: 'AppAlertModal', useAppAlert: () => ({ alertState: { visible: false }, showAlert() {}, dismissAlert() {} }) },
     '../../../src/components/AiDataConsentModal': { AiDataConsentModal: 'AiDataConsentModal', hasAiDataConsent: async () => false, revokeAiDataConsent: async () => {} },
     '../../../src/components/ScaledTextInput': { ScaledTextInput: 'TextInput' },
     '../../../src/components/RippleRefresh': { RippleRefreshScrollView: 'ScrollView' },
     '../../../src/components/ScaledText': { ScaledText: 'Text' },
     '../../../src/components/Screen': { Screen: 'Screen' },
+    '../../../src/components/ScreenHeaderButton': { ScreenBackButton: 'ScreenBackButton' },
     '../../../src/components/DeleteAccountModal': { __esModule: true, default: 'DeleteAccountModal' },
     '../../../src/components/GlobalToastHost': { ModalToastHost: 'ModalToastHost' },
     '../../../src/components/state/MainScreenSkeletons': { ProfileTabSkeleton: 'Skeleton' },
@@ -143,6 +152,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/lib/apiClient': { ApiError, apiClient: async () => ({}), getApiErrorMessage: (_error, t, key) => t(key) },
     '../../../src/lib/appEnv': { isDevBuild: false, isDoctorFeaturesEnabled: doctorEnabled, isCheckinUiGalleryEnabled: false },
     '../../../src/features/app-update/app-update.store': { useAppUpdateStore: Object.assign(selector => selector({ checking: false }), { getState: () => ({ check: async () => ({ status: 'current' }) }) }) },
+    '../../../src/features/app-update/update-policy': evaluate(read('src/features/app-update/update-policy.ts')),
     '../../../src/features/profile/ProfileMascotGreeting': { ProfileMascotGreeting: 'MascotGreeting' },
     '../../../src/features/profile/ProfileHealthcareBackground': {
       ProfileHealthcareBackground: () => evaluate(read('src/features/profile/ProfileHealthcareBackground.tsx'), {
@@ -158,8 +168,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/features/profile/ProfileDevicePermissions': { ProfileDevicePermissions: 'DevicePermissions' },
     '../../../src/features/profile/TaskReminderPermission': { TaskReminderPermission: 'TaskReminderPermission' },
     '../../../src/features/profile/SpecialistSharingPermission': { SpecialistSharingPermission: 'SpecialistSharingPermission' },
-    '../../../src/features/profile/ReminderSettingsEntry': { ReminderSettingsEntry: 'ReminderSettingsEntry' },
-    '../../../src/features/v21/useProfileCoins': { useProfileCoins: () => coinSummary },
+    '../../../src/features/v21/useProfileCoins': { useProfileCoins: () => { calls.coinReads++; return coinSummary; } },
     '../../../src/features/v21/HealthCoinIcon': { HealthCoinIcon: 'HealthCoinIcon' },
     '../../../src/features/care-circle/components/QrCameraPermissionRow': { QrCameraPermissionRow: 'CameraPermissionRow' },
     '../../../src/lib/native-permissions': { runNativePermission: operation => operation() },
@@ -167,7 +176,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     '../../../src/hooks/useThemeColors': { useThemeColors: () => ({ isDark }) },
     '../../../src/stores/health-feed-preference': { getHealthFeedPreference: async () => true, setHealthFeedPreference: async enabled => enabled },
   };
-  const { default: ProfileScreen } = evaluate(read('app/(tabs)/profile/index.tsx'), imports);
+  const { default: ProfileScreen } = evaluate(read('src/features/profile/ProfileScreen.tsx'), imports);
   const preferenceImports = {
     'react-native': { ...imports['react-native'], Text: 'NativeText' },
     '@expo/vector-icons': imports['@expo/vector-icons'],
@@ -186,7 +195,7 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     do {
       needsRender = false;
       cursor = 0;
-      tree = ProfileScreen();
+      tree = ProfileScreen({ personalInformation, standalone });
       const effects = pendingEffects;
       pendingEffects = [];
       for (const effect of effects) effect();
@@ -197,118 +206,102 @@ function harness({ language = 'vi', bloodType = 'A+', save, uploadAvatar, multip
     }
     return tree;
   };
-  const modal = () => nodes(render()).find(node => node.type === 'Modal' && node.props.visible && text(node).includes(translate('profile')('editProfileTitle')));
+  const modal = () => nodes(render()).find(node => node.type === 'ProfileFieldSheet');
   const fontModal = () => preference.ProfilePreferenceModal(FontSizePickerModal(nodes(render()).find(node => node.type === 'FontSizePickerModal').props).props);
   const languageModal = () => preference.ProfilePreferenceModal(LanguagePickerModal(nodes(render()).find(node => node.type === 'LanguagePickerModal').props).props);
-  const saveButton = () => nodes(modal()).find(node => node.type === 'Pressable' && node.props.onPress?.name === 'handleSaveProfile');
-  const input = (field = 'name') => {
-    const inputs = nodes(modal()).filter(node => node.type === 'TextInput');
-    const placeholders = { name: 'enterName', phone: 'enterPhone' };
-    if (field in placeholders) return inputs.find(node => node.props.placeholder === translate('profile')(placeholders[field]));
-    return inputs.filter(node => node.props.keyboardType === 'number-pad')[['age', 'height', 'weight'].indexOf(field)];
-  };
-  const selectGender = value => nodes(modal()).find(node => node.type === 'Pressable' && text(node).trim() === translate('common')(value)).props.onPress();
-  const bloodField = () => nodes(modal()).find(node => node.type === 'Pressable' && node.props.accessibilityLabel === translate('profile')('bloodType'));
-  const bloodValue = () => bloodField().props.accessibilityValue.text;
-  const bloodChoices = () => {
-    if (!bloodField().props.accessibilityState.expanded) bloodField().props.onPress();
-    const group = nodes(modal()).find(node => node.props.accessibilityRole === 'radiogroup'
-      && node.props.accessibilityLabel === translate('profile')('bloodType'));
-    assert.ok(group, 'Blood type choices must have their own labelled group');
-    return nodes(group).filter(node => node.props.accessibilityRole === 'radio');
-  };
-  const selectBloodType = value => {
-    const option = bloodChoices().find(node => node.props.accessibilityLabel === (value || translate('profile')('bloodTypeUnknown')));
-    assert.ok(option, `Blood type option ${value || 'unknown'} must exist`);
-    option.props.onPress();
-  };
-  const openDiseasePicker = () => {
-    const button = nodes(modal()).find(node => node.type === 'Pressable' && node.props.accessibilityLabel === translate('profile')('chronicDiseases'));
-    if (!button.props.accessibilityState.expanded) button.props.onPress();
-    return modal();
-  };
-  const diseaseChoice = label => nodes(openDiseasePicker()).find(node => node.props.accessibilityRole === 'checkbox' && node.props.accessibilityLabel === translate('profile')(label));
-  const toggleDisease = key => {
-    const option = diseaseChoice(key);
-    assert.ok(option, `Disease option ${key} must exist`); option.props.onPress();
-  };
-  const customInput = () => nodes(openDiseasePicker()).find(node => node.type === 'TextInput' && node.props.placeholder === translate('profile')('enterCustomDisease'));
-  const addDiseaseButton = () => nodes(openDiseasePicker()).find(node => node.type === 'Pressable' && node.props.accessibilityLabel === translate('profile')('addCustomDisease'));
-  const addDisease = value => { customInput().props.onChangeText(value); addDiseaseButton().props.onPress(); };
-  const cancel = () => nodes(modal()).find(node => node.type === 'Pressable' && text(node).trim() === translate('common')('cancel')).props.onPress();
-  const avatarButton = () => nodes(modal()).find(node => node.type === 'Pressable' && text(node).trim() === translate('profile')('uploadPhoto'));
-  const updateProfile = update => { auth.profile = { ...auth.profile, ...update }; };
+  const showPersonalInformation = () => { personalInformation = true; return render(); };
   const open = () => {
-    const header = nodes(render()).find(node => node.props.accessibilityRole === 'button'
-      && node.props.accessibilityLabel === translate('profile')('personalInfo'));
-    assert.ok(header, 'Personal-info dropdown must exist');
-    if (!header.props.accessibilityState.expanded) header.props.onPress();
-    const edit = nodes(render()).find(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && node.props.onPress?.name === 'handleEditProfile');
-    assert.ok(edit, 'Profile edit button must exist'); edit.props.onPress(); assert.ok(modal());
+    const page = showPersonalInformation();
+    const row = nodes(page).find(node => node.props.accessibilityRole === 'button' && node.props.accessibilityLabel === translate('profile')('fullName'));
+    row.props.onPress(); assert.ok(modal());
   };
   const toggleSection = title => {
     const header = nodes(render()).find(node => node.props.accessibilityRole === 'button'
       && node.props.accessibilityLabel === title && 'expanded' in (node.props.accessibilityState || {}));
-    assert.ok(header, `Profile section ${title} must be expandable`);
-    header.props.onPress();
-    return render();
+    assert.ok(header, 'Expandable section must exist'); header.props.onPress(); return render();
   };
-  return { render, modal, fontModal, languageModal, input, saveButton, open, selectGender, bloodField, bloodValue, bloodChoices, selectBloodType,
-    openDiseasePicker, diseaseChoice, toggleDisease, customInput, addDiseaseButton, addDisease, cancel,
-    avatarButton, updateProfile, updateCoins: patch => Object.assign(coinSummary, patch), toggleSection, calls, t: translate('profile'), tc: translate('common'), ts: translate('settings') };
+  return { render, showPersonalInformation, modal, fontModal, languageModal, open, toggleSection, calls,
+    updateProfile: patch => { auth.profile = { ...auth.profile, ...patch }; },
+    t:translate('profile'),tc:translate('common'),ts:translate('settings') };
+
 }
 
 let checks = 0;
 async function test(label, run) { await run(); checks++; console.log(`PASS ${label}`); }
+await test('personal settings open as a standalone page with a back button above the avatar', () => {
+  const h = harness({ standalone: true });
+  const page = h.render(), all = nodes(page);
+  assert.ok(all.findIndex(n => n.type === 'ScreenBackButton') < all.findIndex(n => n.props.testID === 'profile-identity'));
+  all.find(n => n.type === 'ScreenBackButton').props.onPress();
+  assert.deepEqual(h.calls.routes, ['back']);
+  const direct = harness({ standalone: true, canGoBack: false });
+  nodes(direct.render()).find(n => n.type === 'ScreenBackButton').props.onPress();
+  assert.deepEqual(direct.calls.routes, ['/(tabs)/home']);
+});
+
+await test('Help & information opens the official app review listing and reports a failed link', async () => {
+  for (const [platform, url] of [
+    ['ios', 'https://apps.apple.com/app/id6758967197?action=write-review'],
+    ['android', 'https://play.google.com/store/apps/details?id=com.asinu.lite'],
+  ]) {
+    const h = harness({ platform });
+    const help = h.toggleSection(h.t('sectionSystem'));
+    const review = nodes(help).find(node => node.props.accessibilityLabel === h.t('rateApp'));
+    assert.equal(review.props.accessibilityRole, 'link');
+    await review.props.onPress();
+    assert.deepEqual(h.calls.links, [url]);
+  }
+  const unavailable = harness({ linkError: true });
+  const help = unavailable.toggleSection(unavailable.t('sectionSystem'));
+  await nodes(help).find(node => node.props.accessibilityLabel === unavailable.t('rateApp')).props.onPress();
+  assert.deepEqual(unavailable.calls.toasts, [[unavailable.t('rateAppLinkError'), 'error']]);
+});
+
 for (const language of ['vi', 'en']) {
-  await test(`${language}: three named groups organize the seven existing dropdowns`, () => {
-    const h = harness({ language });
+  await test(`${language}: profile, account and app menus keep their existing actions`, () => {
+    const h = harness({ language, doctorEnabled: true });
     const tree = h.render();
     const groups = nodes(tree).filter(node => /^profile-group-/.test(node.props?.testID || ''));
-    assert.deepEqual(groups.map(group => nodes(group).find(node => node.props.accessibilityRole === 'header').props.children),
-      [h.t('groupPersonalHealth'), h.t('groupBenefits'), h.t('groupApplication')]);
+    assert.deepEqual(groups.map(group => group.props.testID),
+      ['profile-group-personal', 'profile-group-benefits', 'profile-group-app']);
     const dropdowns = group => nodes(group).filter(node => node.props.accessibilityRole === 'button'
       && 'expanded' in (node.props.accessibilityState || {})).map(node => node.props.accessibilityLabel);
     assert.deepEqual(groups.map(dropdowns), [
-      [h.t('personalInfo'), h.t('sectionHealth')],
-      [h.t('sectionRewards'), h.t('sectionAccount')],
-      [h.t('sectionSettings'), h.ts('appPermissions'), h.t('sectionSystem')],
+      [],
+      [h.t('sectionAccount')],
+      [h.t('sectionSettings'), h.t('sectionSystem')],
     ]);
   });
-  await test(`${language}: the golden coin entry sits below identity, uses live values and opens the coin screen`, () => {
-    const h = harness({ language, coins: { balance: 80, earnedToday: 0 } });
-    const tree = h.render();
-    const content = nodes(tree).find(node => node.type === 'ScrollView');
-    const all = nodes(content);
-    const entry = all.find(node => node.props?.testID === 'profile-health-coins');
-    assert.ok(entry);
-    assert.ok(text(entry).includes(h.t('healthCoinsBalance', { count: 80 })));
-    assert.ok(text(entry).includes(h.t('healthCoinsToday', { count: 0 })), 'A zero daily earning is real data, not missing data');
-    const identity = all.find(node => node.props?.testID === 'profile-identity');
-    const firstGroup = all.find(node => node.props?.testID === 'profile-group-personal');
-    assert.ok(all.indexOf(entry) > all.indexOf(identity));
-    assert.ok(all.indexOf(entry) < all.indexOf(firstGroup));
-    assert.equal(nodes(entry).filter(node => node.type === 'HealthCoinIcon').length, 1, 'Use the existing golden health coin artwork');
-    assert.equal(all.filter(node => node.props?.testID === 'profile-health-coins').length, 1);
-    assert.ok(!nodes(entry).some(node => node.type === 'Icon' && /chevron/.test(node.props.name)), 'Only dropdowns have chevrons');
-    entry.props.onPress();
-    assert.deepEqual(h.calls.routes, ['/coins']);
-    h.updateCoins({ balance: 90, earnedToday: 10 });
-    const refreshed = nodes(h.render()).find(node => node.props?.testID === 'profile-health-coins');
-    assert.ok(text(refreshed).includes(h.t('healthCoinsBalance', { count: 90 })));
-    assert.ok(text(refreshed).includes(h.t('healthCoinsToday', { count: 10 })));
-    assert.ok(!text(refreshed).includes(h.t('healthCoinsBalance', { count: 80 })));
+  await test(`${language}: opening Profile never reads coins or shows a duplicate coin entry`, () => {
+    for (const coins of [{ enabled: true, balance: 80, earnedToday: 0 }, { enabled: false, balance: null, earnedToday: null }]) {
+      const h = harness({ language, coins });
+      const tree = h.render();
+      assert.ok(!nodes(tree, true).some(node => node.props?.testID === 'profile-health-coins'));
+      assert.equal(h.calls.coinReads, 0, 'A removed shortcut must not keep fetching its balance');
+      assert.equal(nodes(tree).filter(node => /^profile-group-/.test(node.props?.testID || '')).length, 3);
+    }
   });
-  await test(`${language}: coin feature off hides its entry without hiding profile groups or inventing a balance`, () => {
-    const disabled = harness({ language, coins: { enabled: false, balance: null, earnedToday: null } }).render();
-    assert.ok(!nodes(disabled).some(node => node.props?.testID === 'profile-health-coins'));
-    assert.equal(nodes(disabled).filter(node => /^profile-group-/.test(node.props?.testID || '')).length, 3);
-    const unknown = harness({ language, coins: { balance: null, earnedToday: null } });
-    const entry = nodes(unknown.render()).find(node => node.props?.testID === 'profile-health-coins');
-    assert.ok(entry);
-    assert.equal(text(entry).trim(), unknown.t('healthCoins'));
-    entry.props.onPress();
-    assert.deepEqual(unknown.calls.routes, ['/coins']);
+  await test(`${language}: all quick-action destinations stay out of expanded Profile menus`, () => {
+    const h = harness({ language, doctorEnabled: true });
+    for (const section of ['sectionAccount', 'sectionSettings', 'sectionSystem']) h.toggleSection(h.t(section));
+    const quickActions = read('src/components/HomeFeatureGrid.tsx');
+    const quickRoutes = [...quickActions.matchAll(/route:\s*['"]([^'"]+)['"]/g)].map(match => match[1]);
+    for (const required of [
+      '/doctor-consultation-history', '/privacy-center', '/doctor-care', '/logs',
+      '/doctor-consultation', '/checkin-call/settings', '/coins', '/coins/redeem',
+      '/(tabs)/missions', '/checkin-rewards/history',
+    ]) assert.ok(quickRoutes.includes(required), required);
+    assert.ok(!quickRoutes.includes('/checkin-rewards'));
+    const tree = h.render();
+    const profileRoutes = nodes(tree, true).flatMap(node => [...String(node.props?.onPress || '').matchAll(/router\.push\(['"]([^'"]+)['"]/g)].map(match => match[1]));
+    assert.deepEqual(profileRoutes.filter(route => quickRoutes.includes(route)), [], 'Features are opened through Quick actions');
+    assert.ok(!nodes(tree, true).some(node => node.type === 'DevicePermissions'));
+    assert.ok(!nodes(tree).some(node => node.props.accessibilityLabel === h.ts('appPermissions')));
+    assert.ok(!nodes(tree).some(node => node.props.accessibilityLabel === h.t('sectionRewards')));
+  });
+  await test(`${language}: an unavailable specialist feature leaves no empty Health dropdown`, () => {
+    const h = harness({ language, doctorEnabled: false });
+    assert.ok(!nodes(h.render()).some(node => node.props.accessibilityLabel === h.t('sectionHealth')));
   });
   await test(`${language}: healthcare backdrop stays behind content without blocking profile controls`, () => {
     const tree = harness({ language }).render();
@@ -320,6 +313,8 @@ for (const language of ['vi', 'en']) {
     assert.equal(background.props.importantForAccessibility, 'no-hide-descendants');
     const scroll = nodes(tree).find(node => node.type === 'ScrollView');
     assert.ok(!nodes(scroll).some(node => node.type === backdrop.type));
+    assert.ok(nodes(tree).some(node => node.props.testID === 'profile-identity'));
+    assert.ok(!nodes(scroll).some(node => node.props.testID === 'profile-identity'), 'The identity and plan stay fixed above the scrolling menu');
     assert.equal(nodes(tree).filter(node => node.type === 'MascotGreeting').length, 0, 'The profile footer has no Asinu greeting');
   });
   await test(`${language}: account deletion is under Account and its confirmation opens on the first press`, () => {
@@ -337,138 +332,30 @@ for (const language of ['vi', 'en']) {
     assert.deepEqual(h.calls.saves, []);
   });
   for (const isDark of [false, true]) {
-    await test(`${language}/${isDark ? 'dark' : 'light'}: profile groups expand inline and independently without removing their actions`, async () => {
-      const h = harness({ language, isDark });
-      const tree = h.render();
-      const all = nodes(tree);
-      assert.ok(!all.some(node => node.type === 'Text' && [h.t('careBannerTitle'), h.t('careBannerSubtitle')].includes(node.props.children)));
-      const mainContent = all.find(node => node.type === 'ScrollView');
-      const headings = nodes(mainContent).filter(node => node.props.accessibilityRole === 'button' && 'expanded' in (node.props.accessibilityState || {})).map(node => node.props.accessibilityLabel);
-      assert.deepEqual(headings, [h.t('personalInfo'), h.t('sectionHealth'), h.t('sectionRewards'), h.t('sectionAccount'), h.t('sectionSettings'), h.ts('appPermissions'), h.t('sectionSystem')]);
-      const hasRow = (tree, key) => nodes(tree).some(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && text(node).trim() === h.t(key));
-      assert.equal(all.filter(node => node.type === 'TouchableOpacity' && node.props.accessibilityState?.expanded === false).length, 7);
-      assert.ok(!nodes(mainContent).some(node => node.type === 'Text' && node.props.children === h.t('bloodType')), 'Personal details stay hidden until expanded');
-      assert.ok(!hasRow(tree, 'reminderSchedule'));
-      assert.ok(!hasRow(tree, 'logEntry'));
-      const healthOpen = h.toggleSection(h.t('sectionHealth'));
-      assert.ok(hasRow(healthOpen, 'logEntry'));
-      assert.ok(!hasRow(healthOpen, 'missions'));
-      assert.ok(!hasRow(healthOpen, 'dailyGifts'));
-      const bothOpen = h.toggleSection(h.t('sectionRewards'));
-      assert.ok(!hasRow(bothOpen, 'reminderSchedule'));
-      assert.ok(hasRow(bothOpen, 'logEntry'));
-      assert.ok(hasRow(bothOpen, 'missions'));
-      assert.ok(nodes(bothOpen).some(node => node.props?.testID === 'profile-health-coins'));
-      assert.ok(!nodes(nodes(bothOpen).find(node => node.props?.testID === 'profile-group-benefits')).some(node => node.props?.accessibilityLabel === h.t('healthCoins')), 'Coins remain outside the rewards dropdown');
-      const giftEntries = nodes(bothOpen).filter(node => node.props.accessibilityLabel === h.t('dailyGifts'));
-      assert.equal(giftEntries.length, 1, 'Daily gifts have their own profile entry');
-      const collectionEntries = nodes(bothOpen).filter(node => node.props.accessibilityLabel === h.t('giftCollection'));
-      assert.equal(collectionEntries.length, 1, 'The gift collection has a separate profile entry');
-      giftEntries[0].props.onPress();
-      collectionEntries[0].props.onPress();
-      assert.deepEqual(h.calls.routes, ['/checkin-rewards', '/checkin-rewards/history']);
-      const rewardsClosed = h.toggleSection(h.t('sectionRewards'));
-      assert.ok(!hasRow(rewardsClosed, 'missions'));
-      assert.ok(!hasRow(rewardsClosed, 'dailyGifts'));
-      assert.ok(!hasRow(rewardsClosed, 'giftCollection'));
-      assert.ok(hasRow(rewardsClosed, 'logEntry'));
-      h.open(); assert.ok(h.modal());
+    await test(`${language}/${isDark ? 'dark' : 'light'}: profile menus expand independently and consultation tools stay in Quick actions`, () => {
+      const h=harness({language,isDark,doctorEnabled:true,profile:{hasPassword:true}});
+      const initial=h.render();
+      const headings=nodes(initial).filter(node=>node.props.accessibilityRole==='button'&&'expanded' in(node.props.accessibilityState||{})).map(node=>node.props.accessibilityLabel);
+      assert.deepEqual(headings,[h.t('sectionAccount'),h.t('sectionSettings'),h.t('sectionSystem')]);
+      const account=h.toggleSection(h.t('sectionAccount'));
+      assert.ok(text(account).includes(h.t('subscription')));assert.ok(text(account).includes(h.t('changePassword')));
+      assert.ok(!text(account).includes(h.t('wallet')), 'Wallet is temporarily hidden from Profile');
+      h.toggleSection(h.t('sectionSettings'));const all=h.toggleSection(h.t('sectionSystem'));
+      assert.ok(text(all).includes(h.ts('helpSupport')));
+      assert.ok(!nodes(all).some(node=>node.props.accessibilityLabel===h.t('sectionHealth')));
+      assert.ok(!text(all).includes(h.ts('doctorConsultationHistory')));assert.ok(!text(all).includes(h.ts('privacyCenterTitle')));
+      const closed=h.toggleSection(h.t('sectionAccount'));assert.ok(!text(closed).includes(h.t('subscription')));assert.ok(text(closed).includes(h.ts('helpSupport')));
+      h.open();assert.equal(h.modal().props.field,'name');
     });
-    await test(`${language}/${isDark ? 'dark' : 'light'}: care, account security and support each contain the appropriate actions`, () => {
-      const h = harness({ language, isDark, doctorEnabled: true, profile: { hasPassword: true } });
-      const hasLabel = (tree, label) => nodes(tree).some(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && text(node).trim() === label);
-      const settings = h.toggleSection(h.t('sectionSettings'));
-      assert.ok(!hasLabel(settings, h.ts('doctorConsultation')));
-      assert.ok(!hasLabel(settings, h.ts('doctorConsultationHistory')));
-      const health = h.toggleSection(h.t('sectionHealth'));
-      assert.ok(hasLabel(health, h.ts('doctorConsultation')));
-      assert.ok(hasLabel(health, h.ts('doctorConsultationHistory')));
-      assert.ok(!hasLabel(health, h.ts('specialistSharing')));
-      assert.ok(hasLabel(health, h.ts('privacyCenterTitle')));
-      const privacyEntry = nodes(health).find(node => node.props.accessibilityLabel === h.ts('privacyCenterTitle'));
-      assert.ok(privacyEntry, 'Consultation data tools belong to Health care');
-      privacyEntry.props.onPress();
-      assert.deepEqual(h.calls.routes, ['/privacy-center']);
-      const permissions = h.toggleSection(h.ts('appPermissions'));
-      assert.equal(nodes(permissions).filter(node => node.type === 'SpecialistSharingPermission').length, 1, 'App permissions contains the inline specialist sharing control');
-      assert.ok(!nodes(permissions).some(node => ['Pressable', 'TouchableOpacity'].includes(node.type) && node.props.accessibilityLabel === h.ts('specialistSharing')), 'Specialist sharing is a switch rather than navigation to consultation data tools');
-      const help = h.toggleSection(h.t('sectionSystem'));
-      assert.ok(hasLabel(help, h.ts('helpSupport')));
-      assert.ok(hasLabel(help, h.ts('termsOfService')));
-      assert.ok(!hasLabel(help, h.t('changePassword')));
-      assert.ok(!hasLabel(help, h.ts('deleteAccountForever')));
-      const account = h.toggleSection(h.t('sectionAccount'));
-      assert.ok(hasLabel(account, h.t('subscription')));
-      assert.ok(hasLabel(account, h.t('wallet')));
-      assert.ok(hasLabel(account, h.t('changePassword')));
-      assert.ok(hasLabel(account, h.ts('deleteAccountForever')));
-      assert.ok(!nodes(nodes(account).find(node => node.props?.testID === 'profile-group-benefits')).some(node => node.props?.accessibilityLabel === h.t('healthCoins')));
-      const expandedRewards = h.toggleSection(h.t('sectionRewards'));
-      assert.ok(!nodes(expandedRewards).some(node => node.type === 'Icon' && ['chevron-forward', 'chevron-right'].includes(node.props.name)), 'Actions without an inline dropdown do not show a right arrow');
-      for (const section of [h.t('sectionHealth'), h.t('sectionRewards'), h.t('sectionAccount'), h.ts('appPermissions'), h.t('sectionSystem')]) {
-        const header = nodes(expandedRewards).find(node => node.props.accessibilityRole === 'button' && node.props.accessibilityLabel === section && node.props.accessibilityState?.expanded);
-        assert.ok(header, `Expanded section ${section} remains available`);
-        assert.ok(nodes(header).some(node => node.type === 'Icon' && node.props.name === 'chevron-up'), 'Dropdowns keep their expand/collapse indicator');
-      }
-    });
-    await test(`${language}/${isDark ? 'dark' : 'light'}: permission controls share their own section instead of Settings or System`, () => {
-      const h = harness({ language, isDark });
-      const deviceControls = tree => nodes(tree).filter(node => node.type === 'DevicePermissions');
-      const taskReminderControls = tree => nodes(tree).filter(node => node.type === 'TaskReminderPermission');
-      const reminderControls = tree => nodes(tree).filter(node => node.type === 'ReminderSettingsEntry');
-      assert.equal(deviceControls(h.render()).length, 0);
-      assert.equal(taskReminderControls(h.render()).length, 0);
-      const settingsOpen = h.toggleSection(h.t('sectionSettings'));
-      assert.equal(deviceControls(settingsOpen).length, 0);
-      assert.equal(taskReminderControls(settingsOpen).length, 0, 'Reminder permission is separate from reminder time settings');
-      assert.equal(reminderControls(settingsOpen).length, 1, 'Reminder times belong to app settings');
-      assert.equal(reminderControls(h.toggleSection(h.t('sectionSettings'))).length, 0);
-      assert.equal(deviceControls(h.toggleSection(h.t('sectionSystem'))).length, 0);
-      const health = h.toggleSection(h.t('sectionHealth'));
-      assert.equal(taskReminderControls(health).length, 0);
-      assert.ok(!nodes(health).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')));
-      assert.equal(nodes(health).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings')).length, 0, 'AI consent is grouped with permissions');
-      h.toggleSection(h.t('sectionHealth'));
-      const expanded = h.toggleSection(h.ts('appPermissions'));
-      assert.equal(deviceControls(expanded).length, 1);
-      assert.equal(taskReminderControls(expanded).length, 1, 'Task reminders can be enabled from App permissions');
-      assert.equal(reminderControls(expanded).length, 0, 'Permissions grant access without duplicating reminder settings');
-      assert.equal(nodes(expanded).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')).length, 1);
-      const aiSwitches = nodes(expanded).filter(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings'));
-      assert.equal(aiSwitches.length, 1, 'AI consent is grouped with device and data access permissions');
-      assert.ok(!nodes(expanded).some(node => node.props.accessibilityLabel === h.ts('specialistSharing')), 'Specialist sharing follows the existing feature flag');
-      aiSwitches[0].props.onValueChange(true);
-      assert.equal(nodes(h.render()).find(node => node.type === 'AiDataConsentModal').props.visible, true, 'Allowing AI still requires its explicit consent dialog');
-      const closed = h.toggleSection(h.ts('appPermissions'));
-      assert.equal(deviceControls(closed).length, 0);
-      assert.equal(taskReminderControls(closed).length, 0);
-      assert.ok(!nodes(closed).some(node => node.type === 'ReminderSettingsEntry'));
-      assert.ok(!nodes(closed).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.t('healthFeed')));
-      assert.ok(!nodes(closed).some(node => node.type === 'Switch' && node.props.accessibilityLabel === h.ts('aiDataConsentSettings')));
-    });
-    await test(`${language}/${isDark ? 'dark' : 'light'}: reopening permissions preserves mounted controls while collapsed rows are hidden and inaccessible`, () => {
+    await test(`${language}/${isDark ? 'dark' : 'light'}: all data and reminder permissions have moved out of Profile`, () => {
       const h = harness({ language, isDark, doctorEnabled: true });
-      const panel = tree => nodes(tree, true).find(node => node.props.testID === 'profile-permission-controls');
-      const first = panel(h.render());
-      assert.ok(first, 'Permission status can load before opening the dropdown');
-      const controlTypes = ['DevicePermissions', 'TaskReminderPermission', 'SpecialistSharingPermission'];
-      for (let cycle = 0; cycle < 5; cycle++) {
-        for (const expanded of [true, false]) {
-          const tree = h.toggleSection(h.ts('appPermissions'));
-          const current = panel(tree);
-          assert.ok(current, 'Closing the dropdown must not unmount permission controls');
-          assert.equal(current.props.key, first.props.key);
-          assert.equal(current.props.accessibilityElementsHidden, !expanded);
-          assert.equal(current.props.importantForAccessibility, expanded ? 'auto' : 'no-hide-descendants');
-          assert.equal(current.props.pointerEvents, expanded ? 'auto' : 'none');
-          for (const type of controlTypes) {
-            assert.equal(nodes(current, true).filter(node => node.type === type).length, 1, `${type} remains mounted`);
-            assert.equal(nodes(tree).filter(node => node.type === type).length, expanded ? 1 : 0, `${type} is only visible when expanded`);
-          }
-        }
-      }
-      h.updateProfile({ id: 'another-profile' });
-      assert.notEqual(panel(h.render()).props.key, first.props.key, 'Permission state must reset for another account');
+      for (const section of ['sectionAccount', 'sectionSettings', 'sectionSystem']) h.toggleSection(h.t(section));
+      const all = nodes(h.render(), true);
+      assert.ok(!all.some(node => node.props.testID === 'profile-data-controls'));
+      assert.ok(!all.some(node => node.props.accessibilityLabel === h.t('sectionData')));
+      for (const type of ['TaskReminderPermission', 'SpecialistSharingPermission', 'ReminderSettingsEntry', 'AiDataConsentModal'])
+        assert.ok(!all.some(node => node.type === type));
+      assert.ok(!all.some(node => node.type === 'Switch'));
     });
     await test(`${language}/${isDark ? 'dark' : 'light'}: font and language modals show previews, retain selections and dismiss without changes`, () => {
       const h = harness({ language, isDark });
@@ -519,325 +406,63 @@ for (const language of ['vi', 'en']) {
       assert.equal(groups().length, 0);
     });
   }
-  await test(`${language}: personal info expands read-only and opens the editor only through Edit`, async () => {
+  await test(`${language}: personal information and the name open a separate page without expanding or saving`, () => {
     const h = harness({ language });
-    assert.ok(!nodes(h.render()).some(node => node.props.onPress?.name === 'handleEditProfile'));
-    h.toggleSection(h.t('personalInfo'));
-    assert.equal(h.modal(), undefined, 'Expanding personal details must not open an editor');
-    const mainContent = nodes(h.render()).find(node => node.type === 'ScrollView');
-    assert.ok(nodes(mainContent).some(node => node.type === 'Text' && node.props.children === h.t('bloodType')));
-    assert.ok(!nodes(mainContent).some(node => node.type === 'TextInput'), 'Inline details cannot be edited');
+    const main = h.render();
+    const entry = nodes(main).find(node => node.props.accessibilityRole === 'button' && node.props.accessibilityLabel === h.t('personalInfo'));
+    assert.equal(entry.props.accessibilityState?.expanded, undefined);
+    entry.props.onPress();
+    const identity = nodes(main).find(node => node.props.testID === 'profile-identity');
+    const nameButton = nodes(identity).find(node => node.props.accessibilityRole === 'button' && node.props.accessibilityLabel === 'Demo');
+    nameButton.props.onPress();
+    assert.deepEqual(h.calls.routes, ['/personal-information', '/personal-information']);
+    assert.equal(h.modal(), undefined);
     assert.equal(h.calls.saves.length, 0);
-    assert.equal(h.calls.uploads.length, 0);
-    h.toggleSection(h.t('personalInfo'));
-    assert.ok(!nodes(h.render()).some(node => node.props.onPress?.name === 'handleEditProfile'));
-    h.toggleSection(h.t('personalInfo'));
-    h.toggleSection(h.t('sectionHealth'));
-    const controls = nodes(h.render()).filter(node => ['Pressable', 'TouchableOpacity'].includes(node.type));
-    const editors = controls.filter(node => node.props.onPress?.name === 'handleEditProfile');
-    assert.equal(editors.length, 1, 'Exactly one profile edit entry must remain');
-    assert.equal(editors[0].props.accessibilityLabel, h.t('editProfile'));
-    assert.equal(text(editors[0]).trim(), h.t('edit'));
-    assert.ok(controls.some(node => node.props.accessibilityLabel?.startsWith(h.t('checkinCall'))), 'Other actions must remain');
-    editors[0].props.onPress(); assert.ok(h.modal());
+    const menu = nodes(main).find(node => node.type === 'ScrollView');
+    assert.ok(!nodes(menu).some(node => node.type === 'Text' && node.props.children === h.t('bloodType')));
   });
-  await test(`${language}: opening an unchanged profile leaves Save muted, accessible, and unable to submit`, async () => {
-    const h = harness({ language }); h.open();
-    const button = h.saveButton();
-    assert.equal(button.props.disabled, true);
-    assert.equal(button.props.accessibilityRole, 'button');
-    assert.deepEqual(button.props.accessibilityState, { disabled: true, busy: false });
-    const style = Object.assign({}, ...button.props.style.filter(Boolean));
-    assert.notEqual(style.backgroundColor, theme.colors.primaryDark);
-    assert.equal(style.shadowOpacity, 0); assert.equal(style.elevation, 0);
-    await button.props.onPress();
-    assert.equal(h.calls.saves.length, 0); assert.equal(h.calls.toasts.length, 0);
-  });
-  await test(`${language}: legacy invalid blood type opens inline choices and can be corrected without reopening`, async () => {
-    const h = harness({ language, bloodType: 'Z+' }); h.open();
-    assert.ok(nodes(h.modal()).some(node => node.type === 'ModalToastHost'), 'Validation toast must render above the native edit modal');
-    h.input('name').props.onChangeText('Demo Updated');
-    await h.saveButton().props.onPress();
+  await test(`${language}: the information page shows saved rows, opens the existing editor and goes back`, () => {
+    const h = harness({ language });
+    const page = h.showPersonalInformation();
+    assert.ok(!nodes(page).some(node => /^profile-group-/.test(node.props.testID || '')));
+    assert.ok(!nodes(page).some(node => node.props.testID === 'profile-identity'));
+    const rows = nodes(page).filter(node => node.props.accessibilityRole === 'button' && node.props.accessibilityHint === h.t('editProfile'));
+    assert.equal(rows.length, 8);
+    const row = key => rows.find(node => node.props.accessibilityLabel === h.t(key));
+    assert.ok(text(row('fullName')).includes('Demo'));
+    assert.ok(text(row('bloodType')).includes('A+'));
+    const phone = nodes(page).find(node=>node.props.accessibilityLabel===h.t('phone'));
+    assert.ok(text(phone).includes(h.tc('notUpdated')));assert.equal(phone.props.disabled,true);assert.equal(phone.props.onPress,undefined);assert.ok(!nodes(phone).some(node=>node.type==='Icon'));
+    row('fullName').props.onPress(); assert.ok(h.modal());
+    assert.equal(h.modal().props.field, 'name');
+    h.modal().props.onClose();
+    nodes(h.render()).find(node => node.props.accessibilityLabel === h.tc('back')).props.onPress();
+    assert.deepEqual(h.calls.routes, ['back']);
     assert.equal(h.calls.saves.length, 0);
-    assert.equal(h.calls.toasts.at(-1)[0], h.t('bloodTypeInvalid'));
-    assert.equal(h.bloodField().props.accessibilityState.expanded, true);
-    assert.ok(h.modal()); assert.equal(h.saveButton().props.disabled, false);
-    h.selectBloodType('O+');
-    await h.saveButton().props.onPress();
-    assert.equal(h.calls.saves.length, 1); assert.equal(h.calls.saves[0].bloodType, 'O+');
-    assert.equal(h.modal(), undefined); assert.equal(h.calls.toasts.at(-1)[0], h.t('profileUpdated'));
   });
-  await test(`${language}: cancelling a blood type selection restores the saved value and closes the picker`, async () => {
-    const h = harness({ language }); h.open(); h.selectBloodType('AB-');
-    h.bloodChoices(); h.cancel(); assert.equal(h.modal(), undefined);
-    h.open(); assert.equal(h.bloodValue(), 'A+'); assert.equal(h.saveButton().props.disabled, true);
-    assert.equal(h.bloodField().props.accessibilityState.expanded, false);
-  });
-  await test(`${language}: clearing a previous blood type saves null instead of retaining the old value`, async () => {
-    const h = harness({ language, bloodType: 'B-' }); h.open(); h.selectBloodType('');
-    await h.saveButton().props.onPress(); assert.equal(h.calls.saves[0].bloodType, null);
-  });
-  await test(`${language}: blood type is selection only, with accessible choices and no extra subtitles`, async () => {
-    const h = harness({ language, multiplier: 1.6 }); h.open();
-    for (const key of ['editProfileSubtitle', 'basicInfoSubtitle', 'healthInfo', 'healthInfoSubtitle', 'bloodTypeExample']) {
-      assert.ok(!text(h.modal()).includes(h.t(key)), `${key} must not add tiny helper copy`);
-    }
-    assert.ok(!nodes(h.modal()).some(node => node.type === 'TextInput' && node.props.accessibilityLabel === h.t('bloodType')));
-    assert.ok(h.bloodField().props.style.minHeight >= 44);
-    for (const field of ['age', 'height', 'weight']) assert.ok(h.input(field).props.style.minHeight >= 44, `${field} remains aligned with the blood type selector`);
-    const choices = h.bloodChoices();
-    assert.deepEqual(choices.map(node => node.props.accessibilityLabel), ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', h.t('bloodTypeUnknown')]);
-    for (const choice of choices) {
-      assert.ok(Object.assign({}, ...choice.props.style.filter(Boolean)).minHeight >= 44);
-      assert.equal(nodes(choice).find(node => node.type === 'Text').props.numberOfLines, undefined);
-    }
-    assert.equal(choices.filter(node => node.props.accessibilityState.checked).length, 1);
-    assert.equal(nodes(h.render()).filter(node => node.type === 'Modal' && node.props.visible).length, 1);
-    assert.equal(h.saveButton().props.disabled, true, 'Opening choices is not a profile change');
+  await test(`${language}: a directly opened information page can return to Profile`, () => {
+    const h = harness({ language, personalInformation: true, canGoBack: false });
+    nodes(h.render()).find(node => node.props.accessibilityLabel === h.tc('back')).props.onPress();
+    assert.deepEqual(h.calls.routes, ['/account']);
   });
 }
-for (const bloodType of ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']) {
-  await test(`${bloodType}: a supported blood type saves`, async () => {
-    const h = harness({ bloodType: bloodType === 'A+' ? 'B+' : 'A+' }); h.open(); h.selectBloodType(bloodType);
-    assert.equal(h.bloodField().props.accessibilityState.expanded, false);
-    await h.saveButton().props.onPress(); assert.equal(h.calls.saves[0].bloodType, bloodType);
-  });
-}
-for (const [input, expected] of [[' o+ ', 'O+'], ['ab -', 'AB-'], ['o\u2212', 'O-'], ['ＡＢ＋', 'AB+']]) {
-  await test(`${JSON.stringify(input)}: harmless formatting is normalized before saving`, async () => {
-    const h = harness({ bloodType: input }); h.open();
-    assert.equal(h.bloodValue(), expected); assert.equal(h.saveButton().props.disabled, true);
-    h.input('name').props.onChangeText('Demo Updated');
-    await h.saveButton().props.onPress(); assert.equal(h.calls.saves[0].bloodType, expected);
-  });
-}
-await test('duplicate Save taps send one request and the button unlocks after an API failure', async () => {
-  let rejectSave;
-  const h = harness({ save: () => new Promise((_resolve, reject) => { rejectSave = reject; }) }); h.open(); h.selectBloodType('B+');
-  const staleHandler = h.saveButton().props.onPress;
-  const first = staleHandler(); const duplicate = staleHandler();
-  assert.equal(h.calls.saves.length, 1);
-  assert.equal(nodes(h.modal()).find(node => node.type === 'Pressable' && node.props.onPress?.name === 'handleSaveProfile').props.disabled, true);
-  assert.deepEqual(h.saveButton().props.accessibilityState, { disabled: true, busy: true });
-  assert.equal(h.bloodField().props.disabled, true);
-  rejectSave(new Error('Fixture network failure')); await Promise.all([first, duplicate]);
-  assert.equal(h.saveButton().props.disabled, false); assert.ok(h.modal());
-  assert.equal(h.calls.toasts.at(-1)[0], h.t('profileUpdateError'));
-  const retry = h.saveButton().props.onPress(); assert.equal(h.calls.saves.length, 2);
-  rejectSave(new Error('Fixture retry failure')); await retry; assert.equal(h.saveButton().props.disabled, false);
-});
-await test('phone conflicts unlock Save and never overwrite the profile', async () => {
-  const h = harness({ save: async () => { throw new ApiError(409); } }); h.open(); h.input('phone').props.onChangeText('0901234567');
-  await h.saveButton().props.onPress();
-  assert.equal(h.calls.profileWrites.length, 0); assert.equal(h.saveButton().props.disabled, false);
-  assert.ok(text(h.modal()).includes(h.t('phoneAlreadyUsed')));
-});
-for (const bloodType of ['A', 'AB', 'Z+', '0+', 'A++', '+', '🙂']) {
-  await test(`${JSON.stringify(bloodType)}: unsupported legacy values cannot be selected or sent to the API`, async () => {
-    const h = harness({ bloodType }); h.open(); h.input('name').props.onChangeText('Demo Updated');
-    await h.saveButton().props.onPress();
-    assert.equal(h.calls.saves.length, 0); assert.equal(h.saveButton().props.disabled, false);
-    assert.ok(!h.bloodChoices().some(node => node.props.accessibilityLabel === bloodType));
-    assert.equal(h.bloodField().props.accessibilityState.expanded, true);
-    h.selectBloodType(''); await h.saveButton().props.onPress();
-    assert.equal(h.calls.saves[0].bloodType, null);
-  });
-}
-await test('a legacy invalid blood type can be cleared and saved without reopening the form', async () => {
-  const h = harness({ bloodType: 'unknown' }); h.open();
-  assert.equal(h.saveButton().props.disabled, true);
-  await h.saveButton().props.onPress(); assert.equal(h.calls.saves.length, 0);
-  h.selectBloodType(''); await h.saveButton().props.onPress();
-  assert.equal(h.calls.saves[0].bloodType, null); assert.equal(h.modal(), undefined);
-});
-await test('unknown blood type is displayed clearly and selecting it again is not a change', async () => {
-  const h = harness({ bloodType: null }); h.open(); h.selectBloodType('');
-  assert.equal(h.bloodValue(), h.t('bloodTypeUnknown'));
-  assert.equal(text(h.bloodField()).trim(), h.t('bloodTypeUnknown'));
-  assert.equal(h.saveButton().props.disabled, true);
-});
-
-for (const language of ['vi', 'en']) {
-  for (const [field, changed, original] of [
-    ['name', 'Demo Updated', 'Demo'], ['phone', '0901234567', ''],
-    ['age', '41', '40'], ['height', '171', '170'], ['weight', '71', '70'],
-    ['bloodType', 'B+', 'A+'],
-  ]) {
-    await test(`${language} ${field}: Save enables for an edit and disables when it is reverted`, async () => {
-      const h = harness({ language }); h.open();
-      if (field === 'bloodType') h.selectBloodType(changed); else h.input(field).props.onChangeText(changed);
-      assert.equal(h.saveButton().props.disabled, false);
-      assert.equal(h.saveButton().props.accessibilityState.disabled, false);
-      if (field === 'bloodType') h.selectBloodType(original); else h.input(field).props.onChangeText(original);
-      assert.equal(h.saveButton().props.disabled, true);
-      await h.saveButton().props.onPress(); assert.equal(h.calls.saves.length, 0);
-    });
-  }
-  await test(`${language}: a successful save resets dirty state and reopening compares against the saved profile`, async () => {
-    const h = harness({ language }); h.open(); h.input('name').props.onChangeText('Demo Updated');
-    const previousSaveHandler = h.saveButton().props.onPress;
-    await previousSaveHandler(); assert.equal(h.calls.saves.length, 1); assert.equal(h.modal(), undefined);
-    await previousSaveHandler(); assert.equal(h.calls.saves.length, 1);
-    h.open(); assert.equal(h.input('name').props.value, 'Demo Updated'); assert.equal(h.saveButton().props.disabled, true);
-    h.input('name').props.onChangeText('Demo'); assert.equal(h.saveButton().props.disabled, false);
-    h.input('name').props.onChangeText('Demo Updated'); assert.equal(h.saveButton().props.disabled, true);
-  });
-}
-await test('gender and disease selections enable Save and disable it again when reverted', async () => {
-  const h = harness(); h.open();
-  h.selectGender('female'); assert.equal(h.saveButton().props.disabled, false);
-  h.selectGender('male'); assert.equal(h.saveButton().props.disabled, true);
-  h.toggleDisease('diseaseDiabetes'); assert.equal(h.saveButton().props.disabled, false);
-  h.toggleDisease('diseaseDiabetes'); assert.equal(h.saveButton().props.disabled, true);
-});
-await test('disease membership remains unchanged after removing and adding the same disease in a different order', async () => {
-  const h = harness({ profile: { chronicDiseases: ['Tiểu đường', 'Tăng huyết áp'] } }); h.open();
-  h.toggleDisease('diseaseDiabetes'); assert.equal(h.saveButton().props.disabled, false);
-  h.toggleDisease('diseaseDiabetes'); assert.equal(h.saveButton().props.disabled, true);
-});
-await test('equivalent whitespace, blood-type formatting, and numeric values do not activate Save', async () => {
-  const h = harness({ bloodType: ' ａ ＋ ', profile: { phone: '0901234567' } }); h.open();
-  h.selectBloodType('A+'); assert.equal(h.saveButton().props.disabled, true);
-  for (const [field, value] of [['name', ' Demo '], ['phone', ' 0901234567 '], ['age', '040'], ['height', '170.0'], ['weight', '070.00']]) {
-    h.input(field).props.onChangeText(value);
-    assert.equal(h.saveButton().props.disabled, true, `${field} formatting is not a profile change`);
-  }
-  await h.saveButton().props.onPress(); assert.equal(h.calls.saves.length, 0);
-});
-await test('rounded and missing stored values open without dirty state in dark mode', async () => {
-  const h = harness({ isDark: true, bloodType: null, profile: { name: ' Demo ', phone: null, age: null, gender: '', heightCm: 170.4, weightKg: 70.6 } }); h.open();
-  assert.equal(h.input('height').props.value, '170'); assert.equal(h.input('weight').props.value, '71');
-  assert.equal(h.saveButton().props.disabled, true);
-  assert.equal(Object.assign({}, ...h.saveButton().props.style.filter(Boolean)).backgroundColor, '#334155');
-});
-await test('background profile refresh preserves pending edits and the opening baseline', async () => {
-  const h = harness(); h.open(); h.input('name').props.onChangeText('Pending Edit');
-  h.updateProfile({ name: 'Refreshed Name', bloodType: null, avatarUrl: 'updated-avatar' });
-  assert.equal(h.input('name').props.value, 'Pending Edit'); assert.equal(h.bloodValue(), 'A+');
-  assert.equal(h.saveButton().props.disabled, false);
-  h.input('name').props.onChangeText('Demo'); assert.equal(h.saveButton().props.disabled, true);
-  const cancel = nodes(h.modal()).find(node => node.type === 'Pressable' && text(node).trim() === h.tc('cancel'));
-  cancel.props.onPress(); h.open();
-  assert.equal(h.input('name').props.value, 'Refreshed Name'); assert.equal(h.bloodValue(), h.t('bloodTypeUnknown'));
-  assert.equal(h.saveButton().props.disabled, true);
-});
-await test('avatar upload temporarily disables Save and does not discard unsaved form edits', async () => {
+await test('the header camera uploads once, updates the avatar and leaves the editor closed', async () => {
   let resolveUpload;
-  const h = harness({ uploadAvatar: () => new Promise(resolve => { resolveUpload = resolve; }) }); h.open();
-  h.input('name').props.onChangeText('Pending Edit');
-  const upload = h.avatarButton().props.onPress();
+  const h = harness({ uploadAvatar: () => new Promise(resolve => { resolveUpload = resolve; }) });
+  const identity = () => nodes(h.render()).find(node => node.props.testID === 'profile-identity');
+  const camera = () => nodes(identity()).find(node => node.props.accessibilityLabel === h.t('uploadPhoto'));
+  const upload = camera().props.onPress();
+  const duplicate = camera().props.onPress();
   await Promise.resolve(); await Promise.resolve();
-  assert.equal(h.calls.uploads.length, 1); assert.equal(h.saveButton().props.disabled, true);
-  await h.saveButton().props.onPress(); assert.equal(h.calls.saves.length, 0);
-  resolveUpload({ id: 'profile-fixture', name: 'Demo', phone: '', age: 40, gender: 'Nam', heightCm: 170, weightKg: 70, bloodType: 'A+', chronicDiseases: [], avatarUrl: 'updated-avatar' });
-  await upload;
-  assert.equal(h.input('name').props.value, 'Pending Edit'); assert.equal(h.saveButton().props.disabled, false);
-  h.input('name').props.onChangeText('Demo'); assert.equal(h.saveButton().props.disabled, true);
-});
-for (const [field, value, message] of [['name', ' ', 'nameRequired'], ['age', '151', 'ageValid'], ['height', '0', 'heightPositive'], ['weight', '-1', 'weightPositive']]) {
-  await test(`${field}: invalid dirty input retains validation feedback without sending an update`, async () => {
-    const h = harness(); h.open(); h.input(field).props.onChangeText(value);
-    assert.equal(h.saveButton().props.disabled, false);
-    await h.saveButton().props.onPress(); assert.equal(h.calls.saves.length, 0);
-    assert.equal(h.calls.toasts.at(-1)[0], h.t(message)); assert.ok(h.modal());
-    assert.equal(h.saveButton().props.disabled, false);
-  });
-}
-
-for (const language of ['vi', 'en']) {
-  await test(`${language}: chronic conditions open inline without a second native modal or premature API write`, async () => {
-    const h = harness({ language, multiplier: 1.6 }); h.open(); h.openDiseasePicker();
-    assert.equal(nodes(h.render()).filter(node => node.type === 'Modal' && node.props.visible).length, 1);
-    assert.equal(h.saveButton().props.disabled, true);
-    assert.equal(h.calls.saves.length, 0);
-    const options = nodes(h.modal()).filter(node => node.props.accessibilityRole === 'checkbox');
-    assert.equal(options.length, 8);
-    for (const option of options) {
-      assert.ok(Object.assign({}, ...option.props.style.filter(Boolean)).minHeight >= 44);
-      assert.equal(option.props.accessibilityState.checked, false);
-    }
-    h.toggleDisease('diseaseDiabetes');
-    assert.equal(h.diseaseChoice('diseaseDiabetes').props.accessibilityState.checked, true);
-    assert.ok(text(h.modal()).includes(h.t('diseaseDiabetes')));
-    assert.equal(h.saveButton().props.disabled, false);
-    assert.equal(h.calls.saves.length, 0, 'Only the profile Save button persists choices');
-  });
-  await test(`${language}: selected and custom conditions persist in the profile payload and survive reopening`, async () => {
-    const h = harness({ language }); h.open();
-    h.toggleDisease('diseaseDiabetes'); h.toggleDisease('diseaseAsthma');
-    h.addDisease('  Viêm khớp  ');
-    assert.equal(h.customInput().props.value, '');
-    assert.equal(h.addDiseaseButton().props.disabled, true);
-    assert.equal(h.diseaseChoice('Viêm khớp').props.accessibilityState.checked, true);
-    await h.saveButton().props.onPress();
-    assert.deepEqual(h.calls.saves[0].chronicDiseases, ['Tiểu đường', 'Hen suyễn', 'Viêm khớp']);
-    assert.equal(h.calls.saves[0].bloodType, 'A+');
-    assert.equal(h.modal(), undefined); h.open();
-    assert.equal(h.saveButton().props.disabled, true);
-    for (const key of ['diseaseDiabetes', 'diseaseAsthma', 'Viêm khớp']) {
-      assert.equal(h.diseaseChoice(key).props.accessibilityState.checked, true);
-    }
-    assert.equal(h.saveButton().props.disabled, true);
-  });
-  await test(`${language}: removing all known and custom conditions explicitly saves an empty array`, async () => {
-    const h = harness({ language, profile: { chronicDiseases: ['Tiểu đường', 'Viêm khớp'] } }); h.open();
-    h.toggleDisease('diseaseDiabetes'); h.toggleDisease('Viêm khớp');
-    assert.equal(h.diseaseChoice('Viêm khớp').props.accessibilityState.checked, false, 'Removed custom choices remain available until closing');
-    assert.equal(h.saveButton().props.disabled, false);
-    await h.saveButton().props.onPress();
-    assert.deepEqual(h.calls.saves[0].chronicDiseases, []);
-    h.open(); assert.ok(text(h.modal()).includes(h.t('noChronicDiseases')));
-    assert.equal(h.saveButton().props.disabled, true);
-    assert.equal(h.diseaseChoice('diseaseDiabetes').props.accessibilityState.checked, false);
-    assert.equal(h.diseaseChoice('Viêm khớp'), undefined);
-  });
-  await test(`${language}: cancelling condition changes discards custom choices and keeps the saved profile`, async () => {
-    const h = harness({ language, profile: { chronicDiseases: ['Tiểu đường'] } }); h.open();
-    h.toggleDisease('diseaseDiabetes'); h.addDisease('Viêm khớp'); h.cancel(); h.open();
-    assert.equal(h.diseaseChoice('diseaseDiabetes').props.accessibilityState.checked, true);
-    assert.equal(h.diseaseChoice('Viêm khớp'), undefined);
-    assert.equal(h.saveButton().props.disabled, true);
-    assert.equal(h.calls.saves.length, 0);
-  });
-  await test(`${language}: removing and reselecting an existing custom condition restores unchanged state`, async () => {
-    const h = harness({ language, profile: { chronicDiseases: ['Viêm khớp'] } }); h.open();
-    h.toggleDisease('Viêm khớp'); assert.equal(h.saveButton().props.disabled, false);
-    h.toggleDisease('Viêm khớp'); assert.equal(h.saveButton().props.disabled, true);
-  });
-}
-await test('all built-in conditions persist with canonical API values regardless of UI language', async () => {
-  const h = harness({ language: 'en' }); h.open();
-  for (const key of ['diseaseDiabetes', 'diseaseHypertension', 'diseaseHeart', 'diseaseCholesterol', 'diseaseGout', 'diseaseAsthma', 'diseaseStomach', 'diseaseFattyLiver']) h.toggleDisease(key);
-  await h.saveButton().props.onPress();
-  assert.deepEqual(h.calls.saves[0].chronicDiseases, ['Tiểu đường', 'Cao huyết áp', 'Tim mạch', 'Mỡ máu', 'Gút (Gout)', 'Hen suyễn', 'Dạ dày', 'Gan nhiễm mỡ']);
-});
-await test('blank and duplicate custom condition entries do not activate Save', async () => {
-  const h = harness({ profile: { chronicDiseases: ['Tiểu đường'] } }); h.open();
-  assert.equal(h.addDiseaseButton().props.disabled, true);
-  h.addDisease('  '); assert.equal(h.saveButton().props.disabled, true);
-  h.addDisease('  Tiểu đường  '); assert.equal(h.saveButton().props.disabled, true);
-  assert.equal(nodes(h.modal()).filter(node => node.props.accessibilityRole === 'checkbox' && node.props.accessibilityLabel === h.t('diseaseDiabetes')).length, 1);
-});
-await test('comma-separated custom conditions have unique, individually removable options', async () => {
-  const h = harness(); h.open(); h.addDisease('Viêm khớp, Thiếu máu, Viêm khớp');
-  assert.equal(h.diseaseChoice('Viêm khớp').props.accessibilityState.checked, true);
-  assert.equal(h.diseaseChoice('Thiếu máu').props.accessibilityState.checked, true);
-  h.toggleDisease('Viêm khớp');
-  await h.saveButton().props.onPress(); assert.deepEqual(h.calls.saves[0].chronicDiseases, ['Thiếu máu']);
-});
-await test('condition controls are disabled during saving and API failure retains choices for retry', async () => {
-  let rejectSave;
-  const h = harness({ save: () => new Promise((_resolve, reject) => { rejectSave = reject; }) }); h.open();
-  h.toggleDisease('diseaseDiabetes'); h.customInput().props.onChangeText('Viêm khớp');
-  const first = h.saveButton().props.onPress();
-  assert.equal(h.diseaseChoice('diseaseDiabetes').props.disabled, true);
-  assert.equal(h.customInput().props.editable, false); assert.equal(h.addDiseaseButton().props.disabled, true);
-  rejectSave(new Error('Fixture failure')); await first;
-  assert.equal(h.diseaseChoice('diseaseDiabetes').props.accessibilityState.checked, true);
-  assert.equal(h.diseaseChoice('diseaseDiabetes').props.disabled, false);
-  assert.equal(h.customInput().props.value, 'Viêm khớp');
-  assert.equal(h.saveButton().props.disabled, false);
-  assert.deepEqual(h.calls.saves[0].chronicDiseases, ['Tiểu đường']);
+  assert.equal(h.calls.uploads.length, 1);
+  assert.equal(camera().props.disabled, true);
+  assert.equal(camera().props.accessibilityState.busy, true);
+  assert.equal(h.modal(), undefined);
+  resolveUpload({ id: 'profile-fixture', name: 'Demo', avatarUrl: 'header-avatar' });
+  await Promise.all([upload, duplicate]);
+  assert.ok(nodes(identity()).some(node => node.type === 'Image' && node.props.source.uri === 'header-avatar'));
+  assert.equal(camera().props.disabled, false);
+  assert.equal(h.calls.saves.length, 0, 'Changing the avatar cannot submit the profile form');
 });
 
 function toastHarness() {
@@ -915,7 +540,7 @@ await test('an old modal toast timeout cannot hide a newer toast', async () => {
   h.unmount('profile');
 });
 // Run the actual profile logout callback against the persistent toast host.
-const profileAst = ts.createSourceFile('profile.tsx', read('app/(tabs)/profile/index.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const profileAst = ts.createSourceFile('profile.tsx', read('src/features/profile/ProfileScreen.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 let logoutCallback;
 function findLogout(node) {
   if (ts.isVariableDeclaration(node) && node.name.getText(profileAst) === 'handleLogout') logoutCallback = node.initializer.arguments[0].getText(profileAst);
@@ -976,4 +601,6 @@ await test('an incomplete logout cannot show success or navigate to Login', asyn
   assert.deepEqual(routes, []);
 });
 
+await test('the Other gender choice is retained on the personal information page',()=>{const h=harness({personalInformation:true,profile:{gender:'Khác'}});assert.ok(text(h.render()).includes(h.t('genderOther')));});
+await test('saved measurements hide decimal zeroes and retain meaningful decimal values',()=>{const h=harness({personalInformation:true,profile:{heightCm:'176.00',weightKg:'75.00'}});const page=h.render();assert.ok(text(page).includes('176 cm'));assert.ok(text(page).includes('75 kg'));assert.ok(!text(page).includes('176.00'));h.updateProfile({weightKg:'75.50'});assert.ok(text(h.render()).includes('75.5 kg'));});
 console.log(`Profile editing: ${checks} runtime regressions passed.`);

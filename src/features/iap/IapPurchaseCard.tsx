@@ -25,6 +25,8 @@ const PLAN_ORDER = ["antam_2", "antam_4", "antam_8"] as const;
 const SUPPORTED_PLAN_CODES = new Set<string>(PLAN_ORDER);
 
 type Props = {
+  initialPlanCode?: string;
+  initialBillingPeriod?: "monthly" | "yearly";
   currentPlanCode?: string;
   currentBillingPeriod?: "monthly" | "yearly" | null;
   disabled?: boolean;
@@ -39,6 +41,8 @@ const formatVnd = (value: number, language: string) =>
   }).format(value);
 
 export function IapPurchaseCard({
+  initialPlanCode,
+  initialBillingPeriod,
   currentPlanCode = "free",
   currentBillingPeriod,
   disabled = false,
@@ -55,11 +59,11 @@ export function IapPurchaseCard({
   const [products, setProducts] = useState<LocalProduct[]>(() => [
     ...FALLBACK_IAP_PRODUCTS,
   ]);
-  const [period, setPeriod] = useState<"monthly" | "yearly">(() => currentBillingPeriod ?? "yearly");
+  const [period, setPeriod] = useState<"monthly" | "yearly">(() => initialBillingPeriod ?? currentBillingPeriod ?? "yearly");
   const [selectedPlan, setSelectedPlan] = useState(() =>
-    SUPPORTED_PLAN_CODES.has(currentPlanCode) ? currentPlanCode : "antam_4"
+    initialPlanCode && SUPPORTED_PLAN_CODES.has(initialPlanCode) ? initialPlanCode : SUPPORTED_PLAN_CODES.has(currentPlanCode) ? currentPlanCode : "antam_4"
   );
-  const selectionTouched = useRef(false);
+  const selectionTouched = useRef(Boolean(initialPlanCode || initialBillingPeriod));
   const purchaseInFlight = useRef(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);

@@ -23,7 +23,7 @@ function HealthTreeOverviewContent() {
   const insets = useSafeAreaInsets();
 
   return (
-    <Screen style={{ backgroundColor: isDark ? colors.background : '#F2F7F4' }}>
+    <Screen style={{ backgroundColor: isDark ? colors.background : '#E7F2ED' }}>
       <RippleRefreshScrollView
         refreshing={refreshing}
         onRefresh={refresh}

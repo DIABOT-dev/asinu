@@ -45,7 +45,7 @@ const flush = async () => {
 };
 
 function featureGridHarness({ language = 'vi', width = 393, multiplier = 1, fontScale = 1,
-  medicationEnabled = true, coinsEnabled = true } = {}) {
+  medicationEnabled = true, coinsEnabled = true, expertEnabled = true, assistantPermissions } = {}) {
   const pushes = [], catalog = JSON.parse(read(`src/i18n/locales/${language}/home.json`)).quickActions;
   let cursor = 0;
   const slots = [], pending = [], scrolls = [];
@@ -84,11 +84,23 @@ function featureGridHarness({ language = 'vi', width = 393, multiplier = 1, font
       const label = catalog[key.split('.')[1]]; assert.ok(label, `${language}/${key}`);
       return label.replace(/\{\{(\w+)\}\}/g, (_, name) => values[name]);
     } }) },
-    '../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => pushes.push(route) }) },
+    'expo-router': { useLocalSearchParams: () => ({ assistant_permissions: assistantPermissions }), useFocusEffect: () => {} },
+    '../lib/appEnv': { isExpertConsultationEnabled: expertEnabled },
+    '../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => pushes.push(route), setParams: () => { assistantPermissions = ''; } }) },
     '../hooks/useThemeColors': { useThemeColors: () => ({ colors: palette, isDark: false }) },
     '../stores/font-size.store': { useFontSizeStore: select => select({ multiplier }) },
     '../features/v21/HealthCoinIcon': { HealthCoinIcon: 'GoldCoin' },
     '../features/profile/AppPermissionsModal': { AppPermissionsModal: 'PermissionModal' },
+    '../features/profile/ReminderSettingsEntry': { ReminderSettingsEntry: ({ variant, style }) => {
+      assert.equal(variant, 'tile');
+      return jsx(QuickActionTile, {
+        testID: 'home-feature-reminderSchedule',
+        label: JSON.parse(read(`src/i18n/locales/${language}/profile.json`)).reminderSchedule,
+        style,
+        icon: jsx('Icon', { name: 'alarm-outline' }),
+        onPress: () => {}, // Access and navigation are exercised in check-ui-feature-state.mjs.
+      });
+    } },
   });
   const render = () => {
     cursor = 0;
@@ -107,17 +119,21 @@ function featureGridHarness({ language = 'vi', width = 393, multiplier = 1, font
 }
 
 for (const language of ['vi', 'en']) {
-  await test(`${language}: Home shortcuts expose the real destinations with labels and a gold coin`, () => {
+  await test(`${language}: Action groups expose the real destinations with labels and a gold coin`, () => {
     const h = featureGridHarness({ language }), tree = h.render(), nodes = h.nodes(tree);
     const buttons = h.tiles();
-    assert.equal(buttons.length, 10);
+    assert.equal(buttons.length, 16);
+    assert.equal(buttons[0].props.testID, 'home-feature-healthHistory');
     for (const button of buttons) {
       assert.equal(button.props.accessibilityRole, 'button'); assert.ok(button.props.accessibilityLabel);
       assert.ok(flatten(button.props.style({ pressed: false })).minHeight >= 44);
       button.props.onPress();
     }
-    assert.deepEqual(h.pushes, ['/medication', '/logs', '/checkin-call/settings', '/checkin-call/voice-settings', '/care-circle',
-      '/(tabs)/missions', '/coins', '/checkin-rewards', '/checkin-rewards/history']);
+    assert.deepEqual(h.pushes, ['/(tabs)/tree', '/medication', '/logs', '/doctor-consultation', '/doctor-consultation-history', '/privacy-center', '/doctor-care', '/care-circle', '/checkin-call/settings', '/checkin-call/voice-settings',
+      '/(tabs)/missions', '/coins', '/coins/redeem', '/checkin-rewards/history']);
+    const shop = buttons.find(node => node.props.testID === 'home-feature-coinShop');
+    assert.equal(shop.props.accessibilityLabel, language === 'vi' ? 'Đổi xu' : 'Coin shop');
+    assert.ok(h.nodes(shop).some(node => node.type === 'Icon' && node.props.name === 'storefront-outline'));
     const dialog = h.nodes(h.render()).find(node => node.type === 'PermissionModal');
     assert.equal(dialog.props.visible, true);
     dialog.props.onClose();
@@ -126,15 +142,21 @@ for (const language of ['vi', 'en']) {
     assert.ok(nodes.filter(node => node.type === 'Text').every(node => node.props.allowFontScaling && !node.props.numberOfLines));
     assert.ok(nodes.filter(node => node.type === 'Image').every(node => node.props.accessible === false));
   });
-  await test(`${language}: disabled medication and coin features have no Home shortcuts`, () => {
+  await test(`${language}: disabled medication and coin features have no Action groups`, () => {
     const h = featureGridHarness({ language, medicationEnabled: false, coinsEnabled: false });
     const ids = h.tiles().map(node => node.props.testID);
-    assert.equal(ids.length, 8); assert.ok(!ids.includes('home-feature-medication')); assert.ok(!ids.includes('home-feature-coins'));
+    assert.equal(ids.length, 13);
+    for (const id of ['medication', 'coins', 'coinShop', 'dailyGift']) {
+      assert.ok(!ids.includes(`home-feature-${id}`));
+    }
+    assert.ok(ids.includes('home-feature-giftHistory'));
+    assert.equal(ids[0], 'home-feature-healthHistory');
+    assert.ok(ids.includes('home-feature-expert'));
   });
 }
 for (const [width, multiplier, fontScale, columns] of [[393, 1, 1, 4], [430, 1, 1, 4],
   [320, 1, 1, 3], [393, 1.25, 1, 3], [393, 1.25, 1.4, 2]]) {
-  await test(`Home shortcuts fit ${width}px with app font ${multiplier} and system font ${fontScale}`, () => {
+  await test(`Action groups fit ${width}px with app font ${multiplier} and system font ${fontScale}`, () => {
     const h = featureGridHarness({ width, multiplier, fontScale });
     let tree = h.render(); tree.props.onLayout({ nativeEvent: { layout: { width: width - 32 } } }); tree = h.render();
     const button = h.nodes(tree).find(node => node.type === 'Pressable');
@@ -143,48 +165,154 @@ for (const [width, multiplier, fontScale, columns] of [[393, 1, 1, 4], [430, 1, 
   });
 }
 
-for (const [width, multiplier, expected] of [[393, 1, [8, 2]], [320, 1, [6, 4]], [393, 1.6, [4, 4, 2]]]) {
-  await test(`Home shortcuts paginate at ${width}px/font ${multiplier} and expose only the active page to accessibility`, () => {
-    const h = featureGridHarness({ width, multiplier });
-    const nodes = h.nodes(h.render());
-    const scroller = nodes.find(node => node.props?.testID === 'home-feature-pages');
-    assert.equal(scroller.props.pagingEnabled, true); assert.equal(scroller.props.horizontal, true);
-    assert.deepEqual(scroller.props.children.map(page => page.props.children.length), expected);
-    assert.equal(scroller.props.children[0].props.accessibilityElementsHidden, false);
-    assert.ok(scroller.props.children.slice(1).every(page => page.props.importantForAccessibility === 'no-hide-descendants'));
-    scroller.props.onMomentumScrollEnd({ nativeEvent: { contentOffset: { x: width - 32 } } });
-    const afterSwipe = h.nodes(h.render());
-    assert.equal(afterSwipe.find(node => node.props?.testID === 'home-feature-page-1').props.accessibilityState.selected, true);
-    assert.equal(afterSwipe.find(node => node.props?.testID === 'home-feature-pages').props.children[1].props.accessibilityElementsHidden, false);
-    afterSwipe.find(node => node.props?.testID === 'home-feature-page-0').props.onPress();
-    assert.deepEqual(h.scrolls.at(-1), { x: 0, animated: false });
-    assert.equal(h.nodes(h.render()).find(node => node.props?.testID === 'home-feature-page-0').props.accessibilityState.selected, true);
+await test('consultation history, data and care plans follow the consultation kill-switch', () => {
+  const h = featureGridHarness({ expertEnabled: false });
+  const ids = h.tiles().map(node => node.props.testID);
+  for (const id of ['expert', 'consultationHistory', 'consultationData', 'carePlan']) assert.ok(!ids.includes(`home-feature-${id}`));
+  assert.ok(ids.includes('home-feature-family'));
+});
+
+for (const [width, multiplier] of [[393, 1], [320, 1], [393, 1.6]]) {
+  await test(`Action groups at ${width}px/font ${multiplier} expose every feature without hidden horizontal pages`, () => {
+    const h = featureGridHarness({ width, multiplier }), nodes = h.nodes(h.render());
+    assert.ok(!nodes.some(n => n.type === 'ScrollView'));
+    const groups = nodes.filter(n => n.props?.testID?.startsWith('operations-group-'));
+    assert.deepEqual(groups.map(n => n.props.testID), ['operations-group-health', 'operations-group-consultation', 'operations-group-connections', 'operations-group-rewards']);
+    assert.deepEqual(groups.map(g => h.nodes(g).filter(n => n.type === 'Pressable').length), [4, 4, 4, 4]);
+    assert.equal(h.tiles().length, 16);
   });
 }
-await test('changing screen width resets a paged shortcut grid to a valid position', () => {
-  const h = featureGridHarness();
-  h.nodes(h.render()).find(node => node.props?.testID === 'home-feature-page-1').props.onPress();
-  h.viewport.width = 430;
-  h.render().props.onLayout({ nativeEvent: { layout: { width: 398 } } });
-  h.render();
-  const nodes = h.nodes(h.render());
-  assert.equal(nodes.find(node => node.props?.testID === 'home-feature-page-0').props.accessibilityState.selected, true);
-  assert.deepEqual(h.scrolls.at(-1), { x: 0, animated: false });
+await test('a disabled consultation feature removes the entire empty group', () => {
+  const h = featureGridHarness({ expertEnabled: false });
+  assert.ok(!h.nodes(h.render()).some(n => n.props?.testID === 'operations-group-consultation'));
 });
-await test('a single shortcut page has neither page controls nor horizontal scrolling', () => {
+await test('expert consultation shows an unframed portrait and opens the consultation screen', () => {
   const h = featureGridHarness({ medicationEnabled: false, coinsEnabled: false });
-  const nodes = h.nodes(h.render());
-  assert.equal(nodes.find(node => node.props?.testID === 'home-feature-pages').props.scrollEnabled, false);
-  assert.equal(nodes.some(node => node.props?.testID?.startsWith('home-feature-page-')), false);
+  const group = h.nodes(h.render()).find(n => n.props?.testID === 'operations-group-consultation');
+  const nodes = h.nodes(group);
+  const expert = nodes.find(n => n.props?.testID === 'home-feature-expert');
+  const portrait = h.nodes(expert).find(n => n.type === 'Image');
+  assert.ok(portrait.props.source.endsWith('expert-consultation-cutout.png'));
+  const frameStyle = (tile) => flatten(tile.props.children({ pressed: false }).props.children[0].props.style);
+  assert.equal(frameStyle(expert).borderWidth, undefined);
+  assert.equal(frameStyle(expert).backgroundColor, undefined);
+  assert.equal(frameStyle(expert).elevation, undefined);
+  assert.equal(frameStyle(nodes.find(n => n.props?.testID === 'home-feature-consultationHistory')).borderWidth, 1);
+  expert.props.onPress();
+  assert.equal(h.pushes.at(-1), '/doctor-consultation');
+});
+
+await test('assistant permissions deep link opens the relocated permissions modal once', () => {
+  const h = featureGridHarness({ assistantPermissions: '1' });
+  h.render();
+  const modal = h.nodes(h.render()).find(n => n.type === 'PermissionModal');
+  assert.equal(modal.props.visible, true);
+  modal.props.onClose();
+  assert.equal(h.nodes(h.render()).find(n => n.type === 'PermissionModal').props.visible, false);
+});
+await test('Home avatar opens standalone settings and a failed photo falls back to the current account initial', () => {
+  const source = read('src/components/HomeProfileAvatar.tsx');
+  let failedAvatar = null;
+  const pushes = [];
+  const { HomeProfileAvatar } = evaluate(source, {
+    react: { useState: () => [failedAvatar, value => { failedAvatar = value; }] },
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    'react-native': { Image: 'Image', Pressable: 'Pressable', StyleSheet: { create: value => value } },
+    'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    '../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => pushes.push(route) }) },
+    '../hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
+    './ScaledText': { ScaledText: 'Text' }, '../assets/tab-icons/profile.png': 'default-avatar',
+  });
+  const profile = { id: 'A', name: 'Anh Đức', avatarUrl: 'avatar-a' };
+  let tree = HomeProfileAvatar({ profile });
+  assert.equal(tree.props.children.props.source.uri, 'avatar-a');
+  assert.equal(flatten(tree.props.style({ pressed: false })).width, 48);
+  tree.props.onPress(); assert.deepEqual(pushes, ['/account']);
+  tree.props.children.props.onError();
+  tree = HomeProfileAvatar({ profile });
+  assert.equal(tree.props.children.props.children, 'Đ');
+  const other = HomeProfileAvatar({ profile: { id: 'B', name: 'Lan', avatarUrl: 'avatar-b' } });
+  assert.equal(other.props.children.props.source.uri, 'avatar-b');
+  assert.equal(HomeProfileAvatar({ profile: { id: 'C', name: '' } }).props.children.props.source, 'default-avatar');
+  const home = read('app/(tabs)/home/index.tsx');
+  assert.ok(home.includes('<HomeProfileAvatar profile={profile} />'));
+  assert.ok(!home.includes('<HomeFeatureGrid'));
+  assert.ok(read('src/features/operations/OperationsScreen.tsx').includes('<HomeFeatureGrid {...access} />'));
+});
+await test('legacy profile links, assistant destinations and protected standalone settings remain reachable', () => {
+  const routes = evaluate(read('src/features/app-assistant/assistant-navigation.ts'), {});
+  assert.equal(routes.assistantRoute('profile'), '/account');
+  assert.equal(routes.assistantRoute('app_permissions'), '/operations?assistant_permissions=1');
+  const legacy = evaluate(read('app/(tabs)/profile/index.tsx'), {
+    'react/jsx-runtime': { jsx }, 'expo-router': { Redirect: 'Redirect' },
+  });
+  assert.equal(legacy.default().props.href, '/account');
+  for (const allowed of [false, true]) {
+    const account = evaluate(read('app/account.tsx'), {
+      'react/jsx-runtime': { jsx },
+      '../src/features/profile/ProfileScreen': { __esModule: true, default: 'ProfileScreen' },
+      '../src/features/auth/useOnboardingGate': { useOnboardingGate: () => allowed },
+    });
+    assert.equal(account.default()?.props.standalone ?? null, allowed ? true : null);
+  }
+});
+await test('shared back button has the circular contrast and touch size from the reference', () => {
+  let backs = 0;
+  const { ScreenBackButton } = evaluate(read('src/components/ScreenHeaderButton.tsx'), {
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    'react-native': { Pressable: 'Pressable', StyleSheet: { create: value => value } },
+    '@expo/vector-icons': { Ionicons: 'Icon' }, 'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    '../styles': { colors: {} }, './ScaledText': { ScaledText: 'Text' }, '../../assets/asinu_chat_sticker.png': 'mascot',
+  });
+  const back = ScreenBackButton({ onPress: () => { backs++; } });
+  const style = flatten(back.props.style({ pressed: false }));
+  assert.equal(style.width, 44); assert.equal(style.height, 44);
+  assert.ok(style.borderRadius >= 22); assert.equal(style.backgroundColor, '#71817E');
+  assert.equal(back.props.children.props.color, '#F4FFFC');
+  assert.equal(back.props.accessibilityLabel, 'back');
+  back.props.onPress(); assert.equal(backs, 1);
+});
+
+await test('health history leaves the bottom bar and stays available through its existing route', () => {
+  const source = read('app/(tabs)/_layout.tsx');
+  const assets = Object.fromEntries([...source.matchAll(/require\('([^']+)'\)/g)].map(match => [match[1], match[1]]));
+  const loading = [];
+  const Tabs = Object.assign(() => null, { Screen: 'TabScreen' });
+  const { default: TabsLayout } = evaluate(source, {
+    ...assets,
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    react: { useCallback: fn => fn, useMemo: fn => fn(), useEffect: () => {},
+      useState: () => [['home-loaded', 'connect-loaded', 'profile-loaded', null], () => {}] },
+    'expo-asset': { Asset: {} },
+    'expo-router': { Tabs },
+    'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    'react-native': { Image: 'Image', StyleSheet: { create: value => value }, useWindowDimensions: () => ({ width: 393, fontScale: 1 }), View: 'View' },
+    'react-native-reanimated': {},
+    'react-native-safe-area-context': { useSafeAreaInsets: () => ({ bottom: 0 }) },
+    '../../src/hooks/useInitialLoadingGate': { useInitialLoadingGate: ready => { loading.push(ready); return !ready; } },
+    '../../src/hooks/useScaledTypography': { useScaledFontSize: size => size },
+    '../../src/hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
+    '../../src/styles': { bottomTabBar: { horizontalInset: 16, maxWidth: 600, contentHeight: 60, verticalPadding: 8, minimumBottomPadding: 8 } },
+    '../../src/features/auth/useOnboardingGate': { useOnboardingGate: () => true },
+  });
+  const tabs = TabsLayout();
+  assert.equal(tabs.props.screenOptions.tabBarShowLabel, true);
+  assert.equal(tabs.props.screenOptions.tabBarLabelPosition, 'below-icon');
+  const screens = tabs.props.children.filter(child => child?.type === 'TabScreen');
+  assert.deepEqual(screens.filter(screen => screen.props.options.href !== null).map(screen => [screen.props.name, screen.props.options.title]),
+    [['home/index', 'tabHome'], ['care-circle/index', 'tabConnect'], ['operations/index', 'tabActions']]);
+  assert.equal(screens.find(screen => screen.props.name === 'tree/index').props.options.href, null);
+  assert.ok(fs.existsSync('app/(tabs)/tree/index.tsx'));
+  assert.deepEqual(loading, [true], 'Hidden tabs do not delay the three visible icons');
 });
 
 function permissionModalHarness({ language = 'vi', platform = 'ios', request } = {}) {
-  const catalogs = Object.fromEntries(['settings', 'common', 'checkinCall'].map(name =>
+  const catalogs = Object.fromEntries(['settings', 'common', 'checkinCall', 'profile'].map(name =>
     [name, JSON.parse(read(`src/i18n/locales/${language}/${name}.json`))]));
   const translate = (namespace, key) => key.split('.').reduce((value, part) => value?.[part], catalogs[namespace]);
-  const calls = { requests: [], close: 0, native: 0, nativeReads: 0, nativeOff: 0 };
+  const calls = { requests: [], close: 0, native: 0, nativeReads: 0, nativeOff: 0, toasts: [] };
   const auth = { token: 'account-a' };
-  let cursor = 0, visible = true, focusCleanup;
+  let cursor = 0, visible = true, focusCleanup, lastTree;
   const slots = [], effects = [];
   const states = Object.fromEntries(['notifications', 'microphone', 'photos'].map(kind => [kind, {
     permission: { granted: kind === 'microphone', canAskAgain: true, accessPrivileges: kind === 'photos' ? 'limited' : 'all' },
@@ -194,6 +322,7 @@ function permissionModalHarness({ language = 'vi', platform = 'ios', request } =
       calls.requests.push(kind);
       if (request) await request();
       states[kind].permission.granted = value;
+      return states[kind].permission;
     },
   }]));
   const hooks = {
@@ -209,6 +338,12 @@ function permissionModalHarness({ language = 'vi', platform = 'ios', request } =
     },
   };
   let nativeAccess = { notifications: true, channels: true, fullScreen: false };
+  const data = { ai: false, feed: false, busy: false, prompt: null, refresh: async () => {},
+    change: (kind, value) => { data.prompt = value ? kind : null; },
+    cancel: () => { data.prompt = null; }, agreeAi: () => { data.ai = true; data.prompt = null; },
+    agreeFeed: () => { data.feed = true; data.prompt = null; } };
+  const camera = { granted: false };
+
   const { AppPermissionsModal } = evaluate(read('src/features/profile/AppPermissionsModal.tsx'), {
     react: hooks, 'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': { Platform: { OS: platform }, AppState: { addEventListener: () => ({ remove() {} }) },
@@ -220,28 +355,36 @@ function permissionModalHarness({ language = 'vi', platform = 'ios', request } =
     '../../components/ScaledText': { ScaledText: 'Text' },
     '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {}, isDark: false }) },
     'expo-router': { useFocusEffect: work => { focusCleanup ??= work(); } },
-    'react-i18next': { useTranslation: namespace => ({ t: key => {
-      const value = translate(namespace, key); assert.equal(typeof value, 'string', `${namespace}/${key}`); return value;
+    'react-i18next': { useTranslation: namespace => ({ t: (key, args = {}) => {
+      const value = translate(namespace, key); assert.equal(typeof value, 'string', `${namespace}/${key}`); return value.replace(/\{\{(\w+)\}\}/g, (_, k) => args[k] ?? '');
     } }) },
     './useDevicePermission': { useDevicePermission: kind => states[kind] },
-    '../care-circle/useQrCameraPermission': { useQrCameraPermission: () => ({ permission: { granted: false }, pending: false,
-      change: async () => { calls.requests.push('camera'); } }) },
+    '../care-circle/useQrCameraPermission': { useQrCameraPermission: () => ({ permission: camera, pending: false,
+      change: async value => { calls.requests.push('camera'); camera.granted = value; return camera; } }) },
     '../auth/auth.store': { useAuthStore: Object.assign(select => select(auth), { getState: () => auth }) },
     '../../lib/android-checkin-call': { getAndroidCallPermissions: async () => { calls.nativeReads++; return nativeAccess; },
       openAndroidCallSettings: async () => { calls.nativeOff++; nativeAccess = { ...nativeAccess, fullScreen: false }; return true; } },
     '../../lib/android-call-access': { requestAndroidCallAccess: async () => {
       calls.native++; nativeAccess = { notifications: true, channels: true, fullScreen: true }; return true;
     } },
-    '../../stores/toast.store': { showToast: () => assert.fail('No error toast expected') },
+    '../../stores/toast.store': { showToast: (...args) => calls.toasts.push(args) },
+    '../../components/AiDataConsentModal': { AiDataConsentModal: 'AiConsent' },
+    './useDataReminderPermissions': { useDataReminderPermissions: () => data },
+    './useTaskReminderPreference': { useTaskReminderPreference: () => ({ enabled: false, available: true, loading: false,
+      pending: false, failed: false, change: async () => {}, refresh: () => {} }) },
+    './useSpecialistSharingPermission': { useSpecialistSharingPermission: () => ({ decision: null }) },
+    './SpecialistSharingPermission': { SpecialistSharingDialog: 'SharingDialog' },
+    '../../lib/appEnv': { isDoctorFeaturesEnabled: false },
   });
   const onClose = () => { calls.close++; visible = false; };
   const render = () => { cursor = 0; const tree = AppPermissionsModal({ visible, onClose });
-    effects.splice(0).forEach(work => work()); return tree;
+    lastTree = tree;
+    effects.splice(0).forEach(work => work()); return nodes(tree).find(node => node.type === 'QueuedPermissionDialog');
   };
   const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes)
     : [tree, ...nodes(tree.props?.children)];
   const switches = () => nodes(render()).filter(node => node.type === 'Switch');
-  return { calls, states, auth, render, translate, switches,
+  return { calls, states, auth, data, render, translate, switches, dialogs: () => nodes(lastTree),
     settle: async () => { render(); await flush(); return render(); },
     blur: () => focusCleanup(),
     change: async (index, enabled = true) => { switches()[index].props.onValueChange(enabled); await render().props.onDismiss(); },
@@ -251,7 +394,7 @@ for (const language of ['vi', 'en']) {
   await test(`${language}: permission switches show actual OS states and opening never requests access`, async () => {
     const h = permissionModalHarness({ language }), dialog = await h.settle();
     assert.equal(dialog.type, 'QueuedPermissionDialog');
-    assert.equal(h.switches().length, 4);
+    assert.equal(h.switches().length, 7);
     assert.equal(h.switches()[0].props.value, false);
     assert.equal(h.switches()[1].props.value, true);
     assert.equal(h.switches()[3].props.value, true, 'Limited photo access is already granted');
@@ -264,6 +407,7 @@ for (const language of ['vi', 'en']) {
     assert.equal(h.render().props.visible, true); assert.equal(h.switches()[0].props.value, true);
     await h.change(0, false);
     assert.equal(h.switches()[0].props.value, false);
+    assert.deepEqual(h.calls.toasts.map(x => x[1]), ['success', 'success']);
   });
 }
 await test('repeated permission callbacks share one pending request and a blurred screen cannot reopen the dialog', async () => {
@@ -275,6 +419,33 @@ await test('repeated permission callbacks share one pending request and a blurre
   h.blur(); complete(); await Promise.all([first, duplicate]);
   assert.equal(h.render().props.visible, false);
 });
+await test('data permissions live inside Permissions and yield the presenter for explicit AI consent', async () => {
+  const h = permissionModalHarness(); await h.settle();
+  const labels = h.switches().map(node => node.props.accessibilityLabel);
+  for (const key of ['aiDataConsentSettings', 'taskReminders']) assert.ok(labels.includes(h.translate('settings', key)));
+  assert.ok(labels.includes(h.translate('profile', 'healthFeed')));
+  h.switches().find(node => node.props.accessibilityLabel === h.translate('settings', 'aiDataConsentSettings')).props.onValueChange(true);
+  assert.equal(h.render().props.visible, false);
+  const consent = h.dialogs().find(node => node.type === 'AiConsent');
+  assert.equal(consent.props.visible, true); assert.deepEqual(h.calls.requests, []);
+  consent.props.onDecline(); assert.equal(h.render().props.visible, true);
+  assert.deepEqual(h.calls.toasts, []);
+});
+await test('data permissions avoid an off switch for an unknown value and keep confirmed states visible while checking', async () => {
+  const h = permissionModalHarness();
+  const labels = [h.translate('settings', 'aiDataConsentSettings'), h.translate('profile', 'healthFeed')];
+  const dataSwitches = () => h.switches().filter(node => labels.includes(node.props.accessibilityLabel));
+  h.data.ai = h.data.feed = null;
+  h.data.loading = true;
+  await h.settle();
+  assert.equal(dataSwitches().length, 0);
+  assert.equal(h.dialogs().filter(node => node.type === 'Loading').length, 0);
+  h.data.ai = h.data.feed = true;
+  assert.equal(dataSwitches().length, 2);
+  assert.ok(dataSwitches().every(node => node.props.value && node.props.disabled));
+  h.data.loading = false;
+  assert.ok(dataSwitches().every(node => node.props.value && !node.props.disabled));
+});
 await test('a stale permission switch cannot request access for a different account', async () => {
   const h = permissionModalHarness(); await h.settle();
   h.switches()[0].props.onValueChange(true);
@@ -283,7 +454,7 @@ await test('a stale permission switch cannot request access for a different acco
 });
 await test('Android call switch refreshes native state after granting and revoking through Settings', async () => {
   const h = permissionModalHarness({ platform: 'android' }); await h.settle();
-  assert.equal(h.switches().length, 5); assert.equal(h.switches()[4].props.value, false);
+  assert.equal(h.switches().length, 8); assert.equal(h.switches()[4].props.value, false);
   assert.equal(h.calls.native, 0);
   await h.change(4); await h.settle();
   assert.equal(h.calls.native, 1); assert.equal(h.switches()[4].props.value, true);
@@ -291,7 +462,7 @@ await test('Android call switch refreshes native state after granting and revoki
   assert.equal(h.calls.nativeOff, 1); assert.equal(h.switches()[4].props.value, false);
 });
 
-await test('Home shortcuts reuse V2.1 access without requesting unused coin balances or showing another account flags', async () => {
+await test('Action groups reuse V2.1 access without requesting unused coin balances or showing another account flags', async () => {
   let cursor = 0, focus, auth = { profile: { id: 7 }, token: 'session-a' };
   const slots = [], calls = [];
   const hooks = { useState: initial => {
@@ -319,6 +490,43 @@ await test('Home shortcuts reuse V2.1 access without requesting unused coin bala
     assert.deepEqual(calls, ['flags']);
     auth = { profile: { id: 8 }, token: 'session-b' };
     assert.deepEqual(render(), { medicationEnabled: false, coinsEnabled: false });
+  } finally { cleanup(); }
+});
+
+await test('Home shows the signed-in member’s coin balance just before the bell and opens coins', async () => {
+  const home = read('app/(tabs)/home/index.tsx');
+  assert.match(home, /<HomeCoinBalance \/>\s*<NotificationBell/);
+  let snapshot, focus, refresh, auth = { profile: { id: '7' }, token: 'session-a' };
+  let balance = 0;
+  const destinations = [];
+  const useAuthStore = Object.assign(select => select(auth), { getState: () => auth });
+  const { HomeCoinBalance } = evaluate(read('src/features/v21/HomeCoinBalance.tsx'), {
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    react: { useCallback: work => work, useState: () => [snapshot, value => { snapshot = value; }] },
+    'expo-router': { useFocusEffect: work => { focus = work; } },
+    'react-i18next': { useTranslation: () => ({ t: (_key, vars) => vars?.count, i18n: { language: 'vi' } }) },
+    'react-native': { Pressable: 'Button', StyleSheet: { create: value => value },
+      AppState: { addEventListener: () => ({ remove() {} }) } },
+    '../../components/ScaledText': { ScaledText: 'Text' },
+    '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({ push: route => destinations.push(route) }) },
+    '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {} }) },
+    '../../lib/apiClient': { ApiError: Error },
+    '../../lib/health-action-events': { subscribeHealthAction: callback => { refresh = callback; return () => {}; } },
+    '../auth/auth.store': { useAuthStore },
+    './HealthCoinIcon': { HealthCoinIcon: 'CoinIcon' },
+    './v21.api': { v21Api: { coins: async () => ({ balance }) } },
+  });
+  assert.equal(HomeCoinBalance(), null);
+  const cleanup = focus();
+  try {
+    await flush();
+    assert.equal(HomeCoinBalance().props.children[1].props.children, '0');
+    HomeCoinBalance().props.onPress();
+    assert.deepEqual(destinations, ['/coins']);
+    balance = 35; refresh(); await flush();
+    assert.equal(HomeCoinBalance().props.children[1].props.children, '35');
+    auth = { profile: { id: '8' }, token: 'session-b' };
+    assert.equal(HomeCoinBalance(), null);
   } finally { cleanup(); }
 });
 

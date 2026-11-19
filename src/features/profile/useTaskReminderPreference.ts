@@ -101,7 +101,11 @@ export function useTaskReminderPreference() {
         await native.change(true);
         if (!canRun()) return;
         const granted = await checkNotificationPermission();
-        if (!canRun() || !granted) return;
+        if (!canRun()) return;
+        if (!granted) {
+          showToast(t("taskRemindersNotEnabled"), "warning");
+          return;
+        }
       }
       const prefs = await updateNotificationPreferences({
         reminders_enabled: next,
@@ -110,6 +114,10 @@ export function useTaskReminderPreference() {
       if (canRun()) {
         setEnabled(prefs.reminders_enabled === true);
         setFailed(false);
+        const saved = prefs.reminders_enabled === true;
+        showToast(t(saved === next
+          ? saved ? "taskRemindersEnabled" : "taskRemindersDisabled"
+          : "scheduleSaveError"), saved === next ? "success" : "error");
       }
     } catch {
       if (canRun()) showToast(t("scheduleSaveError"), "error");

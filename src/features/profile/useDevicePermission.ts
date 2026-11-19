@@ -164,6 +164,7 @@ export function useDevicePermission(kind: DevicePermissionKind) {
             })
             .catch(() => {});
         }
+        return next;
       } catch {
         if (canRun()) {
           showToast(t("devicePermissionError"), "error");

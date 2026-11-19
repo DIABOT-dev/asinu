@@ -13,6 +13,7 @@ export const isDoctorFeaturesEnabled: boolean =
 // The SRS check-in conclusion links to real expert consultation in every build.
 // Keep the separate IVR/interview rollout behind the existing development flag.
 export const isExpertConsultationEnabled: boolean = true;
+export const isAsinuAssistantEnabled: boolean = false;
 // Temporarily hide the UI catalogue in every build, including development.
 export const isCheckinUiGalleryEnabled: boolean = false;
 // Hide test-only gift reopening in every build, even with an old local opt-in.

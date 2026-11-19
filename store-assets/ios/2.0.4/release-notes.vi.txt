@@ -1,0 +1,3 @@
+Cải thiện check-in sức khoẻ và trải nghiệm trợ lý Asinu.
+Tối ưu lịch nhắc thuốc, nhật ký sức khoẻ, nhiệm vụ và xu.
+Sửa lỗi và cải thiện độ ổn định của ứng dụng.

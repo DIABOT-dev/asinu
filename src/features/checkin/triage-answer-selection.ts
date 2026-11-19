@@ -1,4 +1,4 @@
-export function toggleTriageOption(selected: Set<string>, option: string, exclusive: string[]) {
+export function toggleTriageOption(selected: Set<string>, option: string, exclusive: string[], exclusiveGroups: string[][] = []) {
   const next = new Set(selected);
   if (next.has(option)) {
     next.delete(option);
@@ -6,6 +6,7 @@ export function toggleTriageOption(selected: Set<string>, option: string, exclus
     return new Set([option]);
   } else {
     exclusive.forEach((item) => next.delete(item));
+    exclusiveGroups.filter(group => group.includes(option)).flat().forEach(item => next.delete(item));
     next.add(option);
   }
   return next;
@@ -13,6 +14,11 @@ export function toggleTriageOption(selected: Set<string>, option: string, exclus
 
 export function withoutExclusiveAnswers(selected: Set<string>, exclusive: string[]) {
   return new Set([...selected].filter((option) => !exclusive.includes(option)));
+}
+
+export function requiredAnswersComplete(selected: Set<string>, groups: string[][], exclusive: string[], custom: string) {
+  return custom.trim().length > 0 || [...selected].some(item => exclusive.includes(item)) ||
+    groups.every(group => group.some(item => selected.has(item)));
 }
 
 export function composeTriageAnswer(selected: Set<string>, custom: string, exclusive: string[]) {

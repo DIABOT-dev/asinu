@@ -48,7 +48,7 @@ export function HealthCoinJourney({
         <CoinRulesMascot />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t("rules")}
+          accessibilityLabel={t("coinsEarnTitle")}
           onPress={onOpenDetails}
           style={({ pressed }) => [
             styles.rules,
@@ -56,7 +56,7 @@ export function HealthCoinJourney({
             pressed && { opacity: 0.65 },
           ]}
         >
-          <Text style={[styles.rulesTitle, ink]}>{t("rules")}</Text>
+          <Text style={[styles.rulesTitle, ink]}>{t("coinsEarnTitle")}</Text>
         </Pressable>
       </View>
 

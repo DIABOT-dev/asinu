@@ -35,9 +35,9 @@ export const checkinGiftsApi = {
       method: 'POST',
       body: { gift_id: giftId, box },
     }),
-  history: (before?: string) =>
+  history: (before?: string, limit?: number) =>
     apiClient<{ ok: true; items: CheckinGift[]; nextBefore: string | null }>(
-      `/api/mobile/gift/history?before=${encodeURIComponent(before || '')}`
+      `/api/mobile/gift/history?before=${encodeURIComponent(before || '')}${limit === undefined ? '' : `&limit=${limit}`}`
     ),
   rules: (periodId: string) =>
     apiClient<{

@@ -28,7 +28,7 @@ export function SubscriptionScenarioComparison() {
     <View style={styles.root}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${t('comparison.title')}. ${t('comparison.headerSubtitle')}`}
+        accessibilityLabel={t('comparison.title')}
         accessibilityHint={t('comparison.openHint')}
         onPress={() => router.push('/subscription/comparison')}
         style={({ pressed }) => [styles.header, pressed && styles.pressed]}
@@ -36,10 +36,7 @@ export function SubscriptionScenarioComparison() {
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.headerIcon}>
           <MaterialCommunityIcons name="stethoscope" size={30} color="#477dc4" />
         </View>
-        <View style={styles.headerCopy}>
-          <Text allowFontScaling style={styles.heading}>{t('comparison.title')}</Text>
-          <Text allowFontScaling style={styles.headerSubtitle}>{t('comparison.headerSubtitle')}</Text>
-        </View>
+        <Text allowFontScaling style={styles.heading}>{t('comparison.title')}</Text>
       </Pressable>
     </View>
   );
@@ -62,12 +59,8 @@ export function SubscriptionComparisonContent() {
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.pageHeaderIcon}>
           <Ionicons name="git-compare-outline" size={30} color={colors.primaryText} />
         </View>
-        <View style={styles.pageHeaderCopy}>
-          <Text allowFontScaling accessibilityRole="header" style={styles.pageTitle}>{t('comparison.title')}</Text>
-          <Text allowFontScaling style={styles.pageSubtitle}>{t('comparison.headerSubtitle')}</Text>
-        </View>
+        <Text allowFontScaling accessibilityRole="header" style={styles.pageTitle}>{t('comparison.title')}</Text>
       </View>
-      <Text allowFontScaling style={styles.introduction}>{t('comparison.subtitle')}</Text>
       {!stacked && <View style={styles.tableHeader} testID="comparison-table-header">
         <View style={[styles.columnHeading, styles.situationCell]}>
           <Text allowFontScaling accessibilityRole="header" style={styles.columnTitle}>{t('comparison.scenarioLabel')}</Text>
@@ -108,18 +101,13 @@ function createStyles(colors: ReturnType<typeof useThemeColors>['colors']) {
     root: { marginTop: 16, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, shadowColor: '#7295ba', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12 },
     header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 56 },
     headerIcon: { width: 32, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
-    headerCopy: { flex: 1, minWidth: 0, gap: 2 },
     pressed: { opacity: 0.85 },
-    heading: { color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
-    headerSubtitle: { color: colors.textSecondary, fontSize: 14 },
+    heading: { flex: 1, minWidth: 0, color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
     panel: { paddingTop: 22, paddingBottom: 12 },
     pageHeader: { minHeight: 82, paddingHorizontal: 8, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 14 },
     pageHeaderIcon: { width: 34, alignItems: 'center' },
-    pageHeaderCopy: { flex: 1, minWidth: 0 },
-    pageTitle: { color: colors.textPrimary, fontSize: 28, lineHeight: 38, fontWeight: '800' },
-    pageSubtitle: { color: colors.textSecondary, fontSize: 17, fontWeight: '600' },
+    pageTitle: { flex: 1, minWidth: 0, color: colors.textPrimary, fontSize: 26, lineHeight: 35, fontWeight: '800' },
     heroArt: { position: 'absolute', right: -2, top: -14, width: 132, height: 132, opacity: 0.13 },
-    introduction: { color: colors.textPrimary, fontSize: 16, lineHeight: 25, paddingHorizontal: 4, marginTop: 10, marginBottom: 20 },
     tableHeader: { flexDirection: 'row', alignItems: 'stretch', gap: 4, marginBottom: 4 },
     columnHeading: { minWidth: 0, paddingHorizontal: 8, paddingVertical: 12, justifyContent: 'center', alignItems: 'center', gap: 4, borderRadius: 12, backgroundColor: colors.surfaceMuted },
     situationCell: { width: '35%', flexShrink: 1, minWidth: 0 },

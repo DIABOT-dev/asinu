@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import type { ReactNode } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -18,12 +19,8 @@ import { useSpecialistSharingPermission } from "./useSpecialistSharingPermission
 export function SpecialistSharingPermission() {
   const { t } = useTranslation("settings");
   const { colors } = useThemeColors();
-  const insets = useSafeAreaInsets();
   const sharing = useSpecialistSharingPermission();
   if (!isDoctorFeaturesEnabled) return null;
-  const action = sharing.decision?.enabled
-    ? "grant_consent"
-    : "withdraw_consent";
   const disabled =
     sharing.loading ||
     sharing.failed ||
@@ -77,6 +74,23 @@ export function SpecialistSharingPermission() {
           />
         )}
       </View>
+      <SpecialistSharingDialog sharing={sharing} />
+    </>
+  );
+}
+
+export function SpecialistSharingDialog({ sharing, toastHost }: {
+  sharing: ReturnType<typeof useSpecialistSharingPermission>;
+  toastHost?: ReactNode;
+}) {
+  const { t } = useTranslation("settings");
+  const { colors } = useThemeColors();
+  const insets = useSafeAreaInsets();
+  if (!isDoctorFeaturesEnabled) return null;
+  const action = sharing.decision?.enabled
+    ? "grant_consent"
+    : "withdraw_consent";
+  return (
       <QueuedModal
         visible={!!sharing.decision}
         transparent
@@ -177,10 +191,10 @@ export function SpecialistSharingPermission() {
                 {t("privacyCancel")}
               </Text>
             </Pressable>
+            {toastHost}
           </Pressable>
         </Pressable>
       </QueuedModal>
-    </>
   );
 }
 

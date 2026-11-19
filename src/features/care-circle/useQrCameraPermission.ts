@@ -35,7 +35,7 @@ export function useQrCameraPermission(requestOnFocus = false) {
             canRun,
           });
         }
-        if (canRun()) await getPermission();
+        if (canRun()) return await getPermission();
       } catch {
         // Keep the actual OS permission value; the user can retry or select a photo.
       } finally {

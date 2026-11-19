@@ -569,9 +569,6 @@ export function VoiceSettings({ userId }: { userId: string }) {
                       {t('personalization.chooseRegion')}
                     </Text>
                   )}
-                  <Text style={styles.copy}>
-                    {t('personalization.weatherCredit')}
-                  </Text>
                 </>
               </View>
             )}

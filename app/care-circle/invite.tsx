@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
   ActivityIndicator,
+  Keyboard,
   Modal,
   Pressable,
   ScrollView,
@@ -42,17 +43,26 @@ const PERM_META = [
   {
     key: 'can_view_logs' as const,
     titleKey: 'permViewLogs',
+    descKey: 'permViewLogsDesc',
     icon: 'document-text-outline' as const,
   },
   {
     key: 'can_receive_alerts' as const,
     titleKey: 'permReceiveAlerts',
+    descKey: 'permReceiveAlertsDesc',
     icon: 'notifications-outline' as const,
   },
   {
     key: 'can_ack_escalation' as const,
     titleKey: 'permAckEscalation',
+    descKey: 'permAckEscalationDesc',
     icon: 'shield-outline' as const,
+  },
+  {
+    key: 'share_notifications' as const,
+    titleKey: 'familyShareMyNotifications',
+    descKey: 'inviteShareNotificationsDesc',
+    icon: 'mail-outline' as const,
   },
 ];
 
@@ -81,11 +91,13 @@ export default function InviteScreen() {
   } = useCareCircle();
 
   const [phoneQuery, setPhoneQuery] = useState('');
+  const searchRevision = useRef(0);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchedUser, setSearchedUser] = useState<SearchUser | null>(null);
   const [searchError, setSearchError] = useState('');
   const [selectedUser, setSelectedUser] = useState<SearchUser | null>(null);
-  const [qrPreview, setQrPreview] = useState<CareCircleQrPreview | null>(null);
+  const [qrResult, setQrResult] = useState<{ token: string; preview: CareCircleQrPreview }>();
+  const qrPreview = qrResult && qrResult.token === qrToken ? qrResult.preview : null;
   const [qrLoading, setQrLoading] = useState(Boolean(qrToken));
   const [selectedRelationship, setSelectedRelationship] = useState<DropdownOption | null>(null);
   const [customRelationship, setCustomRelationship] = useState('');
@@ -93,7 +105,10 @@ export default function InviteScreen() {
     can_view_logs: true,
     can_receive_alerts: true,
     can_ack_escalation: true,
+    share_notifications: false,
   });
+  const recipientReady = Boolean(qrToken ? qrPreview : selectedUser);
+  const canSearch = Boolean(normalizeVietnamesePhone(phoneQuery)) && !searchLoading;
 
   const hasFormProgress = Boolean(
     phoneQuery.trim() ||
@@ -102,7 +117,8 @@ export default function InviteScreen() {
     qrPreview ||
     selectedRelationship ||
     customRelationship.trim() ||
-    !permissions.can_view_logs || !permissions.can_receive_alerts || !permissions.can_ack_escalation
+    !permissions.can_view_logs || !permissions.can_receive_alerts || !permissions.can_ack_escalation ||
+    permissions.share_notifications
   );
 
   const handleExit = () => {
@@ -120,6 +136,7 @@ export default function InviteScreen() {
   const relationshipOptions = getFamilyRelationshipOptions(t);
 
   const handleSearchByPhone = async () => {
+    if (searchLoading) return;
     const phone = normalizeVietnamesePhone(phoneQuery);
     if (!phone) {
       setSearchError(t('phoneQueryTooShort'));
@@ -140,14 +157,18 @@ export default function InviteScreen() {
     setSearchLoading(true);
     setSearchedUser(null);
     setSelectedUser(null);
+    Keyboard.dismiss();
+    const revision = ++searchRevision.current;
     try {
       const users = await careCircleApi.searchUsers(phone);
+      if (revision !== searchRevision.current) return;
       if (!users || users.length === 0) {
         setSearchError(t('noUserFoundByPhone'));
       } else {
         setSearchedUser(users[0]);
       }
     } catch (err: any) {
+      if (revision !== searchRevision.current) return;
       // Backend now caps phone search per user/day (FIX #5). Surface a
       // specific error for the limit hit so users know to come back later
       // instead of thinking the network is broken.
@@ -157,7 +178,7 @@ export default function InviteScreen() {
         setSearchError(t('cannotLoadUsers'));
       }
     } finally {
-      setSearchLoading(false);
+      if (revision === searchRevision.current) setSearchLoading(false);
     }
   };
 
@@ -178,13 +199,19 @@ export default function InviteScreen() {
       return;
     }
     setSelectedUser(searchedUser);
+    setPermissions(previous => ({ ...previous, share_notifications: false }));
     setSearchError('');
   };
 
   useEffect(() => {
     fetchInvitations(true);
     fetchConnections(true);
+    return () => { searchRevision.current++; };
   }, []);
+
+  useEffect(() => {
+    setPermissions(previous => ({ ...previous, share_notifications: false }));
+  }, [qrToken]);
 
   useEffect(() => {
     if (!qrToken) return;
@@ -193,7 +220,7 @@ export default function InviteScreen() {
     setSearchError('');
     careCircleApi.previewQrToken(qrToken)
       .then((preview) => {
-        if (active) setQrPreview(preview);
+        if (active) setQrResult({ token: qrToken, preview });
       })
       .catch((error) => {
         if (active) setSearchError(getApiErrorMessage(error, t, 'qrPreviewError'));
@@ -207,7 +234,7 @@ export default function InviteScreen() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const handleSend = async () => {
-    if (!selectedUser && !qrPreview) {
+    if (!recipientReady) {
       const message = phoneQuery.trim()
         ? t('pleaseSearchAndSelectRecipient')
         : t('pleaseEnterPhoneToInvite');
@@ -215,10 +242,12 @@ export default function InviteScreen() {
       return;
     }
     try {
+      const { share_notifications, ...healthPermissions } = permissions;
       const invitationData = {
         relationship_type: selectedRelationship?.id || customRelationship || undefined,
         role: DEFAULT_FAMILY_ROLE,
-        permissions,
+        permissions: healthPermissions,
+        ...(share_notifications ? { share_notifications: true } : {}),
       };
       if (qrToken && qrPreview) {
         await createInvitationFromQr({ token: qrToken, ...invitationData });
@@ -263,7 +292,7 @@ export default function InviteScreen() {
           onScroll={event => { guideScrollOffset.current = event.nativeEvent.contentOffset.y; }}
           scrollEventThrottle={32}
           style={{ flex: 1, backgroundColor: 'transparent' }}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: (selectedUser || qrPreview) ? insets.bottom + 96 : insets.bottom + spacing.xl }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: recipientReady ? insets.bottom + 96 : insets.bottom + spacing.xl }]}
           keyboardShouldPersistTaps="handled"
         >
         <Animated.View entering={FadeIn.duration(250)} style={{ gap: spacing.xl }}>
@@ -276,7 +305,9 @@ export default function InviteScreen() {
                   size={18}
                   color="#0D9488"
                 />
-                <Text style={styles.cardTitle}>{qrToken ? t('qrRecipient') : t('searchByPhone')}</Text>
+                <Text style={styles.cardTitle}>
+                  {qrToken ? t('qrRecipient') : t(selectedUser ? 'inviteRecipient' : 'invitePhoneLabel')}
+                </Text>
               </View>
             </View>
 
@@ -313,14 +344,18 @@ export default function InviteScreen() {
               </>
             ) : (
             <>
-            <GuideTarget step="circle.phone">
+            {!selectedUser && <GuideTarget step="circle.phone">
             <View style={styles.phoneInputRow}>
+              <Ionicons name="phone-portrait-outline" size={22} color="#64748B" accessible={false} />
               <TextInput
                 style={[styles.phoneInput, { fontSize: 22, minHeight: 56 }]}
                 allowFontScaling
+                accessibilityLabel={t('invitePhoneLabel')}
                 value={phoneQuery}
                 onChangeText={text => {
+                  searchRevision.current++;
                   setPhoneQuery(text);
+                  setSearchLoading(false);
                   setSearchedUser(null);
                   setSelectedUser(null);
                   setSearchError('');
@@ -328,23 +363,23 @@ export default function InviteScreen() {
                 placeholder={t('enterPhoneNumber')}
                 placeholderTextColor="#94A3B8"
                 keyboardType="phone-pad"
-                returnKeyType="search"
+                returnKeyType="go"
                 onSubmitEditing={handleSearchByPhone}
               />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('search')}
-                style={({ pressed }) => [styles.searchBtn, searchLoading && { opacity: 0.6 }, pressed && { opacity: 0.85 }]}
-                onPress={handleSearchByPhone}
-                disabled={searchLoading}
-              >
-                {searchLoading
-                  ? <ActivityIndicator size="small" color={colors.primaryText} />
-                  : <Ionicons name="search" size={18} color={colors.primaryText} />
-                }
-              </Pressable>
             </View>
-            </GuideTarget>
+            {!searchedUser && <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={tc('continue')}
+              accessibilityState={{ disabled: !canSearch, busy: searchLoading }}
+              style={({ pressed }) => [styles.sendBtn, styles.phoneContinue, (!canSearch || pressed) && { opacity: 0.55 }]}
+              onPress={handleSearchByPhone}
+              disabled={!canSearch}
+            >
+              {searchLoading
+                ? <ActivityIndicator size="small" color="#FFFFFF" />
+                : <Text style={styles.sendBtnText}>{tc('continue')}</Text>}
+            </Pressable>}
+            </GuideTarget>}
 
             {/* Search result */}
             {searchedUser && !selectedUser && (
@@ -403,8 +438,8 @@ export default function InviteScreen() {
             ) : null}
           </View>
 
-        {/* ─── Relationship ─── */}
-          <GuideTarget step="circle.relationship" enabled={Boolean(normalizeVietnamesePhone(phoneQuery) || qrPreview)}>
+        {recipientReady && <>
+          <GuideTarget step="circle.relationship">
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <View style={styles.headerLeftRow}>
@@ -438,7 +473,7 @@ export default function InviteScreen() {
                 <Ionicons name="shield-outline" size={20} color="#0D9488" />
                 <Text style={styles.cardTitle}>{t('permissions')}</Text>
               </View>
-              <Text style={styles.permHeaderSubtitle}>{t('permissionsDesc')}</Text>
+              <Text style={styles.permHeaderSubtitle}>{t('invitePermissionsDesc')}</Text>
             </View>
 
             {PERM_META.map((perm, i) => (
@@ -449,8 +484,10 @@ export default function InviteScreen() {
                 <Ionicons name={perm.icon} size={22} color="#0D9488" style={styles.permIcon} />
                 <View style={styles.permissionInfo}>
                   <Text style={styles.permissionTitle}>{t(perm.titleKey)}</Text>
+                  <Text style={styles.permissionDescription}>{t(perm.descKey)}</Text>
                 </View>
                 <Switch
+                  accessibilityLabel={t(perm.titleKey)}
                   value={permissions[perm.key]}
                   onValueChange={(value) => setPermissions(prev => ({ ...prev, [perm.key]: value }))}
                   trackColor={{ false: '#CBD5E1', true: '#0D9488' }}
@@ -460,13 +497,14 @@ export default function InviteScreen() {
               </View>
             ))}
           </View>
+        </>}
 
         </Animated.View>
       </ScrollView>
       </GuideScrollScope>
       </View>
 
-      {(selectedUser || qrPreview) && (
+      {recipientReady && (
         <View style={[styles.stickyActions, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           <GuideTarget step="circle.send" enabled={Boolean(selectedRelationship || customRelationship.trim()) && !loading}>
           <Pressable
@@ -595,8 +633,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       borderColor: '#E2E8F0',
       paddingLeft: 14,
       paddingRight: 5,
-      paddingVertical: 4,
-      height: 50,
+      minHeight: 56,
+      gap: spacing.sm,
     },
     phoneInput: {
       flex: 1,
@@ -604,12 +642,8 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       color: '#0F172A',
       paddingVertical: 0,
     },
-    searchBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: 10,
-      alignItems: 'center',
-      justifyContent: 'center',
+    phoneContinue: {
+      marginTop: spacing.md,
     },
 
     // ── Found User ──
@@ -733,6 +767,11 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       color: '#64748B',
       marginTop: 4,
       lineHeight: 18,
+    },
+    permissionDescription: {
+      fontSize: 12,
+      color: '#475569',
+      marginTop: 2,
     },
     permIcon: {
       marginRight: 12,

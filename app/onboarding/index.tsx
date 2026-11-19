@@ -17,7 +17,9 @@ import { AppAlertModal, useAppAlert } from '../../src/components/AppAlertModal';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { ScaledTextInput as RNTextInput } from '../../src/components/ScaledTextInput';
 import { useAuthStore } from '../../src/features/auth/auth.store';
-import { authApi } from '../../src/features/auth/auth.api';
+import { authApi, type UpdateProfilePayload } from '../../src/features/auth/auth.api';
+import { ProfileFieldSheet } from '../../src/features/profile/ProfileFieldSheet';
+import type { PersonalProfileField } from '../../src/features/profile/profile-fields';
 import { useScaledTypography } from '../../src/hooks/useScaledTypography';
 import { apiClient } from '../../src/lib/apiClient';
 import { TERMS_URL, PRIVACY_URL } from '../../src/lib/links';
@@ -320,7 +322,126 @@ function ChoiceCard({ label, icon, active, onPress }: ChoiceCardProps) {
 
 // ─── Main Onboarding Screen Component ────────────────────────────────
 
+type SavedOnboardingProfile = {
+  user_id: number;
+  full_name: string | null;
+  birth_year: number | null;
+  gender: string | null;
+  height_cm: string | number | null;
+  weight_kg: string | number | null;
+  phone: string | null;
+  blood_type: string | null;
+  medical_conditions: string[] | null;
+  daily_medication: string | null;
+  checkup_freq: string | null;
+  exercise_freq: string | null;
+  sleep_hours: string | null;
+  meals_per_day: string | null;
+  post_meal_drowsy: string | null;
+  dinner_time: string | null;
+  sweet_intake: string | null;
+  user_goal: string[];
+};
+
+function medicalAnswers(diseases: string[], otherDisease: string) {
+  return [
+    ...diseases.filter(value => value !== DISEASE_NONE_VALUE && value !== DISEASE_OTHER_VALUE),
+    ...otherDisease.split(',').map(value => value.trim()).filter(Boolean),
+  ];
+}
+
+function initialOnboardingAnswers(profile: SavedOnboardingProfile) {
+  const conditions = (profile.medical_conditions ?? []).filter(value =>
+    value !== DISEASE_NONE_VALUE && value !== DISEASE_OTHER_VALUE
+  );
+  const isListed = (value: string) => DISEASE_GRID.some(option => option.value === value);
+  const diseases = conditions.filter(isListed);
+  const otherDisease = conditions.filter(value => !isListed(value)).join(', ');
+  if (otherDisease) diseases.push(DISEASE_OTHER_VALUE);
+  else if (!diseases.length && profile.medical_conditions) diseases.push(DISEASE_NONE_VALUE);
+
+  return {
+    diseases,
+    otherDisease,
+    answers: {
+      full_name: profile.full_name?.trim() ?? '',
+      birth_year: profile.birth_year,
+      gender: profile.gender ?? '',
+      height_cm: profile.height_cm === null ? null : Number(profile.height_cm),
+      weight_kg: profile.weight_kg === null ? null : Number(profile.weight_kg),
+      phone: profile.phone?.trim().replace(/^(?:\+84|84)(?=\d{9}$)/, '0') || null,
+      blood_type: BLOOD_TYPE_OPTIONS.some(option => option.value === profile.blood_type)
+        ? profile.blood_type : null,
+      medical_conditions: medicalAnswers(diseases, otherDisease),
+      daily_medication: profile.daily_medication ?? '',
+      checkup_freq: profile.checkup_freq ?? '',
+      exercise_freq: profile.exercise_freq ?? '',
+      sleep_hours: profile.sleep_hours ?? '',
+      meals_per_day: profile.meals_per_day ?? '',
+      post_meal_drowsy: profile.post_meal_drowsy ?? '',
+      dinner_time: profile.dinner_time ?? '',
+      sweet_intake: profile.sweet_intake ?? '',
+      user_goal: profile.user_goal,
+    },
+  };
+}
+
 export default function OnboardingScreen() {
+  const { t } = useTranslation('onboarding');
+  const { t: tc } = useTranslation('common');
+  const accountId = useAuthStore(s => s.profile?.id);
+  const authenticated = useAuthStore(s => Boolean(s.token));
+  const [attempt, setAttempt] = useState(0);
+  const [loaded, setLoaded] = useState<{
+    accountId: string;
+    attempt: number;
+    profile: SavedOnboardingProfile | null;
+  }>();
+
+  useEffect(() => {
+    if (!accountId || !authenticated) return;
+    const request = new AbortController();
+    apiClient<{ ok: boolean; profile: SavedOnboardingProfile }>(
+      '/api/mobile/onboarding/profile-v2', { signal: request.signal }
+    ).then(result => {
+      if (request.signal.aborted) return;
+      const stored = useAuthStore.getState().profile;
+      const profile = result.ok && stored?.id === accountId && String(result.profile?.user_id) === accountId
+        ? { ...result.profile, full_name: result.profile.full_name ?? stored.name }
+        : null;
+      setLoaded({ accountId, attempt, profile });
+    }).catch(() => {
+      if (!request.signal.aborted) setLoaded({ accountId, attempt, profile: null });
+    });
+    return () => request.abort();
+  }, [accountId, authenticated, attempt]);
+
+  const result = authenticated && loaded?.accountId === accountId && loaded?.attempt === attempt ? loaded : undefined;
+  if (result?.profile) return <OnboardingForm key={accountId} savedProfile={result.profile} />;
+  return (
+    <View style={styles.centered}>
+      {result ? (
+        <>
+          <Text style={styles.loadingText}>{t('profileLoadError')}</Text>
+          <Pressable
+            accessibilityRole="button"
+            style={styles.profileRetry}
+            onPress={() => setAttempt(value => value + 1)}
+          >
+            <Text style={styles.nextBtnText}>{tc('retry')}</Text>
+          </Pressable>
+        </>
+      ) : (
+        <>
+          <ActivityIndicator size="large" color="#008080" />
+          <Text style={styles.loadingText}>{tc('loading')}</Text>
+        </>
+      )}
+    </View>
+  );
+}
+
+function OnboardingForm({ savedProfile }: { savedProfile: SavedOnboardingProfile }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('onboarding');
@@ -341,41 +462,36 @@ export default function OnboardingScreen() {
   const [showFontModal, setShowFontModal] = useState(false);
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [initial] = useState(() => initialOnboardingAnswers(savedProfile));
 
   // ── Step 1 state ─────────────────────────────────────────────────
-  const [fullName, setFullName] = useState('');
-  const [birthYear, setBirthYear] = useState('');
-  const [gender, setGender] = useState('');
-  const [height, setHeight] = useState('');
-  const [weight, setWeight] = useState('');
-  const [phone, setPhone] = useState('');
-  const [bloodType, setBloodType] = useState('');
+  const [fullName, setFullName] = useState(initial.answers.full_name);
+  const [birthYear, setBirthYear] = useState(String(initial.answers.birth_year ?? ''));
+  const [gender, setGender] = useState(initial.answers.gender);
+  const [height, setHeight] = useState(String(initial.answers.height_cm ?? ''));
+  const [weight, setWeight] = useState(String(initial.answers.weight_kg ?? ''));
+  const [phone, setPhone] = useState(initial.answers.phone ?? '');
+  const [bloodType, setBloodType] = useState(initial.answers.blood_type ?? '');
   const [consentAccepted, setConsentAccepted] = useState(true);
 
   // ── Step 2 state ─────────────────────────────────────────────────
-  const [diseases, setDiseases] = useState<string[]>([]);
-  const [otherDisease, setOtherDisease] = useState('');
-  const [medication, setMedication] = useState('');
+  const [diseases, setDiseases] = useState(initial.diseases);
+  const [otherDisease, setOtherDisease] = useState(initial.otherDisease);
+  const [medication, setMedication] = useState(initial.answers.daily_medication);
 
   // ── Step 3 state ─────────────────────────────────────────────────
-  const [checkupFreq, setCheckupFreq] = useState('');
-  const [exerciseFreq, setExerciseFreq] = useState('');
-  const [sleepHours, setSleepHours] = useState('');
+  const [checkupFreq, setCheckupFreq] = useState(initial.answers.checkup_freq);
+  const [exerciseFreq, setExerciseFreq] = useState(initial.answers.exercise_freq);
+  const [sleepHours, setSleepHours] = useState(initial.answers.sleep_hours);
 
   // ── Step 4 state ─────────────────────────────────────────────────
-  const [mealsPerDay, setMealsPerDay] = useState('');
-  const [postMealDrowsy, setPostMealDrowsy] = useState('');
-  const [dinnerTime, setDinnerTime] = useState('');
-  const [sweetIntake, setSweetIntake] = useState('');
+  const [mealsPerDay, setMealsPerDay] = useState(initial.answers.meals_per_day);
+  const [postMealDrowsy, setPostMealDrowsy] = useState(initial.answers.post_meal_drowsy);
+  const [dinnerTime, setDinnerTime] = useState(initial.answers.dinner_time);
+  const [sweetIntake, setSweetIntake] = useState(initial.answers.sweet_intake);
 
   // ── Step 5 state ─────────────────────────────────────────────────
-  const [goals, setGoals] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (profile?.name && !fullName) {
-      setFullName(profile.name);
-    }
-  }, [profile]);
+  const [goals, setGoals] = useState(initial.answers.user_goal);
 
   function getFontSizeLabel(s: FontSizeScale): string {
     switch (s) {
@@ -474,50 +590,53 @@ export default function OnboardingScreen() {
   // ── Submit ────────────────────────────────────────────────────────
 
   async function handleSubmit() {
-    if (!step5Valid) return;
+    const accountId = String(savedProfile.user_id);
+    const token = useAuthStore.getState().token;
+    const current = () => {
+      const session = useAuthStore.getState();
+      return session.profile?.id === accountId && session.token === token;
+    };
+    if (!canGoNext() || saving || !token || !current()) return;
     setSaving(true);
     try {
-      const medicalConditions = diseases
-        .filter(d => d !== DISEASE_NONE_VALUE)
-        .concat(
-          otherDisease
-            ? otherDisease
-                .split(',')
-                .map(s => s.trim())
-                .filter(Boolean)
-            : []
-        );
-
+      const answers = {
+        full_name: fullName.trim(),
+        birth_year: parseInt(birthYear, 10),
+        gender,
+        height_cm: parseFloat(height),
+        weight_kg: parseFloat(weight),
+        phone: phone.trim() || null,
+        blood_type: BLOOD_TYPE_OPTIONS.some(o => o.value === bloodType) ? bloodType : null,
+        medical_conditions: medicalAnswers(diseases, otherDisease),
+        daily_medication: medication,
+        checkup_freq: checkupFreq,
+        exercise_freq: exerciseFreq,
+        sleep_hours: sleepHours,
+        meals_per_day: mealsPerDay,
+        post_meal_drowsy: postMealDrowsy,
+        dinner_time: dinnerTime,
+        sweet_intake: sweetIntake,
+        user_goal: goals,
+      };
+      const fields = Object.keys(answers) as (keyof typeof answers)[];
+      const changes = fields.filter(field =>
+        JSON.stringify(answers[field]) !== JSON.stringify(initial.answers[field])
+      );
       await apiClient('/api/mobile/onboarding/complete-v2', {
         method: 'POST',
-        body: {
-          full_name: fullName.trim(),
-          birth_year: parseInt(birthYear, 10),
-          gender,
-          height_cm: parseFloat(height),
-          weight_kg: parseFloat(weight),
-          phone: phone.trim() || null,
-          blood_type: BLOOD_TYPE_OPTIONS.some(o => o.value === bloodType) ? bloodType : null,
-          medical_conditions: medicalConditions,
-          daily_medication: medication,
-          checkup_freq: checkupFreq,
-          exercise_freq: exerciseFreq,
-          sleep_hours: sleepHours,
-          meals_per_day: mealsPerDay,
-          post_meal_drowsy: postMealDrowsy,
-          dinner_time: dinnerTime,
-          sweet_intake: sweetIntake,
-          user_goal: goals,
-        },
+        body: Object.fromEntries(changes.map(field => [field, answers[field]])),
       });
 
+      if (!current()) return;
       await bootstrap();
+      if (!current()) return;
 
       try {
         const fullProfile = await authApi.fetchProfile();
-        if (fullProfile) useAuthStore.setState({ profile: fullProfile });
+        if (current() && fullProfile?.id === accountId) useAuthStore.setState({ profile: fullProfile });
       } catch {}
 
+      if (!current()) return;
       setPendingToast(tc('savedSuccessfully'), 'success');
       router.replace('/(tabs)/home');
     } catch (err: any) {
@@ -677,9 +796,11 @@ export default function OnboardingScreen() {
             <Text style={styles.headerTitle}>
               {t(`step${step}Title` as any)}
             </Text>
-            <Text style={styles.headerSubtitle}>
-              {t(`step${step}Subtitle`)}
-            </Text>
+            {(step === 2 || step === 5) && (
+              <Text style={styles.headerSubtitle}>
+                {t(step === 2 ? 'step2Subtitle' : 'step5Subtitle')}
+              </Text>
+            )}
           </View>
           <StepBadgeIllustration step={step} />
         </View>
@@ -827,180 +948,54 @@ function Step1({
   consentAccepted, setConsentAccepted,
 }: Step1Props) {
   const { t } = useTranslation('onboarding');
-  const [showBirthYearPicker, setShowBirthYearPicker] = useState(false);
-  const [showHeightPicker, setShowHeightPicker] = useState(false);
-  const maxBirthYear = CURRENT_YEAR - 10;
-  const birthYears = useMemo(
-    () => Array.from({ length: maxBirthYear - 1920 + 1 }, (_, index) => String(maxBirthYear - index)),
-    [maxBirthYear],
-  );
-  const heightOptions = useMemo(
-    () => Array.from({ length: 201 }, (_, index) => String(250 - index)),
-    [],
-  );
-
-  const GENDER_OPTIONS = [
-    { value: 'Nam', labelKey: 'genderMale', icon: 'male-outline' },
-    { value: 'Nữ', labelKey: 'genderFemale', icon: 'female-outline' },
-    { value: 'Khác', labelKey: 'genderOther', icon: 'person-outline' },
+  const [selectedField, setSelectedField] = useState<PersonalProfileField | null>(null);
+  const localProfile = {
+    id: 'onboarding-draft', name: fullName, phone, gender,
+    dateOfBirth: birthYear ? `${birthYear}-01-01` : null,
+    heightCm: height ? Number(height) : null,
+    weightKg: weight ? Number(weight) : null,
+    bloodType: bloodType || null,
+  };
+  const confirmField = (update: UpdateProfilePayload) => {
+    if (selectedField === 'name' && update.name !== undefined) setFullName(update.name);
+    if (selectedField === 'phone' && update.phone !== undefined) setPhone(update.phone);
+    if (selectedField === 'gender' && update.gender !== undefined) setGender(update.gender);
+    if (selectedField === 'dateOfBirth' && update.dateOfBirth) setBirthYear(update.dateOfBirth.slice(0, 4));
+    if (selectedField === 'heightCm' && update.heightCm !== undefined) setHeight(String(update.heightCm));
+    if (selectedField === 'weightKg' && update.weightKg !== undefined) setWeight(String(update.weightKg));
+    if (selectedField === 'bloodType' && update.bloodType !== undefined) setBloodType(update.bloodType ?? '');
+  };
+  const fields: Array<{ field: PersonalProfileField; label: string; value: string; placeholder: string; error?: string; icon: keyof typeof Ionicons.glyphMap }> = [
+    { field: 'name', label: t('fullName'), value: fullName, placeholder: t('fullNamePlaceholder'), icon: 'person-outline' },
+    { field: 'dateOfBirth', label: t('birthYear'), value: birthYear, placeholder: t('birthYearPlaceholder'), error: birthYearError, icon: 'calendar-outline' },
+    { field: 'gender', label: t('gender'), value: gender ? t(gender === 'Nam' ? 'genderMale' : gender === 'Nữ' ? 'genderFemale' : 'genderOther') : '', placeholder: t('selectGender'), icon: 'people-outline' },
+    { field: 'heightCm', label: t('heightCm'), value: height, placeholder: t('heightPlaceholder'), error: heightError, icon: 'resize-outline' },
+    { field: 'weightKg', label: t('weightKg'), value: weight, placeholder: t('weightPlaceholder'), error: weightError, icon: 'scale-outline' },
+    { field: 'phone', label: t('phone'), value: phone, placeholder: t('phonePlaceholder'), error: phoneError, icon: 'call-outline' },
+    { field: 'bloodType', label: t('bloodType'), value: bloodType, placeholder: t('selectBloodType'), icon: 'water-outline' },
   ];
 
   return (
     <View style={stepStyles.container}>
-      {/* Full Name Input */}
-      <View style={stepStyles.fieldGroup}>
-        <SectionLabel label={t('fullName')} />
-        <View style={stepStyles.inputWrapper}>
-          <Ionicons name="person-outline" size={20} color="#008080" style={stepStyles.inputIcon} />
-          {isAppleSignIn ? (
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15.5, color: '#0F172A' }}>{fullName}</Text>
-            </View>
-          ) : (
-            <RNTextInput
-              style={stepStyles.inputField}
-              placeholder={t('fullNamePlaceholder')}
-              placeholderTextColor="#94A3B8"
-              value={fullName}
-              onChangeText={setFullName}
-              autoCapitalize="words"
-            />
-          )}
-        </View>
-      </View>
-
-      {/* Birth Year Input */}
-      <View style={stepStyles.fieldGroup}>
-        <SectionLabel label={t('birthYear')} />
-        <View style={stepStyles.inputWrapper}>
-          <Ionicons name="calendar-outline" size={20} color="#008080" style={stepStyles.inputIcon} />
-          <RNTextInput
-            style={stepStyles.inputField}
-            placeholder={t('birthYearPlaceholder')}
-            placeholderTextColor="#94A3B8"
-            value={birthYear}
-            onChangeText={setBirthYear}
-            keyboardType="numeric"
-            maxLength={4}
-          />
+      {fields.map(({ field, label, value, placeholder, error, icon }) => {
+        const readOnly = field === 'name' && isAppleSignIn;
+        return <View key={field} style={stepStyles.fieldGroup}>
+          <SectionLabel label={label} />
           <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('selectBirthYear')}
-            onPress={() => setShowBirthYearPicker(true)}
-            style={stepStyles.birthYearChevron}
+            style={stepStyles.selectionRow}
+            onPress={() => { if (!readOnly) setSelectedField(field); }}
+            disabled={readOnly}
+            accessibilityRole={readOnly ? 'text' : 'button'}
+            accessibilityLabel={label}
+            accessibilityValue={{ text: value || placeholder }}
           >
-            <Ionicons name="chevron-down" size={18} color="#94A3B8" />
+            <Ionicons name={icon} size={24} color="#008080" />
+            <Text style={[stepStyles.selectionValue, !value && stepStyles.selectionPlaceholder]}>{value || placeholder}</Text>
+            {!readOnly && <Ionicons name="chevron-forward" size={22} color="#64748B" />}
           </Pressable>
-        </View>
-        {!!birthYearError && <Text style={stepStyles.errorText}>{birthYearError}</Text>}
-      </View>
-
-      {/* Gender Selection */}
-      <View style={stepStyles.fieldGroup}>
-        <SectionLabel label={t('gender')} />
-        <View style={stepStyles.genderRow}>
-          {GENDER_OPTIONS.map(opt => {
-            const active = gender === opt.value;
-            return (
-              <Pressable
-                key={opt.value}
-                onPress={() => setGender(opt.value)}
-                style={[
-                  stepStyles.genderBtn,
-                  active && stepStyles.genderBtnActive,
-                ]}
-              >
-                <Ionicons
-                  name={opt.icon as any}
-                  size={18}
-                  color={active ? '#008080' : '#64748B'}
-                />
-                <Text style={[stepStyles.genderBtnText, active && stepStyles.genderBtnTextActive]}>
-                  {t(opt.labelKey)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Height Input */}
-      <View style={stepStyles.fieldGroup}>
-        <SectionLabel label={t('heightCm')} />
-        <View style={stepStyles.inputWrapper}>
-          <MaterialCommunityIcons name="ruler" size={20} color="#008080" style={stepStyles.inputIcon} />
-          <RNTextInput
-            style={stepStyles.inputField}
-            placeholder={t('heightPlaceholder')}
-            placeholderTextColor="#94A3B8"
-            value={height}
-            onChangeText={setHeight}
-            keyboardType="numeric"
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('selectHeight')}
-            onPress={() => setShowHeightPicker(true)}
-            style={stepStyles.birthYearChevron}
-          >
-            <Ionicons name="chevron-down" size={18} color="#94A3B8" />
-          </Pressable>
-        </View>
-        {!!heightError && <Text style={stepStyles.errorText}>{heightError}</Text>}
-      </View>
-
-      {/* Weight Input */}
-      <View style={stepStyles.fieldGroup}>
-        <SectionLabel label={t('weightKg')} />
-        <View style={stepStyles.inputWrapper}>
-          <Ionicons name="fitness-outline" size={20} color="#008080" style={stepStyles.inputIcon} />
-          <RNTextInput
-            style={stepStyles.inputField}
-            placeholder={t('weightPlaceholder')}
-            placeholderTextColor="#94A3B8"
-            value={weight}
-            onChangeText={setWeight}
-            keyboardType="numeric"
-          />
-        </View>
-        {!!weightError && <Text style={stepStyles.errorText}>{weightError}</Text>}
-      </View>
-
-      {/* Phone Input */}
-      <View style={stepStyles.fieldGroup}>
-        <SectionLabel label={t('phone')} />
-        <View style={stepStyles.inputWrapper}>
-          <Ionicons name="call-outline" size={20} color="#008080" style={stepStyles.inputIcon} />
-          <RNTextInput
-            style={stepStyles.inputField}
-            placeholder={t('phonePlaceholder')}
-            placeholderTextColor="#94A3B8"
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            maxLength={11}
-          />
-        </View>
-        {!!phoneError && <Text style={stepStyles.errorText}>{phoneError}</Text>}
-      </View>
-
-      {/* Blood Type Selector */}
-      <View style={stepStyles.fieldGroup}>
-        <SectionLabel label={t('bloodType')} />
-        <View style={stepStyles.bloodGrid}>
-          {BLOOD_TYPE_OPTIONS.map(opt => (
-            <View key={opt.value} style={stepStyles.bloodItem}>
-              <CustomChip
-                label={opt.value}
-                active={bloodType === opt.value}
-                onPress={() => setBloodType(bloodType === opt.value ? '' : opt.value)}
-                fullWidth
-              />
-            </View>
-          ))}
-        </View>
-      </View>
-
+          {!!error && <Text style={stepStyles.errorText}>{error}</Text>}
+        </View>;
+      })}
       {/* Security Privacy Notice */}
       <View style={stepStyles.securityCard}>
         <Ionicons name="shield-checkmark-outline" size={22} color="#008080" />
@@ -1025,105 +1020,15 @@ function Step1({
         </Text>
       </View>
 
-      <Modal
-        visible={showBirthYearPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowBirthYearPicker(false)}
-      >
-        <Pressable
-          style={stepStyles.birthYearModalOverlay}
-          onPress={() => setShowBirthYearPicker(false)}
-        >
-          <Pressable style={stepStyles.birthYearModalCard} onPress={(event) => event.stopPropagation()}>
-            <View style={stepStyles.birthYearModalHeader}>
-              <Text style={stepStyles.birthYearModalTitle}>{t('selectBirthYear')}</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('closePicker')}
-                hitSlop={8}
-                onPress={() => setShowBirthYearPicker(false)}
-              >
-                <Ionicons name="close" size={22} color="#64748B" />
-              </Pressable>
-            </View>
-            <ScrollView
-              style={stepStyles.birthYearList}
-              contentContainerStyle={stepStyles.birthYearListContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {birthYears.map(year => {
-                const selected = birthYear === year;
-                return (
-                  <Pressable
-                    key={year}
-                    onPress={() => {
-                      setBirthYear(year);
-                      setShowBirthYearPicker(false);
-                    }}
-                    style={[stepStyles.birthYearOption, selected && stepStyles.birthYearOptionSelected]}
-                  >
-                    <Text style={[stepStyles.birthYearOptionText, selected && stepStyles.birthYearOptionTextSelected]}>
-                      {year}
-                    </Text>
-                    {selected && <Ionicons name="checkmark-circle" size={20} color="#008080" />}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        visible={showHeightPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowHeightPicker(false)}
-      >
-        <Pressable
-          style={stepStyles.birthYearModalOverlay}
-          onPress={() => setShowHeightPicker(false)}
-        >
-          <Pressable style={stepStyles.birthYearModalCard} onPress={(event) => event.stopPropagation()}>
-            <View style={stepStyles.birthYearModalHeader}>
-              <Text style={stepStyles.birthYearModalTitle}>{t('selectHeight')}</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('closePicker')}
-                hitSlop={8}
-                onPress={() => setShowHeightPicker(false)}
-              >
-                <Ionicons name="close" size={22} color="#64748B" />
-              </Pressable>
-            </View>
-            <ScrollView
-              style={stepStyles.birthYearList}
-              contentContainerStyle={stepStyles.birthYearListContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {heightOptions.map(value => {
-                const selected = height === value;
-                return (
-                  <Pressable
-                    key={value}
-                    onPress={() => {
-                      setHeight(value);
-                      setShowHeightPicker(false);
-                    }}
-                    style={[stepStyles.birthYearOption, selected && stepStyles.birthYearOptionSelected]}
-                  >
-                    <Text style={[stepStyles.birthYearOptionText, selected && stepStyles.birthYearOptionTextSelected]}>
-                      {t('heightValue', { value })}
-                    </Text>
-                    {selected && <Ionicons name="checkmark-circle" size={20} color="#008080" />}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {selectedField && <ProfileFieldSheet
+        key={selectedField}
+        field={selectedField}
+        profile={localProfile}
+        onConfirm={confirmField}
+        onClose={() => setSelectedField(null)}
+        allowEmptyPhone
+        birthYearOnly={selectedField === 'dateOfBirth' ? { min: 1920, max: CURRENT_YEAR - 10 } : undefined}
+      />}
     </View>
   );
 }
@@ -1448,6 +1353,15 @@ const styles = StyleSheet.create({
   loadingText: {
     color: '#64748B',
     fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
+  profileRetry: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: '#008080',
   },
   topBar: {
     flexDirection: 'row',
@@ -1668,6 +1582,9 @@ const stepStyles = StyleSheet.create({
   container: {
     gap: 18,
   },
+  selectionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 16 },
+  selectionValue: { flex: 1, fontSize: 16, color: '#0F172A' },
+  selectionPlaceholder: { color: '#64748B' },
   fieldGroup: {
     gap: 2,
   },
@@ -1682,66 +1599,16 @@ const stepStyles = StyleSheet.create({
     height: 52,
     position: 'relative',
   },
-  inputIcon: {
-    marginRight: 10,
-  },
   inputField: {
     flex: 1,
     fontSize: 15.5,
     color: '#0F172A',
     paddingRight: 48,
   },
-  birthYearChevron: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    width: 64,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
   errorText: {
     fontSize: 12.5,
     color: '#EF4444',
     marginTop: 4,
-  },
-  genderRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  genderBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 48,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-  },
-  genderBtnActive: {
-    backgroundColor: '#EAF8F6',
-    borderColor: '#008080',
-  },
-  genderBtnText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#475569',
-  },
-  genderBtnTextActive: {
-    color: '#008080',
-    fontWeight: '600',
-  },
-  bloodGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  bloodItem: {
-    width: '23%',
   },
   securityCard: {
     flexDirection: 'row',
@@ -1758,62 +1625,6 @@ const stepStyles = StyleSheet.create({
     color: '#475569',
     lineHeight: 18,
     fontWeight: '400',
-  },
-  birthYearModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  birthYearModalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 18,
-    maxHeight: '70%',
-    shadowColor: '#000000',
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
-  },
-  birthYearModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  birthYearModalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  birthYearList: {
-    maxHeight: 360,
-  },
-  birthYearListContent: {
-    paddingTop: 8,
-    paddingBottom: 4,
-  },
-  birthYearOption: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    borderRadius: 10,
-  },
-  birthYearOptionSelected: {
-    backgroundColor: '#E6F7F5',
-  },
-  birthYearOptionText: {
-    fontSize: 15,
-    color: '#334155',
-  },
-  birthYearOptionTextSelected: {
-    color: '#008080',
-    fontWeight: '700',
   },
   cardList: {
     gap: 10,

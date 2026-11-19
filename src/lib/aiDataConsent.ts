@@ -14,16 +14,20 @@ function identity() {
     : null;
 }
 
-export async function hasAiDataConsent(): Promise<boolean> {
+export async function readAiDataConsent(): Promise<boolean> {
   const owner = identity();
   if (!owner) return false;
+  const receipt = await apiClient<{ granted: boolean; version: string }>('/api/mobile/ai-consent', {
+    headers: { Authorization: `Bearer ${owner.token}` },
+  });
+  const current = identity();
+  return receipt.granted === true && receipt.version === AI_CONSENT_VERSION &&
+    current?.key === owner.key && current.token === owner.token;
+}
+
+export async function hasAiDataConsent(): Promise<boolean> {
   try {
-    const receipt = await apiClient<{ granted: boolean; version: string }>('/api/mobile/ai-consent', {
-      headers: { Authorization: `Bearer ${owner.token}` },
-    });
-    const current = identity();
-    return receipt.granted === true && receipt.version === AI_CONSENT_VERSION &&
-      current?.key === owner.key && current.token === owner.token;
+    return await readAiDataConsent();
   } catch { return false; }
 }
 

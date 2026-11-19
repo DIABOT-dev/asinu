@@ -1,16 +1,36 @@
+import { useState } from "react";
 import { RefreshControl } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Action, Note, V21Layout } from "../../src/features/v21/V21Layout";
 import { HealthCoinJourney } from "../../src/features/v21/HealthCoinJourney";
-import { CoinDetailsModal } from "../../src/features/v21/CoinDetailsModal";
+import {
+  CoinDetailsModal,
+  CoinHistoryButton,
+} from "../../src/features/v21/CoinDetailsModal";
 import { useHealthCoins } from "../../src/features/v21/useHealthCoins";
 
 export default function CoinsScreen() {
   const { t } = useTranslation("v21");
-  const coins = useHealthCoins();
+  const coins = useHealthCoins({
+    includeRedemption: false,
+    historyScope: "earned",
+  });
+  const [section, setSection] = useState<"earn" | "earned">("earn");
+  const openSection = (next: "earn" | "earned") => {
+    setSection(next);
+    coins.open();
+  };
   return (
     <V21Layout
       title={t("coinsTitle")}
+      headerAction={
+        coins.data && (
+          <CoinHistoryButton
+            label={t("coinEarnHistory")}
+            onPress={() => openSection("earned")}
+          />
+        )
+      }
       refreshControl={
         <RefreshControl
           refreshing={coins.loading}
@@ -19,7 +39,10 @@ export default function CoinsScreen() {
       }
     >
       {coins.data ? (
-        <HealthCoinJourney data={coins.data} onOpenDetails={coins.open} />
+        <HealthCoinJourney
+          data={coins.data}
+          onOpenDetails={() => openSection("earn")}
+        />
       ) : (
         <>
           <Note>{t(coins.loading ? "loading" : "featureUnavailable")}</Note>
@@ -32,7 +55,7 @@ export default function CoinsScreen() {
           )}
         </>
       )}
-      {coins.data && <CoinDetailsModal coins={coins} />}
+      {coins.data && <CoinDetailsModal coins={coins} section={section} />}
     </V21Layout>
   );
 }

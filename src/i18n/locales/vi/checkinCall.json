@@ -62,7 +62,6 @@
     "locationDenied": "Bạn chưa cho phép vị trí. Có thể chọn khu vực thủ công hoặc tắt lời nhắc thời tiết; check-in vẫn hoạt động.",
     "locationFailed": "Chưa lấy được vị trí. Hãy thử lại hoặc chọn khu vực thủ công.",
     "chooseRegion": "Chọn khu vực để bật lời nhắc thời tiết.",
-    "weatherCredit": "Dự báo từ MET Norway (CC BY 4.0). Asinu chuyển dự báo thành lời nhắc sinh hoạt chung, không phải tư vấn điều trị.",
     "weatherForecastAt": "Thời điểm dự báo: {{time}}",
     "consentTitle": "Cho phép cá nhân hóa lời nhắc?",
     "voiceConsent": "Khi bật, Asinu dùng thông tin bạn đã chọn để tạo lời nhắc trong app. Chỉ văn bản cần đọc được gửi tới dịch vụ giọng nói VieNeu, không gửi toàn bộ hồ sơ. Bạn có thể tắt và lưu lại bất cứ lúc nào. Không đọc thông tin riêng tư trên màn hình khóa.",

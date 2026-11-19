@@ -31,7 +31,7 @@ const locationDetailsHelpers = evaluate(read('src/features/checkin/location-deta
 const conclusionHelpers = evaluate(read('src/features/checkin/checkin-conclusion.ts'));
 const cancellationFile = ts.createSourceFile('cancel.ts', read('src/features/checkin/useCheckinCancellation.ts'), ts.ScriptTarget.Latest, true);
 const cancellationFunction = cancellationFile.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'useCheckinCancellation').getText(cancellationFile);
-const { createCheckinPractice } = evaluate(read('src/features/guidance/checkin.practice.ts'));
+const { createCheckinPractice, PRACTICE_CHECKIN_GROUPS } = evaluate(read('src/features/guidance/checkin.practice.ts'));
 const triageSelection = progressHarness().selection;
 const triageOptionDisplay = evaluate(read('src/features/checkin/triage-option-display.ts'));
 assert.equal(triageOptionDisplay.formatTriageOptionLabel('yếu hoặc tê cả hai chân (hội chứng đuôi ngựa)'), 'Yếu hoặc tê cả hai chân');
@@ -96,9 +96,10 @@ const native = { ...conclusionHelpers, useCheckinAddressing: () => ({ honorific:
   Animated: { View: 'Animated' }, FadeIn: animation, FadeInDown: animation, FadeInLeft: animation,
   Svg: 'Svg', Path: 'Path', Circle: 'Circle', CheckinHeroBadge: 'Badge', guideColors: { background: '#f9fcfb', ink: '#123b35',
     actionBackground: '#08b8a2', onAction: '#061c19' }, colors: { primary: '#08b8a2' } };
+native.useCallback = work => work;
 function routeHarness(language, params = { mode: 'guide' }, guidance = {}, entry = {}) {
   const storage = progressHarness();
-  const runtime = hooks(), calls = { network: [], consent: 0, progress: [], finished: [], routes: [], alerts: [], audio: [], help: [], presentation: [] };
+  const runtime = hooks(), calls = { network: [], signals: [], consent: 0, progress: [], finished: [], routes: [], alerts: [], audio: [], help: [], presentation: [] };
   const tr = translations(language);
   const guideState = { account: '7', ready: true,
     progress: { firstCheckin: false, welcomeSeen: true, completed: [], epoch: 0 }, ...guidance,
@@ -113,7 +114,9 @@ function routeHarness(language, params = { mode: 'guide' }, guidance = {}, entry
   const useGuidanceStore = Object.assign(select => select(guideState), { getState: () => guideState });
   const real = createCheckinPractice(tr.t);
   const realApi = Object.fromEntries(Object.keys(real).map(name => [name, async (...args) => {
-    calls.network.push([name, ...args]); const response = await (entry.api?.[name] ? entry.api[name](...args) : real[name](...args));
+    calls.network.push([name, ...(name === 'triage' ? args.slice(0, 3) : args)]);
+    if (name === 'triage') calls.signals.push(args[3]);
+    const response = await (entry.api?.[name] ? entry.api[name](...args) : real[name](...args));
     if (response.session) response.session = { ...response.session, id: 500, user_id: 7 };
     if (name === 'triage' && entry.triageError) throw new Error('offline');
     return response;
@@ -173,16 +176,23 @@ for (const language of ['vi', 'en']) {
       }
       if (status !== 'fine') {
         const layouts = [];
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 8; i++) {
           const question = nodes(tree).find(node => node.type === 'Question'); assert.ok(question, `Question ${i}`);
           assert.equal(question.props.practice, true);
+          assert.equal(question.props.questionGroup.kind, 'topic');
+          assert.deepEqual(question.props.questionProgress, { current: i + 1, total: 8 });
           layouts.push(question.props.options.length === 0 ? 'text' : question.props.multiSelect ? 'multiple' : 'single');
           await question.props.onAnswer('private practice answer'); tree = await h.settle();
         }
-        assert.deepEqual(layouts, ['multiple', 'single', 'single', 'multiple', 'text']);
+        assert.deepEqual(layouts, ['multiple', 'multiple', 'single', 'multiple', 'multiple', 'multiple', 'multiple', 'multiple']);
       }
       const result = nodes(tree).find(node => node.type === 'Result'); assert.ok(result);
       assert.equal(result.props.session.id, -1); assert.equal(result.props.practice, true);
+      assert.ok(!JSON.stringify(result.props).includes('private practice answer'), 'Typed guide answers must be replaced by canned examples');
+      if (status !== 'fine') {
+        assert.equal(result.props.triageSummary.conclusionFormat, 'narrative');
+        assert.equal(result.props.triageSummary.severity, 'medium', 'The guide does not score the selected status');
+      }
       assert.deepEqual(h.calls.network, []); assert.equal(h.calls.consent, 0);
       assert.deepEqual(h.calls.progress, [{ completed: ['checkin.practice'] }], 'Only the first guide visit is remembered');
       result.props.onClose(); assert.deepEqual(h.calls.finished, ['checkin.finished']);
@@ -199,6 +209,115 @@ for (const language of ['vi', 'en']) {
     await nodes(tree).find(node => node.type === 'Status').props.onSelect('tired'); tree = await h.settle();
     assert.ok(nodes(tree).some(node => node.type === 'Question'));
     assert.deepEqual(h.calls.network, []); assert.equal(h.calls.consent, 0);
+  });
+  await test(`${language}: the guide Next button works without an answer and single choices only preview selection`, async () => {
+    const runtime = hooks(), tr = translations(language), answers = [];
+    const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+      ...native, ...runtime, ...tr, ...triageOptionDisplay, ...triageSelection,
+      spacing: { sm: 8 }, VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
+    });
+    const props = { styles: {}, question: 'Example onset?', options: ['Example A', 'Example B', 'Other'], freeTextOption: 'Other',
+      multiSelect: false, allowFreeText: true, answers: [{ question: 'Old example', answer: 'Hidden practice history' }], loading: false, practice: true,
+      onAnswer: answer => answers.push(answer), onBeforeAi: async () => assert.fail('No AI consent needed') };
+    let tree = await runtime.settle(() => component(props));
+    assert.equal(nodes(tree).find(n => n.type === 'VoiceAnswerInput'), undefined);
+    assert.equal(nodes(tree).filter(n => n.type === 'GuideTarget' && n.props.step === 'checkin.other' && n.props.enabled).length, 1);
+    let next = nodes(tree).find(n => n.props?.testID === 'checkin-practice-next');
+    assert.equal(next.props.disabled, false);
+    assert.ok(!nodes(tree).some(n => n.type === 'Text' && String(n.props.children).includes('Hidden practice history')));
+    assert.ok(nodes(next).some(n => n.type === 'Text' && n.props.children === tr.tg('guidance.practiceNext')));
+    const option = nodes(tree).find(n => n.props?.accessibilityLabel === 'Example A' && n.props.accessibilityRole === 'radio');
+    option.props.onPress(); tree = await runtime.settle(() => component(props));
+    assert.deepEqual(answers, [], 'Selecting an example must not submit a real answer or advance automatically');
+    assert.equal(nodes(tree).find(n => n.type === 'VoiceAnswerInput'), undefined);
+    nodes(tree).find(n => n.props?.accessibilityLabel === 'Other' && n.props.accessibilityRole === 'radio').props.onPress();
+    tree = await runtime.settle(() => component(props));
+    assert.equal(nodes(tree).find(n => n.type === 'VoiceAnswerInput').props.practiceExample, 'Example A');
+    assert.equal(nodes(tree).filter(n => n.type === 'GuideTarget' && n.props.step === 'checkin.other' && n.props.enabled).length, 1);
+    nodes(tree).find(n => n.type === 'VoiceAnswerInput').props.onChangeText('Private words typed during a guide');
+    tree = await runtime.settle(() => component(props));
+    next = nodes(tree).find(n => n.props?.testID === 'checkin-practice-next'); next.props.onPress();
+    assert.deepEqual(answers, ['__practice_next__']);
+  });
+  await test(`${language}: a saved repeated warning heading displays a continuation while its submitted answer stays unchanged`, async () => {
+    const runtime = hooks(), tr = translations(language), calls = [];
+    const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+      ...native, ...runtime, ...tr, ...triageOptionDisplay, ...triageSelection,
+      spacing: { sm: 8 }, VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
+    });
+    const question = language === 'vi' ? 'Bạn có đang gặp phải tình trạng nào sau đây không?' : 'Are any of these signs happening now?';
+    const none = language === 'vi' ? 'Không có' : 'None';
+    const answers = [{ step: 'compact_red_flags', question, answer: none }];
+    const before = JSON.stringify(answers);
+    const props = { styles: {}, question, questionStep: 'compact_red_flags_q3', options: [none], multiSelect: true,
+      exclusiveOptions: [none], answers, loading: false, onAnswer: value => calls.push(value), onBeforeAi: async () => true };
+    let tree; const render = async () => { tree = await runtime.settle(() => component(props)); };
+    await render();
+    assert.ok(nodes(tree).some(n => n.type === 'Text' && n.props.children === tr.t('checkinWarningContinuationQuestion')));
+    nodes(tree).find(n => n.props?.accessibilityLabel === none).props.onPress(); await render();
+    nodes(tree).find(n => n.type === 'Pressable' && !n.props.accessibilityRole).props.onPress(); await render();
+    assert.deepEqual(calls, [none]);
+    assert.equal(props.question, question);
+    assert.equal(JSON.stringify(answers), before);
+    assert.equal(triageOptionDisplay.formatTriageQuestionLabel(question, 'compact_onset', answers, 'changed'), question);
+    assert.equal(triageOptionDisplay.formatTriageQuestionLabel(question, props.questionStep, [{ ...answers[0], answer: 'Tôi chưa hiểu câu này' }], 'changed'), question);
+    assert.equal(triageOptionDisplay.formatTriageQuestionLabel('A different question?', props.questionStep, answers, 'changed'), 'A different question?');
+    assert.equal(triageOptionDisplay.formatTriageQuestionLabel(question, props.questionStep, [{ ...answers[0], answer: language === 'vi' ? 'Không rõ' : 'Not sure' }], tr.t('checkinWarningContinuationQuestion')), tr.t('checkinWarningContinuationQuestion'));
+    props.answers = [...answers, { step: props.questionStep, question, answer: none }];
+    props.questionStep = 'compact_red_flags_q4';
+    await render();
+    nodes(tree).find(n => n.type === 'Pressable' && n.props.accessibilityState?.expanded === false).props.onPress();
+    await render();
+    const visible = nodes(tree).filter(n => n.type === 'Text').map(n => n.props.children);
+    assert.equal(visible.filter(text => text === question).length, 1, 'Only the first historical batch keeps the old generic heading');
+    assert.equal(visible.filter(text => text === tr.t('checkinWarningContinuationQuestion')).length, 2, 'Both cached history and the current batch show the continuation');
+  });
+  await test(`${language}: severe example text does not score risk, branch, notify or change the fixed result`, async () => {
+    const demo = createCheckinPractice(translations(language).t);
+    await demo.start('very_tired', ['abdomen']);
+    const answers = [];
+    for (const [field] of PRACTICE_CHECKIN_GROUPS) {
+      const result = await demo.triage(-1, answers);
+      assert.equal(result.step, `compact_${field}`);
+      assert.ok(result.options.length >= 4);
+      assert.equal(result.questionGroup.kind, 'topic');
+      assert.ok(result.allowFreeText && result.freeTextOption);
+      assert.equal(result.isDone, false);
+      if (field === 'symptoms') {
+        const catalog = JSON.parse(read(`src/i18n/locales/${language}/onboarding.json`)).guidance.practiceCheckin;
+        assert.ok(result.options.includes(catalog.symptomsByRegion.abdomen[0]));
+        assert.ok(!result.options.includes(catalog.symptomsByRegion.head[0]));
+      }
+      answers.push({ step: result.step, question: result.question, answer: 'Đau ngực dữ dội, khó thở, ngất. Private sample.' });
+    }
+    const result = await demo.triage(-1, answers);
+    assert.equal(result.severity, 'medium'); assert.equal(result.needsFamilyAlert, false);
+    assert.equal(result.conclusionFormat, 'narrative');
+    assert.ok(!JSON.stringify(result).includes('Private sample'));
+    assert.ok(!Object.hasOwn(result, 'followUpHours'));
+    assert.equal((await demo.getToday()).session, null);
+    await demo.start('tired'); assert.equal((await demo.triage(-1, [])).step, 'compact_symptoms');
+    await demo.followUp(-1, 'tired');
+    assert.equal((await demo.triage(-1, [])).step, 'followup_status');
+    assert.equal((await demo.triage(-1, [{ question: 'example', answer: 'example' }])).step, 'followup_detail');
+  });
+  await test(`${language}: the narrative guide's expert action stays a local demonstration`, async () => {
+    const runtime = hooks(), tr = translations(language), calls = [];
+    const demo = createCheckinPractice(tr.t);
+    const session = (await demo.start('tired')).session;
+    const example = await demo.triage(-1, Array.from({ length: 9 }, () => ({ question: 'Example', answer: 'Example' })));
+    const screen = evaluate(`${extract('stripEmojis')}\n${extract('extractRecordedSymptoms')}\n${extract('DoneScreen')}\nmodule.exports=DoneScreen;`, {
+      ...native, ...runtime, ...tr, isExpertConsultationEnabled: true, CheckinConclusion: 'NarrativeResult',
+      useRouter: () => ({ push: value => calls.push(['network', value]) }),
+      useCheckinCallAudio: () => ({ audio: { phase: 'idle' }, play: () => calls.push(['synthesis']), stopAudio: async () => {} }),
+      Linking: { openURL: value => calls.push(['external', value]) },
+      showToast: () => calls.push(['example']), guidanceAudio: { stop: async () => {}, speak: async () => {} },
+    });
+    const tree = await runtime.settle(() => screen({ styles: {}, session, triageSummary: example, answers: [], isFollowUp: false, practice: true, onClose() {} }));
+    const body = nodes(tree).find(n => n.type === 'NarrativeResult');
+    assert.ok(body); assert.equal(body.props.practice, true);
+    body.props.onConnectExpert();
+    assert.deepEqual(calls, [['example']]);
   });
   await test(`${language}: normal check-in still uses its real save and first-check-in progress`, async () => {
     const h = routeHarness(language, { mode: 'daily' }); let tree = await h.settle();
@@ -288,6 +407,20 @@ for (const language of ['vi', 'en']) {
     assert.deepEqual(calls.playback, Array(4).fill(['practice_result', language, true]));
   });
 }
+await test('guide topics stay in sync with the backend compact interview without importing its runtime', () => {
+  const backend = ts.createSourceFile('compact.js', read(`${process.env.ASINU_BACKEND_DIR || '../backend.asinu'}/src/services/checkin/compact-interview.service.js`), ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+  const declaration = backend.statements.filter(ts.isVariableStatement).flatMap(node => [...node.declarationList.declarations])
+    .find(node => node.name.getText(backend) === 'GROUPS');
+  assert.ok(declaration && ts.isArrayLiteralExpression(declaration.initializer));
+  const grouped = backend.statements.filter(ts.isVariableStatement).flatMap(node => [...node.declarationList.declarations])
+    .find(node => node.name.getText(backend) === 'EIGHT_GROUPS');
+  assert.ok(grouped);
+  const { EIGHT_GROUPS } = evaluate(`const ${declaration.getText(backend)};
+    const ${grouped.getText(backend)};
+    export { EIGHT_GROUPS };`);
+  assert.deepEqual(PRACTICE_CHECKIN_GROUPS.map(([field, group]) => [field, group]),
+    EIGHT_GROUPS.map(([field, group]) => [field, group]));
+});
 // Verify the redesigned choices still report the original API status values.
 const choiceFile = ts.createSourceFile('choice.tsx', read('src/features/checkin/CheckinStatusChoice.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const choiceSource = choiceFile.statements.filter(node => !ts.isImportDeclaration(node)).map(node => node.getText(choiceFile)).join('\n');
@@ -642,6 +775,85 @@ for (const language of ['vi', 'en']) {
     nodes(tree).find(n => n.type === 'Pressable' && n.props.onPress && !n.props.accessibilityRole).props.onPress();
     assert.deepEqual(calls, [unknown]);
   });
+  await test(`${language}: compact AI questions show a topic instead of a second body-area interview, with typed or spoken answers`, async () => {
+    const runtime = hooks(), tr = translations(language), calls = [];
+    const optionDisplay = evaluate(read('src/features/checkin/triage-option-display.ts'));
+    const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+      ...native, ...runtime, ...tr, ...optionDisplay, ...triageSelection, MAX_TRIAGE_QUESTIONS: 4,
+      spacing: { sm: 8 }, VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
+    });
+    const topic = language === 'vi' ? 'Những việc xảy ra trước đó' : 'Recent changes';
+    const props = { styles: {}, question: 'AI supplied source screening?', options: ['Reported event', 'Unknown'],
+      multiSelect: true, allowFreeText: true, exclusiveOptions: ['Unknown'], answers: [], loading: false,
+      onAnswer: answer => calls.push(answer), onBeforeAi: async () => true,
+      questionProgress: { current: 8, total: 9 }, questionGroup: { kind: 'topic', label: topic, index: 7, total: 8 } };
+    let tree = await runtime.settle(() => component(props));
+    assert.ok(nodes(tree).some(n => n.type === 'Text' && n.props.children === topic));
+    assert.ok(nodes(tree).some(n => n.type === 'Text' && n.props.children === tr.t('checkinTopicProgress', { current: 7, total: 8 })));
+    const input = nodes(tree).find(n => n.type === 'VoiceAnswerInput');
+    assert.equal(input.props.placeholder, tr.t('checkinAnswerPlaceholder'));
+    assert.equal(typeof input.props.onBeforeAi, 'function');
+    input.props.onChangeText('A specific event not listed in the choices');
+    tree = await runtime.settle(() => component(props));
+    nodes(tree).find(n => n.type === 'Pressable' && n.props.onPress && !n.props.accessibilityRole).props.onPress();
+    assert.deepEqual(calls, ['A specific event not listed in the choices']);
+  });
+  await test(`${language}: medication and measurement choices can combine without contradictory selections`, async () => {
+    const runtime = hooks(), tr = translations(language), calls = [];
+    const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+      ...native, ...runtime, ...tr, ...evaluate(read('src/features/checkin/triage-option-display.ts')), ...triageSelection,
+      MAX_TRIAGE_QUESTIONS: 4, spacing: { sm: 8 }, VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
+    });
+    const props = { styles: {}, question: 'Medication and readings today?',
+      options: ['Taken', 'Missed', 'No prescription', 'Measured', 'Not measured', 'Unknown'],
+      exclusiveOptions: ['Unknown'], exclusiveOptionGroups: [['Taken', 'Missed', 'No prescription'], ['Measured', 'Not measured']],
+      multiSelect: true, allowFreeText: true, answers: [], loading: false, onAnswer: answer => calls.push(answer), onBeforeAi: async () => true };
+    let tree;
+    const settle = async () => { tree = await runtime.settle(() => component(props)); };
+    const choice = label => nodes(tree).find(n => n.props?.accessibilityLabel === label && n.props.accessibilityRole === 'checkbox');
+    await settle(); choice('Taken').props.onPress(); await settle(); choice('Measured').props.onPress(); await settle();
+    assert.equal(choice('Taken').props.accessibilityState.checked, true);
+    choice('Not measured').props.onPress(); await settle();
+    assert.equal(choice('Measured').props.accessibilityState.checked, false);
+    assert.equal(choice('Taken').props.accessibilityState.checked, true);
+    choice('No prescription').props.onPress(); await settle();
+    assert.equal(choice('Taken').props.accessibilityState.checked, false);
+    assert.equal(choice('Not measured').props.accessibilityState.checked, true);
+  });
+  await test(`${language}: an offered Unknown answer is displayed once, without a duplicate skip button`, async () => {
+    const runtime = hooks(), tr = translations(language);
+    const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+      ...native, ...runtime, ...tr, ...triageOptionDisplay, ...triageSelection,
+      spacing: { sm: 8 }, VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
+    });
+    const unknown = language === 'vi' ? 'Không rõ' : 'Not sure';
+    const props = { styles: {}, question: 'An AI question', options: ['First', unknown], skipAnswerLabel: unknown,
+      multiSelect: true, allowFreeText: true, answers: [], loading: false, onAnswer: () => {}, onBeforeAi: async () => true };
+    const tree = await runtime.settle(() => component(props));
+    assert.equal(nodes(tree).filter(n => n.type === 'Pressable' && n.props.accessibilityLabel === unknown).length, 1);
+  });
+  await test(`${language}: Different is exclusive for a shared question and typing a scoped answer removes that placeholder`, async () => {
+    const runtime = hooks(), tr = translations(language), calls = [];
+    const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+      ...native, ...runtime, ...tr, ...triageOptionDisplay, ...triageSelection,
+      spacing: { sm: 8 }, VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
+    });
+    const different = language === 'vi' ? 'Mỗi triệu chứng khác nhau' : 'Different for each symptom';
+    const props = { styles: {}, question: 'Actions for the listed complaints?', options: ['Rest helped', different, 'Unknown'],
+      exclusiveOptions: [different, 'Unknown'], multiSelect: true, allowFreeText: true, answers: Array.from({ length: 12 }, () => ({ answer: 'Recorded' })),
+      questionGroup: { kind: 'topic', label: 'Headache · Joint pain', index: 5, total: 8 }, loading: false,
+      onAnswer: (answer) => calls.push(answer), onBeforeAi: async () => true };
+    let tree; const settle = async () => { tree = await runtime.settle(() => component(props)); };
+    const choice = (label) => nodes(tree).find(n => n.type === 'Pressable' && n.props.accessibilityLabel === label);
+    await settle(); choice('Rest helped').props.onPress(); await settle(); choice(different).props.onPress(); await settle();
+    assert.equal(choice('Rest helped').props.accessibilityState.checked, false);
+    assert.equal(choice(different).props.accessibilityState.checked, true);
+    nodes(tree).find(n => n.type === 'VoiceAnswerInput').props.onChangeText('Rest helped the headache, but not the knee'); await settle();
+    assert.equal(choice(different).props.accessibilityState.checked, false);
+    assert.ok(nodes(tree).some(n => n.type === 'Text' && n.props.children === tr.t('checkinQuestionNumber', { count: 13 })));
+    nodes(tree).find(n => n.type === 'Pressable' && n.props.onPress && !n.props.accessibilityRole).props.onPress();
+    assert.deepEqual(calls, ['Rest helped the headache, but not the knee']);
+  });
 }
 for (const language of ['vi', 'en']) {
   await test(`${language}: header Back follows the same position steps as the footer and preserves choices`, async () => {
@@ -780,7 +992,9 @@ await test('adaptive Other opens a free answer without submitting the placeholde
     freeTextOption: 'Khác, nhập hoặc nói câu trả lời', multiSelect: false, allowFreeText: true,
     answers: [], loading: false, onAnswer: answer => calls.push(answer), onBeforeAi: async () => true };
   let tree; const settle = async () => { tree = await runtime.settle(() => component(props)); };
-  await settle(); nodes(tree).find(n => n.props?.accessibilityLabel === props.freeTextOption).props.onPress(); await settle();
+  await settle();
+  assert.ok(!nodes(tree).some(n => n.type === 'VoiceAnswerInput'));
+  nodes(tree).find(n => n.props?.accessibilityLabel === props.freeTextOption).props.onPress(); await settle();
   assert.deepEqual(calls, []);
   nodes(tree).find(n => n.type === 'VoiceAnswerInput').props.onChangeText('Tiếng gió'); await settle();
   nodes(tree).find(n => n.type === 'Pressable' && !n.props.accessibilityRole).props.onPress(); await settle();
@@ -803,11 +1017,43 @@ await test('multi-select Other keeps meaningful selected answers and removes exc
   const select = async label => { nodes(tree).find(n => n.props?.accessibilityLabel === label).props.onPress(); await settle(); };
   await select('Không rõ'); await select('Khác');
   assert.equal(nodes(tree).find(n => n.props?.accessibilityLabel === 'Không rõ').props.accessibilityState.checked, false);
-  await select('First'); await select('Khác');
+  await select('First');
+  assert.equal(nodes(tree).find(n => n.props?.accessibilityLabel === 'Khác').props.accessibilityState.checked, true);
   nodes(tree).find(n => n.type === 'VoiceAnswerInput').props.onChangeText('Additional answer'); await settle();
   nodes(tree).find(n => n.type === 'Pressable' && !n.props.accessibilityRole).props.onPress(); await settle();
   assert.deepEqual(calls, ['First, Additional answer']);
 });
+for (const grouped of [false, true]) {
+  await test(`Other alone reveals dictation, closes without a hidden answer, and resets on the next question (grouped: ${grouped})`, async () => {
+    const runtime = hooks(), tr = translations('vi'), calls = [];
+    const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+      ...native, ...runtime, ...tr, ...triageOptionDisplay, ...triageSelection,
+      spacing: { sm: 8 }, VoiceAnswerInput: 'VoiceAnswerInput', useGuideAcknowledgement: () => () => {},
+    });
+    let props = { styles: {}, question: 'Hôm nay đã đo chưa?', options: grouped ? [] : ['Đã đo', 'Chưa đo', 'Không rõ', 'Khác'],
+      optionsGrouped: grouped ? [{ key: 'measurement', label: 'Huyết áp', items: ['Đã đo', 'Chưa đo', 'Không rõ', 'Khác'] }] : undefined,
+      freeTextOption: 'Khác', exclusiveOptions: ['Không rõ'], multiSelect: true, allowFreeText: true,
+      answers: [], loading: false, onAnswer: value => calls.push(value), onBeforeAi: async () => assert.fail('Opening Other must not ask for microphone or AI consent') };
+    let tree; const settle = async () => { tree = await runtime.settle(() => component(props)); };
+    const input = () => nodes(tree).find(n => n.type === 'VoiceAnswerInput');
+    const select = async label => { nodes(tree).find(n => n.props?.accessibilityLabel === label).props.onPress(); await settle(); };
+    await settle(); assert.equal(input(), undefined);
+    await select('Đã đo'); assert.equal(input(), undefined);
+    await select('Khác'); assert.ok(input()); assert.deepEqual(calls, []);
+    input().props.onChangeText('Private extra detail'); await settle();
+    await select('Khác'); assert.equal(input(), undefined);
+    nodes(tree).find(n => n.type === 'Pressable' && !n.props.accessibilityRole).props.onPress(); await settle();
+    assert.deepEqual(calls, ['Đã đo']);
+    await select('Khác'); assert.equal(input().props.value, '');
+    input().props.onChangeText('Another detail'); await settle();
+    await select('Không rõ'); assert.equal(input(), undefined);
+    await select('Khác'); assert.equal(input().props.value, '');
+    input().props.onChangeText('Do not carry this to the next question'); await settle();
+    props = { ...props, question: 'Câu tiếp theo?' }; await settle();
+    assert.equal(input(), undefined);
+    await select('Khác'); assert.equal(input().props.value, '');
+  });
+}
 for (const language of ['vi', 'en']) {
   for (const conflicting of [true, false]) {
     await test(`${language}: conflict retry reloads server progress and preserves only a compatible pending answer (${conflicting})`, async () => {
@@ -994,6 +1240,7 @@ await test('the explicit top-right Cancel action cannot be undone by a late tria
   confirm.onPress(); confirm.onPress(); tree=await h.settle();
   assert.equal(h.calls.network.filter(call=>call[0]==='cancel').length,1);
   assert.deepEqual(h.calls.network.find(call=>call[0]==='cancel'),['cancel',500,'phase-a']);
+  assert.equal(h.calls.signals.at(-1).aborted, true, 'Confirmed cancellation stops the pending AI poll');
   assert.equal(h.calls.routes.at(-1),'/(tabs)/home');
   resolve({ok:true,isDone:true,summary:'Synthetic late result',severity:'low'}); tree=await h.settle();
   assert.ok(!nodes(tree).some(node=>node.type==='Result'));
@@ -1008,4 +1255,242 @@ await test('failed cancellation keeps the saved conversation and reloads its cur
   assert.deepEqual(nodes(tree).find(node=>node.type==='Question').props.answers,saved);
   assert.ok(h.calls.alerts.at(-1)[1].includes('Tiến độ vẫn được giữ lại'));
 });
+const measurementHelpers = evaluate(read('src/features/checkin/triage-measurement.ts'));
+await test('measurement parsing preserves units and refuses shorthand, reversed or ambiguous blood pressure', () => {
+  const { parseMeasurementSpeech: parse, bloodPressureAnswer, glucoseAnswer } = measurementHelpers;
+  assert.deepEqual(parse('Huyết áp 123 trên 78', 'huyet_ap'), { upper: '123', lower: '78', kind: 'bp' });
+  for (const text of ['12/8', '78/123', '123/78 lúc 8 giờ', '123/78 hoặc 130/80', 'không phải 123/78', '12378']) assert.equal(parse(text, 'huyet_ap'), null, text);
+  assert.equal(bloodPressureAnswer('', '78'), null);
+  assert.equal(bloodPressureAnswer('123x', '78'), null);
+  assert.equal(glucoseAnswer('108'), '108 mg/dL');
+  assert.equal(glucoseAnswer('6,2', 'mmol/L'), '6.2 mmol/L');
+  assert.deepEqual(parse('6,2 mmol/L', 'duong_huyet'), { value: '6,2', unit: 'mmol/L', kind: 'glucose' });
+  assert.equal(parse('108 lúc 9 giờ', 'duong_huyet'), null);
+});
+for (const language of ['vi', 'en']) {
+  await test(`${language}: combined question requires both sections and confirms inline readings only after review`, async () => {
+    const runtime = hooks(), tr = translations(language), sent = [];
+    const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+      ...native, ...runtime, ...tr, ...triageOptionDisplay, ...triageSelection,
+      MeasurementAnswerFields: 'MeasurementFields', VoiceAnswerInput: 'VoiceAnswerInput', spacing: { sm: 8 }, useGuideAcknowledgement: () => () => {},
+    });
+    const props = { styles: {}, question: 'Medicine and measurements?', questionStep: 'compact_clinical_context',
+      options: ['Taken medicine', 'Measured BP', 'Not measured BP', 'Unknown', 'Other'],
+      optionsGrouped: [{ key: 'medication', label: 'Medicine', items: ['Taken medicine'] }, { key: 'bp', label: 'BP', items: ['Measured BP', 'Not measured BP'] }, { key: 'other', label: 'Other', items: ['Unknown', 'Other'] }],
+      requiredOptionGroups: [['Taken medicine'], ['Measured BP', 'Not measured BP']], exclusiveOptionGroups: [['Measured BP', 'Not measured BP']],
+      exclusiveOptions: ['Unknown'], freeTextOption: 'Other', skipAnswerLabel: 'Unknown', multiSelect: true, allowFreeText: true,
+      measurementInputs: [{ type: 'huyet_ap', label: 'Huyết áp', unit: 'mmHg', whenSelected: 'Measured BP' }],
+      answers: [], loading: false, onAnswer: a => sent.push(a), onBeforeAi: async () => true };
+    const render = () => runtime.settle(() => component(props));
+    let tree = await render();
+    const choice = label => nodes(tree).find(n => n.props?.accessibilityLabel === label && ['checkbox', 'radio'].includes(n.props.accessibilityRole));
+    const confirm = () => nodes(tree).find(n => n.type === 'Pressable' && nodes(n).some(child => child.type === 'Icon' && child.props.name === 'arrow-forward'));
+    choice('Taken medicine').props.onPress(); tree = await render(); assert.equal(confirm().props.disabled, true);
+    choice('Measured BP').props.onPress(); tree = await render(); assert.equal(confirm().props.disabled, true);
+    const group = nodes(tree).find(n => n.props?.testID === 'checkin-answer-group-bp');
+    const content = nodes(group);
+    const fieldIndex = content.findIndex(n => n.type === 'MeasurementFields');
+    assert.ok(fieldIndex > content.findIndex(n => n.props?.accessibilityLabel === 'Measured BP'));
+    assert.ok(fieldIndex < content.findIndex(n => n.props?.accessibilityLabel === 'Not measured BP'), 'The editor must appear directly after the measured answer');
+    assert.equal(nodes(tree).filter(n => n.type === 'MeasurementFields').length, 1);
+    assert.equal(nodes(tree).find(n => n.props?.testID === 'checkin-answer-group-other'), undefined);
+    assert.equal(choice('Measured BP').props.accessibilityRole, 'radio');
+    assert.deepEqual(sent, []);
+    nodes(tree).find(n => n.type === 'MeasurementFields').props.onChange('123/78 mmHg'); tree = await render();
+    assert.equal(confirm().props.disabled, false); assert.deepEqual(sent, []);
+    choice('Measured BP').props.onPress(); tree = await render();
+    assert.equal(confirm().props.disabled, false, 'Tapping the selected radio cannot uncheck it');
+    choice('Not measured BP').props.onPress(); tree = await render();
+    assert.equal(nodes(tree).find(n => n.type === 'MeasurementFields'), undefined);
+    choice('Measured BP').props.onPress(); tree = await render();
+    assert.equal(confirm().props.disabled, true, 'A remounted empty editor cannot reuse a discarded reading');
+    nodes(tree).find(n => n.type === 'MeasurementFields').props.onChange('123/78 mmHg'); tree = await render();
+    confirm().props.onPress(); await tick();
+    assert.equal(sent.length, 1); assert.ok(sent[0].includes('123/78 mmHg'));
+    assert.ok(sent[0].includes(language === 'vi' ? 'Huyết áp hôm nay' : 'Huyết áp today'));
+  });
+  await test(`${language}: typed and spoken values stay visible, default mg/dL is explicit and voice never submits`, async () => {
+    const file = ts.createSourceFile('fields.tsx', read('src/features/checkin/MeasurementAnswerFields.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const source = file.statements.filter(n => !ts.isImportDeclaration(n)).map(n => n.getText(file)).join('\n');
+    const runtime = hooks(), tr = translations(language), changes = [];
+    const { MeasurementAnswerFields: Fields } = evaluate(source, { ...native, ...runtime, ...tr, ...measurementHelpers,
+      React: {}, StyleSheet: { create: value => value }, VoiceAnswerInput: 'VoiceInput' });
+    const props = { input: { type: 'huyet_ap', label: 'Huyết áp', unit: 'mmHg' }, disabled: false,
+      onChange: value => changes.push(value), onBeforeAi: async () => true, onProcessingChange: () => {} };
+    const render = () => runtime.settle(() => Fields(props));
+    let tree = await render();
+    nodes(tree).find(n => n.props?.testID === 'checkin-bp-upper').props.onChangeText('123'); tree = await render();
+    assert.equal(changes.at(-1), null);
+    nodes(tree).find(n => n.props?.testID === 'checkin-bp-lower').props.onChangeText('78'); tree = await render();
+    assert.equal(changes.at(-1), '123/78 mmHg');
+    assert.ok(String(nodes(tree).find(n => n.props?.testID === 'checkin-measurement-preview').props.children).includes('123/78 mmHg'));
+    nodes(tree).find(n => n.type === 'VoiceInput').props.onChangeText('12/8'); tree = await render();
+    assert.equal(changes.at(-1), null);
+    assert.equal(nodes(tree).find(n => n.props?.testID === 'checkin-measurement-preview'), undefined);
+    nodes(tree).find(n => n.type === 'VoiceInput').props.onChangeText('130/82'); tree = await render();
+    assert.equal(nodes(tree).find(n => n.props?.testID === 'checkin-bp-upper').props.value, '130');
+    assert.equal(changes.at(-1), '130/82 mmHg');
+    const glucoseRuntime = hooks(), glucoseChanges = [];
+    const Glucose = evaluate(source, { ...native, ...glucoseRuntime, ...tr, ...measurementHelpers, React: {}, StyleSheet: { create: v => v }, VoiceAnswerInput: 'VoiceInput' }).MeasurementAnswerFields;
+    const glucoseProps = { ...props, input: { type: 'duong_huyet', label: 'Đường huyết', unit: 'mg/dL' }, onChange: v => glucoseChanges.push(v) };
+    const glucoseRender = () => glucoseRuntime.settle(() => Glucose(glucoseProps));
+    tree = await glucoseRender();
+    assert.equal(nodes(tree).find(n => n.props?.accessibilityRole === 'radio' && n.props.accessibilityState.checked).props.children.props.children, 'mg/dL');
+    nodes(tree).find(n => n.props?.testID === 'checkin-glucose-value').props.onChangeText('108'); tree = await glucoseRender();
+    assert.equal(glucoseChanges.at(-1), '108 mg/dL');
+    nodes(tree).find(n => n.type === 'VoiceInput').props.onChangeText('6,2 mmol/L'); tree = await glucoseRender();
+    assert.equal(glucoseChanges.at(-1), '6.2 mmol/L');
+  });
+}
+await test('an idle sibling microphone cannot unlock Continue while another measurement recorder is active', async () => {
+  const runtime = hooks(), tr = translations('vi'), sent = [], consent = [];
+  const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+    ...native, ...runtime, ...tr, ...triageOptionDisplay, ...triageSelection,
+    MeasurementAnswerFields: 'MeasurementFields', VoiceAnswerInput: 'VoiceAnswerInput', spacing: { sm: 8 }, useGuideAcknowledgement: () => () => {},
+  });
+  const props = { styles: {}, question: 'Readings?', options: ['BP measured', 'Glucose measured'],
+    multiSelect: true, answers: [], loading: false, onAnswer: a => sent.push(a), onBeforeAi: async () => { consent.push(true); return true; },
+    measurementInputs: [{ type: 'huyet_ap', label: 'BP', unit: 'mmHg', whenSelected: 'BP measured' },
+      { type: 'duong_huyet', label: 'Glucose', unit: 'mg/dL', whenSelected: 'Glucose measured' }] };
+  const render = () => runtime.settle(() => component(props));
+  let tree = await render();
+  for (const option of props.options) {
+    nodes(tree).find(n => n.props?.accessibilityLabel === option).props.onPress(); tree = await render();
+  }
+  const field = type => nodes(tree).find(n => n.type === 'MeasurementFields' && n.props.input.type === type);
+  field('huyet_ap').props.onChange('122/78 mmHg'); field('duong_huyet').props.onChange('108 mg/dL'); tree = await render();
+  assert.equal(await field('huyet_ap').props.onBeforeAi(), true);
+  field('huyet_ap').props.onProcessingChange('huyet_ap', true); tree = await render();
+  assert.equal(field('huyet_ap').props.disabled, false, 'The active mic must retain its Stop action');
+  assert.equal(field('duong_huyet').props.disabled, true);
+  field('duong_huyet').props.onProcessingChange('duong_huyet', false); tree = await render();
+  assert.equal(await field('duong_huyet').props.onBeforeAi(), false, 'A stale sibling tap cannot acquire the recorder');
+  const confirm = () => nodes(tree).find(n => n.type === 'Pressable' && nodes(n).some(child => child.type === 'Icon' && child.props.name === 'arrow-forward'));
+  assert.equal(confirm().props.disabled, true); confirm().props.onPress(); assert.deepEqual(sent, []);
+  field('huyet_ap').props.onProcessingChange('huyet_ap', false); tree = await render();
+  assert.equal(field('duong_huyet').props.disabled, false); assert.equal(confirm().props.disabled, false);
+  assert.equal(consent.length, 1);
+});
+for (const language of ['vi', 'en']) {
+  await test(`${language}: a custom combined answer replaces radio selections and clearly scopes whole-question uncertainty`, async () => {
+    const runtime = hooks(), tr = translations(language), sent = [];
+    const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+      ...native, ...runtime, ...tr, ...triageOptionDisplay, ...triageSelection,
+      MeasurementAnswerFields: 'MeasurementFields', VoiceAnswerInput: 'VoiceAnswerInput', spacing: { sm: 8 }, useGuideAcknowledgement: () => () => {},
+    });
+    const props = { styles: {}, question: 'When and how changed?', questionStep: 'compact_timeline',
+      options: ['Yesterday', 'Today', 'Same', 'Better', 'Unknown', 'Other'],
+      optionsGrouped: [{ key: 'onset', label: 'Started', items: ['Yesterday', 'Today'] }, { key: 'progression', label: 'Course', items: ['Same', 'Better'] }, { key: 'other', label: 'Another answer', items: ['Unknown', 'Other'] }],
+      requiredOptionGroups: [['Yesterday', 'Today'], ['Same', 'Better']], exclusiveOptionGroups: [['Yesterday', 'Today'], ['Same', 'Better']],
+      exclusiveOptions: ['Unknown'], freeTextOption: 'Other', skipAnswerLabel: 'Unknown', multiSelect: true, allowFreeText: true,
+      answers: [], loading: false, onAnswer: answer => sent.push(answer), onBeforeAi: async () => true };
+    const render = () => runtime.settle(() => component(props));
+    let tree = await render();
+    const choice = label => nodes(tree).find(n => n.props?.accessibilityLabel === label && n.props.accessibilityRole === 'radio');
+    const confirm = () => nodes(tree).find(n => n.type === 'Pressable' && nodes(n).some(child => child.type === 'Icon' && child.props.name === 'arrow-forward'));
+    assert.equal(nodes(tree).find(n => n.props?.testID === 'checkin-answer-group-other'), undefined);
+    assert.equal(nodes(tree).find(n => n.props?.accessibilityLabel === 'Other'), undefined);
+    assert.equal(nodes(tree).find(n => n.props?.testID === 'checkin-answer-unknown').props.accessibilityLabel, tr.t('checkinUnknownAllSections', { count: 2 }));
+    choice('Yesterday').props.onPress(); tree = await render();
+    choice('Same').props.onPress(); tree = await render();
+    assert.equal(confirm().props.disabled, false);
+    assert.ok(nodes(confirm()).some(n => n.type === 'Text' && n.props.children === tr.t('checkinLocationContinue')), 'Combined sections do not display a misleading answer count');
+    nodes(tree).find(n => n.props?.testID === 'checkin-answer-alternative').props.onPress(); tree = await render();
+    assert.equal(choice('Yesterday').props.accessibilityState.checked, false);
+    assert.equal(choice('Same').props.accessibilityState.checked, false);
+    let input = nodes(tree).find(n => n.type === 'VoiceAnswerInput');
+    assert.equal(input.props.placeholder, tr.t('checkinTimelineAnswerPlaceholder'));
+    assert.equal(confirm().props.disabled, true);
+    input.props.onChangeText('A specific account of each symptom'); tree = await render();
+    choice('Better').props.onPress(); tree = await render();
+    assert.equal(nodes(tree).find(n => n.type === 'VoiceAnswerInput'), undefined);
+    assert.equal(confirm().props.disabled, true, 'Returning to choices requires the missing onset again');
+    nodes(tree).find(n => n.props?.testID === 'checkin-answer-alternative').props.onPress(); tree = await render();
+    input = nodes(tree).find(n => n.type === 'VoiceAnswerInput'); assert.equal(input.props.value, '');
+    input.props.onChangeText('Headache yesterday, numbness today'); tree = await render();
+    confirm().props.onPress(); await tick();
+    assert.deepEqual(sent, ['Headache yesterday, numbness today']);
+  });
+  await test(`${language}: BP and glucose editors expand in their own sections, forgotten readings never submit stale values`, async () => {
+    const runtime = hooks(), tr = translations(language), sent = [];
+    const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+      ...native, ...runtime, ...tr, ...triageOptionDisplay, ...triageSelection,
+      MeasurementAnswerFields: 'MeasurementFields', VoiceAnswerInput: 'VoiceAnswerInput', spacing: { sm: 8 }, useGuideAcknowledgement: () => () => {},
+    });
+    const props = { styles: {}, question: 'Medicines and readings?', questionStep: 'compact_clinical_context',
+      options: ['Medicine', 'BP measured', 'BP forgotten', 'Glucose measured', 'Glucose forgotten', 'Unknown', 'Other'],
+      optionsGrouped: [{ key: 'medication_today', label: 'Medicine', items: ['Medicine'] }, { key: 'huyet_ap', label: 'BP', items: ['BP measured', 'BP forgotten'] }, { key: 'duong_huyet', label: 'Glucose', items: ['Glucose measured', 'Glucose forgotten'] }, { key: 'other', label: 'Another answer', items: ['Unknown', 'Other'] }],
+      requiredOptionGroups: [['Medicine'], ['BP measured', 'BP forgotten'], ['Glucose measured', 'Glucose forgotten']],
+      exclusiveOptionGroups: [['BP measured', 'BP forgotten'], ['Glucose measured', 'Glucose forgotten']],
+      exclusiveOptions: ['Unknown'], freeTextOption: 'Other', skipAnswerLabel: 'Unknown', multiSelect: true, allowFreeText: true,
+      measurementInputs: [{ type: 'huyet_ap', label: 'BP', unit: 'mmHg', whenSelected: 'BP measured' }, { type: 'duong_huyet', label: 'Glucose', unit: 'mg/dL', whenSelected: 'Glucose measured' }],
+      answers: [], loading: false, onAnswer: answer => sent.push(answer), onBeforeAi: async () => true };
+    const render = () => runtime.settle(() => component(props)); let tree = await render();
+    const pick = async label => { nodes(tree).find(n => n.props?.accessibilityLabel === label && n.props.accessibilityRole === 'radio').props.onPress(); tree = await render(); };
+    const group = key => nodes(tree).find(n => n.props?.testID === `checkin-answer-group-${key}`);
+    const field = type => nodes(tree).find(n => n.type === 'MeasurementFields' && n.props.input.type === type);
+    const confirm = () => nodes(tree).find(n => n.type === 'Pressable' && nodes(n).some(child => child.type === 'Icon' && child.props.name === 'arrow-forward'));
+    await pick('Medicine'); await pick('BP measured');
+    assert.ok(nodes(group('huyet_ap')).some(n => n.type === 'MeasurementFields'));
+    assert.equal(field('duong_huyet'), undefined);
+    field('huyet_ap').props.onChange('122/78 mmHg'); tree = await render();
+    await pick('Glucose measured');
+    assert.ok(nodes(group('duong_huyet')).some(n => n.type === 'MeasurementFields'));
+    assert.equal(field('duong_huyet').props.input.unit, 'mg/dL');
+    field('duong_huyet').props.onChange('108 mg/dL'); tree = await render();
+    assert.equal(confirm().props.disabled, false);
+    await pick('Glucose forgotten'); assert.equal(field('duong_huyet'), undefined);
+    confirm().props.onPress(); await tick();
+    assert.equal(sent.length, 1); assert.ok(sent[0].includes('122/78 mmHg')); assert.ok(!sent[0].includes('108 mg/dL'));
+    assert.ok(sent[0].includes('Glucose forgotten'));
+  });
+}
+for (const language of ['vi', 'en']) for (const key of ['other', 'other_measurements']) {
+  await test(`${language}: ${key} measurement statuses remain visible and allow continuing after medicine selection`, async () => {
+    const runtime = hooks(), tr = translations(language), sent = [];
+    const component = evaluate(`${extract('TriageScreen')}\nmodule.exports=TriageScreen;`, {
+      ...native, ...runtime, ...tr, ...triageOptionDisplay, ...triageSelection,
+      MeasurementAnswerFields: 'MeasurementFields', VoiceAnswerInput: 'VoiceAnswerInput', spacing: { sm: 8 }, useGuideAcknowledgement: () => () => {},
+    });
+    const medicines = ['Taken medicine', 'No prescription'];
+    const readings = ['Measured another reading', 'Not measured today', 'Cannot remember reading'];
+    const props = { styles: {}, question: 'Medicines and measurements?', questionStep: 'compact_clinical_context_q2',
+      options: [...medicines, ...readings, 'Unknown', 'Other'],
+      optionsGrouped: [{ key: 'medication_today', label: 'Medicine', items: medicines }, { key, label: 'Measurements today', items: readings }, { key: 'other', label: 'Another answer', items: ['Unknown', 'Other'] }],
+      requiredOptionGroups: [medicines, readings], exclusiveOptionGroups: [medicines, readings],
+      exclusiveOptions: ['Unknown'], freeTextOption: 'Other', skipAnswerLabel: 'Unknown', multiSelect: true, allowFreeText: true,
+      answers: [], loading: false, onAnswer: answer => sent.push(answer), onBeforeAi: async () => true };
+    const render = () => runtime.settle(() => component(props)); let tree = await render();
+    const pick = async label => {
+      const choice = nodes(tree).find(n => n.props?.accessibilityLabel === label && n.props.accessibilityRole === 'radio');
+      assert.ok(choice, `A required answer must be visible: ${label}`);
+      choice.props.onPress(); tree = await render();
+    };
+    const confirm = () => nodes(tree).find(n => n.type === 'Pressable' && nodes(n).some(child => child.type === 'Icon' && child.props.name === 'arrow-forward'));
+    await pick('No prescription');
+    assert.equal(confirm().props.disabled, true, 'Wait for the visible measurement answer');
+    await pick('Not measured today');
+    assert.equal(confirm().props.disabled, false, 'The video case must be able to continue');
+    confirm().props.onPress(); await tick();
+    assert.deepEqual(sent, ['No prescription, Not measured today']);
+  });
+}
+for (const [label, mode, expected, question, options] of [
+  ['explicit single choice despite a symptom keyword', false, false, 'Bạn đang bị cảm giác nào dưới đây?', ['Âm ỉ', 'Nóng rát', 'Căng tức', 'Châm chích', 'Nhói', 'Khác']],
+  ['explicit multiple choice despite a time keyword', true, true, 'Bạn bắt đầu thấy từng khó chịu từ khi nào?', ['Hôm nay', 'Hôm qua']],
+  ['legacy response without a mode', undefined, true, 'Bạn đang bị cảm giác nào dưới đây?', ['Âm ỉ', 'Nóng rát', 'Căng tức', 'Châm chích', 'Nhói', 'Khác']],
+]) {
+  await test(`the real route respects the server selection mode: ${label}`, async () => {
+    const session = { id: 500, user_id: 7, initial_status: 'tired', current_status: 'tired',
+      triage_messages: [{ step: 'symptoms', question: 'Bạn thấy thế nào?', answer: 'Ngứa' }],
+      triage_state: { phase: 'initial', phase_id: 'selection-mode-test' } };
+    const h = routeHarness('vi', { mode: 'resume', checkin_id: '500' }, {}, { session,
+      api: { triage: async () => ({ ok: true, isDone: false, step: 'compact_character', question, options, multiSelect: mode }) } });
+    const tree = await h.settle();
+    const visible = nodes(tree).find(node => node.type === 'Question');
+    assert.ok(visible);
+    assert.equal(visible.props.multiSelect, expected);
+    assert.deepEqual(visible.props.options, options);
+  });
+}
 console.log(`Check-in practice: ${checks} runtime regressions passed.`);

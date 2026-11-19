@@ -45,6 +45,7 @@ const deferred = () => {
 };
 function hooks() {
   let cursor = 0;
+  let focused = true;
   const slots = [],
     effects = [];
   const memo = (work, deps) => {
@@ -58,6 +59,26 @@ function hooks() {
     return slots[index].value;
   };
   return {
+    useFocusEffect(work) {
+      const index = cursor++;
+      const previous = slots[index];
+      if (focused && (!previous?.active || previous.work !== work)) {
+        const slot = (slots[index] = { work, focus: true, active: true });
+        effects.push(() => {
+          previous?.cleanup?.();
+          slot.cleanup = work();
+        });
+      }
+    },
+    blur() {
+      focused = false;
+      slots.filter(slot => slot?.focus && slot.active).forEach(slot => {
+        slot.cleanup?.();
+        slot.active = false;
+        slot.cleanup = undefined;
+      });
+    },
+    focus() { focused = true; },
     react: {
       useState: (initial) => {
         const index = cursor++;
@@ -98,9 +119,11 @@ function hooks() {
   };
 }
 function harness({
+  screen = 'blood-pressure',
   language = "vi",
   profile = { id: "owner", age: 40 },
   latest = async () => null,
+  today = async () => [],
   fullProfile = async () => ({ id: "owner", age: 40 }),
   save = async () => {},
 } = {}) {
@@ -110,7 +133,7 @@ function harness({
     assert.equal(typeof catalog[key], "string", key);
     return catalog[key];
   };
-  const calls = { writes: [], toasts: [], routes: [], phones: [], profiles: 0 };
+  const calls = { writes: [], toasts: [], routes: [], phones: [], profiles: 0, latest: 0, totals: 0 };
   let auth = { profile, token: "isolated-test-token" };
   const authStore = (select) => select(auth);
   authStore.getState = () => auth;
@@ -125,7 +148,12 @@ function harness({
       return this;
     },
   };
-  const { default: Component } = evaluate("app/logs/blood-pressure.tsx", {
+  const validation = evaluate('src/features/logs/logs.validation.ts', {
+    '../../i18n': { __esModule: true, default: { t } },
+    './logs.service': { isHalfStepNumber: value => Number.isInteger(value * 2) },
+    '../../lib/blood-pressure': rules,
+  });
+  const { default: Component } = evaluate(`app/logs/${screen}.tsx`, {
     react: h.react,
     "react/jsx-runtime": { jsx, jsxs: jsx, Fragment: "Fragment" },
     "react-native": {
@@ -155,15 +183,17 @@ function harness({
       useSharedValue: (value) => ({ value }),
       withSequence() {},
       withTiming() {},
+      withRepeat() {},
+      withSpring() {},
     },
     "react-native-safe-area-context": {
       useSafeAreaInsets: () => ({ top: 59, bottom: 34 }),
     },
-    "expo-router": { Stack: { Screen: "StackScreen" } },
+    "expo-router": { Stack: { Screen: "StackScreen" }, useFocusEffect: h.useFocusEffect },
     "@/hooks/useGuardedRouter": {
       useGuardedRouter: () => ({ back: () => calls.routes.push("back") }),
     },
-    "@expo/vector-icons": { Ionicons: "Icon" },
+    "@expo/vector-icons": { Ionicons: "Icon", MaterialCommunityIcons: 'Icon' },
     "react-i18next": { useTranslation: () => ({ t }) },
     "../../src/components/ScaledText": { ScaledText: "Text" },
     "../../src/components/ScaledTextInput": { ScaledTextInput: "NumericInput" },
@@ -182,8 +212,12 @@ function harness({
       },
     },
     "../../src/features/logs/logs.api": {
-      logsApi: { fetchLatestByType: latest },
+      logsApi: {
+        fetchLatestByType: (...args) => { calls.latest++; return latest(...args); },
+        fetchTodayByType: (...args) => { calls.totals++; return today(...args); },
+      },
     },
+    "../../src/features/logs/logs.validation": validation,
     "../../src/features/logs/logs.store": {
       useLogsStore: (select) =>
         select({
@@ -191,6 +225,8 @@ function harness({
             calls.writes.push(payload);
             await save(payload);
           },
+          createGlucose: async payload => { calls.writes.push(payload); await save(payload); },
+          createWater: async payload => { calls.writes.push(payload); await save(payload); },
         }),
     },
     "../../src/hooks/useScaledTypography": {
@@ -211,6 +247,9 @@ function harness({
     calls,
     t,
     render,
+    all,
+    refocus() { h.blur(); h.focus(); render(); },
+    blur: h.blur,
     level: () => all().find((node) => node.type === "ReadingLevelIndicator"),
     async ready() {
       render();
@@ -406,20 +445,71 @@ await test("rapid duplicate saves write once; stale completions cannot navigate 
   assert.deepEqual(h.calls.routes, []);
   assert.deepEqual(h.calls.toasts, []);
 });
-await test("latest reading and profile from a previous account cannot populate the new account", async () => {
+await test("a delayed age lookup from a previous account cannot replace the new account profile", async () => {
   const old = deferred();
-  let requests = 0;
   const h = harness({
-    latest: () => (++requests === 1 ? old.promise : Promise.resolve(null)),
+    profile: { id: 'owner' },
+    fullProfile: () => old.promise,
   });
   h.render();
   h.switchAccount({ id: "other", age: 12 });
   await h.ready();
-  old.resolve({ systolic: 200, diastolic: 55, context: "evening" });
+  old.resolve({ id: 'owner', age: 40 });
   await h.ready();
   assert.deepEqual(h.values(), ["", ""]);
   h.input(118, 78);
   assert.equal(h.level().props.reference, h.t("bpUnder18Reference"));
+});
+
+for (const screen of ['blood-pressure', 'glucose', 'water']) {
+  await test(`${screen}: a fresh entry never copies history; returning or changing accounts clears the draft`, async () => {
+    const h = harness({ screen,
+      latest: async () => ({ systolic: 155, diastolic: 95, value: 180, volume_ml: 500, context: 'evening' }),
+      today: async () => [{ volume_ml: 250 }, { volume_ml: 350 }],
+    });
+    await h.ready();
+    const expected = screen === 'blood-pressure' ? ['', ''] : [''];
+    assert.deepEqual(h.values(), expected);
+    assert.equal(h.calls.latest, 0, 'New entry must not fetch a previous measurement');
+    await h.save();
+    assert.equal(h.calls.writes.length, 0, 'An empty entry cannot resave a previous measurement');
+    h.all().find(node => node.type === 'NumericInput').props.onChangeText('123');
+    h.all().find(node => node.type === 'Field' && node.props.label === h.t('notes')).props.onChangeText('draft');
+    assert.equal(h.values()[0], '123');
+    h.refocus(); await h.ready();
+    assert.deepEqual(h.values(), expected);
+    assert.equal(h.all().find(node => node.type === 'Field' && node.props.label === h.t('notes')).props.value, '');
+    h.all().find(node => node.type === 'NumericInput').props.onChangeText('456');
+    h.switchAccount({ id: 'other', age: 40 }); await h.ready();
+    assert.deepEqual(h.values(), expected);
+    if (screen === 'water') {
+      h.all().find(node => node.type === 'NumericInput').props.onChangeText('200');
+      await h.save();
+      assert.equal(h.calls.writes[0].volume_ml, 200, 'Save this drink, not the day total of 600');
+    } else {
+      const parsed = screen === 'glucose'
+        ? { log_type: 'glucose', value: 142, context: 'post_meal' }
+        : { log_type: 'blood_pressure', systolic: 125, diastolic: 82, pulse: 70 };
+      h.all().find(node => node.type === 'VoiceInput').props.onParsed({ ok: true, parsed });
+      assert.deepEqual(h.values(), screen === 'glucose' ? ['142'] : ['125', '82']);
+      await h.save();
+      assert.equal(h.calls.writes.length, 1, 'Explicit new voice measurement can still be saved');
+    }
+    h.blur();
+  });
+}
+
+await test('water: a previous account day total cannot leak into the next account', async () => {
+  const old = deferred();
+  let requests = 0;
+  const h = harness({ screen: 'water', today: () => ++requests === 1 ? old.promise : Promise.resolve([{ volume_ml: 200 }]) });
+  h.render();
+  h.switchAccount({ id: 'other', age: 40 }); await h.ready();
+  const before = h.text();
+  old.resolve([{ volume_ml: 999 }]); await h.ready();
+  assert.deepEqual(h.text(), before);
+  assert.deepEqual(h.values(), ['']);
+  h.blur();
 });
 
 for (const language of ["vi", "en"]) {

@@ -15,7 +15,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Stack } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { QueuedModal } from "../../components/QueuedModal";
@@ -23,6 +23,7 @@ import { ScaledText as Text } from "../../components/ScaledText";
 import { useGuardedRouter } from "../../hooks/useGuardedRouter";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { useScaledFontSize } from "../../hooks/useScaledTypography";
+import { env } from "../../lib/env";
 import { HealthCoinIcon } from "./HealthCoinIcon";
 import {
   useMedicationOverview,
@@ -32,8 +33,8 @@ import { medicationStyles as s } from "./medication-overview.styles";
 import type { MedDose } from "./v21.api";
 import { validMedicationNote } from "./medication-input";
 import { MedicationPurposeTags } from "./MedicationPurposeTags";
-import { MedicationBackground } from "./MedicationBackground";
 import { MedicationDraftEntry } from "./MedicationDraftEntry";
+import { MedicationPhotoPreview } from "./MedicationPhotoPreview";
 import { medicationDoseStatusKey } from "./medication-dose-display";
 import { MedicationTimeField } from "./MedicationTimeField";
 
@@ -140,9 +141,12 @@ export function MedicationOverviewPanel({
     title = { color: colors.textPrimary },
     tint = { color: colors.primaryText };
   const drafts = med.data?.drafts || (med.data?.draft ? [med.data.draft] : []);
+  const takenToday = med.doses.filter((dose) => dose.state === "TAKEN").length;
+  const totalToday = med.doses.filter(
+    (dose) => dose.state !== "CANCELLED"
+  ).length;
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
-      <MedicationBackground />
       <View style={s.chrome}>
         <View style={s.header}>
           <Pressable
@@ -153,20 +157,29 @@ export function MedicationOverviewPanel({
           >
             <Ionicons name="arrow-back" size={23} color={colors.textPrimary} />
           </Pressable>
-          {!compact && (
-            <View style={s.heroIcon}>
-              <MaterialCommunityIcons
-                name="pill"
-                size={27}
-                color={colors.primaryText}
-              />
-            </View>
-          )}
           <View style={s.copy}>
-            <Text accessibilityRole="header" style={[s.heading, title]}>
+            <Text
+              accessibilityRole="header"
+              style={[s.heading, s.center, title]}
+            >
               {t("medicationTitle")}
             </Text>
           </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("addSchedule")}
+            accessibilityState={{
+              disabled: !med.data || med.busy || med.loading,
+            }}
+            disabled={!med.data || med.busy || med.loading}
+            onPress={onAdd}
+            style={({ pressed }) => [
+              s.iconButton,
+              (pressed || !med.data || med.busy || med.loading) && s.disabled,
+            ]}
+          >
+            <Ionicons name="add-outline" size={28} color={colors.primaryText} />
+          </Pressable>
         </View>
         <View
           accessibilityRole="tablist"
@@ -186,7 +199,7 @@ export function MedicationOverviewPanel({
               style={[
                 s.tab,
                 tab === key && {
-                  backgroundColor: colors.primaryLight,
+                  backgroundColor: colors.surface,
                 },
               ]}
             >
@@ -209,65 +222,88 @@ export function MedicationOverviewPanel({
           ))}
         </View>
         {med.patients.length > 1 && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${t("forWhom")} ${personName || ""}`}
-            accessibilityState={{ expanded: choosePatient, disabled: med.busy }}
-            disabled={med.busy}
-            onPress={() => setChoosePatient(!choosePatient)}
-            style={s.patient}
+          <View
+            style={[
+              s.patientCard,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
           >
-            <Ionicons
-              name="person-outline"
-              size={19}
-              color={colors.primaryText}
-            />
-            <Text style={[s.title, tint, s.copy]}>
-              {personName || t("forWhom")}
-            </Text>
-            <Ionicons
-              name={choosePatient ? "chevron-up" : "chevron-down"}
-              size={18}
-              color={colors.textSecondary}
-            />
-          </Pressable>
-        )}
-        {choosePatient && (
-          <ScrollView style={s.people} contentContainerStyle={s.peopleContent}>
-            {med.patients.map((person) => (
-              <Pressable
-                key={person.id}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: person.id === med.patientId }}
-                accessibilityLabel={
-                  Number(person.id) === Number(med.self)
-                    ? t("myself")
-                    : person.name
-                }
-                onPress={() => {
-                  med.selectPatient(person.id);
-                  setChoosePatient(false);
-                }}
-                style={s.row}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${t("forWhom")} ${personName || ""}`}
+              accessibilityState={{
+                expanded: choosePatient,
+                disabled: med.busy,
+              }}
+              disabled={med.busy}
+              onPress={() => setChoosePatient((open) => !open)}
+              style={s.patient}
+            >
+              <Ionicons
+                name="person-outline"
+                size={19}
+                color={colors.primaryText}
+              />
+              <Text style={[s.title, tint, s.copy]}>
+                {personName || t("forWhom")}
+              </Text>
+              <Ionicons
+                name={choosePatient ? "chevron-up" : "chevron-down"}
+                size={18}
+                color={colors.textSecondary}
+              />
+            </Pressable>
+            {choosePatient && (
+              <ScrollView
+                style={[s.people, { borderTopColor: colors.border }]}
+                contentContainerStyle={s.peopleContent}
               >
-                <Text style={[s.title, title, s.copy]}>
-                  {Number(person.id) === Number(med.self)
-                    ? t("myself")
-                    : person.name}
-                </Text>
-                {person.id === med.patientId && (
-                  <Ionicons
-                    name="checkmark"
-                    size={21}
-                    color={colors.primaryText}
-                  />
-                )}
-              </Pressable>
-            ))}
-          </ScrollView>
+                {med.patients.map((person) => {
+                  const selected = person.id === med.patientId;
+                  const label =
+                    Number(person.id) === Number(med.self)
+                      ? t("myself")
+                      : person.name;
+                  return (
+                    <Pressable
+                      key={person.id}
+                      accessibilityRole="radio"
+                      accessibilityState={{
+                        checked: selected,
+                        disabled: med.busy,
+                      }}
+                      accessibilityLabel={label}
+                      disabled={med.busy}
+                      onPress={() => {
+                        med.selectPatient(person.id);
+                        setChoosePatient(false);
+                      }}
+                      style={({ pressed }) => [
+                        s.patientOption,
+                        (selected || pressed) && {
+                          backgroundColor: colors.primaryLight,
+                        },
+                      ]}
+                    >
+                      <Text style={[s.title, title, s.copy]}>{label}</Text>
+                      {selected && (
+                        <Ionicons
+                          name="checkmark"
+                          size={21}
+                          color={colors.primaryText}
+                        />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
         )}
       </View>
       <ScrollView
+        testID="medication-overview-scroll"
+        key={`${med.patientId}:${tab}`}
         style={s.scroll}
         contentContainerStyle={s.content}
         showsVerticalScrollIndicator={false}
@@ -315,13 +351,6 @@ export function MedicationOverviewPanel({
           <>
             {drafts.length > 0 && (
               <View style={{ gap: 16 }}>
-                <Button
-                  quiet
-                  label={t("newMedicationSetup")}
-                  disabled={med.loading}
-                  busy={med.busy}
-                  onPress={onAdd}
-                />
                 {drafts.map((draft) => (
                   <MedicationDraftEntry
                     key={draft.id}
@@ -352,12 +381,34 @@ export function MedicationOverviewPanel({
                   color={colors.primaryText}
                 />
                 <Text style={[s.caption, caption, s.copy]}>
-                  {t("remindersOff")}
+                  {med.data.self
+                    ? t("remindersOff")
+                    : personName
+                      ? t("remindersOffForMember", { name: personName })
+                      : t("remindersOffForFamily")}
                 </Text>
               </View>
             )}
             {tab === "today" ? (
               <>
+                {med.doses.length > 0 && (
+                  <View style={s.sectionHeader}>
+                    <Text
+                      accessibilityRole="header"
+                      style={[s.sectionTitle, title]}
+                    >
+                      {t("todayDoses")}
+                    </Text>
+                    {totalToday > 0 && (
+                      <Text style={[s.caption, caption]}>
+                        {t("medicationTodayProgress", {
+                          taken: takenToday,
+                          total: totalToday,
+                        })}
+                      </Text>
+                    )}
+                  </View>
+                )}
                 {med.todayLoading && !med.doses.length && (
                   <ActivityIndicator
                     accessibilityLabel={t("loading")}
@@ -365,7 +416,15 @@ export function MedicationOverviewPanel({
                   />
                 )}
                 {!med.todayLoading && !med.doses.length && !drafts.length && (
-                  <Empty title={t("medicationNoDoses")}></Empty>
+                  <Empty title={t("medicationNoDoses")}>
+                    {med.data.schedules.length > 0 && (
+                      <Button
+                        quiet
+                        label={t("medicationGoToSchedules")}
+                        onPress={() => onTabChange("schedules")}
+                      />
+                    )}
+                  </Empty>
                 )}
                 <View style={s.list}>
                   {med.doses.map((dose) => {
@@ -397,20 +456,38 @@ export function MedicationOverviewPanel({
                       Number.isFinite(elapsed) &&
                       elapsed <= 2 * 60 * 60 * 1000 &&
                       (dose.state !== "SCHEDULED" || elapsed >= 0);
+                    const focus =
+                      dose.state === "CALLING" || status === "medicationDueNow";
                     return (
-                      <View key={dose.id} style={s.row}>
-                        <Text style={[s.time, title]}>
-                          {dose.time_local.slice(0, 5)}
-                        </Text>
-                        <View style={[s.status, s.copy]}>
-                          <Ionicons
-                            name={doseIcons[dose.state]}
-                            size={21}
-                            color={color}
-                          />
-                          <Text style={[s.title, { color }, s.copy]}>
-                            {t(status)}
+                      <View
+                        key={dose.id}
+                        style={[
+                          s.dose,
+                          { borderColor: colors.border },
+                          focus && [
+                            s.doseFocus,
+                            {
+                              backgroundColor: colors.primaryLight,
+                              borderColor: colors.primaryText,
+                            },
+                          ],
+                        ]}
+                      >
+                        <View style={[s.doseTop, compact && s.doseTopCompact]}>
+                          <Text style={[s.time, title]}>
+                            {dose.time_local.slice(0, 5)}
                           </Text>
+                          <View style={s.doseStatus}>
+                            <Ionicons
+                              name={doseIcons[dose.state]}
+                              size={19}
+                              color={color}
+                              accessible={false}
+                            />
+                            <Text style={[s.doseStatusText, { color }]}>
+                              {t(status)}
+                            </Text>
+                          </View>
                         </View>
                         {canAnswer && (
                           <Pressable
@@ -418,16 +495,26 @@ export function MedicationOverviewPanel({
                             accessibilityLabel={`${t(
                               "medicationAnswerAction"
                             )} ${dose.time_local.slice(0, 5)}`}
+                            accessibilityState={{ disabled: med.busy }}
                             disabled={med.busy}
                             onPress={() => onAnswer(dose.id)}
-                            style={[
-                              s.smallButton,
-                              { backgroundColor: colors.primaryLight },
+                            style={({ pressed }) => [
+                              s.answerButton,
+                              { backgroundColor: colors.primaryText },
+                              (pressed || med.busy) && s.disabled,
                             ]}
                           >
-                            <Text style={[s.buttonText, tint]}>
+                            <Text
+                              style={[s.buttonText, { color: colors.surface }]}
+                            >
                               {t("medicationAnswerAction")}
                             </Text>
+                            <Ionicons
+                              name="arrow-forward"
+                              size={19}
+                              color={colors.surface}
+                              accessible={false}
+                            />
                           </Pressable>
                         )}
                       </View>
@@ -438,7 +525,7 @@ export function MedicationOverviewPanel({
                   <Button label={t("addSchedule")} onPress={onAdd} />
                 )}
                 {med.weekly && med.weekly.total > 0 && (
-                  <View style={s.week}>
+                  <View style={[s.week, { borderColor: colors.border }]}>
                     <Text style={[s.sectionTitle, title]}>
                       {t("weekTitle")}
                     </Text>
@@ -466,143 +553,191 @@ export function MedicationOverviewPanel({
                     <Button label={t("addSchedule")} onPress={onAdd} />
                   </Empty>
                 )}
-                {med.data.schedules.map((schedule) => (
-                  <View key={schedule.id} style={s.schedule}>
-                    <View style={s.row}>
-                      <Text style={[s.time, title]}>
-                        {schedule.time_local.slice(0, 5)}
-                      </Text>
-                      <View style={s.copy}>
-                        <Text style={[s.title, title]}>
-                          {schedule.item_ids
-                            .map(
-                              (id) =>
-                                med.data!.items.find((item) => item.id === id)
-                                  ?.display_name
-                            )
-                            .filter(Boolean)
-                            .join(" · ")}
+                {med.data.schedules.length > 0 && (
+                  <View style={s.sectionHeader}>
+                    <Text
+                      accessibilityRole="header"
+                      style={[s.sectionTitle, title]}
+                    >
+                      {t("medicationDailySchedules")}
+                    </Text>
+                    <Text style={[s.caption, caption]}>
+                      {t("medicationScheduleCount", {
+                        count: med.data.schedules.length,
+                      })}
+                    </Text>
+                  </View>
+                )}
+                {med.data.schedules.map((schedule) => {
+                  const items = schedule.item_ids.flatMap((id) => {
+                    const item = med.data!.items.find((row) => row.id === id);
+                    return item ? [item] : [];
+                  });
+                  const stateKey = !schedule.active
+                    ? "scheduleOff"
+                    : schedule.consent_state === "PENDING"
+                    ? "pendingConsent"
+                    : schedule.consent_state;
+                  const stateColor = !schedule.active
+                    ? colors.textSecondary
+                    : schedule.consent_state === "ACTIVE"
+                    ? colors.primaryText
+                    : isDark
+                    ? "#f0c47a"
+                    : "#996515";
+                  const timing =
+                    schedule.note ||
+                    (schedule.meal_anchor
+                      ? t(
+                          schedule.meal_anchor === "bedtime"
+                            ? "anchor_bedtime"
+                            : schedule.meal_anchor
+                        )
+                      : "");
+                  return (
+                    <View
+                      key={schedule.id}
+                      style={[s.schedule, { borderColor: colors.border }]}
+                    >
+                      <View style={s.scheduleHeader}>
+                        <Text style={[s.time, title, s.copy]}>
+                          {schedule.time_local.slice(0, 5)}
                         </Text>
-                        {!schedule.active ? (
-                          <Text style={[s.caption, caption]}>
-                            {t("scheduleOff")}
-                          </Text>
-                        ) : (
-                          schedule.consent_state !== "ACTIVE" && (
-                            <Text style={[s.title, tint]}>
-                              {t(
-                                schedule.consent_state === "PENDING"
-                                  ? "pendingConsent"
-                                  : schedule.consent_state
+                        <Switch
+                          accessibilityLabel={t("medicationScheduleEnabled", {
+                            time: schedule.time_local.slice(0, 5),
+                          })}
+                          hitSlop={{ top: 8, bottom: 8, left: 0, right: 0 }}
+                          accessibilityState={{
+                            disabled: med.busy || med.loading,
+                          }}
+                          value={schedule.active}
+                          disabled={med.busy || med.loading}
+                          onValueChange={(value) =>
+                            void med.setScheduleActive(schedule, value)
+                          }
+                          trackColor={{
+                            false: colors.border,
+                            true: colors.primaryText,
+                          }}
+                          thumbColor={colors.surface}
+                        />
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={t("medicationScheduleActions", {
+                            time: schedule.time_local.slice(0, 5),
+                          })}
+                          accessibilityState={{
+                            disabled: med.busy || med.loading,
+                          }}
+                          disabled={med.busy || med.loading}
+                          onPress={() => med.openSchedule(schedule)}
+                          style={({ pressed }) => [
+                            s.iconButton,
+                            (pressed || med.busy || med.loading) && s.disabled,
+                          ]}
+                        >
+                          <Ionicons
+                            name="ellipsis-horizontal"
+                            size={23}
+                            color={colors.textSecondary}
+                          />
+                        </Pressable>
+                      </View>
+                      <View style={s.scheduleItems}>
+                        {items.map((item) => (
+                          <View key={item.id} style={s.scheduleItem}>
+                            {item.photoUrl ? (
+                              <MedicationPhotoPreview
+                                uri={
+                                  item.photoUrl.startsWith("/")
+                                    ? env.apiBaseUrl + item.photoUrl
+                                    : item.photoUrl
+                                }
+                                label={item.display_name}
+                                compact
+                              />
+                            ) : (
+                              <View style={s.itemSymbol} accessible={false}>
+                                {item.kind === "SUPPLEMENT" ? (
+                                  <Ionicons
+                                    name="leaf-outline"
+                                    size={22}
+                                    color={colors.textSecondary}
+                                  />
+                                ) : (
+                                  <MaterialCommunityIcons
+                                    name="pill"
+                                    size={24}
+                                    color={colors.primaryText}
+                                  />
+                                )}
+                              </View>
+                            )}
+                            <View style={s.copy}>
+                              <Text style={[s.itemName, title]}>
+                                {item.display_name}
+                              </Text>
+                              {!!item.kind && (
+                                <Text style={[s.itemKind, caption]}>
+                                  {t(item.kind)}
+                                </Text>
                               )}
-                            </Text>
-                          )
-                        )}
-                        {!!schedule.note && (
-                          <Text style={[s.caption, caption]}>
-                            {schedule.note}
-                          </Text>
-                        )}
+                            </View>
+                          </View>
+                        ))}
                       </View>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={t("medicationScheduleActions", {
-                          time: schedule.time_local.slice(0, 5),
-                        })}
-                        accessibilityState={{
-                          disabled: med.busy || med.loading,
-                        }}
-                        disabled={med.busy || med.loading}
-                        onPress={() => med.openSchedule(schedule)}
-                        style={s.iconButton}
-                      >
+                      {!!timing && (
+                        <Text style={[s.caption, caption]}>{timing}</Text>
+                      )}
+                      <View style={s.scheduleState}>
                         <Ionicons
-                          name="ellipsis-horizontal"
-                          size={23}
-                          color={colors.textSecondary}
+                          name={
+                            !schedule.active
+                              ? "pause-circle-outline"
+                              : schedule.consent_state === "ACTIVE"
+                              ? "checkmark-circle-outline"
+                              : "time-outline"
+                          }
+                          size={17}
+                          color={stateColor}
+                          accessible={false}
                         />
-                      </Pressable>
-                    </View>
-                    <View style={s.scheduleSwitch}>
-                      <Text style={[s.caption, title, s.copy]}>
-                        {t("medicationScheduleEnabled", {
-                          time: schedule.time_local.slice(0, 5),
-                        })}
-                      </Text>
-                      <Switch
-                        accessibilityLabel={t("medicationScheduleEnabled", {
-                          time: schedule.time_local.slice(0, 5),
-                        })}
-                        hitSlop={{ top: 8, bottom: 8, left: 0, right: 0 }}
-                        accessibilityState={{
-                          disabled: med.busy || med.loading,
-                        }}
-                        value={schedule.active}
-                        disabled={med.busy || med.loading}
-                        onValueChange={(value) =>
-                          void med.setScheduleActive(schedule, value)
-                        }
-                        trackColor={{
-                          false: colors.border,
-                          true: colors.primary,
-                        }}
-                        thumbColor={colors.surface}
-                      />
-                    </View>
-                    {schedule.pushOnly && (
-                      <View style={s.status}>
-                        <Ionicons
-                          name="notifications-outline"
-                          size={16}
-                          color={colors.textSecondary}
-                        />
-                        <Text style={[s.caption, caption, s.copy]}>
-                          {t("medicationPushOnly")}
+                        <Text
+                          style={[
+                            s.caption,
+                            s.stateCopy,
+                            { color: stateColor },
+                          ]}
+                        >
+                          {t(stateKey)}
                         </Text>
                       </View>
-                    )}
-                    {med.data?.self &&
-                      schedule.active &&
-                      schedule.consent_state === "PENDING" && (
-                        <View style={s.consent}>
+                      {schedule.pushOnly && (
+                        <View style={s.scheduleState}>
+                          <Ionicons
+                            name="notifications-outline"
+                            size={17}
+                            color={colors.textSecondary}
+                            accessible={false}
+                          />
+                          <Text style={[s.caption, caption, s.stateCopy]}>
+                            {t("medicationPushOnly")}
+                          </Text>
+                        </View>
+                      )}
+                      {med.data!.self &&
+                        schedule.active &&
+                        schedule.consent_state === "PENDING" && (
                           <Button
                             quiet
                             label={t("medicationReviewConsent")}
                             onPress={() => onConsent(schedule.id)}
                           />
-                        </View>
-                      )}
-                  </View>
-                ))}
-                {med.data.schedules.length > 0 && !drafts.length && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t("addSchedule")}
-                    disabled={med.busy || med.loading}
-                    onPress={onAdd}
-                    style={s.row}
-                  >
-                    <Text style={[s.title, tint]}>{t("addSchedule")}</Text>
-                  </Pressable>
-                )}
-                {!med.data.self && (
-                  <View style={s.preference}>
-                    <Text style={[s.caption, caption, s.copy]}>
-                      {t("problemsOnly")}
-                    </Text>
-                    <Switch
-                      accessibilityLabel={t("problemsOnly")}
-                      value={!!med.data.problemsOnly}
-                      disabled={med.busy || med.loading}
-                      onValueChange={(value) => void med.setProblemsOnly(value)}
-                      trackColor={{
-                        false: colors.border,
-                        true: colors.primary,
-                      }}
-                      thumbColor={colors.surface}
-                    />
-                  </View>
-                )}
+                        )}
+                    </View>
+                  );
+                })}
               </>
             )}
           </>
@@ -895,11 +1030,19 @@ export function MedicationScheduleSheet({
 }
 
 export default function MedicationOverviewScreen() {
-  const med = useMedicationOverview();
+  const { patientId } = useLocalSearchParams<{ patientId?: string }>();
+  const requested = Number(patientId);
+  const initialPatient = patientId === undefined ? undefined
+    : Number.isSafeInteger(requested) && requested > 0 ? requested : 0;
+  return <MedicationOverviewRoute key={initialPatient ?? 'default'} initialPatient={initialPatient} />;
+}
+
+function MedicationOverviewRoute({ initialPatient }: { initialPatient?: number }) {
+  const med = useMedicationOverview(initialPatient);
   const router = useGuardedRouter();
   const { colors } = useThemeColors();
   const insets = useSafeAreaInsets();
-  const [tab, setTab] = useState<Tab>("today");
+  const [tab, setTab] = useState<Tab>(initialPatient !== undefined ? "schedules" : "today");
   return (
     <View
       style={[
@@ -907,6 +1050,8 @@ export default function MedicationOverviewScreen() {
         {
           paddingTop: insets.top,
           paddingBottom: insets.bottom,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
           backgroundColor: colors.background,
         },
       ]}

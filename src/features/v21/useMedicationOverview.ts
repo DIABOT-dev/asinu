@@ -18,12 +18,12 @@ const medicationCalendar = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Ho_Chi_Minh",
 });
 
-export function useMedicationOverview() {
+export function useMedicationOverview(initialPatient?: number) {
   const { t } = useTranslation("v21");
   const token = useAuthStore((s) => s.token);
   const self = useAuthStore((s) => s.profile?.id);
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [patient, setPatient] = useState<number | undefined>();
+  const [patient, setPatient] = useState<number | undefined>(initialPatient);
   const [data, setData] = useState<MedOverview | null>(null);
   const [doses, setDoses] = useState<MedDose[]>([]);
   const [weekly, setWeekly] = useState<{
@@ -92,9 +92,8 @@ export function useMedicationOverview() {
         const flags = await v21Api.flags();
         if (!valid()) return;
         setPatients(flags.patients);
-        const id =
-          flags.patients.find((p) => Number(p.id) === Number(patient))?.id ||
-          flags.patients[0]?.id;
+        const chosenPatient = flags.patients.find((p) => Number(p.id) === Number(patient));
+        const id = chosenPatient?.id ?? (initialPatient === undefined ? flags.patients[0]?.id : undefined);
         if (!id || !flags.medication) {
           setData(null);
           setDoses([]);
@@ -150,7 +149,7 @@ export function useMedicationOverview() {
         if (valid()) setLoading(false);
       }
     },
-    [current, patient, acceptToday]
+    [current, patient, initialPatient, acceptToday]
   );
 
   useFocusEffect(
@@ -438,13 +437,6 @@ export function useMedicationOverview() {
         return mutate(
           () => v21Api.remove(data.patientId, selected.id),
           "saved"
-        );
-    },
-    setProblemsOnly: (value: boolean) => {
-      if (data)
-        return mutate(
-          () => v21Api.preferences(data.patientId, value),
-          value ? "preferenceOn" : "preferenceOff"
         );
     },
   };

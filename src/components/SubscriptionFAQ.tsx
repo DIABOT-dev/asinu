@@ -168,11 +168,6 @@ export const SubscriptionFAQ = memo(function SubscriptionFAQ() {
             <Text allowFontScaling style={[styles.headerTitle, { color: colors.textPrimary }]}>
               {t("faqTitle")}
             </Text>
-            {expanded && (
-              <Text allowFontScaling style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-                {t("faqSubtitle")}
-              </Text>
-            )}
           </View>
         </View>
         <Ionicons
@@ -250,10 +245,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "800",
     letterSpacing: -0.3,
-  },
-  headerSubtitle: {
-    fontSize: 12.5,
-    marginTop: 2,
   },
   headerChevron: {
     marginLeft: spacing.sm,

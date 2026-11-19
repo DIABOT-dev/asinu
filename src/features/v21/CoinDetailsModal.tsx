@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -13,34 +12,71 @@ import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
+import { useLoadOnScrollEnd } from "../../hooks/useLoadOnScrollEnd";
 import { HealthCoinIcon } from "./HealthCoinIcon";
-import {
-  CoinEarnTab,
-  CoinSpendTab,
-  CoinHistoryTab,
-} from "./CoinDetailsContent";
+import { CoinEarnTab, CoinHistoryTab } from "./CoinDetailsContent";
 import type { HealthCoinsController } from "./useHealthCoins";
+import type { CoinHistoryScope } from "./v21.api";
 
-export type CoinDetailsTab = "earn" | "spend" | "history";
-const TABS = [
-  { id: "earn", labelKey: "coinsEarnTab" },
-  { id: "spend", labelKey: "coinsSpendTab" },
-  { id: "history", labelKey: "coinsHistoryTab" },
-] as const;
+type CoinDetailsSection = "earn" | "history" | CoinHistoryScope;
+const sectionTitles = {
+  earn: "coinsEarnTitle",
+  history: "history",
+  usage: "coinUsageHistory",
+  earned: "coinEarnHistory",
+} as const;
 
-export function CoinDetailsPanel({
+export function CoinHistoryButton({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
+  const { colors } = useThemeColors();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.historyButton,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+          opacity: pressed ? 0.7 : 1,
+        },
+      ]}
+    >
+      <Ionicons
+        accessible={false}
+        name="time-outline"
+        size={23}
+        color={colors.primaryText}
+      />
+    </Pressable>
+  );
+}
+
+function CoinDetailsPanel({
   coins,
-  tab,
-  onTabChange,
-  onClose,
+  section,
 }: {
   coins: HealthCoinsController;
-  tab: CoinDetailsTab;
-  onTabChange: (tab: CoinDetailsTab) => void;
-  onClose: () => void;
+  section: CoinDetailsSection;
 }) {
   const { t } = useTranslation("v21");
   const { colors, isDark } = useThemeColors();
+  const isHistory = section !== "earn";
+  const scope =
+    section === "usage" || section === "earned" ? section : undefined;
+  const pagingScroll = useLoadOnScrollEnd(
+    () => {
+      if (isHistory && !coins.historyError) void coins.more();
+    },
+    section,
+    isHistory && coins.hasMore
+  );
   return (
     <View style={styles.panel}>
       <LinearGradient
@@ -55,95 +91,65 @@ export function CoinDetailsPanel({
             accessibilityRole="header"
             style={[styles.title, { color: colors.textPrimary }]}
           >
-            {t("coinsTitle")}
+            {t(sectionTitles[section])}
           </Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {coins.data && t("balance", { count: coins.data.balance })}
-          </Text>
+          {isHistory && coins.data && (
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              {t("balance", { count: coins.data.balance })}
+            </Text>
+          )}
         </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t("close")}
-          onPress={onClose}
+          onPress={coins.close}
           style={styles.close}
         >
           <Ionicons name="close" size={23} color={colors.textSecondary} />
         </Pressable>
       </View>
-      <View
-        accessibilityRole="tablist"
-        style={[styles.tabs, { backgroundColor: colors.primaryLight }]}
-      >
-        {TABS.map((item) => (
-          <Pressable
-            key={item.id}
-            accessibilityRole="tab"
-            accessibilityLabel={t(item.labelKey)}
-            accessibilityState={{ selected: tab === item.id }}
-            onPress={() => onTabChange(item.id)}
-            style={[
-              styles.tab,
-              tab === item.id && {
-                backgroundColor: isDark ? "#28584c" : "#d3ede2",
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                {
-                  color:
-                    tab === item.id ? colors.primaryText : colors.textSecondary,
-                },
-              ]}
-            >
-              {t(item.labelKey)}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
       <ScrollView
-        key={tab}
+        key={section}
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        contentContainerStyle={pagingScroll.minimumContentSize}
+        {...(isHistory ? pagingScroll.scrollProps : undefined)}
       >
-        {tab === "earn" ? (
-          <CoinEarnTab coins={coins} />
-        ) : tab === "spend" ? (
-          <CoinSpendTab coins={coins} />
+        {isHistory ? (
+          <CoinHistoryTab coins={coins} scope={scope} />
         ) : (
-          <CoinHistoryTab coins={coins} />
+          <CoinEarnTab coins={coins} />
         )}
       </ScrollView>
     </View>
   );
 }
 
-export function CoinDetailsModal({ coins }: { coins: HealthCoinsController }) {
+export function CoinDetailsModal({
+  coins,
+  section = "earn",
+}: {
+  coins: HealthCoinsController;
+  section?: CoinDetailsSection;
+}) {
   const { t } = useTranslation("v21");
   const { colors, isDark } = useThemeColors();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
-  const [tab, setTab] = useState<CoinDetailsTab>("earn");
-  const close = () => {
-    coins.close();
-    coins.cancelReward();
-    setTab("earn");
-  };
   return (
     <Modal
       visible={coins.visible}
       transparent
       animationType="fade"
-      onRequestClose={close}
+      onRequestClose={coins.close}
     >
       <View style={styles.root}>
         <Pressable
           style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }]}
           accessibilityRole="button"
           accessibilityLabel={t("close")}
-          onPress={close}
+          onPress={coins.close}
         />
         <View
           accessibilityViewIsModal
@@ -159,12 +165,7 @@ export function CoinDetailsModal({ coins }: { coins: HealthCoinsController }) {
             },
           ]}
         >
-          <CoinDetailsPanel
-            coins={coins}
-            tab={tab}
-            onTabChange={setTab}
-            onClose={close}
-          />
+          <CoinDetailsPanel coins={coins} section={section} />
         </View>
       </View>
     </Modal>
@@ -172,6 +173,14 @@ export function CoinDetailsModal({ coins }: { coins: HealthCoinsController }) {
 }
 
 const styles = StyleSheet.create({
+  historyButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+  },
   root: { flex: 1, justifyContent: "flex-end" },
   sheet: {
     width: "100%",
@@ -202,23 +211,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignSelf: "flex-start",
   },
-  tabs: {
-    flexDirection: "row",
-    borderRadius: 16,
-    padding: 4,
-    marginHorizontal: 20,
-    marginBottom: 16,
-  },
-  tab: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 44,
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tabText: { fontSize: 14, fontWeight: "700", textAlign: "center" },
   scroll: { flex: 1 },
 });

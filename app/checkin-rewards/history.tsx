@@ -10,6 +10,7 @@ import { ScreenBackButton } from '../../src/components/ScreenHeaderButton';
 import { ScaledText as Text } from '../../src/components/ScaledText';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { useGuardedRouter } from '../../src/hooks/useGuardedRouter';
+import { appendDistinctPage, SCROLL_PAGE_SIZE, useLoadOnScrollEnd } from '../../src/hooks/useLoadOnScrollEnd';
 import { useAuthStore } from '../../src/features/auth/auth.store';
 import {
   checkinGiftsApi,
@@ -23,76 +24,102 @@ const chestArt = require('../../assets/images/rewards/daily_chest.png');
 
 export default function GiftHistoryScreen() {
   const account = useAuthStore((s) => s.profile?.id);
-  return account ? (
-    <AccountHistory key={String(account)} account={String(account)} />
+  const token = useAuthStore((s) => s.token);
+  return account && token ? (
+    <AccountHistory key={String(account)} account={String(account)} token={token} />
   ) : null;
 }
 
-function AccountHistory({ account }: { account: string }) {
+function giftPage({ items, nextBefore }: { items: CheckinGift[]; nextBefore: string | null }) {
+  const page = items.slice(0, SCROLL_PAGE_SIZE);
+  return { items: page, before: items.length > SCROLL_PAGE_SIZE ? page.at(-1)!.day : nextBefore };
+}
+
+function AccountHistory({ account, token }: { account: string; token: string }) {
   const { t, i18n } = useTranslation('home');
   const { colors, isDark = false } = useThemeColors();
   const insets = useSafeAreaInsets();
   const router = useGuardedRouter();
   const generation = useRef(0);
-  const [items, setItems] = useState<CheckinGift[]>([]);
+  const nextBefore = useRef<string | null>(null);
+  const requestPending = useRef(false);
+  const [page, setPage] = useState<{ token: string; items: CheckinGift[] } | null>(null);
+  const items = page?.token === token ? page.items : [];
   const [busy, setBusy] = useState(true);
-  const [error, setError] = useState(false);
-  const [cursor, setCursor] = useState<string | null>(null);
+  const [error, setError] = useState<'initial' | 'next' | null>(null);
   const [reload, setReload] = useState(0);
 
   const isDarkMode = Boolean(isDark);
+  const sameSession = useCallback(() => {
+    const auth = useAuthStore.getState();
+    return String(auth.profile?.id) === account && auth.token === token;
+  }, [account, token]);
 
   useFocusEffect(
     useCallback(() => {
-      let live = true;
-      generation.current++;
+      const version = ++generation.current;
+      const current = () => version === generation.current && sameSession();
+      requestPending.current = true;
+      nextBefore.current = null;
       setBusy(true);
-      setError(false);
+      setError(null);
       checkinGiftsApi
-        .history()
+        .history(undefined, SCROLL_PAGE_SIZE)
         .then((result) => {
-          if (live && String(useAuthStore.getState().profile?.id) === account) {
-            setItems(result.items);
-            setCursor(result.nextBefore);
+          if (current()) {
+            const first = giftPage(result);
+            setPage({ token, items: first.items });
+            nextBefore.current = first.before;
           }
         })
         .catch(() => {
-          if (live) setError(true);
+          if (current()) setError('initial');
         })
         .finally(() => {
-          if (live) setBusy(false);
+          if (current()) {
+            requestPending.current = false;
+            setBusy(false);
+          }
         });
       return () => {
-        live = false;
         generation.current++;
+        nextBefore.current = null;
+        requestPending.current = false;
       };
-    }, [account, reload, i18n.language])
+    }, [sameSession, token, reload, i18n.language])
   );
 
   const loadMore = async () => {
-    if (!cursor || busy) return;
+    const before = nextBefore.current;
+    if (!before || requestPending.current || page?.token !== token || !sameSession()) return;
     const requestGeneration = generation.current;
     const current = () =>
-      requestGeneration === generation.current &&
-      String(useAuthStore.getState().profile?.id) === account;
+      requestGeneration === generation.current && sameSession();
+    requestPending.current = true;
     setBusy(true);
-    setError(false);
+    setError(null);
     try {
-      const result = await checkinGiftsApi.history(cursor);
+      const result = giftPage(await checkinGiftsApi.history(before, SCROLL_PAGE_SIZE));
       if (!current()) return;
-      setItems((previous) => [
-        ...previous,
-        ...result.items.filter(
-          (item) => !previous.some((old) => old.id === item.id)
-        ),
-      ]);
-      setCursor(result.nextBefore);
+      setPage((previous) => ({
+        token,
+        items: appendDistinctPage(previous?.items ?? [], result.items),
+      }));
+      nextBefore.current = result.before === before ? null : result.before;
     } catch {
-      if (current()) setError(true);
+      if (current()) setError('next');
     } finally {
-      if (current()) setBusy(false);
+      if (current()) {
+        requestPending.current = false;
+        setBusy(false);
+      }
     }
   };
+  const pagingScroll = useLoadOnScrollEnd(() => {
+    if (!error) {
+      void loadMore();
+    }
+  }, `${reload}:${i18n.language}`, page?.token === token && nextBefore.current !== null);
 
   return (
     <Screen
@@ -122,9 +149,11 @@ function AccountHistory({ account }: { account: string }) {
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
+        {...pagingScroll.scrollProps}
         contentContainerStyle={[
           styles.listContent,
           { paddingBottom: insets.bottom + 32 },
+          pagingScroll.minimumContentSize,
         ]}
         renderItem={({ item, index }) => {
           const dateObj = new Date(item.day + 'T12:00:00+07:00');
@@ -260,7 +289,7 @@ function AccountHistory({ account }: { account: string }) {
               <Pressable
                 accessibilityRole="button"
                 onPress={() =>
-                  cursor && items.length
+                  error === 'next'
                     ? void loadMore()
                     : setReload((x) => x + 1)
                 }
@@ -270,19 +299,6 @@ function AccountHistory({ account }: { account: string }) {
                   style={[styles.footerButtonText, { color: colors.primaryText }]}
                 >
                   {t('checkinGift.retry')}
-                </Text>
-              </Pressable>
-            )}
-            {!!cursor && !busy && !error && (
-              <Pressable
-                accessibilityRole="button"
-                onPress={loadMore}
-                style={styles.footerButton}
-              >
-                <Text
-                  style={[styles.footerButtonText, { color: colors.primaryText }]}
-                >
-                  {t('checkinGift.loadMore')}
                 </Text>
               </Pressable>
             )}

@@ -113,7 +113,7 @@ test('legacy questions and detailed answers cannot classify duration, severity o
     ],
   ]) assert.equal(helper.recordedCheckinSymptoms({ session: null, answers }), 'Headache, Nausea');
 });
-test('the light check-in header can override its arrow color without changing other screen defaults', () => {
+test('the shared circular back button defaults to a white arrow and permits an explicit color override', () => {
   const { ScreenBackButton } = evaluate(
     'src/components/ScreenHeaderButton.tsx',
     {
@@ -134,28 +134,28 @@ test('the light check-in header can override its arrow color without changing ot
   const checkin = ScreenBackButton({ onPress() {}, iconColor: '#0F172A' });
   assert.equal(
     nodes(original).find((node) => node.type === 'Icon').props.color,
-    '#F0F0F5',
+    '#F4FFFC',
   );
   assert.equal(
     nodes(checkin).find((node) => node.type === 'Icon').props.color,
     '#0F172A',
   );
   const route = ts.createSourceFile('checkin.tsx', fs.readFileSync('app/checkin/index.tsx', 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  let arrow;
+  let button;
   const visit = node => {
-    if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(route) === 'ScreenBackButton') {
-      arrow ??= node.attributes.properties.find(prop => prop.name?.getText(route) === 'iconColor');
-    }
+    if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(route) === 'ScreenBackButton') button ??= node;
     ts.forEachChild(node, visit);
   };
   visit(route);
-  assert.ok(arrow?.initializer?.expression, 'Check-in header must set its arrow color');
-  // eslint-disable-next-line no-new-func -- Evaluate the checked-in color expression with controlled theme values.
-  const resolveColor = new Function('screen', 'colors', `return (${arrow.initializer.expression.getText(route)})`);
-  for (const primaryText of ['#0f766e', '#5eead4']) {
-    assert.equal(resolveColor('status', { primaryText }), primaryText, 'Status arrow follows the tinted back control');
-    assert.equal(resolveColor('triage', { primaryText }), primaryText, 'Triage arrow follows the same back control palette');
-  }
+  assert.ok(button, 'Check-in retains the shared back control');
+  assert.ok(!button.attributes.properties.some(prop => prop.name?.getText(route) === 'iconColor'),
+    'Check-in uses the white arrow on the shared gray circle');
+  const style = button.attributes.properties.find(prop => prop.name?.getText(route) === 'style');
+  // eslint-disable-next-line no-new-func -- Evaluate the local literal for the header layout.
+  const override = new Function(`return (${style.initializer.expression.getText(route)})`)();
+  assert.ok(!override.backgroundColor, 'Check-in keeps the shared circle background');
+  assert.ok(override.width >= 44 && override.height >= 44);
+
 });
 for (const lang of ['vi', 'en']) {
   const home = JSON.parse(
@@ -197,6 +197,7 @@ for (const lang of ['vi', 'en']) {
         }),
       },
       '../../components/ScaledText': { ScaledText: 'Text' },
+      '../guidance/GuidanceProvider': { GuideTarget: 'GuideTarget' },
       '../../hooks/useThemeColors': {
         useThemeColors: () => ({
           colors: {
@@ -250,6 +251,15 @@ for (const lang of ['vi', 'en']) {
       nodes(disclaimer).filter((n) => n.type === 'Button').length,
       0,
     );
+  });
+  test(`${lang}: the practice guide highlights the real narrative explanation, advice and expert button`, () => {
+    const sample = { ...result, conclusionFormat: 'narrative', narrative: 'Example explanation.\n\n- Example next step.\n\nExample monitoring paragraph.' };
+    const tree = CheckinConclusion({ result: sample, onConnectExpert() {}, expertAvailable: true, practice: true });
+    const targets = nodes(tree).filter(node => node.type === 'GuideTarget');
+    assert.deepEqual(targets.map(node => node.props.step), ['checkin.result_symptoms', 'checkin.result_advice', 'checkin.result_doctor']);
+    assert.ok(text(targets[0]).includes('Example explanation'));
+    assert.ok(text(targets[1]).includes('Example next step'));
+    assert.ok(nodes(tree).some(node => node.props?.testID === 'checkin-narrative-conclusion'));
   });
   test(`${lang}: speech contains every visible conclusion block and advice followed by the fixed AI notice`, () => {
     assert.equal(
@@ -435,12 +445,14 @@ for (const lang of ['vi', 'en']) {
       },
     };
     const globals = {
+      ...evaluate('src/features/checkin/triage-answer-selection.ts', {}),
       CheckinQuestionLoading: 'QuestionLoading',
       useTranslation: () => ({ t: (key) => home[key] || key }),
       useGuideAcknowledgement: () => () => {},
-      useState: (initial) => [initial, () => {}],
+      useState: (initial) => [typeof initial === 'function' ? initial() : initial, () => {}],
       useRef: (current) => ({ current }),
       useEffect: () => {},
+      useCallback: work => work,
       useLanguageStore: () => ({ language: lang }),
       MAX_TRIAGE_QUESTIONS: 8,
       View: 'View',

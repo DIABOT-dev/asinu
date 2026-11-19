@@ -15,6 +15,15 @@
         "integratedLufs": -16.45,
         "truePeakDbtp": -2.1
       },
+      "practice_result": {
+        "file": "vi_practice_result.mp3",
+        "text": "Đây là màn kết quả minh hoạ của hướng dẫn. Phía trên là mức cần chú ý. Bên dưới là ví dụ phần giải thích và những gợi ý cần xem trong lần check-in thật. Bạn có thể bấm thử nghe lại, xem nút tư vấn chuyên gia và chọn các tình huống minh hoạ. Hướng dẫn không đánh giá sức khoẻ, không báo người thân và không tạo lịch nhắc. Bấm Hoàn tất hướng dẫn để về trang chủ nhé.",
+        "textSha256": "0ab77a838e6322de2f1de4f0d40f7b3185607abdef3ea73653d969e0d0d5cb7a",
+        "audioSha256": "6f6182c641ae472dec0a9b292db659d1bafc30050f8c962937161f4a69a2c572",
+        "bytes": 316845,
+        "integratedLufs": -16.49,
+        "truePeakDbtp": -1.8
+      },
       "home.fine": {
         "file": "vi_home_fine.mp3",
         "text": "Thấy khỏe thì bấm Tôi ổn nhé, mỗi ngày một lần.",
@@ -33,23 +42,14 @@
         "integratedLufs": -16.14,
         "truePeakDbtp": -2.43
       },
-      "practice_result": {
-        "file": "vi_practice_result.mp3",
-        "text": "Mình cùng xem màn kết quả nhé. Phía trên là mức cần chú ý. Bên dưới là những điều bạn vừa chia sẻ và gợi ý nên làm gì tiếp. Khi cần tư vấn thêm, bạn bấm vào nút tìm người tư vấn. Mục người thân giúp bạn biết Asinu đã liên hệ ai. Bạn có thể chọn từng tình huống bên dưới để xem cách xử lý. Muốn nghe lại, bạn bấm vào chiếc loa nhé. Khi đã hiểu, bạn bấm Hoàn tất hướng dẫn để về trang chủ.",
-        "textSha256": "10a614a74561a83958406a66c3121c6389c50bf64284bb89e64a7922882eed20",
-        "audioSha256": "59c8fc7743b8c702d0b822690d008f81b975098f2277a8e26fd5f8d7cf2c1014",
-        "bytes": 366765,
-        "integratedLufs": -16.39,
-        "truePeakDbtp": -2.09
-      },
-      "checkin.choices": {
-        "file": "vi_checkin_choices.mp3",
-        "text": "Bạn đang gặp điều nào dưới đây, bấm chọn để Asinu hiểu hơn nhé.",
-        "textSha256": "7f49555146f819ced4b26d1400727b2b56d9aed6fc8258fcce66f1c23d7ffd42",
-        "audioSha256": "7484f4c22f75064f41380ad1fb34203df8354f4f215864c54d5707636793e5eb",
-        "bytes": 61101,
-        "integratedLufs": -16.36,
-        "truePeakDbtp": -2.25
+      "checkin.other": {
+        "file": "vi_checkin_other.mp3",
+        "text": "Không thấy điều bạn muốn nói, bấm đây để nói hoặc gõ nhé.",
+        "textSha256": "2cacea52e369b5e7899bdc787f04351188594af06e0deeb7f011bfe3d62a72f6",
+        "audioSha256": "dcf646566fbb86aea976513145212c2fb93c04b38ea4c1378fcf57a60f9c175b",
+        "bytes": 50349,
+        "integratedLufs": -16.29,
+        "truePeakDbtp": -1.92
       },
       "home.suggestions": {
         "file": "vi_home_suggestions.mp3",
@@ -105,15 +105,6 @@
         "integratedLufs": -16.45,
         "truePeakDbtp": -1.98
       },
-      "checkin.other": {
-        "file": "vi_checkin_other.mp3",
-        "text": "Không thấy điều bạn muốn nói, bấm đây để nói hoặc gõ nhé.",
-        "textSha256": "2cacea52e369b5e7899bdc787f04351188594af06e0deeb7f011bfe3d62a72f6",
-        "audioSha256": "dcf646566fbb86aea976513145212c2fb93c04b38ea4c1378fcf57a60f9c175b",
-        "bytes": 50349,
-        "integratedLufs": -16.29,
-        "truePeakDbtp": -1.92
-      },
       "checkin.practice": {
         "file": "vi_checkin_practice.mp3",
         "text": "Mình cùng thử từng bước nhé, bạn cứ bấm theo hướng dẫn.",
@@ -150,23 +141,14 @@
         "integratedLufs": -16.28,
         "truePeakDbtp": -2.3
       },
-      "checkin.voice": {
-        "file": "vi_checkin_voice.mp3",
-        "text": "Bạn bấm Nói rồi nói chậm, xong bấm Xong giúp mình nhé.",
-        "textSha256": "688e351b31dffb76295248105cb36db2314cc62c485563bea9136a44600e40b1",
-        "audioSha256": "0ef7d77d8f1a804cad89e2e88a850c53c053c5d23021f2e4c05537cf20a523ea",
-        "bytes": 54573,
-        "integratedLufs": -16.47,
-        "truePeakDbtp": -2.07
-      },
-      "checkin.multiple": {
-        "file": "vi_checkin_multiple.mp3",
-        "text": "Bạn có nhiều dấu hiệu thì chọn hết những điều mình đang gặp nhé.",
-        "textSha256": "af5855acf11d1e4a477286d27574ad8d3d0369af649c2a181d03a3d005b4d48a",
-        "audioSha256": "5d1112e62adbaf54bc01392b561edbc7a1758fb0f2ad80fa9718b8c3fca18112",
-        "bytes": 50349,
-        "integratedLufs": -16.44,
-        "truePeakDbtp": -2.13
+      "checkin.choices": {
+        "file": "vi_checkin_choices.mp3",
+        "text": "Bấm thử một đáp án, rồi bấm Tiếp theo để xem bước sau nhé.",
+        "textSha256": "6aa26dbb71122f2b53e7cb61edf6393e181700f8fe925606f20cfba7e05ff702",
+        "audioSha256": "bd8ea841e749ebc7a85e0eda02a1684efd75dcad0414c9d02a15299b45657837",
+        "bytes": 58797,
+        "integratedLufs": -16.21,
+        "truePeakDbtp": -1.98
       },
       "checkin.location_confirm": {
         "file": "vi_checkin_location_confirm.mp3",
@@ -177,23 +159,32 @@
         "integratedLufs": -16.34,
         "truePeakDbtp": -2.27
       },
+      "checkin.voice": {
+        "file": "vi_checkin_voice.mp3",
+        "text": "Bấm Nói rồi Xong để xem ví dụ lời nói hiện thành chữ nhé.",
+        "textSha256": "c2b8592fdbbc2466f453217a9533fe20c7eb2dedcd257cda803b9de511df02cc",
+        "audioSha256": "dc3a6f01c6dac7d0a967900140dcc1925fb63e692ebc8fbc2aeeaa39a3040be8",
+        "bytes": 51501,
+        "integratedLufs": -16.45,
+        "truePeakDbtp": -2.11
+      },
+      "checkin.multiple": {
+        "file": "vi_checkin_multiple.mp3",
+        "text": "Có thể chọn nhiều đáp án, rồi bấm Tiếp theo để xem tiếp nhé.",
+        "textSha256": "df4d44bc4cfee6cdf32e9a2152af4f5ebee85603a5349be97641158bf136cb69",
+        "audioSha256": "8540cb7b8fea347d0322a7d9a521e0feec345a6423725bb0afa6eb8277022637",
+        "bytes": 58029,
+        "integratedLufs": -16.21,
+        "truePeakDbtp": -2.1
+      },
       "checkin.single": {
         "file": "vi_checkin_single.mp3",
-        "text": "Bạn chọn một tình huống đúng với mình, mình sẽ hỏi tiếp nhé.",
-        "textSha256": "c1d1b50706edb194f2dadadd90e29d53e2296bb00f6929fe23fdfb11e015fe2d",
-        "audioSha256": "a6e55bc5ddf283fecbff6f69dc4802523eb81f04e866de0f0be2459b6172ca9a",
-        "bytes": 54957,
-        "integratedLufs": -16.42,
-        "truePeakDbtp": -2.33
-      },
-      "checkin.confirm": {
-        "file": "vi_checkin_confirm.mp3",
-        "text": "Bạn trả lời xong rồi, bấm Xác nhận để mình xem cùng nhé.",
-        "textSha256": "a9e0768afeb3499f610ec91001897b43fdfecc4b00cd5901dd75c568f3613bed",
-        "audioSha256": "3348ba08df0d7bfa50871afa408e560687f1ecfabd5cba7a10c71ab2e4a57a9a",
-        "bytes": 51117,
-        "integratedLufs": -16.5,
-        "truePeakDbtp": -1.84
+        "text": "Bạn chọn thử một đáp án, rồi bấm Tiếp theo nhé.",
+        "textSha256": "49d399f9d3d11db5f5f37c2c3b1d1bda63dad9f5e5a35308e29878fbc487cbca",
+        "audioSha256": "5b696ab06ff564792b79ffa526b025b784dcc0d82281b28b5541dae576ca6d79",
+        "bytes": 45741,
+        "integratedLufs": -16.29,
+        "truePeakDbtp": -2.41
       },
       "checkin.result_status": {
         "file": "vi_checkin_result_status.mp3",
@@ -204,23 +195,23 @@
         "integratedLufs": -16.43,
         "truePeakDbtp": -2
       },
-      "checkin.result_advice": {
-        "file": "vi_checkin_result_advice.mp3",
-        "text": "Bạn đọc gợi ý ở đây để biết nên làm gì tiếp nhé.",
-        "textSha256": "734bcb22cbb7f5fe0913561279456eda0c8672ef98fb105e312db05b7141455f",
-        "audioSha256": "cf87e4bf289b0d749f7332c9604f5729619ff272f79561f0177911a94e640ff6",
-        "bytes": 47661,
-        "integratedLufs": -16.47,
-        "truePeakDbtp": -2.42
+      "checkin.confirm": {
+        "file": "vi_checkin_confirm.mp3",
+        "text": "Bấm Tiếp theo để xem bước mẫu tiếp theo nhé.",
+        "textSha256": "2598226aaaf14858257b3ef6e09a8a5cbab292b4e71019f032cd7ff676d25ee7",
+        "audioSha256": "21f4bdb1fd836e2bd1aad53cc6d414dc0fd1f1ff593e4889af78a74b7b94f76c",
+        "bytes": 48429,
+        "integratedLufs": -16.34,
+        "truePeakDbtp": -2.43
       },
       "checkin.result_symptoms": {
         "file": "vi_checkin_result_symptoms.mp3",
-        "text": "Ở đây là những điều bạn vừa chia sẻ với Asinu nhé.",
-        "textSha256": "bd2833a48e957254c43c78b0ffbab4e3609c4270faaee7fd2672580e732315a6",
-        "audioSha256": "86bcb62cb69c8803b6a8a156f2848992cefa4552cfd360b9ca91d8438c3a4f01",
-        "bytes": 46509,
-        "integratedLufs": -16.44,
-        "truePeakDbtp": -1.96
+        "text": "Ở đây là ví dụ phần giải thích kết quả nhé.",
+        "textSha256": "e7a7708b1adcf22c19c019f66e269eb8cc0639dd1ba8df9710ccc662f06650e0",
+        "audioSha256": "c17a7fcc887a43c787ee00ac7fe1dc07e039ce788e00f62395bfb3dec5d4add2",
+        "bytes": 34989,
+        "integratedLufs": -16.18,
+        "truePeakDbtp": -2.36
       },
       "checkin.result_replay": {
         "file": "vi_checkin_result_replay.mp3",
@@ -275,6 +266,15 @@
         "bytes": 53421,
         "integratedLufs": -16.3,
         "truePeakDbtp": -2.34
+      },
+      "checkin.result_advice": {
+        "file": "vi_checkin_result_advice.mp3",
+        "text": "Bạn xem phần gợi ý nên làm gì tiếp ở đây nhé.",
+        "textSha256": "12716b32c70f2ac52891ed79079fb5edee116ee392217b81850806ad2787d610",
+        "audioSha256": "3544c853d37e1bec9eeffe33ce034daf545d6f5f6c13cfe354b956c11a40c419",
+        "bytes": 41133,
+        "integratedLufs": -16.44,
+        "truePeakDbtp": -2.23
       }
     },
     "en": {
@@ -286,6 +286,15 @@
         "bytes": 107565,
         "integratedLufs": -16.45,
         "truePeakDbtp": -2.3
+      },
+      "practice_result": {
+        "file": "en_practice_result.mp3",
+        "text": "This is an example result screen. The attention level is at the top. Below is an example explanation and suggestions to review during a real check-in. You can try Replay, see the Expert consultation button and explore the example situations. The guide does not assess your health, alert your family or schedule reminders. Tap Finish the guide to return home.",
+        "textSha256": "029497956d91c6ca0d6778f2c155e6e3ce641dd20957c31f8cb8e17e8f0ec78d",
+        "audioSha256": "2669ab12b59203eaee4a0cc81ef66a58c899c6e5cce85f6bef7677dcdbe51966",
+        "bytes": 392109,
+        "integratedLufs": -16.35,
+        "truePeakDbtp": -2.05
       },
       "home.fine": {
         "file": "en_home_fine.mp3",
@@ -305,23 +314,14 @@
         "integratedLufs": -16.34,
         "truePeakDbtp": -2.43
       },
-      "practice_result": {
-        "file": "en_practice_result.mp3",
-        "text": "Let's look at the result screen together. At the top is the attention level. Below are the things you shared and suggestions for what to do next. If you need more advice, tap the button to find someone to consult. The family section helps you see who Asinu has contacted. You can choose each situation below to learn what happens next. To hear this again, tap the speaker. When you're ready, tap Finish the guide to return home.",
-        "textSha256": "0f5d49c90a5ef840a68f4d1806a0897c2bd99632d4588ea1b16f6aff5b1e0436",
-        "audioSha256": "ff2c43fd74b48cd27408c0e2c605356909c0cc46a859638735edfb9080620601",
-        "bytes": 463533,
-        "integratedLufs": -16.45,
-        "truePeakDbtp": -1.57
-      },
-      "checkin.choices": {
-        "file": "en_checkin_choices.mp3",
-        "text": "What are you experiencing, tap an option so Asinu can understand better.",
-        "textSha256": "a5568289993f774d337bca11c31fb7e3d2c4075cf5a504ed581ae4ab4c1e7478",
-        "audioSha256": "76f5a867d560338c9d32358c65e03379464a80b72244c450020bb0c0807ff2ec",
-        "bytes": 101421,
-        "integratedLufs": -16.31,
-        "truePeakDbtp": -1.99
+      "checkin.other": {
+        "file": "en_checkin_other.mp3",
+        "text": "If your answer isn't here, tap this to speak or type.",
+        "textSha256": "8f0f6d2137638fa52e27e4a7b9e7930c4366cd2796264bbd69ff7d92486ca8c7",
+        "audioSha256": "e20c22492775390add84cd377e92ec0502a9eb5d7b892db79c020c8e7ceadc36",
+        "bytes": 60717,
+        "integratedLufs": -16.29,
+        "truePeakDbtp": -2.06
       },
       "home.suggestions": {
         "file": "en_home_suggestions.mp3",
@@ -377,15 +377,6 @@
         "integratedLufs": -16.18,
         "truePeakDbtp": -2.24
       },
-      "checkin.other": {
-        "file": "en_checkin_other.mp3",
-        "text": "If your answer isn't here, tap this to speak or type.",
-        "textSha256": "8f0f6d2137638fa52e27e4a7b9e7930c4366cd2796264bbd69ff7d92486ca8c7",
-        "audioSha256": "e20c22492775390add84cd377e92ec0502a9eb5d7b892db79c020c8e7ceadc36",
-        "bytes": 60717,
-        "integratedLufs": -16.29,
-        "truePeakDbtp": -2.06
-      },
       "checkin.practice": {
         "file": "en_checkin_practice.mp3",
         "text": "Let's go through each step together, just follow the guide.",
@@ -413,15 +404,6 @@
         "integratedLufs": -16.4,
         "truePeakDbtp": -2.21
       },
-      "checkin.voice": {
-        "file": "en_checkin_voice.mp3",
-        "text": "Tap Speak and speak slowly, then tap Done when you're finished.",
-        "textSha256": "98e78fe97b51ec2f0d7d473b800de64004c584ea712e50bc2e8eeb581cb6a914",
-        "audioSha256": "703f239e92f97dd1bbe7aa485b64ec1040251e9ce35b277ff1d95fb468c33d1e",
-        "bytes": 50733,
-        "integratedLufs": -16.35,
-        "truePeakDbtp": -2.43
-      },
       "checkin.location": {
         "file": "en_checkin_location.mp3",
         "text": "Where do you feel uncomfortable, tap that area so we can continue.",
@@ -431,14 +413,14 @@
         "integratedLufs": -16.26,
         "truePeakDbtp": -2.34
       },
-      "checkin.multiple": {
-        "file": "en_checkin_multiple.mp3",
-        "text": "You can choose every option that matches what you're feeling.",
-        "textSha256": "4730545755958a29ea1a199be2f2cce4330c44b96b8c332895933c2d358f4426",
-        "audioSha256": "695286e579a0f1ab00811457bc1c98fd1293656db5c5665eb9a814f3f769dd7d",
-        "bytes": 64941,
-        "integratedLufs": -16.31,
-        "truePeakDbtp": -2.24
+      "checkin.choices": {
+        "file": "en_checkin_choices.mp3",
+        "text": "Try choosing an answer, then tap Next to see the following step.",
+        "textSha256": "42784661d6bf8fc9beae38ec0aefed3216b67dc1ed89f68bf38096de05f65910",
+        "audioSha256": "e6b73d8c9189328cab617928f1c489a54471f1038344d9c334393f96f2dfffc2",
+        "bytes": 85293,
+        "integratedLufs": -16.39,
+        "truePeakDbtp": -2.02
       },
       "checkin.location_confirm": {
         "file": "en_checkin_location_confirm.mp3",
@@ -449,23 +431,32 @@
         "integratedLufs": -16.23,
         "truePeakDbtp": -2.38
       },
+      "checkin.voice": {
+        "file": "en_checkin_voice.mp3",
+        "text": "Tap Speak, then Done to see an example sentence appear.",
+        "textSha256": "9f66b96c0f66fc491d5fc4c222afbdbfd7e90149d6ae4c11bc2ef30eb6c00043",
+        "audioSha256": "c0115af4791ce3a1e82fead6c2708dbe777b5c94b6e491b2e5c754f62e6a0011",
+        "bytes": 69165,
+        "integratedLufs": -16.25,
+        "truePeakDbtp": -2.32
+      },
+      "checkin.multiple": {
+        "file": "en_checkin_multiple.mp3",
+        "text": "Try selecting several answers, then tap Next.",
+        "textSha256": "f32d0d6acc61c50d4948fe1b88f648d469bcebc7b8e34649df08c01ca016b943",
+        "audioSha256": "44ed20e44c78fe5ad548b6fb0d37afd899558447890913e82a6d37681be90b31",
+        "bytes": 59949,
+        "integratedLufs": -16.45,
+        "truePeakDbtp": -2.01
+      },
       "checkin.single": {
         "file": "en_checkin_single.mp3",
-        "text": "Choose one situation that fits how you feel, then we'll continue.",
-        "textSha256": "bb726116ee2ad182cba3da4687ceff7a08ee4e9e7a6b9f800e4353c5068b752c",
-        "audioSha256": "edc4de25b86078166dd93227a34bbc4c14d311f4b053aab272a77bdc03280b5a",
-        "bytes": 78381,
-        "integratedLufs": -16.22,
-        "truePeakDbtp": -2.23
-      },
-      "checkin.confirm": {
-        "file": "en_checkin_confirm.mp3",
-        "text": "When you're ready, tap Confirm so we can look at your answers together.",
-        "textSha256": "2232f3f5ec8f4fe3e362c9c07392fca35a3b6cfac9d8bfcb026800e75a27f546",
-        "audioSha256": "4c87c7ff4c4ba0b64090669eee9706f521ad418732d30884db2a91c992a17bfe",
-        "bytes": 63405,
-        "integratedLufs": -16.23,
-        "truePeakDbtp": -2.4
+        "text": "Try selecting one answer, then tap Next.",
+        "textSha256": "f55048de778316396e30ae146124e3f375fc33962128d4aacca48b52e4822295",
+        "audioSha256": "d76228819d65f2be3d3bdcab62713eaf9f7c35fa4966eb6235a08a5906ae48c5",
+        "bytes": 51117,
+        "integratedLufs": -16.26,
+        "truePeakDbtp": -2.15
       },
       "checkin.result_status": {
         "file": "en_checkin_result_status.mp3",
@@ -476,23 +467,23 @@
         "integratedLufs": -16.46,
         "truePeakDbtp": -2.11
       },
+      "checkin.confirm": {
+        "file": "en_checkin_confirm.mp3",
+        "text": "Tap Next to see the following example step.",
+        "textSha256": "7fd47dab0adbc9b9306f22344f9129bebf32cf60a2840cffeb3c4703c1143c04",
+        "audioSha256": "19037b95527cd7165a4096bfab447ad96125225781b0694b0e47cc80210fa4f3",
+        "bytes": 43053,
+        "integratedLufs": -16.45,
+        "truePeakDbtp": -2.48
+      },
       "checkin.result_symptoms": {
         "file": "en_checkin_result_symptoms.mp3",
-        "text": "Here are the things you just shared with Asinu.",
-        "textSha256": "a6108020bee38249b6fbd5629ffce3fa6a1f0931d11842bc41aacb0363b6c780",
-        "audioSha256": "c1aac4bf3991c2f9090964cc23c70adca4ee11784c0f99cf2942ec940024a066",
-        "bytes": 45357,
-        "integratedLufs": -16.44,
-        "truePeakDbtp": -2.6
-      },
-      "checkin.result_advice": {
-        "file": "en_checkin_result_advice.mp3",
-        "text": "Read these suggestions to see what you can do next.",
-        "textSha256": "3de8dbc6d7c224b12ae80550cb6abbd8da4035c96cc3ea66b206276c80be1531",
-        "audioSha256": "2bc727bf8784ca7f3105e3e46c5baf324e7868b86c01b6800c9e565e3074ec50",
-        "bytes": 55341,
-        "integratedLufs": -16.22,
-        "truePeakDbtp": -2.32
+        "text": "Here is an example of how Asinu explains a result.",
+        "textSha256": "f650ea2fa80668c590300acefe90a0bfee721b15f2d674c397feb6d82ce57110",
+        "audioSha256": "1149619409caff8a52de25410af6ba7b46332b41b650a44e6408f0a3c1443e2f",
+        "bytes": 69549,
+        "integratedLufs": -16.17,
+        "truePeakDbtp": -2.41
       },
       "checkin.result_replay": {
         "file": "en_checkin_result_replay.mp3",
@@ -512,15 +503,6 @@
         "integratedLufs": -16.36,
         "truePeakDbtp": -2.29
       },
-      "checkin.result_family": {
-        "file": "en_checkin_result_family.mp3",
-        "text": "Here you can see whether Asinu has contacted your family.",
-        "textSha256": "a7211479cdb180cb84675439b5e194027ed7cdfa5342183d346888b8c006cd68",
-        "audioSha256": "536e6331b0d38335f922252a185d64bb445a8d0f8d000ef48f0a414fadc50b03",
-        "bytes": 54189,
-        "integratedLufs": -16.33,
-        "truePeakDbtp": -2.4
-      },
       "checkin.result_emergency": {
         "file": "en_checkin_result_emergency.mp3",
         "text": "When you need emergency help, tap here to call one one five.",
@@ -529,6 +511,15 @@
         "bytes": 72237,
         "integratedLufs": -16.26,
         "truePeakDbtp": -2.41
+      },
+      "checkin.result_family": {
+        "file": "en_checkin_result_family.mp3",
+        "text": "Here you can see whether Asinu has contacted your family.",
+        "textSha256": "a7211479cdb180cb84675439b5e194027ed7cdfa5342183d346888b8c006cd68",
+        "audioSha256": "536e6331b0d38335f922252a185d64bb445a8d0f8d000ef48f0a414fadc50b03",
+        "bytes": 54189,
+        "integratedLufs": -16.33,
+        "truePeakDbtp": -2.4
       },
       "checkin.result_variants": {
         "file": "en_checkin_result_variants.mp3",
@@ -547,6 +538,15 @@
         "bytes": 63405,
         "integratedLufs": -16.46,
         "truePeakDbtp": -2.35
+      },
+      "checkin.result_advice": {
+        "file": "en_checkin_result_advice.mp3",
+        "text": "Here is where you can review suggested next steps.",
+        "textSha256": "149fdbd829e7d393b5639d46ed805c051c33e36fae0177f9c1a9016646b7da1d",
+        "audioSha256": "c08576d5601e44840c19e0017c3f1dfeb449db78602d578aeb61c05e529c81c7",
+        "bytes": 50733,
+        "integratedLufs": -16.5,
+        "truePeakDbtp": -2.23
       }
     }
   }

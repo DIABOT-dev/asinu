@@ -1001,10 +1001,10 @@ await test('an account change while opening cannot publish the former account’
   await assert.rejects(pending, /account changed/);
   assert.deepEqual(h.calls.opened, []);
 });
-await test('the three health responses keep their gifts while unwell results also retain a notice', async () => {
+await test('the three health responses keep their gifts and only the follow-up response retains its notice', async () => {
   for (const status of ['fine', 'tired', 'very_tired']) {
     const h = productionFlowHarness({ status }); const tree = await h.settle();
-    assert.equal(tree.type, 'Gift'); assert.equal(Boolean(tree.props.notice), status !== 'fine');
+    assert.equal(tree.type, 'Gift'); assert.equal(Boolean(tree.props.notice), status !== 'fine' && status !== 'very_tired');
   }
 });
 await test('the default Asinu mascot illustrations retain distinct images and accessible touch targets', async () => {
@@ -1105,7 +1105,7 @@ await test('the daily page omits the collection and duplicate heading while pres
   assert.equal(hasCollection(tree), false, 'The loaded daily page has no collection link');
   assert.ok(!nodes(tree).some(node => node.type === 'Text' && node.props.children === 'checkinGift.dailyTitle'), 'Only the page header shows its title');
   assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'checkinGift.choose'));
-  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'checkinGift.dailySubtitle'));
+  assert.ok(!nodes(tree).some(node => node.type === 'Text' && node.props.children === 'checkinGift.dailySubtitle'));
   const open = nodes(tree).find(node => node.type === 'Button' && nodes(node).some(child => child.type === 'Text' && child.props.children === 'checkinGift.choose'));
   assert.ok(open); open.props.onPress();
   assert.ok(nodes(await h.settle()).some(node => node.type === 'Gift'), 'A real daily gift remains openable');

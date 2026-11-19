@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const ts = require('typescript');
 const flush = async () => { for (let n = 0; n < 30; n++) await Promise.resolve(); };
 const defer = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
-function harness() {
+function harness(initialPatient) {
   const slots = [], timers=new Map(), clock={now:Date.now()}; let cursor = 0, effects = [], focusCallback;
   class Clock extends Date { constructor(...args){super(...(args.length?args:[clock.now]));} static now(){return clock.now;} }
   const memo = (fn, deps) => { const i = cursor++, old = slots[i]; if (!old || deps.some((x, n) => !Object.is(x, old.deps[n]))) slots[i] = { value: fn(), deps }; return slots[i].value; };
@@ -26,7 +26,6 @@ function harness() {
     saveSchedule: async (...args) => { calls.push(['save', ...args]); if (server.pending) await server.pending; if (server.writeFail) throw Error('offline'); Object.assign(schedule, args[2]); },
     remove: async (...args) => { calls.push(['remove', ...args]); },
     removeDraft: async (...args) => { calls.push(['removeDraft', ...args]); if(server.pending)await server.pending;if(server.writeFail)throw Error('offline');server.drafts=server.drafts?.filter(d=>d.id!==args[1]);server.draft=server.drafts?.[0]||null; },
-    preferences: async (...args) => { calls.push(['preference', ...args]); },
   };
   const deps = { 'expo-crypto': { randomUUID: require('node:crypto').randomUUID },
     react, 'expo-router': { useFocusEffect(callback) { focusCallback=callback;const i = cursor++, old = slots[i]; if (!old || old.callback !== callback) { slots[i] = { callback }; effects.push(() => { old?.cleanup?.(); slots[i].cleanup = callback(); }); } } },
@@ -43,13 +42,13 @@ function harness() {
   // Execute the production controller with isolated network/native adapters.
   // eslint-disable-next-line no-new-func
   new Function('module', 'exports', 'require', 'setInterval', 'clearInterval', 'Date', code)(module, module.exports, key => { assert.ok(key in deps, key); return deps[key]; }, fn=>{const id=Symbol();timers.set(id,fn);return id;},id=>timers.delete(id),Clock);
-  const read = () => { cursor = 0; return module.exports.useMedicationOverview(); };
+  const read = () => { cursor = 0; return module.exports.useMedicationOverview(initialPatient); };
   const settle = async () => { for (let n = 0; n < 3; n++) { read(); const work = effects; effects = []; work.forEach(fn => fn()); await flush(); } return read(); };
   return { read, settle, calls, server, auth, toasts, errors, schedule, overview, clock, tick:async(ms=15000)=>{clock.now+=ms;for(const fn of timers.values())fn();await flush();}, refocus:()=>focusCallback(),blur: () => {slots.forEach(x => x?.cleanup?.());timers.clear();} };
 }
 let count = 0;
 async function test(name, work) { await work(); count++; console.log('PASS ' + name); }
-function answerActions(med) {
+function answerActions(med, tab = 'today') {
   const calls = [];
   const display = { exports: {} };
   new Function('module', 'exports', ts.transpileModule(fs.readFileSync('src/features/v21/medication-dose-display.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(display, display.exports);
@@ -60,13 +59,14 @@ function answerActions(med) {
     '@expo/vector-icons': { Ionicons: 'Icon', MaterialCommunityIcons: 'Icon' },
     'react-native': { ActivityIndicator: 'Spinner', Alert: {}, KeyboardAvoidingView: 'View', Platform: { OS: 'ios' }, useWindowDimensions: () => ({ width: 393, fontScale: 1 }), Pressable: 'Pressable', RefreshControl: 'Refresh', ScrollView: 'Scroll', StyleSheet: { create: x => x }, Switch: 'Switch', TextInput: 'Input', View: 'View' },
     'expo-router': { Stack: {} },
-    'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    'react-i18next': { useTranslation: () => ({ t: (key, options) => key === 'remindersOffForMember' ? `${key} ${options.name}` : key }) },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
     '../../components/QueuedModal': { QueuedModal: 'Modal' },
     '../../components/ScaledText': { ScaledText: 'Text' },
     '../../hooks/useGuardedRouter': { useGuardedRouter: () => ({}) },
     '../../hooks/useThemeColors': { useThemeColors: () => ({ colors: {}, isDark: false }) },
     '../../hooks/useScaledTypography': { useScaledFontSize: x => x },
+    '../../lib/env': { env: { apiBaseUrl: 'https://api.example.test' } },
     './HealthCoinIcon': { HealthCoinIcon: 'Coin' },
     './useMedicationOverview': { useMedicationOverview: () => med },
     './medication-overview.styles': { medicationStyles: {} },
@@ -74,18 +74,95 @@ function answerActions(med) {
     './MedicationPurposeTags': { MedicationPurposeTags: 'Tags' },
     './MedicationBackground': { MedicationBackground: 'Background' },
     './MedicationDraftEntry': { MedicationDraftEntry: 'Draft' },
+    './MedicationPhotoPreview': { MedicationPhotoPreview: 'PhotoPreview' },
     './medication-dose-display': display.exports,
     './MedicationTimeField': { MedicationTimeField: 'TimeField' },
   };
   const module = { exports: {} };
   const code = ts.transpileModule(fs.readFileSync('src/features/v21/MedicationOverviewScreen.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText;
   new Function('module', 'exports', 'require', code)(module, module.exports, id => { assert.ok(id in adapters, id); return adapters[id]; });
-  const tree = module.exports.MedicationOverviewPanel({ med, tab: 'today', onAnswer: id => calls.push(id) });
+  const tree = module.exports.MedicationOverviewPanel({ med, tab, onAnswer: id => calls.push(id), onAdd: () => calls.push('add'), onTabChange: value => calls.push(`tab:${value}`), onConsent: id => calls.push(`consent:${id}`) });
   const nodes = value => !value || typeof value !== 'object' ? [] : Array.isArray(value) ? value.flatMap(nodes) : [value, ...nodes(value.props?.children)];
-  return { calls, actions: nodes(tree).filter(node => node.type === 'Pressable' && node.props.accessibilityLabel?.startsWith('medicationAnswerAction ')),
+  return { calls, nodes: nodes(tree), actions: nodes(tree).filter(node => node.type === 'Pressable' && node.props.accessibilityLabel?.startsWith('medicationAnswerAction ')),
     sheet: () => nodes(module.exports.MedicationScheduleSheet({ med })) };
 }
 (async () => {
+  await test('a family deep link loads only the requested relative', async () => {
+    const h = harness(2);
+    const med = await h.settle();
+    assert.equal(med.data.patientId, 2);
+    assert.deepEqual(h.calls.filter(([action]) => action === 'read').map(([, id]) => id), [2]);
+    h.blur();
+  });
+  await test('a family deep link without permission never opens personal medication', async () => {
+    const h = harness(3);
+    const med = await h.settle();
+    assert.equal(med.data, null);
+    assert.ok(!h.calls.some(([action]) => action === 'read'));
+    h.blur();
+  });
+  await test('the reminders-off notice identifies the owner of the schedule being viewed', async () => {
+    const h = harness(2);
+    const med = await h.settle();
+    const remindersOff = (data, patients = med.patients) => answerActions({ ...med, data, patients }).nodes
+      .filter(node => typeof node.props.children === 'string' && node.props.children.startsWith('remindersOff'))
+      .map(node => node.props.children);
+    assert.deepEqual(remindersOff({ ...med.data, remindersEnabled: false }), ['remindersOffForMember Người thân']);
+    assert.deepEqual(remindersOff({ ...med.data, remindersEnabled: false }, []), ['remindersOffForFamily']);
+    assert.deepEqual(remindersOff({ ...med.data, self: true, remindersEnabled: false }), ['remindersOff']);
+    assert.deepEqual(remindersOff({ ...med.data, remindersEnabled: true }), []);
+    h.blur();
+  });
+  await test('family medication schedules omit the alert-filter control', async () => {
+    const h = harness(2);
+    const med = await h.settle();
+    const view = answerActions({ ...med, data: { ...med.data, problemsOnly: false } }, 'schedules');
+    assert.ok(view.nodes.some(node => node.type === 'Switch'));
+    assert.ok(!view.nodes.some(node =>
+      node.props.accessibilityLabel === 'problemsOnly' || node.props.children === 'problemsOnly'
+    ));
+    h.blur();
+  });
+  await test('the redesigned header keeps Add available on both tabs and blocks it while saving', async () => {
+    const h = harness(); await h.settle();
+    for (const tab of ['today', 'schedules']) {
+      const view = answerActions(h.read(), tab);
+      const add = view.nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === 'addSchedule');
+      assert.ok(add); assert.equal(add.props.disabled, false); add.props.onPress(); assert.deepEqual(view.calls, ['add']);
+      const busy = answerActions({ ...h.read(), busy: true }, tab);
+      assert.equal(busy.nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === 'addSchedule').props.disabled, true);
+    }
+    h.blur();
+  });
+  await test('schedule rows retain their medicine names, switch target, action menu and consent action', async () => {
+    const h = harness(); await h.settle();
+    h.schedule.consent_state = 'PENDING';
+    let view = answerActions(h.read(), 'schedules');
+    assert.ok(view.nodes.some(node => node.type === 'Text' && node.props.children === 'Tên đã xác nhận'));
+    const toggle = view.nodes.find(node => node.type === 'Switch' && node.props.accessibilityLabel === 'medicationScheduleEnabled');
+    assert.equal(toggle.props.value, true); await toggle.props.onValueChange(false);
+    assert.equal(h.calls.find(row => row[0] === 'save')[2], 'schedule-1');
+    await h.settle();
+    await h.read().setScheduleActive(h.schedule, true);
+    await h.settle();
+    view = answerActions(h.read(), 'schedules');
+    view.nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === 'medicationScheduleActions').props.onPress();
+    assert.equal(h.read().selected.id, 'schedule-1');
+    const consent = view.nodes.find(node => node.props?.label === 'medicationReviewConsent');
+    assert.ok(consent); consent.props.onPress(); assert.deepEqual(view.calls, ['consent:schedule-1']);
+    h.blur();
+  });
+  await test('schedule photos resolve signed relative URLs and preserve absolute URLs', async () => {
+    const h = harness(); await h.settle();
+    for (const photoUrl of ['/api/media/medicine?signature=synthetic', 'https://media.example.test/medicine?signature=synthetic']) {
+      const current = h.read();
+      const view = answerActions({ ...current, data: { ...current.data, items: current.data.items.map(item => ({ ...item, photoUrl })) } }, 'schedules');
+      const photo = view.nodes.find(node => node.type === 'PhotoPreview');
+      assert.equal(photo.props.uri, photoUrl.startsWith('/') ? `https://api.example.test${photoUrl}` : photoUrl);
+      assert.equal(photo.props.label, 'Tên đã xác nhận'); assert.equal(photo.props.compact, true);
+    }
+    h.blur();
+  });
   await test('editing and moving a medicine use the time picker while notes remain editable', async () => {
     const h = harness(); (await h.settle()).openSchedule(h.schedule);
     h.read().setMode('edit');

@@ -1,4 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -251,6 +252,7 @@ function EmptyHistoryGraphic() {
 }
 
 export default function WalletScreen() {
+  const { assistant_amount } = useLocalSearchParams<{ assistant_amount?: string }>();
   const { t, i18n } = useTranslation('wallet');
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -261,6 +263,11 @@ export default function WalletScreen() {
   const mountedRef = useRef(true);
   const [balance, setBalance] = useState<string | null>(null);
   const [amount, setAmount] = useState('50000');
+  useEffect(() => {
+    if (typeof assistant_amount === 'string' && /^\d+$/.test(assistant_amount) && Number(assistant_amount) >= 10000 && Number(assistant_amount) <= 10000000) {
+      setAmount(assistant_amount);
+    }
+  }, [assistant_amount]);
   const [qr, setQr] = useState<QRData | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(true);
   const [creatingQR, setCreatingQR] = useState(false);
@@ -733,10 +740,7 @@ export default function WalletScreen() {
               <View style={styles.generateLeftIconWrap}>
                 <MaterialCommunityIcons name="view-grid-plus-outline" size={26} color="#059669" />
               </View>
-              <View style={styles.generateTextWrap}>
               <ScaledText style={styles.generateTitle}>{t('generateQR')}</ScaledText>
-              <ScaledText style={styles.generateSub}>{t('generateQRHint')}</ScaledText>
-              </View>
               {creatingQR ? (
                 <ActivityIndicator size="small" color="#059669" />
               ) : (
@@ -870,7 +874,6 @@ export default function WalletScreen() {
             <View style={styles.emptyWrap}>
               <EmptyHistoryGraphic />
               <ScaledText style={styles.emptyTitle}>{t('noHistory')}</ScaledText>
-              <ScaledText style={styles.emptySub}>{t('historyEmptyDescription')}</ScaledText>
             </View>
           ) : (
             visiblePayments.map((p, idx) => {
@@ -1307,18 +1310,11 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
     generateLeftIconWrap: {
       marginRight: 12,
     },
-    generateTextWrap: {
-      flex: 1,
-    },
     generateTitle: {
+      flex: 1,
       color: '#064E3B',
       fontSize: scaledTypography.size.sm + 1,
       fontWeight: '700',
-    },
-    generateSub: {
-      color: '#047857',
-      fontSize: scaledTypography.size.xs,
-      marginTop: 2,
     },
 
     // ── QR Section ───────────────────────────────────────
@@ -1515,11 +1511,6 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
       fontSize: scaledTypography.size.sm + 1,
       fontWeight: '600',
       marginTop: 8,
-    },
-    emptySub: {
-      color: '#9CA3AF',
-      fontSize: scaledTypography.size.xs,
-      marginTop: 4,
     },
     shimmerWrap: {
       gap: 12,

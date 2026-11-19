@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ImageStyle, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { ImageStyle, StyleProp, StyleSheet, TextStyle, View, ViewStyle } from 'react-native';
 import { ScaledText as Text } from './ScaledText';
 import { OptimizedImage } from './OptimizedImage';
 import { useScaledTypography } from '../hooks/useScaledTypography';
@@ -12,9 +12,10 @@ type Props = {
   size?: number;
   containerStyle?: StyleProp<ViewStyle>;
   imageStyle?: StyleProp<ImageStyle>;
+  initialsStyle?: StyleProp<TextStyle>;
 };
 
-export const Avatar = ({ name, imageUrl, size = 56, containerStyle, imageStyle }: Props) => {
+export const Avatar = ({ name, imageUrl, size = 56, containerStyle, imageStyle, initialsStyle }: Props) => {
   const scaledTypography = useScaledTypography();
   const { isDark } = useThemeColors();
   const styles = useMemo(() => StyleSheet.create({
@@ -60,7 +61,7 @@ export const Avatar = ({ name, imageUrl, size = 56, containerStyle, imageStyle }
         containerStyle
       ]}
     >
-      <Text style={[styles.initials, { fontSize: scaledTypography.size.lg }]}>{initials}</Text>
+      <Text style={[styles.initials, { fontSize: scaledTypography.size.lg }, initialsStyle]}>{initials}</Text>
     </View>
   );
 };

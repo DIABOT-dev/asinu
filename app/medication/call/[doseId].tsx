@@ -313,7 +313,6 @@ export default function MedicationCall() {
                 disabled={busy}
                 onPress={() => void answer(3)}
               />
-              <Note>{t("skipExplained")}</Note>
             </>
           ) : (
             !done && (

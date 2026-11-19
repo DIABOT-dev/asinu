@@ -12,10 +12,20 @@ import { ScaledText as Text } from '../../components/ScaledText';
 import { runNativePermission } from '../../lib/native-permissions';
 import { createLiveDictation, getLiveDictationModule, type LiveDictation } from './live-dictation.service';
 
-/** Reuses the existing, consented transcription endpoint, never submits an answer. */
-export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcessingChange, disabled = false, practice = false }: {
+type PermissionDecision = { granted: boolean };
+type VoiceAnswerOptions = {
   onText: (text: string) => void; onInterimText?: (text: string) => void; onBeforeAi: () => Promise<boolean>; onProcessingChange?: (busy: boolean) => void; disabled?: boolean; practice?: boolean;
-}) {
+  practiceExample?: string;
+  purpose?: 'checkin' | 'reminder' | 'assistant';
+  sessionKey?: string | null;
+  isSessionCurrent?: () => boolean;
+  onNotice?: (message: string, tone: 'info' | 'error') => void;
+  /** A modal owner can dismiss its presenter before opening an OS permission sheet. */
+  withPermissionPrompt?: (operation: () => Promise<PermissionDecision>) => Promise<PermissionDecision>;
+};
+
+/** Keep this controller in the route owner when its button is rendered in a modal portal. */
+export function useVoiceAnswer({ onText, onInterimText, onBeforeAi, onProcessingChange, disabled = false, practice = false, practiceExample, purpose = 'checkin', sessionKey, isSessionCurrent, onNotice, withPermissionPrompt }: VoiceAnswerOptions) {
   const { t, i18n } = useTranslation('onboarding');
   const focused = useIsFocused();
   const [recording, setRecording] = useState(false);
@@ -28,6 +38,7 @@ export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcess
   const locked = useRef(false);
   const revision = useRef(0);
   const permissionRequest = useRef<number | null>(null);
+  const notify = onNotice ?? showToast;
   useEffect(() => { onProcessingChange?.(busy || recording); }, [busy, recording, onProcessingChange]);
   useEffect(() => {
     alive.current = focused;
@@ -49,12 +60,12 @@ export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcess
       if (state !== 'active' && !(state === 'inactive' && permissionRequest.current !== null)) {cancel();}
     });
     return () => { alive.current = false; cancel(); sub.remove(); };
-  }, [focused]);
+  }, [focused, sessionKey]);
   const press = async () => {
-    if (locked.current || disabled || !alive.current) {return;}
+    if (locked.current || disabled || !alive.current || isSessionCurrent?.() === false) {return;}
     locked.current = true;
     const version = live.current || recorder.current ? revision.current : ++revision.current;
-    const current = () => alive.current && version === revision.current;
+    const current = () => alive.current && version === revision.current && (isSessionCurrent?.() ?? true);
     let transcribing = false;
     let waitingForLiveResult = false;
     setBusy(true);
@@ -63,8 +74,8 @@ export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcess
       if (!current()) {return;}
       if (practice) {
         if (recording) {
-          setRecording(false); onText(t('guidance.practiceVoiceExample'));
-          showToast(t('guidance.practiceVoiceNotice'), 'info');
+          setRecording(false); onText(practiceExample || t('guidance.practiceVoiceExample'));
+          notify(t('guidance.practiceVoiceNotice'), 'info');
         } else {setRecording(true);}
         return;
       }
@@ -81,10 +92,10 @@ export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcess
         const uri = previous.getURI();
         if (!uri) {throw new Error('RECORDING_FILE_UNAVAILABLE');}
         transcribing = true;
-        const text = (await chatApi.transcribeAudio(uri, i18n.language.startsWith('en') ? 'en' : 'vi', 'checkin')).trim();
+        const text = (await chatApi.transcribeAudio(uri, i18n.language.startsWith('en') ? 'en' : 'vi', purpose)).trim();
         if (current()) {
           if (text) {onText(text);}
-          else {showToast(t('guidance.voiceFailure'), 'info');}
+          else {notify(t('guidance.voiceFailure'), 'info');}
         }
       } else {
         if (!(await onBeforeAi()) || !current()) {return;}
@@ -93,11 +104,14 @@ export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcess
           permissionRequest.current = version;
           let permission;
           try {
-            permission = await runNativePermission(() => speech.requestPermissionsAsync(), { key: 'microphone' });
+            const existing = withPermissionPrompt ? await speech.getPermissionsAsync() : null;
+            const request = () => runNativePermission(() => speech.requestPermissionsAsync(), { key: 'microphone', canRun: current });
+            permission = existing?.granted ? existing
+              : await (withPermissionPrompt ? withPermissionPrompt(request) : request());
           } finally { if (permissionRequest.current === version) {permissionRequest.current = null;} }
           if (!current()) {return;}
           if (!permission.granted) {
-            showToast(t('guidance.speechRecognitionDenied'), 'info');
+            notify(t('guidance.speechRecognitionDenied'), 'info');
             return;
           }
           const dictation = createLiveDictation(speech, {
@@ -109,7 +123,7 @@ export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcess
               callbacks.current.onInterimText?.('');
               setRecording(false); setBusy(false); locked.current = false;
               if (result.text) {callbacks.current.onText(result.text);}
-              else {showToast(t(result.error ? 'guidance.voiceTranscriptionFailure' : 'guidance.voiceFailure'), result.error ? 'error' : 'info');}
+              else {notify(t(result.error ? 'guidance.voiceTranscriptionFailure' : 'guidance.voiceFailure'), result.error ? 'error' : 'info');}
             },
           });
           live.current = dictation;
@@ -119,10 +133,15 @@ export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcess
         }
         permissionRequest.current = version;
         let permission;
-        try { permission = await Audio.requestPermissionsAsync(); }
+        try {
+          const existing = withPermissionPrompt ? await Audio.getPermissionsAsync() : null;
+          const request = () => Audio.requestPermissionsAsync(current);
+          permission = existing?.granted ? existing
+            : await (withPermissionPrompt ? withPermissionPrompt(request) : request());
+        }
         finally { if (permissionRequest.current === version) {permissionRequest.current = null;} }
         if (!current()) {return;}
-        if (!permission.granted) { showToast(t('guidance.microphoneDenied'), 'info'); return; }
+        if (!permission.granted) { notify(t('guidance.microphoneDenied'), 'info'); return; }
         await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
         if (!current()) {return;}
         const result = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
@@ -136,22 +155,34 @@ export function VoiceAnswerButton({ onText, onInterimText, onBeforeAi, onProcess
         await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true }).catch(() => {});
         if (current()) {
           setRecording(false);
-          showToast(t(transcribing ? 'guidance.voiceTranscriptionFailure' : 'guidance.voiceRecordingFailure'), 'error');
+          notify(t(transcribing ? 'guidance.voiceTranscriptionFailure' : 'guidance.voiceRecordingFailure'), 'error');
         }
       }
     }
     finally { if (current() && !waitingForLiveResult) { locked.current = false; setBusy(false); } }
   };
   const label = t(recording ? 'guidance.stopRecording' : 'guidance.speak');
-  return <Pressable testID="checkin-voice-answer" accessibilityRole="button" accessibilityLabel={label} disabled={busy || disabled || !focused}
+  return { press, label, t, recording, busy, disabled, focused, purpose };
+}
+
+/** No recording lifecycle lives in the portal: hiding a modal cannot stop its owner. */
+export function renderVoiceAnswerButton({ press, label, t, recording, busy, disabled, focused, purpose }: ReturnType<typeof useVoiceAnswer>, {
+  iconOnly = false, color = c.primary, testID,
+}: { iconOnly?: boolean; color?: string; testID?: string } = {}) {
+  return <Pressable testID={testID ?? (purpose === 'reminder' ? 'reminder-voice-answer' : purpose === 'assistant' ? 'assistant-voice-answer' : 'checkin-voice-answer')} accessibilityRole="button" accessibilityLabel={label} disabled={busy || disabled || !focused}
     accessibilityHint={recording ? t('guidance.voiceStopHint') : undefined}
     accessibilityState={{ disabled: busy || disabled || !focused, busy }}
     onPress={() => void press()} style={({ pressed }) => ({ minHeight: 56, minWidth: 56, padding: 12, borderRadius: 14,
       alignItems: 'center', justifyContent: 'center', gap: 4,
       opacity: busy || disabled ? 0.5 : pressed ? 0.8 : 1 })}>
-    {busy ? <ActivityIndicator color={c.primary} /> : <Ionicons name={recording ? 'stop-circle-outline' : 'mic-outline'} size={28} color={c.primary} />}
-    <Text allowFontScaling style={{ fontSize: 14, fontWeight: '600', color: c.primary }}>
+    {busy ? <ActivityIndicator color={color} /> : <Ionicons name={recording ? 'stop-circle-outline' : 'mic-outline'} size={28} color={color} />}
+    {!iconOnly && <Text allowFontScaling style={{ fontSize: 14, fontWeight: '600', color }}>
       {busy ? t('guidance.voiceProcessing') : label}
-    </Text>
+    </Text>}
   </Pressable>;
+}
+
+/** Reuses the existing, consented transcription endpoint, never submits an answer. */
+export function VoiceAnswerButton(props: VoiceAnswerOptions) {
+  return renderVoiceAnswerButton(useVoiceAnswer(props));
 }

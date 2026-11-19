@@ -132,7 +132,6 @@ export const DailyCheckinCard = React.memo(function DailyCheckinCard() {
           <Ionicons name="checkmark-circle" size={48} color={colors.primary} />
           <View style={styles.textColumn}>
             <Text allowFontScaling style={styles.fineTitle}>{t('checkinFine')}</Text>
-            <Text style={styles.sub}>{t('checkinFineSub')}</Text>
           </View>
         </View>
       </Pressable>
@@ -203,7 +202,6 @@ export const InstantCheckinCard = React.memo(function InstantCheckinCard() {
         <Ionicons name="pulse" size={48} color={colors.premiumDark} />
         <View style={styles.textColumn}>
           <Text allowFontScaling style={styles.instantTitle}>{t('checkinInstantTitle')}</Text>
-          <Text style={styles.sub}>{t('checkinInstantSub')}</Text>
         </View>
       </View>
     </Pressable>

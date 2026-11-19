@@ -1,11 +1,12 @@
 import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import {
-  ActivityIndicator,
   AppState,
   Pressable,
   StyleSheet,
   View,
+  type StyleProp,
+  type ViewStyle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -19,12 +20,20 @@ import {
 } from "../../lib/device-permission-events";
 import { getNotificationPreferences } from "../notifications/notifications.api";
 import { useAuthStore } from "../auth/auth.store";
+import { QuickActionTile } from "../../components/QuickActionTile";
 
-export function ReminderSettingsEntry() {
+export function ReminderSettingsEntry({
+  variant = "row",
+  style,
+}: {
+  variant?: "row" | "tile";
+  style?: StyleProp<ViewStyle>;
+} = {}) {
   const { t } = useTranslation("profile");
   const { t: ts } = useTranslation("settings");
   const { colors } = useThemeColors();
   const router = useGuardedRouter();
+  const sessionToken = useAuthStore(state => state.token);
   const [granted, setGranted] = useState<boolean | null>(null);
   const [remindersEnabled, setRemindersEnabled] = useState<boolean | null>(
     null
@@ -33,7 +42,7 @@ export function ReminderSettingsEntry() {
   const [opening, setOpening] = useState(false);
   const focused = useRef(false);
   const request = useRef(0);
-  const inFlight = useRef(false);
+  const inFlight = useRef<number | null>(null);
 
   const refresh = useCallback(async () => {
     const version = ++request.current;
@@ -58,6 +67,7 @@ export function ReminderSettingsEntry() {
   useFocusEffect(
     useCallback(() => {
       focused.current = true;
+      setOpening(false);
       void refresh();
       const unsubscribePermission = subscribeNotificationPermissionChanged(
         () => {
@@ -75,11 +85,12 @@ export function ReminderSettingsEntry() {
       return () => {
         focused.current = false;
         request.current++;
+        inFlight.current = null;
         subscription.remove();
         unsubscribePermission();
         unsubscribeReminders();
       };
-    }, [refresh])
+    }, [refresh, sessionToken])
   );
 
   const open = async () => {
@@ -88,12 +99,12 @@ export function ReminderSettingsEntry() {
       remindersEnabled !== true ||
       loading ||
       !focused.current ||
-      inFlight.current
+      inFlight.current !== null
     )
       return;
     const token = useAuthStore.getState().token;
-    const version = request.current;
-    inFlight.current = true;
+    const version = ++request.current;
+    inFlight.current = version;
     setOpening(true);
     try {
       // Recheck before navigating, including revocation after the row was rendered.
@@ -112,9 +123,10 @@ export function ReminderSettingsEntry() {
       if (allowed && prefs?.ok && prefs.reminders_enabled === true)
         router.push("/reminder-config");
     } finally {
-      inFlight.current = false;
-      if (focused.current && useAuthStore.getState().token === token)
-        setOpening(false);
+      if (inFlight.current === version) {
+        inFlight.current = null;
+        if (focused.current) setOpening(false);
+      }
     }
   };
 
@@ -128,6 +140,27 @@ export function ReminderSettingsEntry() {
       : remindersEnabled === null && !loading
       ? "taskRemindersStatusUnavailable"
       : null;
+  if (variant === "tile") {
+    return (
+      <QuickActionTile
+        testID="home-feature-reminderSchedule"
+        label={t("reminderSchedule")}
+        disabled={disabled}
+        busy={loading || opening}
+        hint={hint && !loading ? ts(hint) : undefined}
+        onPress={() => void open()}
+        style={style}
+        icon={
+          <Ionicons
+            name="alarm-outline"
+            size={36}
+            color={colors.primaryText}
+            accessible={false}
+          />
+        }
+      />
+    );
+  }
   return (
     <Pressable
       accessibilityRole="button"
@@ -137,14 +170,13 @@ export function ReminderSettingsEntry() {
       onPress={() => void open()}
       style={({ pressed }) => [
         styles.row,
-        disabled && styles.disabled,
         pressed && { opacity: 0.65 },
       ]}
     >
       <Ionicons
         name="alarm-outline"
         size={22}
-        color={disabled ? colors.textSecondary : colors.primaryDark}
+        color={colors.primaryDark}
         style={styles.icon}
       />
       <View style={styles.copy}>
@@ -162,7 +194,6 @@ export function ReminderSettingsEntry() {
           </Text>
         )}
       </View>
-      {(loading || opening) && <ActivityIndicator color={colors.primary} />}
     </Pressable>
   );
 }
@@ -180,5 +211,4 @@ const styles = StyleSheet.create({
   copy: { flex: 1, minWidth: 0, gap: 4 },
   label: { fontSize: 15, fontWeight: "600" },
   hint: { fontSize: 12 },
-  disabled: { opacity: 0.55 },
 });

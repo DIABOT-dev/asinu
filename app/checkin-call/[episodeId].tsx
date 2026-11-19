@@ -972,7 +972,6 @@ function AuthenticatedCheckinCallScreen() {
               <Text style={styles.weatherCopy}>{t('personalization.weatherForecastAt', {
                 time: new Date(attempt.user_notice.weather.forecast_at).toLocaleString(i18n.language === 'en' ? 'en-GB' : 'vi-VN'),
               })}</Text>
-              <Text style={styles.weatherCopy}>{t('personalization.weatherCredit')}</Text>
             </View>
           )}
         </ScrollView>

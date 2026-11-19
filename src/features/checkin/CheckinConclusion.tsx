@@ -8,6 +8,7 @@ import {
   parseCheckinNarrative,
 } from "./checkin-conclusion";
 import type { DisplayCheckinConclusion } from "./checkin-conclusion";
+import { GuideTarget } from "../guidance/GuidanceProvider";
 
 // DoneScreen places this content inside its existing white result card in both
 // themes. Match that card's ink and border palette instead of applying dark
@@ -28,11 +29,13 @@ export function CheckinConclusion({
   onConnectExpert,
   expertAvailable,
   readOnly = false,
+  practice = false,
 }: {
   result: DisplayCheckinConclusion;
   onConnectExpert: () => void;
   expertAvailable: boolean;
   readOnly?: boolean;
+  practice?: boolean;
 }) {
   const { t } = useTranslation("home");
   if (result.severity === "emergency") {
@@ -79,45 +82,62 @@ export function CheckinConclusion({
     <View style={styles.content} testID="checkin-structured-conclusion">
       {narrative ? (
         <View style={styles.narrative} testID="checkin-narrative-conclusion">
-          {narrative.map((part, index) =>
-            part.type === "bullet" ? (
-              <View key={index} style={styles.item}>
+          {narrative.map((part, index) => {
+            const content =
+              part.type === "bullet" ? (
+                <View key={index} style={styles.item}>
+                  <Text
+                    accessible={false}
+                    style={[styles.bullet, { color: resultPalette.accent }]}
+                  >
+                    •
+                  </Text>
+                  <Text
+                    style={[
+                      styles.body,
+                      styles.grow,
+                      { color: resultPalette.body },
+                    ]}
+                  >
+                    {part.text}
+                  </Text>
+                </View>
+              ) : (
                 <Text
-                  accessible={false}
-                  style={[styles.bullet, { color: resultPalette.accent }]}
-                >
-                  •
-                </Text>
-                <Text
+                  key={index}
+                  accessibilityRole={
+                    part.type === "heading" ? "header" : undefined
+                  }
                   style={[
-                    styles.body,
-                    styles.grow,
-                    { color: resultPalette.body },
+                    part.type === "heading" ? styles.title : styles.body,
+                    {
+                      color:
+                        part.type === "heading"
+                          ? resultPalette.heading
+                          : resultPalette.body,
+                    },
                   ]}
                 >
                   {part.text}
                 </Text>
-              </View>
+              );
+            const adviceIndex = narrative.findIndex(
+              (item) => item.type === "bullet"
+            );
+            const step =
+              index === 0
+                ? "checkin.result_symptoms"
+                : index === adviceIndex
+                ? "checkin.result_advice"
+                : null;
+            return practice && step ? (
+              <GuideTarget key={index} step={step}>
+                {content}
+              </GuideTarget>
             ) : (
-              <Text
-                key={index}
-                accessibilityRole={
-                  part.type === "heading" ? "header" : undefined
-                }
-                style={[
-                  part.type === "heading" ? styles.title : styles.body,
-                  {
-                    color:
-                      part.type === "heading"
-                        ? resultPalette.heading
-                        : resultPalette.body,
-                  },
-                ]}
-              >
-                {part.text}
-              </Text>
-            )
-          )}
+              content
+            );
+          })}
         </View>
       ) : (
         structured && (
@@ -175,23 +195,27 @@ export function CheckinConclusion({
         </Text>
       </View>
       {result.needsDoctor && expertAvailable && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: readOnly }}
-          disabled={readOnly}
-          onPress={onConnectExpert}
-          style={({ pressed }) => [
-            styles.button,
-            {
-              backgroundColor: resultPalette.action,
-              opacity: pressed || readOnly ? 0.6 : 1,
-            },
-          ]}
-        >
-          <Text style={[styles.buttonText, { color: resultPalette.onAction }]}>
-            {t("checkinConnectDoctor")}
-          </Text>
-        </Pressable>
+        <GuideTarget step="checkin.result_doctor" enabled={practice}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: readOnly }}
+            disabled={readOnly}
+            onPress={onConnectExpert}
+            style={({ pressed }) => [
+              styles.button,
+              {
+                backgroundColor: resultPalette.action,
+                opacity: pressed || readOnly ? 0.6 : 1,
+              },
+            ]}
+          >
+            <Text
+              style={[styles.buttonText, { color: resultPalette.onAction }]}
+            >
+              {t("checkinConnectDoctor")}
+            </Text>
+          </Pressable>
+        </GuideTarget>
       )}
     </View>
   );

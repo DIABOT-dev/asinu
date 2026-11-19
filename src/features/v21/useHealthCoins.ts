@@ -6,21 +6,47 @@ import { randomUUID } from "expo-crypto";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../auth/auth.store";
 import { useToastStore } from "../../stores/toast.store";
+import { appendDistinctPage, SCROLL_PAGE_SIZE } from "../../hooks/useLoadOnScrollEnd";
 import { v21Error } from "./V21Layout";
 import {
   v21Api,
   type CoinToday,
   type CoinEntry,
+  type CoinHistoryScope,
   type RewardCatalog,
   type Reward,
 } from "./v21.api";
 
-export function useHealthCoins() {
+const earnReasons = new Set(["CHECKIN", "MED_ANSWER", "VITAL", "GIFT_OPEN", "WEEKLY"]);
+
+function coinPage(
+  { items, nextBefore }: { items: CoinEntry[]; nextBefore?: string | null },
+  scope?: CoinHistoryScope
+) {
+  const page = items.slice(0, SCROLL_PAGE_SIZE);
+  return {
+    items:
+      scope === "usage"
+        ? page.filter((entry) => entry.reason === "REDEEM" && entry.delta < 0)
+        : scope === "earned"
+          ? page.filter((entry) => entry.delta > 0 && earnReasons.has(entry.reason))
+          : page,
+    before:
+      items.length > SCROLL_PAGE_SIZE ? page.at(-1)!.id : nextBefore ?? null,
+  };
+}
+
+export function useHealthCoins({
+  includeRedemption = true,
+  historyScope,
+}: { includeRedemption?: boolean; historyScope?: CoinHistoryScope } = {}) {
   const { t } = useTranslation("v21");
   const router = useRouter();
   const owner = useAuthStore((state) => state.profile?.id);
+  const token = useAuthStore((state) => state.token);
   const [snapshot, setSnapshot] = useState<{
     owner?: string;
+    token?: string | null;
     data: CoinToday | null;
     catalog: RewardCatalog | null;
     history: CoinEntry[];
@@ -32,13 +58,22 @@ export function useHealthCoins() {
   const [recipient, setRecipient] = useState<number | null>(null);
   const [template, setTemplate] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
+  const historyBefore = useRef<string | null>(null);
   const focused = useRef(false);
   const generation = useRef(0);
-  const operating = useRef<{ owner?: string } | null>(null);
+  const operating = useRef<{ owner?: string; token: string | null } | null>(null);
   const current = useCallback(
-    () => focused.current && useAuthStore.getState().profile?.id === owner,
-    [owner],
+    () => {
+      const auth = useAuthStore.getState();
+      return focused.current && auth.profile?.id === owner && auth.token === token;
+    },
+    [owner, token],
   );
+  const ownsSnapshot = snapshot.owner === owner && snapshot.token === token;
+  const ownsOperation = () => !!operating.current &&
+    operating.current.owner === owner && operating.current.token === token;
 
   const refresh = useCallback(async () => {
     const request = ++generation.current;
@@ -47,21 +82,27 @@ export function useHealthCoins() {
       return;
     }
     setLoading(true);
+    setHistoryError(false);
     try {
       const [data, catalog, history] = await Promise.all([
         v21Api.coins(),
-        v21Api.rewards(),
-        v21Api.history(),
+        includeRedemption ? v21Api.rewards() : null,
+        includeRedemption || historyScope
+          ? v21Api.history(undefined, SCROLL_PAGE_SIZE, historyScope).catch(() => null)
+          : { items: [] },
       ]);
       if (!current() || request !== generation.current) return;
-      setSnapshot({ owner, data, catalog, history: history.items });
-      setHasMore(history.items.length >= 30);
+      const page = history ? coinPage(history, historyScope) : null;
+      setSnapshot({ owner, token, data, catalog, history: page?.items ?? [] });
+      historyBefore.current = page?.before ?? null;
+      setHasMore(historyBefore.current !== null);
+      setHistoryError(!history);
     } catch (error) {
       if (current() && request === generation.current) v21Error(error, t);
     } finally {
       if (current() && request === generation.current) setLoading(false);
     }
-  }, [owner, current, t]);
+  }, [owner, token, current, t, includeRedemption, historyScope]);
 
   useFocusEffect(
     useCallback(() => {
@@ -70,34 +111,35 @@ export function useHealthCoins() {
       setSelected(null);
       setRecipient(null);
       setTemplate(null);
-      if (operating.current?.owner !== owner) {
+      if (operating.current?.owner !== owner || operating.current?.token !== token) {
         operating.current = null;
         setBusy(false);
+        setHistoryLoading(false);
       }
       void refresh();
       return () => {
         focused.current = false;
         generation.current++;
       };
-    }, [refresh, owner]),
+    }, [refresh, owner, token]),
   );
 
   const selectReward = (reward: Reward) => {
-    if (operating.current?.owner === owner) return;
+    if (ownsOperation()) return;
     setSelected(reward);
     setRecipient(null);
     setTemplate(null);
   };
   const redeem = async () => {
-    if (!selected || operating.current?.owner === owner || !current()) return;
+    if (!selected || ownsOperation() || !current()) return;
     if (
-      snapshot.owner !== owner ||
+      !ownsSnapshot ||
       !snapshot.data ||
       snapshot.data.balance < selected.cost
     )
       return;
     if (selected.code === "GREETING_CARD" && (!recipient || !template)) return;
-    const operation = { owner };
+    const operation = { owner, token };
     operating.current = operation;
     setBusy(true);
     const reward = selected;
@@ -133,55 +175,59 @@ export function useHealthCoins() {
     }
   };
   const more = async () => {
+    const before = historyBefore.current;
     if (
-      operating.current?.owner === owner ||
-      !hasMore ||
-      snapshot.owner !== owner ||
+      ownsOperation() ||
+      loading ||
+      (!before && !historyError) ||
+      !ownsSnapshot ||
       !current()
     )
       return;
-    const operation = { owner };
+    const operation = { owner, token };
     operating.current = operation;
-    setBusy(true);
+    setHistoryLoading(true);
+    setHistoryError(false);
     const request = generation.current;
     try {
-      const page = await v21Api.history(snapshot.history.at(-1)?.id);
+      const page = coinPage(
+        await v21Api.history(before ?? undefined, SCROLL_PAGE_SIZE, historyScope),
+        historyScope
+      );
       if (!current() || request !== generation.current) return;
       setSnapshot((previous) => ({
         ...previous,
-        history: [
-          ...previous.history,
-          ...page.items.filter(
-            (entry) => !previous.history.some((old) => old.id === entry.id),
-          ),
-        ],
+        history: appendDistinctPage(previous.history, page.items),
       }));
-      setHasMore(page.items.length >= 30);
-    } catch (error) {
-      if (current()) v21Error(error, t);
+      historyBefore.current = page.before === before ? null : page.before;
+      setHasMore(historyBefore.current !== null);
+    } catch {
+      if (current() && request === generation.current) setHistoryError(true);
     } finally {
       if (operating.current === operation) {
         operating.current = null;
-        if (current()) setBusy(false);
+        if (current()) setHistoryLoading(false);
       }
     }
   };
 
   return {
-    data: snapshot.owner === owner ? snapshot.data : null,
-    catalog: snapshot.owner === owner ? snapshot.catalog : null,
-    history: snapshot.owner === owner ? snapshot.history : [],
+    data: ownsSnapshot ? snapshot.data : null,
+    catalog: ownsSnapshot ? snapshot.catalog : null,
+    history: ownsSnapshot ? snapshot.history : [],
     loading,
-    busy: busy && operating.current?.owner === owner,
+    busy: (busy || historyLoading) && ownsOperation(),
     visible,
     selected,
     recipient,
     template,
-    hasMore,
+    hasMore: ownsSnapshot && hasMore,
+    historyLoading: historyLoading && ownsOperation(),
+    historyError: ownsSnapshot && historyError,
     refresh,
     selectReward,
     openCard: (id: string) => {
-      if (!current() || operating.current?.owner === owner) return;
+      if (!current() || ownsOperation()) return;
       setVisible(false);
       router.push({
         pathname: "/coins/card/[cardId]",
@@ -189,20 +235,22 @@ export function useHealthCoins() {
       } as any);
     },
     selectRecipient: (id: number) => {
-      if (operating.current?.owner !== owner) setRecipient(id);
+      if (ownsOperation() || id === recipient) return;
+      setRecipient(id);
+      setTemplate(null);
     },
     selectTemplate: (code: string) => {
-      if (operating.current?.owner !== owner) setTemplate(code);
+      if (!ownsOperation()) setTemplate(code);
     },
     cancelReward: () => {
-      if (operating.current?.owner !== owner) setSelected(null);
+      if (!ownsOperation()) setSelected(null);
     },
     open: () => setVisible(true),
     close: () => setVisible(false),
     redeem,
     more,
     openDrawRules: () => {
-      const period = snapshot.owner === owner && snapshot.catalog?.drawPeriodId;
+      const period = ownsSnapshot && snapshot.catalog?.drawPeriodId;
       if (!period) return;
       setVisible(false);
       router.push({

@@ -7,13 +7,15 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useTranslation } from "react-i18next";
+import { AppAlertModal } from "../../components/AppAlertModal";
+import { Avatar } from "../../components/Avatar";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { useScaledFontSize } from "../../hooks/useScaledTypography";
 import { HealthCoinIcon } from "./HealthCoinIcon";
 import { coinDetailsStyles as s } from "./coin-details.styles";
 import type { HealthCoinsController } from "./useHealthCoins";
-import type { CoinTask } from "./v21.api";
+import type { CoinTask, CoinHistoryScope, Reward } from "./v21.api";
 import { GreetingCard } from "./GreetingCard";
 
 type Icon = ComponentProps<typeof Ionicons>["name"];
@@ -129,7 +131,7 @@ export function CoinEarnTab({ coins }: { coins: HealthCoinsController }) {
   const tasks =
     coins.data?.tasks.filter(
       (task) =>
-        task.coins > 0 && (task.daily_limit > 0 || task.weekly_limit > 0),
+        task.coins > 0 && (task.daily_limit > 0 || task.weekly_limit > 0)
     ) ?? [];
   return (
     <View style={s.content}>
@@ -157,7 +159,7 @@ export function CoinEarnTab({ coins }: { coins: HealthCoinsController }) {
                       task.task_code === "WEEKLY"
                         ? task.weekly_limit
                         : task.daily_limit,
-                  },
+                  }
                 )}
               </Text>
               {compact && (
@@ -173,31 +175,6 @@ export function CoinEarnTab({ coins }: { coins: HealthCoinsController }) {
           <Empty icon="leaf-outline" text={t("journeyNoTasks")} />
         )}
       </View>
-      <CoinNotice text={t("coinsFairness")} />
-      <View style={s.notes}>
-        <View style={s.noteRow}>
-          <Ionicons
-            name="time-outline"
-            size={19}
-            color={colors.textSecondary}
-            style={s.noteIcon}
-          />
-          <Text style={[s.noticeText, { color: colors.textSecondary }]}>
-            {t("coinsExpiryShort")}
-          </Text>
-        </View>
-        <View style={s.noteRow}>
-          <Ionicons
-            name="person-outline"
-            size={19}
-            color={colors.textSecondary}
-            style={s.noteIcon}
-          />
-          <Text style={[s.noticeText, { color: colors.textSecondary }]}>
-            {t("coinsPersonalShort")}
-          </Text>
-        </View>
-      </View>
     </View>
   );
 }
@@ -207,13 +184,13 @@ function RadioOption({
   selected,
   onPress,
   disabled,
-  initials,
+  avatarUrl,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
   disabled: boolean;
-  initials?: string;
+  avatarUrl?: string | null;
 }) {
   const { colors } = useThemeColors();
   return (
@@ -225,13 +202,16 @@ function RadioOption({
       onPress={onPress}
       style={[s.option, disabled && s.disabled]}
     >
-      {initials && (
-        <View style={[s.avatar, { backgroundColor: colors.primaryLight }]}>
-          <Text style={[s.avatarText, { color: colors.primaryText }]}>
-            {initials}
-          </Text>
-        </View>
-      )}
+      <Avatar
+        name={label}
+        imageUrl={avatarUrl ?? undefined}
+        size={40}
+        containerStyle={{
+          backgroundColor: colors.primaryLight,
+          borderWidth: 0,
+        }}
+        initialsStyle={{ color: colors.primaryText, fontSize: 15 }}
+      />
       <Text style={[s.title, s.copy, { color: colors.textPrimary }]}>
         {label}
       </Text>
@@ -244,42 +224,58 @@ function RadioOption({
   );
 }
 
-function CoinRewardSelection({ coins }: { coins: HealthCoinsController }) {
+export type CoinRewardStep = "select" | "message" | "review";
+
+export function CoinRewardSelection({
+  coins,
+  reward,
+  step,
+  onStepChange,
+}: {
+  coins: HealthCoinsController;
+  reward: Reward;
+  step: CoinRewardStep;
+  onStepChange: (step: CoinRewardStep) => void;
+}) {
   const { t, i18n } = useTranslation("v21");
   const { colors } = useThemeColors();
-  const [reviewing, setReviewing] = useState(false);
-  const reward = coins.selected!;
+  const [confirmingGreeting, setConfirmingGreeting] = useState(false);
+  const greeting = reward.code === "GREETING_CARD";
+  const choosingRecipient = greeting && step === "select";
+  const choosingMessage = greeting && step === "message";
+  const reviewing = step === "review";
+  const greetingPreview = greeting && reviewing;
   const recipient = coins.catalog?.recipients.find(
-    (person) => person.id === coins.recipient,
+    (person) => person.id === coins.recipient
   );
   const template = coins.catalog?.templates.find(
-    (item) => item.code === coins.template,
+    (item) => item.code === coins.template
   );
   const missing = Math.max(0, reward.cost - (coins.data?.balance ?? 0));
-  const valid =
-    !missing &&
-    (reward.code !== "GREETING_CARD" || Boolean(recipient && template));
+  const canReview = greeting ? Boolean(recipient && template) : !missing;
+  const canAdvance = choosingRecipient ? Boolean(recipient) : canReview;
+  const title = reviewing
+    ? "coinsReviewTitle"
+    : choosingRecipient
+    ? "chooseRecipient"
+    : greeting
+    ? "chooseTemplate"
+    : reward.code;
 
   return (
-    <View style={s.content}>
-      <View style={s.selectionHeading}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("back")}
-          onPress={() =>
-            reviewing ? setReviewing(false) : coins.cancelReward()
-          }
-          disabled={coins.busy}
-          style={s.back}
-        >
-          <Ionicons name="arrow-back" size={22} color={colors.primaryText} />
-        </Pressable>
-        <Text style={[s.sectionTitle, s.copy, { color: colors.textPrimary }]}>
-          {t(reviewing ? "coinsReviewTitle" : reward.code)}
-        </Text>
-        <CoinAmount count={reward.cost} />
-      </View>
-      {missing > 0 && (
+    <View style={s.selectionContent}>
+      {!greetingPreview && (
+        <View style={s.selectionHeading}>
+          <Text
+            accessibilityRole="header"
+            style={[s.sectionTitle, s.copy, { color: colors.textPrimary }]}
+          >
+            {t(title)}
+          </Text>
+          {!greeting && <CoinAmount count={reward.cost} />}
+        </View>
+      )}
+      {!greeting && missing > 0 && (
         <CoinNotice
           icon="information-circle-outline"
           text={t("missingCoins", { count: missing })}
@@ -287,111 +283,122 @@ function CoinRewardSelection({ coins }: { coins: HealthCoinsController }) {
       )}
       {reviewing ? (
         <View style={s.review}>
-          <Text style={[s.title, { color: colors.textPrimary }]}>
-            {t("redeemConfirm", { count: reward.cost })}
-          </Text>
-          <View style={s.reviewRow}>
-            <Text style={[s.caption, { color: colors.textSecondary }]}>
-              {t("coinsChosenReward")}
-            </Text>
-            <Text style={[s.title, { color: colors.textPrimary }]}>
-              {t(reward.code)}
-            </Text>
-          </View>
-          {recipient && (
-            <View style={s.reviewRow}>
-              <Text style={[s.caption, { color: colors.textSecondary }]}>
-                {t("chooseRecipient")}
-              </Text>
+          {!greeting && (
+            <>
               <Text style={[s.title, { color: colors.textPrimary }]}>
-                {recipient.name}
+                {t("redeemConfirm", { count: reward.cost })}
               </Text>
-            </View>
+              <View style={s.reviewRow}>
+                <Text style={[s.caption, { color: colors.textSecondary }]}>
+                  {t("coinsChosenReward")}
+                </Text>
+                <Text style={[s.title, { color: colors.textPrimary }]}>
+                  {t(reward.code)}
+                </Text>
+              </View>
+            </>
           )}
           {template && (
             <GreetingCard template={template} recipientName={recipient?.name} />
           )}
           <CoinButton
-            label={t("redeem")}
-            disabled={!valid}
+            label={t(greeting ? "greetingSend" : "redeem")}
+            disabled={!canReview}
             busy={coins.busy}
-            onPress={() => void coins.redeem()}
+            onPress={
+              greeting
+                ? () => setConfirmingGreeting(true)
+                : () => void coins.redeem()
+            }
           />
+          {greeting && (
+            <AppAlertModal
+              queued
+              visible={confirmingGreeting}
+              title={t("greetingSendConfirm", { count: reward.cost })}
+              message={
+                missing > 0 ? t("missingCoins", { count: missing }) : undefined
+              }
+              onDismiss={() => setConfirmingGreeting(false)}
+              buttons={[
+                { text: t("cancel"), style: "cancel" },
+                {
+                  text: t("greetingSend"),
+                  variant: "primary",
+                  disabled: !canReview || missing > 0 || coins.busy,
+                  onPress: coins.redeem,
+                },
+              ]}
+            />
+          )}
         </View>
       ) : (
         <>
-          {reward.code === "GREETING_CARD" && (
-            <>
-              <View
-                style={s.section}
-                accessibilityRole="radiogroup"
-                accessibilityLabel={t("chooseRecipient")}
-              >
-                <Text style={[s.sectionTitle, { color: colors.textPrimary }]}>
-                  {t("chooseRecipient")}
-                </Text>
-                {coins.catalog?.recipients.map((person) => (
-                  <RadioOption
-                    key={person.id}
-                    label={person.name}
-                    initials={person.name
-                      .trim()
-                      .split(/\s+/)
-                      .map((word) => word[0])
-                      .slice(0, 2)
-                      .join("")}
-                    selected={coins.recipient === person.id}
-                    onPress={() => coins.selectRecipient(person.id)}
-                    disabled={coins.busy}
+          {choosingRecipient && (
+            <View
+              style={s.section}
+              accessibilityRole="radiogroup"
+              accessibilityLabel={t("chooseRecipient")}
+            >
+              {!coins.catalog?.recipients.length && (
+                <Empty text={t("greetingNoRecipients")} icon="people-outline" />
+              )}
+              {coins.catalog?.recipients.map((person) => (
+                <RadioOption
+                  key={person.id}
+                  label={person.name}
+                  avatarUrl={person.avatarUrl}
+                  selected={coins.recipient === person.id}
+                  onPress={() => coins.selectRecipient(person.id)}
+                  disabled={coins.busy}
+                />
+              ))}
+            </View>
+          )}
+          {choosingMessage && (
+            <View
+              style={s.section}
+              accessibilityRole="radiogroup"
+              accessibilityLabel={t("chooseTemplate")}
+            >
+              {coins.catalog?.templates.map((item) => (
+                <Pressable
+                  key={item.code}
+                  accessibilityRole="radio"
+                  accessibilityLabel={
+                    i18n.language.startsWith("en") ? item.title_en : item.title
+                  }
+                  accessibilityState={{
+                    checked: coins.template === item.code,
+                    disabled: coins.busy,
+                  }}
+                  onPress={() => coins.selectTemplate(item.code)}
+                  disabled={coins.busy}
+                  style={({ pressed }) => ({
+                    opacity: pressed || coins.busy ? 0.65 : 1,
+                  })}
+                >
+                  <GreetingCard
+                    template={item}
+                    compact
+                    selected={coins.template === item.code}
                   />
-                ))}
-              </View>
-              <View
-                style={s.section}
-                accessibilityRole="radiogroup"
-                accessibilityLabel={t("chooseTemplate")}
-              >
-                <Text style={[s.sectionTitle, { color: colors.textPrimary }]}>
-                  {t("chooseTemplate")}
-                </Text>
-                {coins.catalog?.templates.map((item) => (
-                  <Pressable
-                    key={item.code}
-                    accessibilityRole="radio"
-                    accessibilityLabel={
-                      i18n.language.startsWith("en")
-                        ? item.title_en
-                        : item.title
-                    }
-                    accessibilityState={{
-                      checked: coins.template === item.code,
-                      disabled: coins.busy,
-                    }}
-                    onPress={() => coins.selectTemplate(item.code)}
-                    disabled={coins.busy}
-                    style={({ pressed }) => ({
-                      opacity: pressed || coins.busy ? 0.65 : 1,
-                    })}
-                  >
-                    <GreetingCard
-                      template={item}
-                      compact
-                      selected={coins.template === item.code}
-                    />
-                  </Pressable>
-                ))}
-              </View>
-            </>
+                </Pressable>
+              ))}
+            </View>
           )}
           <CoinButton
-            label={t("coinsReviewAction")}
-            disabled={
-              coins.busy ||
-              (reward.code === "GREETING_CARD"
-                ? !recipient || !template
-                : !valid)
+            label={t(
+              choosingRecipient
+                ? "common:continue"
+                : greeting
+                ? "greetingPreviewCard"
+                : "coinsReviewAction"
+            )}
+            disabled={coins.busy || !canAdvance}
+            onPress={() =>
+              onStepChange(choosingRecipient ? "message" : "review")
             }
-            onPress={() => setReviewing(true)}
           />
         </>
       )}
@@ -405,87 +412,34 @@ function CoinRewardSelection({ coins }: { coins: HealthCoinsController }) {
   );
 }
 
-export function CoinSpendTab({ coins }: { coins: HealthCoinsController }) {
-  const { t } = useTranslation("v21");
-  const { colors } = useThemeColors();
-  const compact = useCompactRows();
-  if (coins.selected)
-    return <CoinRewardSelection key={coins.selected.code} coins={coins} />;
-  return (
-    <View style={s.content}>
-      <View style={s.list}>
-        {!coins.catalog?.items.length && (
-          <Empty text={t("noRewards")} icon="gift-outline" />
-        )}
-        {coins.catalog?.items.map((reward) => {
-          const missing = Math.max(0, reward.cost - (coins.data?.balance ?? 0));
-          return (
-            <View key={reward.code} style={s.reward}>
-              <View style={s.rewardHeader}>
-                <View style={s.icon}>
-                  <Ionicons
-                    name={
-                      reward.code === "GREETING_CARD"
-                        ? "mail-open-outline"
-                        : "ticket-outline"
-                    }
-                    size={30}
-                    color={colors.primaryText}
-                  />
-                </View>
-                <View style={s.copy}>
-                  <Text style={[s.title, { color: colors.textPrimary }]}>
-                    {t(reward.code)}
-                  </Text>
-                  {compact && (
-                    <View style={{ alignSelf: "flex-start" }}>
-                      <CoinAmount count={reward.cost} />
-                    </View>
-                  )}
-                </View>
-                {!compact && <CoinAmount count={reward.cost} />}
-              </View>
-              <CoinButton
-                secondary
-                label={
-                  missing
-                    ? t("missingCoins", { count: missing })
-                    : t("coinsChooseReward")
-                }
-                disabled={coins.busy || missing > 0}
-                onPress={() => coins.selectReward(reward)}
-              />
-              {reward.code === "GREETING_CARD" && missing > 0 && (
-                <CoinButton
-                  secondary
-                  label={t("greetingPreview")}
-                  disabled={coins.busy}
-                  onPress={() => coins.selectReward(reward)}
-                />
-              )}
-            </View>
-          );
-        })}
-      </View>
-      {coins.catalog?.drawPeriodId && (
-        <CoinButton
-          secondary
-          label={t("drawRules")}
-          onPress={coins.openDrawRules}
-        />
-      )}
-      <CoinNotice icon="information-circle-outline" text={t("coinLimits")} />
-    </View>
-  );
-}
-
-export function CoinHistoryTab({ coins }: { coins: HealthCoinsController }) {
+export function CoinHistoryTab({
+  coins,
+  scope,
+}: {
+  coins: HealthCoinsController;
+  scope?: CoinHistoryScope;
+}) {
   const { t, i18n } = useTranslation("v21");
   const { colors } = useThemeColors();
+  const noEntries =
+    !coins.history.length && !coins.loading && !coins.historyLoading;
+  const emptyLabel =
+    scope === "earned"
+      ? "emptyCoinEarnHistory"
+      : scope === "usage"
+      ? "emptyCoinUsageHistory"
+      : "emptyHistory";
   return (
     <View style={s.content}>
-      {!coins.history.length && (
-        <Empty text={t("emptyHistory")} icon="time-outline" />
+      {noEntries && !coins.hasMore && !coins.historyError && (
+        <Empty text={t(emptyLabel)} icon="time-outline" />
+      )}
+      {noEntries && coins.hasMore && !coins.historyError && (
+        <CoinButton
+          secondary
+          label={t("moreHistory")}
+          onPress={() => void coins.more()}
+        />
       )}
       <View style={s.list}>
         {coins.history.map((entry) => (
@@ -505,7 +459,9 @@ export function CoinHistoryTab({ coins }: { coins: HealthCoinsController }) {
             </View>
             <View style={s.copy}>
               <Text style={[s.title, { color: colors.textPrimary }]}>
-                {t(entry.reason)}
+                {scope === "usage" && entry.catalog_code
+                  ? t(entry.catalog_code, { defaultValue: t(entry.reason) })
+                  : t(entry.reason)}
               </Text>
               <Text style={[s.caption, { color: colors.textSecondary }]}>
                 {new Date(entry.created_at).toLocaleString(i18n.language, {
@@ -572,11 +528,16 @@ export function CoinHistoryTab({ coins }: { coins: HealthCoinsController }) {
           </View>
         ))}
       </View>
-      {coins.hasMore && (
+      {coins.historyLoading && (
+        <ActivityIndicator
+          color={colors.primary}
+          accessibilityLabel={t("loading")}
+        />
+      )}
+      {coins.historyError && (
         <CoinButton
           secondary
-          label={t("more")}
-          busy={coins.busy}
+          label={t("retry")}
           onPress={() => void coins.more()}
         />
       )}
