@@ -1249,10 +1249,10 @@ function coinDetailsHarness(options) {
       },
     } },
   });
-  const render = () => useHealthCoins(options);
-  const read = () => r.render(render);
+  const CoinDetailsTest = () => useHealthCoins(options);
+  const read = () => r.render(CoinDetailsTest);
   return { ...r, auth, server, calls, storage, reward, data,
-    read, settle: () => r.settle(render),
+    read, settle: () => r.settle(CoinDetailsTest),
     prepare: () => { read().selectReward(reward); read().selectRecipient(7); read().selectTemplate("fixture-card"); },
   };
 }
