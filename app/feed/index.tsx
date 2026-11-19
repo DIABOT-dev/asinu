@@ -385,7 +385,6 @@ export default function FeedListScreen() {
               <Ionicons name="newspaper-outline" size={32} color={brandGreen} />
             </View>
             <Text style={styles.emptyTitle}>{tc("feedDisabledTitle")}</Text>
-            <Text style={styles.emptySub}>{tc("feedDisabledDescription")}</Text>
           </View>
         ) : activeTab === "feed" ? (
           displayFeedItems.length === 0 ? (
@@ -400,9 +399,6 @@ export default function FeedListScreen() {
                     color={brandGreen}
                   />
                   <Text style={styles.emptyTitle}>{tc("feedEmptyTitle")}</Text>
-                  <Text style={styles.emptySub}>
-                    {tc("feedEmptyDescription")}
-                  </Text>
                 </>
               )}
             </View>

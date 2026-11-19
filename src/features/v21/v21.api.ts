@@ -158,7 +158,6 @@ export type MedOverview = {
   self: boolean;
   flags: V21Flags;
   remindersEnabled?: boolean;
-  problemsOnly?: boolean;
 };
 export type ScanItem = {
   printed_name: string;
@@ -297,11 +296,6 @@ export const v21Api = {
     apiClient(
       "/api/mobile/med-schedules/" + encodeURIComponent(id) + "/consent",
       { method: "POST", body: { accept } },
-    ),
-  preferences: (patient: number, problems_only: boolean) =>
-    apiClient(
-      `/api/mobile/medication/family-preferences?patientId=${patient || ""}`,
-      { method: "PUT", body: { problems_only } },
     ),
   doses: (patient?: number) =>
     apiClient<{ items: MedDose[]; serverTime?: string }>(

@@ -345,7 +345,6 @@ export default function InviteScreen() {
             ) : (
             <>
             {!selectedUser && <GuideTarget step="circle.phone">
-            <Text style={styles.phoneHint}>{t('invitePhoneHint')}</Text>
             <View style={styles.phoneInputRow}>
               <Ionicons name="phone-portrait-outline" size={22} color="#64748B" accessible={false} />
               <TextInput
@@ -642,11 +641,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       fontSize: 14.5,
       color: '#0F172A',
       paddingVertical: 0,
-    },
-    phoneHint: {
-      marginBottom: spacing.md,
-      fontSize: 14,
-      color: '#475569',
     },
     phoneContinue: {
       marginTop: spacing.md,

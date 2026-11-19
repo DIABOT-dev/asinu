@@ -439,19 +439,6 @@ export function useMedicationOverview(initialPatient?: number) {
           "saved"
         );
     },
-    setProblemsOnly: (value: boolean) => {
-      if (!data || data.self || !!data.problemsOnly === value) return;
-      const { patientId } = data;
-      return mutate(async () => {
-        await v21Api.preferences(patientId, value);
-        if (!current(viewVersion)) return;
-        setData((previous) =>
-          previous?.patientId === patientId
-            ? { ...previous, problemsOnly: value }
-            : previous
-        );
-      }, value ? "preferenceOn" : "preferenceOff");
-    },
   };
 }
 

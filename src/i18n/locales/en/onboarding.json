@@ -330,6 +330,7 @@
   "skip": "Skip",
 
   "stepProgress": "Step {{step}}/{{total}}",
+  "profileLoadError": "We couldn’t load your saved information. Please try again.",
   "savingInfo": "Saving information...",
   "complete": "Complete",
   "nextStep": "Next",
@@ -346,7 +347,6 @@
   "consentSuffix": "of Asinu.",
 
   "step1Title": "Basic Information",
-  "step1Subtitle": "Help Asinu understand you better so we can provide more suitable care.",
   "fullName": "Full name",
   "fullNamePlaceholder": "E.g.: John Doe",
   "birthYear": "Birth year",
@@ -401,7 +401,6 @@
   "medSupplementOnly": "Supplements only",
 
   "step3Title": "Your Habits",
-  "step3Subtitle": "Help us better understand your lifestyle.",
   "checkupFreq": "How often do you check your health?",
   "checkupDaily": "Daily",
   "checkupFewWeek": "Few times/week",
@@ -418,7 +417,6 @@
   "sleepLess5": "Less than 5 hours",
 
   "step4Title": "Eating Habits",
-  "step4Subtitle": "Your eating habits help us make better recommendations.",
   "mealsPerDay": "How many meals do you eat per day?",
   "meals2": "2 meals",
   "meals3": "3 meals",

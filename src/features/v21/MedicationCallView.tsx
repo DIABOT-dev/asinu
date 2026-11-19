@@ -116,7 +116,7 @@ export function MedicationCallLayout({
             disabled={busy}
             accessibilityState={{ disabled: busy }}
             onPress={speaking ? onStop : onReplay}
-            style={[s.audio, { borderColor: colors.border }]}
+            style={s.audio}
           >
             {audioPhase === "loading" ? (
               <ActivityIndicator color={colors.primaryText} />
@@ -182,6 +182,7 @@ export function Action({
 }) {
   const { colors } = useThemeColors();
   const color = secondary ? colors.primaryText : colors.surface;
+  const numbered = number !== undefined;
   return (
     <Pressable
       accessibilityRole="button"
@@ -191,18 +192,21 @@ export function Action({
       onPress={onPress}
       style={({ pressed }) => [
         s.action,
+        numbered && s.numberedAction,
         {
           backgroundColor: secondary ? colors.primaryLight : colors.primaryText,
           opacity: disabled ? 0.45 : pressed ? 0.8 : 1,
         },
       ]}
     >
-      {number && (
+      {numbered && (
         <View accessible={false} style={[s.number, { borderColor: color }]}>
           <Text style={[s.numberText, { color }]}>{number}</Text>
         </View>
       )}
-      <Text style={[s.actionLabel, { color }]}>{label}</Text>
+      <Text style={[s.actionLabel, numbered && s.numberedActionLabel, { color }]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -225,7 +229,7 @@ export function MedicationItemsToggle({
       accessibilityState={{ expanded, disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={[s.itemsToggle, { borderColor: colors.border }]}
+      style={s.itemsToggle}
     >
       <Ionicons name="medical-outline" size={22} color={colors.primaryText} />
       <Text style={[s.status, s.copy, { color: colors.primaryText }]}>
@@ -320,8 +324,6 @@ const s = StyleSheet.create({
     gap: 12,
     alignItems: "center",
     minHeight: 58,
-    borderBottomWidth: 1,
-    paddingBottom: 14,
   },
   body: { gap: 14 },
   heading: { fontSize: 24, lineHeight: 34, fontWeight: "700", marginBottom: 6 },
@@ -336,6 +338,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
     gap: 14,
   },
+  numberedAction: { justifyContent: "flex-start" },
   actionLabel: {
     flexShrink: 1,
     textAlign: "center",
@@ -343,23 +346,22 @@ const s = StyleSheet.create({
     lineHeight: 26,
     fontWeight: "700",
   },
+  numberedActionLabel: { flex: 1, textAlign: "left" },
   number: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 32,
+    minHeight: 32,
+    flexShrink: 0,
+    borderRadius: 16,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
-  numberText: { fontSize: 15, fontWeight: "700" },
+  numberText: { fontSize: 15, fontWeight: "700", fontVariant: ["tabular-nums"] },
   itemsToggle: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     minHeight: 58,
-    borderTopWidth: 1,
-    marginTop: 8,
-    paddingTop: 12,
   },
   item: {
     flexDirection: "row",

@@ -188,12 +188,6 @@ export const medicationStyles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
   },
-  preference: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    paddingTop: 20,
-  },
   week: { gap: 10, paddingTop: 24, borderTopWidth: StyleSheet.hairlineWidth },
   disabled: { opacity: 0.45 },
   modalRoot: { flex: 1, justifyContent: "flex-end" },

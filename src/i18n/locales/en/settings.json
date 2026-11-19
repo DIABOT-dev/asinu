@@ -363,7 +363,6 @@
     "supplementCreate": "Remind me to take supplement {{name}} daily at {{times}}",
     "entryLabel": "Asinu AI\nassistant",
     "title": "Asinu assistant",
-    "subtitle": "Here for your everyday health",
     "welcome": "Hi! I’m Asinu. What would you like to check or update today?",
     "photoLabel": "Photo",
     "copyMessage": "Copy response",

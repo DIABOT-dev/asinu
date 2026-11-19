@@ -321,6 +321,26 @@ for (const [kind, initial, step] of [
     assert.equal(h.changes.length, before);
   });
 }
+test("weight: the figure visibly widens around 65 kg and keeps responding near the maximum", () => {
+  const h = harness("weight", "65");
+  const range = math.measurementRange("weight", "65");
+  const referenceWidth = h.widthScale();
+  const referenceHeight = h.scale();
+  const dragTo = (weight) => {
+    const offset = math.rulerOffsetForValue(weight, range);
+    h.list().props.onScroll(h.event(offset));
+    assert.equal(h.value, weight);
+    assert.equal(h.scale(), referenceHeight);
+    return h.widthScale();
+  };
+
+  h.list().props.onScrollBeginDrag();
+  assert.ok(dragTo(75) >= referenceWidth * 1.2);
+  assert.ok(dragTo(55) <= referenceWidth * 0.85);
+  const highWidth = dragTo(250);
+  const maxWidth = dragTo(300);
+  assert.ok(maxWidth > highWidth && maxWidth < referenceWidth * 2);
+});
 test("an unknown value previews a default without writing until the user chooses", () => {
   const h = harness("height", "");
   assert.deepEqual(h.changes, []);

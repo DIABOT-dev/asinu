@@ -74,9 +74,6 @@ export function EarlySignalDialog({
               >
                 {t("earlyTitle")}
               </Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                {t("earlyReviewSubtitle")}
-              </Text>
             </View>
             <Pressable
               accessibilityRole="button"
@@ -130,9 +127,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  heading: { flex: 1, minWidth: 0, gap: 2 },
+  heading: { flex: 1, minWidth: 0 },
   title: { fontSize: 20, fontWeight: "700" },
-  subtitle: { fontSize: 13 },
   content: {
     padding: 16,
     gap: 16,

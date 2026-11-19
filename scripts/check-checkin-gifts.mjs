@@ -1105,7 +1105,7 @@ await test('the daily page omits the collection and duplicate heading while pres
   assert.equal(hasCollection(tree), false, 'The loaded daily page has no collection link');
   assert.ok(!nodes(tree).some(node => node.type === 'Text' && node.props.children === 'checkinGift.dailyTitle'), 'Only the page header shows its title');
   assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'checkinGift.choose'));
-  assert.ok(nodes(tree).some(node => node.type === 'Text' && node.props.children === 'checkinGift.dailySubtitle'));
+  assert.ok(!nodes(tree).some(node => node.type === 'Text' && node.props.children === 'checkinGift.dailySubtitle'));
   const open = nodes(tree).find(node => node.type === 'Button' && nodes(node).some(child => child.type === 'Text' && child.props.children === 'checkinGift.choose'));
   assert.ok(open); open.props.onPress();
   assert.ok(nodes(await h.settle()).some(node => node.type === 'Gift'), 'A real daily gift remains openable');

@@ -63,10 +63,12 @@ export function MeasurementRuler({
   const lastValue = useRef(selected);
   const stageHeight = Math.min(240, Math.max(170, height * 0.26));
   const bodyHeight = stageHeight - 32;
-  // Weight changes width only; the reference figure is shown at 65 kg.
+  // Make width changes visible around 65 kg and taper them toward the ends.
+  const weightChange = (selected - 65) / 30;
+  const widthLimit = weightChange < 0 ? 0.45 : 1;
   const bodyWidthScale =
     kind === "weight"
-      ? Math.max(0.65, Math.min(1.8, Math.sqrt(selected / 65)))
+      ? 1 + (widthLimit * weightChange) / (widthLimit + Math.abs(weightChange))
       : 1;
   const targetScale =
     kind === "height"

@@ -434,7 +434,6 @@ function HomeMissionSlide({ mission, index, displayIndex, cardWidth, snapInterva
           </View>
           <Text style={[styles.missionTitle, isCompleted && styles.missionTitleCompleted, { flex: 1 }]}>{mission.title}</Text>
         </View>
-        {mission.description ? <Text style={styles.missionDesc}>{mission.description}</Text> : null}
         <View style={styles.missionProgressRow}>
           <View style={styles.missionProgressTrack}>
             <LinearGradient
@@ -797,7 +796,6 @@ export default function HomeScreen() {
           <Pressable style={{ backgroundColor: colors.surface, borderRadius: 20, padding: 28, alignItems: 'center', gap: 12, width: '100%', maxWidth: 320 }} onPress={(event) => event.stopPropagation()}>
             <Ionicons name="checkmark-circle" size={56} color={colors.primary} />
             <Text style={{ fontSize: 17, fontWeight: '700', color: colors.textPrimary, textAlign: 'center' }}>{t('alreadyCheckedIn')}</Text>
-            <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }}>{t('alreadyCheckedInSub')}</Text>
             <Pressable style={{ backgroundColor: colors.primary, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12, marginTop: 4 }} onPress={() => setShowAlreadyDoneModal(false)}>
               <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>{tc('understood')}</Text>
             </Pressable>
@@ -935,17 +933,16 @@ export default function HomeScreen() {
           <View style={styles.emptyLogsContainer}>
             <Ionicons name="document-text-outline" size={40} color={iconColors.primary} />
             <Text style={styles.emptyLogsTitle}>{t('noLogsYet')}</Text>
-            <Text style={styles.emptyLogsSub}>{t('noLogsSub')}</Text>
           </View>
         ) : (
           <View style={styles.logsGrid}>
             {logs.filter((log: LogEntry) => ['glucose', 'blood-pressure', 'water'].includes(log.type)).slice(0, 3).map((log: LogEntry) => {
-              const logMeta: Record<string, { iconColor: string; icon: string; subtitle: string; watermarkColor: string }> = {
-                'glucose':        { iconColor: '#43A047', icon: 'water',           subtitle: t('glucoseHealth'), watermarkColor: '#43A047' },
-                'blood-pressure': { iconColor: '#1E88E5', icon: 'heart-pulse',     subtitle: t('cardioHealth'),  watermarkColor: '#1E88E5' },
-                'water':          { iconColor: '#00ACC1', icon: 'cup-water',       subtitle: t('hydration'),     watermarkColor: '#00ACC1' },
+              const logMeta: Record<string, { iconColor: string; icon: string }> = {
+                'glucose':        { iconColor: '#43A047', icon: 'water' },
+                'blood-pressure': { iconColor: '#1E88E5', icon: 'heart-pulse' },
+                'water':          { iconColor: '#00ACC1', icon: 'cup-water' },
               };
-              const meta = logMeta[log.type] ?? { iconColor: colors.textSecondary, icon: 'dots-horizontal', subtitle: '', watermarkColor: colors.textSecondary };
+              const meta = logMeta[log.type] ?? { iconColor: colors.textSecondary, icon: 'dots-horizontal' };
 
               const displayValue = (() => {
                 if (log.type === 'glucose') return log.value ? `${log.value} ${tc('unitMgdl')}` : tc('noData');
@@ -976,12 +973,12 @@ export default function HomeScreen() {
                     <Svg width={80} height={70} viewBox="0 0 80 70">
                       <Path
                         d="M55 15 C48 15 42 20 40 25 C38 20 32 15 25 15 C15 15 8 23 8 33 C8 48 25 58 40 68 C55 58 72 48 72 33 C72 23 65 15 55 15 Z"
-                        fill={meta.watermarkColor}
+                        fill={meta.iconColor}
                         opacity={0.08}
                       />
                       <Path
                         d="M18 36 L30 36 L34 26 L38 46 L42 30 L46 40 L50 36 L62 36"
-                        stroke={meta.watermarkColor}
+                        stroke={meta.iconColor}
                         strokeWidth={2}
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -993,17 +990,17 @@ export default function HomeScreen() {
                     <Svg width={70} height={70} viewBox="0 0 70 70">
                       <Path
                         d="M45 10 C30 15 25 35 35 55 C45 60 60 50 65 30 C65 20 55 12 45 10 Z"
-                        fill={meta.watermarkColor}
+                        fill={meta.iconColor}
                         opacity={0.09}
                       />
                       <Path
                         d="M25 30 C15 35 12 48 20 60 C28 62 40 55 42 42 C42 35 32 30 25 30 Z"
-                        fill={meta.watermarkColor}
+                        fill={meta.iconColor}
                         opacity={0.07}
                       />
                       <Path
                         d="M38 58 Q40 40 48 22"
-                        stroke={meta.watermarkColor}
+                        stroke={meta.iconColor}
                         strokeWidth={1.5}
                         fill="none"
                         opacity={0.12}
@@ -1020,12 +1017,9 @@ export default function HomeScreen() {
                 {/* Content */}
                 <View style={styles.logCardContent}>
                   <View style={styles.logCardTopRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.logCardType}>
-                        {t(`logType${log.type === 'blood-pressure' ? 'BloodPressure' : log.type.charAt(0).toUpperCase() + log.type.slice(1)}` as any)}
-                      </Text>
-                      <Text style={styles.logCardSubtitle}>{meta.subtitle}</Text>
-                    </View>
+                    <Text style={styles.logCardType}>
+                      {t(`logType${log.type === 'blood-pressure' ? 'BloodPressure' : log.type.charAt(0).toUpperCase() + log.type.slice(1)}` as any)}
+                    </Text>
                     {/* Status badge */}
                     <View style={[styles.logCardStatusBadge, { backgroundColor: hasBackendStatus ? '#EBF5FF' : '#ECFDF5' }]}>
                       <View style={[styles.logCardStatusDot, { backgroundColor: hasBackendStatus ? '#3B82F6' : '#22C55E' }]} />
@@ -1325,10 +1319,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     textDecorationLine: 'line-through',
     color: colors.textSecondary,
   },
-  missionDesc: {
-    color: colors.textSecondary,
-    fontSize: typography.size.sm,
-  },
   missionProgressRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1424,14 +1414,10 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     alignItems: 'flex-start' as const,
   },
   logCardType: {
+    flex: 1,
     fontSize: typography.size.sm,
     fontWeight: '700' as const,
     color: colors.textPrimary,
-  },
-  logCardSubtitle: {
-    fontSize: typography.size.xs,
-    color: colors.textSecondary,
-    marginTop: 2,
   },
   logCardValue: {
     fontSize: typography.size.lg,
@@ -1494,11 +1480,6 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     fontSize: typography.size.md,
     fontWeight: '700' as const,
     color: colors.textPrimary,
-    textAlign: 'center' as const,
-  },
-  emptyLogsSub: {
-    fontSize: typography.size.sm,
-    color: colors.textSecondary,
     textAlign: 'center' as const,
   },
   reportCard: {

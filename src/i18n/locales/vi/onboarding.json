@@ -330,6 +330,7 @@
   "skip": "Bỏ qua",
 
   "stepProgress": "Bước {{step}}/{{total}}",
+  "profileLoadError": "Chưa tải được thông tin đã lưu. Bạn thử lại nhé.",
   "savingInfo": "Đang lưu thông tin...",
   "complete": "Hoàn thành",
   "nextStep": "Tiếp theo",
@@ -346,7 +347,6 @@
   "consentSuffix": "của Asinu.",
 
   "step1Title": "Thông tin cơ bản",
-  "step1Subtitle": "Giúp Asinu hiểu bạn tốt hơn để chăm sóc phù hợp.",
   "fullName": "Họ tên",
   "fullNamePlaceholder": "VD: Nguyễn Văn A",
   "birthYear": "Năm sinh",
@@ -401,7 +401,6 @@
   "medSupplementOnly": "Chỉ thực phẩm chức năng",
 
   "step3Title": "Thói quen của bạn",
-  "step3Subtitle": "Giúp chúng tôi hiểu rõ hơn về lối sống của bạn.",
   "checkupFreq": "Bạn thường đo sức khoẻ bao lâu một lần?",
   "checkupDaily": "Mỗi ngày",
   "checkupFewWeek": "Vài lần/tuần",
@@ -418,7 +417,6 @@
   "sleepLess5": "Ít hơn 5 giờ",
 
   "step4Title": "Thói quen ăn uống",
-  "step4Subtitle": "Thói quen ăn uống giúp chúng tôi đưa ra đề xuất phù hợp hơn.",
   "mealsPerDay": "Bạn thường ăn bao nhiêu bữa một ngày?",
   "meals2": "2 bữa",
   "meals3": "3 bữa",

@@ -191,7 +191,6 @@
   "invite": "Invite family",
   "inviteTitle": "Invite Connection",
   "invitePhoneLabel": "Phone number",
-  "invitePhoneHint": "Find the recipient by phone number to choose what to share and send the invitation.",
   "inviteRecipient": "Recipient",
   "invitePermissionsDesc": "The permissions you give the recipient once they accept the invitation.",
   "inviteShareNotificationsDesc": "Give the recipient read-only access to your past and future notifications.",

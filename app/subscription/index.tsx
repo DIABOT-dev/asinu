@@ -639,10 +639,6 @@ export default function SubscriptionScreen() {
               <Text style={styles.sheetTitle}>{t("v2ProtectedPeople")}</Text>
             </View>
 
-            <Text style={styles.sheetHeaderSubtitle}>
-              {t("v2ProtectedHeaderSubtitle")}
-            </Text>
-
             <View style={styles.sheetSlotsBadge}>
               <Ionicons
                 name="shield-checkmark"
@@ -785,9 +781,6 @@ export default function SubscriptionScreen() {
                 <View style={styles.upsellDivider} />
                 <View style={styles.upsellCopy}>
                   <Text style={styles.upsellTitle}>{t("v2FreeHint")}</Text>
-                  <Text style={styles.upsellSubtitle}>
-                    {t("v2FreeHintSubtitle")}
-                  </Text>
                 </View>
               </Pressable>
             ) : canManageProtectedMembers ? (
@@ -1220,13 +1213,6 @@ function createStyles(
       fontSize: typography.size.xl,
       fontWeight: "800",
     },
-    sheetHeaderSubtitle: {
-      color: isDark ? "#94a3b8" : "#64748b",
-      fontSize: typography.size.xs,
-      lineHeight: 19,
-      marginTop: 8,
-      maxWidth: "85%",
-    },
     sheetSlotsBadge: {
       alignItems: "center",
       alignSelf: "flex-start",
@@ -1347,12 +1333,6 @@ function createStyles(
       fontSize: typography.size.xs + 1,
       fontWeight: "700",
       lineHeight: 20,
-    },
-    upsellSubtitle: {
-      color: isDark ? "#94a3b8" : "#64748b",
-      fontSize: typography.size.xs - 0.5,
-      lineHeight: 18,
-      marginTop: 4,
     },
   });
 }

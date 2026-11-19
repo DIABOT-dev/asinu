@@ -30,6 +30,10 @@ const LOG_TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string;
 };
 const getLogConfig = (type: string) =>
   LOG_TYPE_CONFIG[type] || { icon: 'clipboard-text-outline', color: colors.textSecondary, bg: colors.surfaceMuted, labelKey: type };
+const getLogCategory = (type: string) => type === 'blood_pressure' ? 'bp' : type;
+const MAIN_LOG_FILTERS = ['bp', 'glucose', 'meal', 'water'] as const;
+const EXTRA_LOG_FILTERS = ['medication', 'insulin'] as const;
+type LogFilter = (typeof MAIN_LOG_FILTERS)[number] | (typeof EXTRA_LOG_FILTERS)[number] | null;
 
 // ── Checkin status config ────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { icon: string; color: string; bg: string; labelKey: string }> = {
@@ -97,6 +101,7 @@ function MemberLogsScreen({ id, name, accountId }: { id: string; name?: string; 
   const { t, i18n } = useTranslation('careCircle');
   const { t: tl } = useTranslation('logs');
   const { t: tp } = useTranslation('profile');
+  const { t: tc } = useTranslation('common');
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
   const scaledTypography = useScaledTypography();
@@ -104,7 +109,7 @@ function MemberLogsScreen({ id, name, accountId }: { id: string; name?: string; 
   const styles = useMemo(() => createStyles(scaledTypography, colors), [scaledTypography, colors]);
 
   const [activeTab, setActiveTab] = useState<Tab>('overview');
-  const [logFilter, setLogFilter] = useState<'bp' | 'glucose' | 'meal' | null>(null);
+  const [logFilter, setLogFilter] = useState<LogFilter>(null);
   const [patientName, setPatientName] = useState(name || '');
   const [focused, setFocused] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -191,7 +196,7 @@ function MemberLogsScreen({ id, name, accountId }: { id: string; name?: string; 
   const groupedLogs = useMemo(() => {
     const map: Record<string, typeof logs> = {};
     for (const log of logs) {
-      if (logFilter && log.log_type !== logFilter && !(logFilter === 'bp' && log.log_type === 'blood_pressure')) continue;
+      if (logFilter && getLogCategory(log.log_type) !== logFilter) continue;
       const date = formatDate(log.occurred_at, i18n.language);
       if (!map[date]) map[date] = [];
       map[date].push(log);
@@ -201,6 +206,9 @@ function MemberLogsScreen({ id, name, accountId }: { id: string; name?: string; 
     );
   }, [i18n.language, logFilter, logs]);
 
+  const logFilters: LogFilter[] = [null, ...MAIN_LOG_FILTERS, ...EXTRA_LOG_FILTERS.filter(
+    type => logFilter === type || logs.some(log => log.log_type === type)
+  )];
   const isLoading = (activeTab === 'logs' && logsLoading) ||
     (activeTab === 'checkins' && checkinsLoading);
 
@@ -277,7 +285,32 @@ function MemberLogsScreen({ id, name, accountId }: { id: string; name?: string; 
         </Pressable>
       </View>
 
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {activeTab === 'logs' && focused && !logsError && (
+        <View accessibilityRole="tablist" style={styles.logFilters}>
+          {logFilters.map(filter => {
+            const selected = logFilter === filter;
+            const label = filter ? tl(getLogConfig(filter).labelKey) : tc('filterAll');
+            return (
+              <Pressable
+                key={filter ?? 'all'}
+                accessibilityRole="tab"
+                accessibilityLabel={label}
+                accessibilityState={{ selected }}
+                onPress={() => setLogFilter(filter)}
+                style={[styles.logFilter, selected && styles.logFilterSelected]}
+              >
+                <Text style={[styles.logFilterText, selected && styles.logFilterTextSelected]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
+      <ScrollView
+        key={activeTab === 'logs' ? logFilter ?? 'allLogs' : 'memberContent'}
+        style={styles.container}
+        contentContainerStyle={styles.content}
+      >
         {activeTab === 'overview' && focused && (
           <>
             <Text accessibilityRole="header" style={styles.familySectionTitle}>{t('familyHealthOverview')}</Text>
@@ -331,9 +364,6 @@ function MemberLogsScreen({ id, name, accountId }: { id: string; name?: string; 
                 <Text style={styles.emptyText}>{logsError}</Text>
               </View>
             )}
-            {logFilter && <Text accessibilityRole="header" style={styles.familySectionTitle}>
-              {tl(getLogConfig(logFilter).labelKey)}
-            </Text>}
             {logsError === '' && groupedLogs.length === 0 && (
               <View style={styles.center}>
                 <MaterialCommunityIcons name="clipboard-text-outline" size={48} color={colors.textSecondary} />
@@ -344,7 +374,7 @@ function MemberLogsScreen({ id, name, accountId }: { id: string; name?: string; 
               <View key={date} style={styles.dateGroup}>
                 <Text style={styles.dateLabel}>{date}</Text>
                 {dateLogs.map(log => {
-                  const logType = log.log_type === 'blood_pressure' ? 'bp' : log.log_type;
+                  const logType = getLogCategory(log.log_type);
                   const cfg = getLogConfig(logType);
                   const value = getLogValue({ ...log, log_type: logType });
                   return (
@@ -792,6 +822,39 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>, colors
     },
 
     // ── Logs ──
+    logFilters: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+      backgroundColor: colors.background,
+    },
+    logFilter: {
+      minHeight: 44,
+      maxWidth: '100%',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    logFilterSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primaryLight,
+    },
+    logFilterText: {
+      fontSize: typography.size.xs,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+    logFilterTextSelected: {
+      fontWeight: '700',
+      color: colors.primaryText,
+    },
     dateGroup: { gap: spacing.sm },
     dateLabel: {
       fontSize: typography.size.xs,

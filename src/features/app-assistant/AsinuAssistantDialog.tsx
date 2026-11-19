@@ -391,7 +391,6 @@ export function AsinuAssistantDialog({ onClose }: { onClose: () => void }) {
             <Image source={mascot} accessible={false} resizeMode="contain" resizeMethod="resize" style={styles.mascot} />
             <View style={styles.headerText}>
               <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>{t('appAssistant.title')}</Text>
-              <Text style={[styles.greeting, { color: colors.textSecondary }]}>{t('appAssistant.subtitle')}</Text>
             </View>
 
           </View>
@@ -496,9 +495,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   back: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   mascot: { width: 44, height: 48 },
-  headerText: { flex: 1, minWidth: 0, gap: 1 },
+  headerText: { flex: 1, minWidth: 0 },
   title: { fontSize: 19, fontWeight: '700' },
-  greeting: { fontSize: 12 },
   scroll: { flex: 1 },
   content: { gap: 16, paddingHorizontal: 14, paddingBottom: 20, maxWidth: 720, width: '100%', alignSelf: 'center' },
   review: { gap: 16, padding: 16, borderRadius: 20 },

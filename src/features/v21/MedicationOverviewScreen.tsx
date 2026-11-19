@@ -738,24 +738,6 @@ export function MedicationOverviewPanel({
                     </View>
                   );
                 })}
-                {!med.data.self && (
-                  <View style={s.preference}>
-                    <Text style={[s.caption, caption, s.copy]}>
-                      {t("problemsOnly")}
-                    </Text>
-                    <Switch
-                      accessibilityLabel={t("problemsOnly")}
-                      value={!!med.data.problemsOnly}
-                      disabled={med.busy || med.loading}
-                      onValueChange={(value) => void med.setProblemsOnly(value)}
-                      trackColor={{
-                        false: colors.border,
-                        true: colors.primary,
-                      }}
-                      thumbColor={colors.surface}
-                    />
-                  </View>
-                )}
               </>
             )}
           </>

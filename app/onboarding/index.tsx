@@ -322,7 +322,126 @@ function ChoiceCard({ label, icon, active, onPress }: ChoiceCardProps) {
 
 // ─── Main Onboarding Screen Component ────────────────────────────────
 
+type SavedOnboardingProfile = {
+  user_id: number;
+  full_name: string | null;
+  birth_year: number | null;
+  gender: string | null;
+  height_cm: string | number | null;
+  weight_kg: string | number | null;
+  phone: string | null;
+  blood_type: string | null;
+  medical_conditions: string[] | null;
+  daily_medication: string | null;
+  checkup_freq: string | null;
+  exercise_freq: string | null;
+  sleep_hours: string | null;
+  meals_per_day: string | null;
+  post_meal_drowsy: string | null;
+  dinner_time: string | null;
+  sweet_intake: string | null;
+  user_goal: string[];
+};
+
+function medicalAnswers(diseases: string[], otherDisease: string) {
+  return [
+    ...diseases.filter(value => value !== DISEASE_NONE_VALUE && value !== DISEASE_OTHER_VALUE),
+    ...otherDisease.split(',').map(value => value.trim()).filter(Boolean),
+  ];
+}
+
+function initialOnboardingAnswers(profile: SavedOnboardingProfile) {
+  const conditions = (profile.medical_conditions ?? []).filter(value =>
+    value !== DISEASE_NONE_VALUE && value !== DISEASE_OTHER_VALUE
+  );
+  const isListed = (value: string) => DISEASE_GRID.some(option => option.value === value);
+  const diseases = conditions.filter(isListed);
+  const otherDisease = conditions.filter(value => !isListed(value)).join(', ');
+  if (otherDisease) diseases.push(DISEASE_OTHER_VALUE);
+  else if (!diseases.length && profile.medical_conditions) diseases.push(DISEASE_NONE_VALUE);
+
+  return {
+    diseases,
+    otherDisease,
+    answers: {
+      full_name: profile.full_name?.trim() ?? '',
+      birth_year: profile.birth_year,
+      gender: profile.gender ?? '',
+      height_cm: profile.height_cm === null ? null : Number(profile.height_cm),
+      weight_kg: profile.weight_kg === null ? null : Number(profile.weight_kg),
+      phone: profile.phone?.trim().replace(/^(?:\+84|84)(?=\d{9}$)/, '0') || null,
+      blood_type: BLOOD_TYPE_OPTIONS.some(option => option.value === profile.blood_type)
+        ? profile.blood_type : null,
+      medical_conditions: medicalAnswers(diseases, otherDisease),
+      daily_medication: profile.daily_medication ?? '',
+      checkup_freq: profile.checkup_freq ?? '',
+      exercise_freq: profile.exercise_freq ?? '',
+      sleep_hours: profile.sleep_hours ?? '',
+      meals_per_day: profile.meals_per_day ?? '',
+      post_meal_drowsy: profile.post_meal_drowsy ?? '',
+      dinner_time: profile.dinner_time ?? '',
+      sweet_intake: profile.sweet_intake ?? '',
+      user_goal: profile.user_goal,
+    },
+  };
+}
+
 export default function OnboardingScreen() {
+  const { t } = useTranslation('onboarding');
+  const { t: tc } = useTranslation('common');
+  const accountId = useAuthStore(s => s.profile?.id);
+  const authenticated = useAuthStore(s => Boolean(s.token));
+  const [attempt, setAttempt] = useState(0);
+  const [loaded, setLoaded] = useState<{
+    accountId: string;
+    attempt: number;
+    profile: SavedOnboardingProfile | null;
+  }>();
+
+  useEffect(() => {
+    if (!accountId || !authenticated) return;
+    const request = new AbortController();
+    apiClient<{ ok: boolean; profile: SavedOnboardingProfile }>(
+      '/api/mobile/onboarding/profile-v2', { signal: request.signal }
+    ).then(result => {
+      if (request.signal.aborted) return;
+      const stored = useAuthStore.getState().profile;
+      const profile = result.ok && stored?.id === accountId && String(result.profile?.user_id) === accountId
+        ? { ...result.profile, full_name: result.profile.full_name ?? stored.name }
+        : null;
+      setLoaded({ accountId, attempt, profile });
+    }).catch(() => {
+      if (!request.signal.aborted) setLoaded({ accountId, attempt, profile: null });
+    });
+    return () => request.abort();
+  }, [accountId, authenticated, attempt]);
+
+  const result = authenticated && loaded?.accountId === accountId && loaded?.attempt === attempt ? loaded : undefined;
+  if (result?.profile) return <OnboardingForm key={accountId} savedProfile={result.profile} />;
+  return (
+    <View style={styles.centered}>
+      {result ? (
+        <>
+          <Text style={styles.loadingText}>{t('profileLoadError')}</Text>
+          <Pressable
+            accessibilityRole="button"
+            style={styles.profileRetry}
+            onPress={() => setAttempt(value => value + 1)}
+          >
+            <Text style={styles.nextBtnText}>{tc('retry')}</Text>
+          </Pressable>
+        </>
+      ) : (
+        <>
+          <ActivityIndicator size="large" color="#008080" />
+          <Text style={styles.loadingText}>{tc('loading')}</Text>
+        </>
+      )}
+    </View>
+  );
+}
+
+function OnboardingForm({ savedProfile }: { savedProfile: SavedOnboardingProfile }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation('onboarding');
@@ -343,41 +462,36 @@ export default function OnboardingScreen() {
   const [showFontModal, setShowFontModal] = useState(false);
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [initial] = useState(() => initialOnboardingAnswers(savedProfile));
 
   // ── Step 1 state ─────────────────────────────────────────────────
-  const [fullName, setFullName] = useState('');
-  const [birthYear, setBirthYear] = useState('');
-  const [gender, setGender] = useState('');
-  const [height, setHeight] = useState('');
-  const [weight, setWeight] = useState('');
-  const [phone, setPhone] = useState('');
-  const [bloodType, setBloodType] = useState('');
+  const [fullName, setFullName] = useState(initial.answers.full_name);
+  const [birthYear, setBirthYear] = useState(String(initial.answers.birth_year ?? ''));
+  const [gender, setGender] = useState(initial.answers.gender);
+  const [height, setHeight] = useState(String(initial.answers.height_cm ?? ''));
+  const [weight, setWeight] = useState(String(initial.answers.weight_kg ?? ''));
+  const [phone, setPhone] = useState(initial.answers.phone ?? '');
+  const [bloodType, setBloodType] = useState(initial.answers.blood_type ?? '');
   const [consentAccepted, setConsentAccepted] = useState(true);
 
   // ── Step 2 state ─────────────────────────────────────────────────
-  const [diseases, setDiseases] = useState<string[]>([]);
-  const [otherDisease, setOtherDisease] = useState('');
-  const [medication, setMedication] = useState('');
+  const [diseases, setDiseases] = useState(initial.diseases);
+  const [otherDisease, setOtherDisease] = useState(initial.otherDisease);
+  const [medication, setMedication] = useState(initial.answers.daily_medication);
 
   // ── Step 3 state ─────────────────────────────────────────────────
-  const [checkupFreq, setCheckupFreq] = useState('');
-  const [exerciseFreq, setExerciseFreq] = useState('');
-  const [sleepHours, setSleepHours] = useState('');
+  const [checkupFreq, setCheckupFreq] = useState(initial.answers.checkup_freq);
+  const [exerciseFreq, setExerciseFreq] = useState(initial.answers.exercise_freq);
+  const [sleepHours, setSleepHours] = useState(initial.answers.sleep_hours);
 
   // ── Step 4 state ─────────────────────────────────────────────────
-  const [mealsPerDay, setMealsPerDay] = useState('');
-  const [postMealDrowsy, setPostMealDrowsy] = useState('');
-  const [dinnerTime, setDinnerTime] = useState('');
-  const [sweetIntake, setSweetIntake] = useState('');
+  const [mealsPerDay, setMealsPerDay] = useState(initial.answers.meals_per_day);
+  const [postMealDrowsy, setPostMealDrowsy] = useState(initial.answers.post_meal_drowsy);
+  const [dinnerTime, setDinnerTime] = useState(initial.answers.dinner_time);
+  const [sweetIntake, setSweetIntake] = useState(initial.answers.sweet_intake);
 
   // ── Step 5 state ─────────────────────────────────────────────────
-  const [goals, setGoals] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (profile?.name && !fullName) {
-      setFullName(profile.name);
-    }
-  }, [profile]);
+  const [goals, setGoals] = useState(initial.answers.user_goal);
 
   function getFontSizeLabel(s: FontSizeScale): string {
     switch (s) {
@@ -476,50 +590,53 @@ export default function OnboardingScreen() {
   // ── Submit ────────────────────────────────────────────────────────
 
   async function handleSubmit() {
-    if (!step5Valid) return;
+    const accountId = String(savedProfile.user_id);
+    const token = useAuthStore.getState().token;
+    const current = () => {
+      const session = useAuthStore.getState();
+      return session.profile?.id === accountId && session.token === token;
+    };
+    if (!canGoNext() || saving || !token || !current()) return;
     setSaving(true);
     try {
-      const medicalConditions = diseases
-        .filter(d => d !== DISEASE_NONE_VALUE)
-        .concat(
-          otherDisease
-            ? otherDisease
-                .split(',')
-                .map(s => s.trim())
-                .filter(Boolean)
-            : []
-        );
-
+      const answers = {
+        full_name: fullName.trim(),
+        birth_year: parseInt(birthYear, 10),
+        gender,
+        height_cm: parseFloat(height),
+        weight_kg: parseFloat(weight),
+        phone: phone.trim() || null,
+        blood_type: BLOOD_TYPE_OPTIONS.some(o => o.value === bloodType) ? bloodType : null,
+        medical_conditions: medicalAnswers(diseases, otherDisease),
+        daily_medication: medication,
+        checkup_freq: checkupFreq,
+        exercise_freq: exerciseFreq,
+        sleep_hours: sleepHours,
+        meals_per_day: mealsPerDay,
+        post_meal_drowsy: postMealDrowsy,
+        dinner_time: dinnerTime,
+        sweet_intake: sweetIntake,
+        user_goal: goals,
+      };
+      const fields = Object.keys(answers) as (keyof typeof answers)[];
+      const changes = fields.filter(field =>
+        JSON.stringify(answers[field]) !== JSON.stringify(initial.answers[field])
+      );
       await apiClient('/api/mobile/onboarding/complete-v2', {
         method: 'POST',
-        body: {
-          full_name: fullName.trim(),
-          birth_year: parseInt(birthYear, 10),
-          gender,
-          height_cm: parseFloat(height),
-          weight_kg: parseFloat(weight),
-          phone: phone.trim() || null,
-          blood_type: BLOOD_TYPE_OPTIONS.some(o => o.value === bloodType) ? bloodType : null,
-          medical_conditions: medicalConditions,
-          daily_medication: medication,
-          checkup_freq: checkupFreq,
-          exercise_freq: exerciseFreq,
-          sleep_hours: sleepHours,
-          meals_per_day: mealsPerDay,
-          post_meal_drowsy: postMealDrowsy,
-          dinner_time: dinnerTime,
-          sweet_intake: sweetIntake,
-          user_goal: goals,
-        },
+        body: Object.fromEntries(changes.map(field => [field, answers[field]])),
       });
 
+      if (!current()) return;
       await bootstrap();
+      if (!current()) return;
 
       try {
         const fullProfile = await authApi.fetchProfile();
-        if (fullProfile) useAuthStore.setState({ profile: fullProfile });
+        if (current() && fullProfile?.id === accountId) useAuthStore.setState({ profile: fullProfile });
       } catch {}
 
+      if (!current()) return;
       setPendingToast(tc('savedSuccessfully'), 'success');
       router.replace('/(tabs)/home');
     } catch (err: any) {
@@ -679,9 +796,11 @@ export default function OnboardingScreen() {
             <Text style={styles.headerTitle}>
               {t(`step${step}Title` as any)}
             </Text>
-            <Text style={styles.headerSubtitle}>
-              {t(`step${step}Subtitle`)}
-            </Text>
+            {(step === 2 || step === 5) && (
+              <Text style={styles.headerSubtitle}>
+                {t(step === 2 ? 'step2Subtitle' : 'step5Subtitle')}
+              </Text>
+            )}
           </View>
           <StepBadgeIllustration step={step} />
         </View>
@@ -1234,6 +1353,15 @@ const styles = StyleSheet.create({
   loadingText: {
     color: '#64748B',
     fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
+  profileRetry: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: '#008080',
   },
   topBar: {
     flexDirection: 'row',

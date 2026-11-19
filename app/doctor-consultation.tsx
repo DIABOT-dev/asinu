@@ -964,14 +964,6 @@ export default function DoctorConsultationScreen() {
                     >
                       {t("doctorConsultationSpecialtyLabel")}
                     </Text>
-                    <Text
-                      style={[
-                        styles.cardSubtitle,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {t("doctorConsultationSpecialtyHint")}
-                    </Text>
                   </View>
                 </View>
 

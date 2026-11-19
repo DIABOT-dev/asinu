@@ -17,21 +17,15 @@ function harness(initialPatient) {
   const calls = [], toasts = [], errors = [];
   const schedule = { id: 'schedule-1', time_local: '07:30', item_ids: ['item-1'], consent_state: 'ACTIVE', active: true, pushOnly: false, revision: 1 };
   const overview = id => ({ patientId: id, self: id === 1, schedules: [schedule], items: [{ id: 'item-1', display_name: 'Tên đã xác nhận' }], flags: {} });
-  const server = { fail: false, pending: null, late: null, problemsOnly: {} };
+  const server = { fail: false, pending: null, late: null };
   const api = {
     flags: async () => { if (server.fail) throw Error('offline'); return { medication: true, patients: [{ id: 1, name: 'Tôi' }, { id: 2, name: 'Người thân' }] }; },
-    overview: async (id, includePaused) => { calls.push(['read', id, includePaused]); if (server.late && id === 1) return server.late; return {...overview(id),draft:server.draft,drafts:server.drafts,problemsOnly:!!server.problemsOnly[id]}; },
+    overview: async (id, includePaused) => { calls.push(['read', id, includePaused]); if (server.late && id === 1) return server.late; return {...overview(id),draft:server.draft,drafts:server.drafts}; },
     doses: async () => {server.doseReadCount=(server.doseReadCount||0)+1;const value={items:server.doses||[],serverTime:server.serverTime};if(server.dosesPending)await server.dosesPending;if(server.dosesFail)throw Error('doses unavailable');return value;}, weekly: async () => {if(server.weekPending)await server.weekPending;if(server.weekFail)throw Error('weekly unavailable');return { report: { taken: 2, total: 3, skipped: 1, coins: 10 } };},
     moveItem: async (...args) => { calls.push(['move', ...args]); if (server.pending) await server.pending; if (server.writeFail) throw Error('offline'); return {}; },
     saveSchedule: async (...args) => { calls.push(['save', ...args]); if (server.pending) await server.pending; if (server.writeFail) throw Error('offline'); Object.assign(schedule, args[2]); },
     remove: async (...args) => { calls.push(['remove', ...args]); },
     removeDraft: async (...args) => { calls.push(['removeDraft', ...args]); if(server.pending)await server.pending;if(server.writeFail)throw Error('offline');server.drafts=server.drafts?.filter(d=>d.id!==args[1]);server.draft=server.drafts?.[0]||null; },
-    preferences: async (id, value) => {
-      calls.push(['preference', id, value]);
-      if (server.pending) await server.pending;
-      if (server.writeFail) throw Error('offline');
-      server.problemsOnly[id] = value;
-    },
   };
   const deps = { 'expo-crypto': { randomUUID: require('node:crypto').randomUUID },
     react, 'expo-router': { useFocusEffect(callback) { focusCallback=callback;const i = cursor++, old = slots[i]; if (!old || old.callback !== callback) { slots[i] = { callback }; effects.push(() => { old?.cleanup?.(); slots[i].cleanup = callback(); }); } } },
@@ -119,33 +113,14 @@ function answerActions(med, tab = 'today') {
     assert.deepEqual(remindersOff({ ...med.data, remindersEnabled: true }), []);
     h.blur();
   });
-  await test('family alert filtering confirms each saved switch state and preserves it when reloading fails', async () => {
+  await test('family medication schedules omit the alert-filter control', async () => {
     const h = harness(2);
-    await h.settle();
-    const toggle = () => answerActions(h.read(), 'schedules').nodes
-      .find(node => node.type === 'Switch' && node.props.accessibilityLabel === 'problemsOnly');
-    assert.equal(toggle().props.value, false);
-    const pending = defer();
-    h.server.pending = pending.promise;
-    toggle().props.onValueChange(true);
-    assert.equal(toggle().props.disabled, true);
-    assert.deepEqual(h.toasts, []);
-    pending.resolve();
-    await flush();
-    assert.equal(toggle().props.value, true);
-    assert.deepEqual(h.toasts, [['preferenceOn', 'success']]);
-
-    h.server.fail = true;
-    await h.read().setProblemsOnly(false);
-    assert.equal(toggle().props.value, false);
-    assert.deepEqual(h.toasts.at(-1), ['preferenceOff', 'success']);
-    assert.deepEqual(h.calls.filter(([action]) => action === 'preference'), [['preference', 2, true], ['preference', 2, false]]);
-
-    h.server.writeFail = true;
-    await h.read().setProblemsOnly(true);
-    assert.equal(toggle().props.value, false);
-    assert.equal(h.toasts.length, 2);
-    assert.equal(h.errors.length, 1);
+    const med = await h.settle();
+    const view = answerActions({ ...med, data: { ...med.data, problemsOnly: false } }, 'schedules');
+    assert.ok(view.nodes.some(node => node.type === 'Switch'));
+    assert.ok(!view.nodes.some(node =>
+      node.props.accessibilityLabel === 'problemsOnly' || node.props.children === 'problemsOnly'
+    ));
     h.blur();
   });
   await test('the redesigned header keeps Add available on both tabs and blocks it while saving', async () => {
