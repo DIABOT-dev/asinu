@@ -1037,13 +1037,10 @@ export default function ProfileScreen({
                 accessibilityRole="button"
                 accessibilityLabel={t("logout")}
               >
-                <Ionicons
-                  name="log-out-outline"
-                  size={24}
-                  color={colors.primaryText}
-                  style={{ marginRight: 12 }}
-                />
-                <Text allowFontScaling style={styles.logoutButtonText}>
+                <View style={styles.sectionIcon}>
+                  <Ionicons name="log-out-outline" size={24} color={colors.primaryText} />
+                </View>
+                <Text allowFontScaling style={styles.sectionHeading}>
                   {t("logout")}
                 </Text>
               </TouchableOpacity>
@@ -1471,13 +1468,9 @@ function createStyles(
       backgroundColor: cardBg,
       flexDirection: "row",
       alignItems: "center",
+      gap: 12,
       paddingHorizontal: 18,
       paddingVertical: 16,
-    },
-    logoutButtonText: {
-      fontSize: 16,
-      fontWeight: "600",
-      color: textPrimaryCol,
     },
     modalOverlay: {
       flex: 1,

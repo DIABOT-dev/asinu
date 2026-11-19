@@ -82,16 +82,25 @@ function harness(language = "vi", initialStatus = null) {
   const runtime = hooks(),
     calls = [],
     navigation = [],
-    alerts = [],
+    openedUrls = [],
+    toasts = [],
     sockets = [],
     intervals = new Map(),
     timers = new Map();
   let sequence = 0,
     status = initialStatus,
+    messages = [],
+    initialRequest = null,
     fallbackStatus = null,
     failMessages = false,
     failList = false,
     held;
+  let now = Date.now();
+  const TestDate = class extends Date {
+    static now() {
+      return now;
+    }
+  };
   const catalog = JSON.parse(read(`src/i18n/locales/${language}/home.json`));
   const common = JSON.parse(read(`src/i18n/locales/${language}/common.json`));
   const t = (key, values = {}) => {
@@ -116,7 +125,8 @@ function harness(language = "vi", initialStatus = null) {
       return {
         data: {
           summary: "Ca kiểm thử vừa gửi.",
-          messages: [],
+          initial_request: initialRequest,
+          messages,
           task_status: status,
         },
       };
@@ -160,7 +170,6 @@ function harness(language = "vi", initialStatus = null) {
       },
       "react-i18next": { useTranslation: () => ({ t, i18n: { language } }) },
       "react-native": {
-        Alert: { alert: (...args) => alerts.push(args) },
         ActivityIndicator: "Spinner",
         KeyboardAvoidingView: "Keyboard",
         Platform: { OS: "ios" },
@@ -168,7 +177,7 @@ function harness(language = "vi", initialStatus = null) {
         ScrollView: "Scroll",
         StyleSheet: { create: (value) => value },
         View: "View",
-        Linking: {},
+        Linking: { openURL: async (url) => { openedUrls.push(url); } },
         Image: "Image",
       },
       "react-native-svg": { default: "Svg", Path: "Path", Circle: "Circle" },
@@ -203,13 +212,14 @@ function harness(language = "vi", initialStatus = null) {
         },
       },
       "../../src/lib/tokenStore": {
-        tokenStore: { loadToken: async () => "fixture-token" },
+        tokenStore: { loadToken: async () => "fixture-token", getToken: () => "fixture-token" },
       },
-      "../../src/stores/toast.store": { showToast() {} },
+      "../../src/stores/toast.store": { showToast: (message, type) => toasts.push({ message, type }) },
       "../../src/styles": theme,
       "@/lib/audio": { Audio: {} },
     },
     {
+      Date: TestDate,
       WebSocket: Socket,
       setInterval: (work) => {
         const id = ++sequence;
@@ -217,9 +227,9 @@ function harness(language = "vi", initialStatus = null) {
         return id;
       },
       clearInterval: (id) => intervals.delete(id),
-      setTimeout: (work) => {
+      setTimeout: (work, delay = 0) => {
         const id = ++sequence;
-        timers.set(id, work);
+        timers.set(id, { work, deadline: now + delay });
         return id;
       },
       clearTimeout: (id) => timers.delete(id),
@@ -249,15 +259,31 @@ function harness(language = "vi", initialStatus = null) {
     calls,
     sockets,
     navigation,
-    alerts,
+    openedUrls,
+    toasts,
     t,
     render,
     settle,
     composer,
     texts,
     cleanup: () => runtime.unmount(),
+    advanceTime: async (elapsed) => {
+      now += elapsed;
+      for (const [id, timer] of timers) {
+        if (timer.deadline > now) continue;
+        timers.delete(id);
+        timer.work();
+      }
+      return settle();
+    },
     status(value) {
       status = value;
+    },
+    messages(value) {
+      messages = value;
+    },
+    initialRequest(value) {
+      initialRequest = value;
     },
     fallback(value) {
       fallbackStatus = value;
@@ -522,23 +548,171 @@ await test("completed consultations link to a new intake with the original task 
   });
   h.cleanup();
 });
-await test("patient cancellation requires confirmation and uses the current task and tenant", async () => {
-  const h = harness("vi", { status: "in_progress", rateable: false });
+const callButton = (tree, label) =>
+  nodes(tree).find((node) => node.type === "Button" && node.props.accessibilityLabel === label);
+
+const assignedDoctor = {
+  id: "expert-1",
+  name: "Chuyên gia kiểm thử",
+  avatar_url: "https://fixture.invalid/expert.jpg",
+};
+
+await test("each specialist message shows its author, including after a removed message", async () => {
+  const h = harness("vi", { status: "in_progress", call_available: true, doctor: assignedDoctor });
+  const content = "Ca tư vấn của bạn đang được ưu tiên xử lý.";
+  const date = "2026-11-19T01:00:00.000Z";
+  const reply = "Chào bạn";
+  const previousDoctorReply = "Tôi đã chuyển ca tư vấn.";
+  h.messages([
+    { id: "1", content, sender_type: "doctor", sender_ref: "doctor-sla-worker", created_at: date },
+    { id: "2", content: "", sender_type: "doctor", sender_ref: assignedDoctor.id, created_at: date, is_deleted: true },
+    { id: "3", content: reply, sender_type: "doctor", sender_ref: assignedDoctor.id, created_at: date },
+    { id: "4", content: previousDoctorReply, sender_type: "doctor", sender_ref: "expert-previous", created_at: date },
+  ]);
   const tree = await h.settle();
-  const button = nodes(tree).find(
-    (n) =>
-      n.type === "Button" &&
-      nodes(n).some(
-        (c) =>
-          c.type === "Text" && c.props.children === h.t("doctorCancelTitle")
-      )
-  );
-  assert.ok(button);
-  button.props.onPress();
-  assert.equal(h.calls.filter((c) => c.url.endsWith("/cancel")).length, 0);
-  await h.alerts[0][2].find((a) => a.style === "destructive").onPress();
-  const request = h.calls.find((c) => c.url.endsWith("/cancel"));
-  assert.equal(request.url, "/api/doctor/tasks/new-task/cancel");
-  assert.equal(request.input.body.tenant_id, "clinic-demo");
+  assert.ok(h.texts(tree).includes(h.t("doctorConsultationSystem")));
+  assert.ok(h.texts(tree).includes(content));
+  const bubbleTexts = (message) => h.texts(nodes(tree).find((node) =>
+    node.type === "Button" && h.texts(node).includes(message)
+  ));
+  assert.ok(bubbleTexts(h.t("doctorConsultationMessageUnsent")).includes(assignedDoctor.name));
+  assert.ok(bubbleTexts(reply).includes(assignedDoctor.name));
+  assert.ok(bubbleTexts(previousDoctorReply).includes(h.t("doctorConsultationDoctor")));
+  assert.ok(!bubbleTexts(previousDoctorReply).includes(assignedDoctor.name));
+  assert.equal(h.texts(tree).filter((text) => text === h.t("doctorConsultationDoctor")).length, 1);
+  assert.equal(nodes(tree).filter((node) =>
+    node.type === "Image" && node.props.source.uri === assignedDoctor.avatar_url
+  ).length, 3);
+  assert.ok(!h.texts(tree).includes("Hủy ca tư vấn"));
+  assert.equal(h.texts(tree).filter((text) => text === h.t("doctorConsultationStatus_in_progress")).length, 1);
+  assert.equal(h.calls.filter((call) => call.url.endsWith("/cancel")).length, 0);
   h.cleanup();
+});
+
+await test("the initial request renders the original description and screening questions as distinct fields", async () => {
+  const h = harness("vi", { status: "in_progress" });
+  h.initialRequest({
+    description: "Đau đầu",
+    answers: [{
+      step: "onset",
+      question: "Vấn đề này bắt đầu từ khi nào?",
+      answer: "Hôm nay",
+    }],
+    risk_label: "Mức cần chú ý: cần theo dõi",
+  });
+  const tree = await h.settle();
+  const text = h.texts(tree);
+  const position = text.indexOf(h.t("doctorConsultationInitialRequest"));
+  assert.ok(position >= 0);
+  assert.deepEqual(text.slice(position, position + 6), [
+    h.t("doctorConsultationInitialRequest"), "Đau đầu", h.t("doctorConsultationDeclaredAnswers"),
+    "Vấn đề này bắt đầu từ khi nào?", "Hôm nay", "Mức cần chú ý: cần theo dõi",
+  ]);
+  assert.ok(!text.includes("Ca kiểm thử vừa gửi."));
+  h.cleanup();
+});
+
+await test("header call actions use the current room or request a call from the assigned specialist", async () => {
+  const active = { status: "in_progress", call_available: true, doctor: assignedDoctor };
+  const h = harness("vi", active);
+  let tree = await h.settle();
+  callButton(tree, h.t("doctorConsultationVoiceCall")).props.onPress();
+  tree = await h.settle();
+  const posted = h.calls.filter(({ url, input }) => url.endsWith("/messages") && input?.method === "POST");
+  assert.equal(posted.length, 1);
+  assert.equal(posted[0].input.body.tenant_id, "clinic-demo");
+  assert.equal(posted[0].input.body.content, h.t("doctorConsultationRequestVoiceCall"));
+  assert.equal(h.toasts.at(-1).message, h.t("doctorConsultationVoiceCallRequested"));
+
+  const join = "https://meet.fixture.invalid/asinu-room";
+  h.status({ ...active, video_room: { provider: "jitsi", join_url: join } });
+  callButton(tree, h.t("doctorConsultationVideoCall")).props.onPress();
+  tree = await h.settle();
+  callButton(tree, h.t("doctorConsultationVoiceCall")).props.onPress();
+  tree = await h.settle();
+  assert.deepEqual(h.openedUrls, [
+    join,
+    join + "#config.startAudioOnly=true&config.startWithVideoMuted=true",
+  ]);
+
+  h.status({ status: "completed", call_available: false });
+  callButton(tree, h.t("doctorConsultationVideoCall")).props.onPress();
+  tree = await h.settle();
+  assert.equal(callButton(tree, h.t("doctorConsultationVideoCall")).props.disabled, true);
+  assert.equal(h.openedUrls.length, 2);
+  assert.equal(h.calls.filter(({ url, input }) => url.endsWith("/messages") && input?.method === "POST").length, 1);
+  h.cleanup();
+});
+
+await test("voice and video invitations label and open their respective join links", async () => {
+  const h = harness("vi", { status: "in_progress", doctor: assignedDoctor });
+  const videoUrl = "https://meet.fixture.invalid/asinu-room";
+  const voiceUrl = `${videoUrl}#config.startAudioOnly=true&config.startWithVideoMuted=true`;
+  h.messages([voiceUrl, videoUrl].map((content, index) => ({
+    id: `call-invitation-${index}`,
+    sender_type: "doctor",
+    sender_ref: assignedDoctor.id,
+    created_at: "2026-11-19T01:00:00.000Z",
+    content,
+  })));
+
+  const tree = await h.settle();
+  const joinLinks = nodes(tree).filter(
+    (node) => node.props?.accessibilityRole === "link"
+  );
+  assert.deepEqual(joinLinks.map((link) => h.texts(link).at(-1)), [
+    h.t("doctorConsultationJoinVoice"),
+    h.t("doctorConsultationJoinVideo"),
+  ]);
+  for (const link of joinLinks) link.props.onPress();
+  assert.deepEqual(h.openedUrls, [voiceUrl, videoUrl]);
+  h.cleanup();
+});
+
+await test("patient typing starts immediately, renews during input and stops after idle, blur, send or exit", async () => {
+  const h = harness("vi", { status: "in_progress" });
+  let tree = await h.settle();
+  const signals = () =>
+    h.calls
+      .filter(({ input }) => input?.body?.action === "typing")
+      .map(({ url, input }) => {
+        assert.equal(url, "/api/doctor/tasks/new-task/messages/action");
+        assert.equal(input.body.tenant_id, "clinic-demo");
+        assert.equal("content" in input.body, false);
+        return input.body.is_typing;
+      });
+  const type = async (draft) => {
+    h.composer(tree).props.onChangeText(draft);
+    tree = await h.settle();
+  };
+
+  assert.deepEqual(signals(), []);
+  await type("Tôi");
+  assert.deepEqual(signals(), [true]);
+  tree = await h.advanceTime(1_000);
+  await type("Tôi đang");
+  assert.deepEqual(signals(), [true]);
+  tree = await h.advanceTime(1_000);
+  await type("Tôi đang trả lời");
+  assert.deepEqual(signals(), [true, true]);
+  tree = await h.advanceTime(2_999);
+  assert.deepEqual(signals(), [true, true]);
+  tree = await h.advanceTime(1);
+  assert.deepEqual(signals(), [true, true, false]);
+
+  await type("Sửa lại");
+  h.composer(tree).props.onBlur();
+  tree = await h.settle();
+  await type("Gửi phản hồi");
+  const sendButton = nodes(tree).find(
+    (node) => node.type === "Button" && node.props.children?.props?.name === "paper-plane",
+  );
+  assert.ok(sendButton);
+  sendButton.props.onPress();
+  tree = await h.settle();
+  assert.ok(h.calls.some(({ input }) => input?.body?.content === "Gửi phản hồi"));
+  await type("Tin nháp");
+  h.cleanup();
+  await tick();
+  assert.deepEqual(signals(), [true, true, false, true, false, true, false, true, false]);
 });

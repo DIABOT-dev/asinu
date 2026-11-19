@@ -55,6 +55,7 @@ function hooks() {
         },
       ];
     },
+    useMemo: memo,
     useCallback: (run, deps) => memo(() => run, deps),
     useEffect: (run, deps) => {
       const index = cursor++,
@@ -171,6 +172,109 @@ async function test(name, run) {
   checks++;
   console.log(`PASS ${name}`);
 }
+
+async function historyHarness(tasks, isDark = false) {
+  const runtime = hooks();
+  const navigation = [];
+  const colors = isDark ? theme.darkColors : theme.lightColors;
+  const Screen = load("app/doctor-consultation-history.tsx", {
+    react: runtime,
+    "@expo/vector-icons": { Ionicons: "Ionicons" },
+    "expo-router": {
+      Stack: { Screen: "StackScreen" },
+      useFocusEffect: (callback) => runtime.useEffect(callback, [callback]),
+    },
+    "react-i18next": {
+      useTranslation(name) {
+        const catalog = JSON.parse(read(`src/i18n/locales/vi/${name}.json`));
+        return {
+          t: (key, options) => catalog[key] ?? options?.defaultValue,
+          i18n: { language: "vi" },
+        };
+      },
+    },
+    "react-native": {
+      ActivityIndicator: "ActivityIndicator",
+      Pressable: "Pressable",
+      SectionList: "SectionList",
+      StyleSheet: { create: (styles) => styles, hairlineWidth: 1 },
+      View: "View",
+    },
+    "react-native-safe-area-context": {
+      useSafeAreaInsets: () => ({ top: 59, bottom: 34 }),
+    },
+    "../src/components/ScaledText": { ScaledText: "Text" },
+    "../src/components/Screen": { Screen: "Screen" },
+    "../src/components/ScreenHeaderButton": { ScreenBackButton: "Back" },
+    "../src/hooks/useThemeColors": { useThemeColors: () => ({ colors }) },
+    "../src/hooks/useGuardedRouter": {
+      useGuardedRouter: () => ({ push: (route) => navigation.push(route) }),
+    },
+    "../src/lib/apiClient": {
+      apiClient: async (resource) =>
+        resource === "/api/doctor/clinics"
+          ? { ok: true, data: { items: [] } }
+          : { ok: true, data: { tasks } },
+    },
+    "../src/lib/env": { env: { doctorTenantId: "default-clinic" } },
+    "../src/styles": theme,
+  }).default;
+  const screen = await runtime.settle(Screen);
+  const list = nodes(screen).find(({ type }) => type === "SectionList");
+  return { list: list.props, colors, navigation };
+}
+
+await test("history cards put the consultation subject first and keep the latest message and destination", async () => {
+  const item = {
+    task_id: "consultation-1",
+    tenant_id: "clinic-1",
+    status: "started",
+    summary: "Đau đầu\nĐã ghi nhận thông tin sàng lọc để chuyển cho chuyên gia.",
+    latest_message: "Chào bạn",
+    created_at: "2026-11-19T08:27:00Z",
+  };
+  for (const isDark of [false, true]) {
+    const { list, colors, navigation } = await historyHarness([item], isDark);
+    assert.equal(list.sections.length, 1);
+    const card = list.renderItem({ item });
+    const text = nodes(card).filter(({ type }) => type === "Text").map(({ props }) => props.children);
+    assert.deepEqual(text.slice(0, 2), ["Đau đầu", "Chào bạn"]);
+    assert.ok(text.includes("Đang tư vấn"));
+    assert.equal(card.props.style({ pressed: false })[0].backgroundColor, colors.surface);
+    assert.equal(card.props.style({ pressed: false })[0].borderWidth, 1);
+    card.props.onPress();
+    assert.deepEqual(navigation, [{
+      pathname: "/doctor-consultation/[taskId]",
+      params: { taskId: item.task_id, tenantId: item.tenant_id },
+    }]);
+  }
+});
+
+await test("history cards keep closed cases and follow-ups legible when later messages are absent or are attachments", async () => {
+  const closed = {
+    task_id: "closed-1",
+    status: "completed",
+    summary: "Tư vấn huyết áp\nGhi chú từ ca tư vấn.",
+    created_at: "2026-11-19T08:27:00Z",
+  };
+  const followup = {
+    ...closed,
+    task_id: "followup-1",
+    follow_up_until: "2099-09-01T00:00:00Z",
+    latest_message: "[ASINU_VOICE] private attachment metadata",
+  };
+  const { list } = await historyHarness([closed, followup]);
+  assert.deepEqual(list.sections.map(({ data }) => data.map(({ task_id }) => task_id)), [
+    ["followup-1"], ["closed-1"],
+  ]);
+  const testText = (item) =>
+    nodes(list.renderItem({ item })).filter(({ type }) => type === "Text").map(({ props }) => props.children);
+  assert.ok(testText(closed).includes("Ghi chú từ ca tư vấn."));
+  assert.ok(testText(closed).includes("Ca tư vấn đã hoàn tất"));
+  assert.ok(testText(followup).includes("Có thể trao đổi thêm"));
+  assert.ok(testText(followup).includes(JSON.parse(read("src/i18n/locales/vi/home.json")).doctorConsultationVoiceMessage));
+  assert.ok(!testText(followup).some((text) => String(text).includes("private attachment metadata")));
+});
 
 function harness(language = "vi", platform = "ios") {
   const runtime = hooks(),

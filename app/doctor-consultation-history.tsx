@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
-import { Stack } from "expo-router";
+import { Stack, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -18,7 +17,7 @@ import { useThemeColors } from "../src/hooks/useThemeColors";
 import { useGuardedRouter as useRouter } from "../src/hooks/useGuardedRouter";
 import { apiClient } from "../src/lib/apiClient";
 import { env } from "../src/lib/env";
-import { spacing, typography } from "../src/styles";
+import { radius, shadows, spacing, typography } from "../src/styles";
 
 type ConsultationTask = {
   tenant_id?: string;
@@ -61,14 +60,13 @@ const statusKey = (status?: string | null) => {
 
 const previewText = (
   task: ConsultationTask,
-  waitingLabel: string,
   attachmentLabel: string,
   voiceLabel: string
 ) => {
-  if (task.latest_message?.startsWith("[ASINU_ATTACHMENT]"))
-    return attachmentLabel;
-  if (task.latest_message?.startsWith("[ASINU_VOICE]")) return voiceLabel;
-  return task.latest_message || waitingLabel;
+  const message = task.latest_message?.trim();
+  if (message?.startsWith("[ASINU_ATTACHMENT]")) return attachmentLabel;
+  if (message?.startsWith("[ASINU_VOICE]")) return voiceLabel;
+  return message;
 };
 
 const isFollowUpOpen = (task: ConsultationTask) =>
@@ -80,7 +78,7 @@ const isFollowUpOpen = (task: ConsultationTask) =>
 
 const formatDate = (value: string, language: string) => {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
+  if (Number.isNaN(date.getTime())) return null;
   return date.toLocaleString(language.startsWith("en") ? "en-US" : "vi-VN", {
     day: "2-digit",
     month: "2-digit",
@@ -176,20 +174,35 @@ export default function DoctorConsultationHistoryScreen() {
   const renderTask = useCallback(
     ({ item }: { item: ConsultationTask }) => {
       const status = item.status || "queued";
-      const active = !TERMINAL_STATUSES.has(status) || isFollowUpOpen(item);
-      const preview = previewText(
-        item,
-        tHome("doctorConsultationWaiting"),
-        tHome("doctorConsultationAttachPhoto"),
-        tHome("doctorConsultationVoiceMessage")
+      const followup = isFollowUpOpen(item)
+        ? tSettings("doctorConsultationHistoryFollowup")
+        : null;
+      const active = !TERMINAL_STATUSES.has(status) || Boolean(followup);
+      const urgent = status === "emergency_referred";
+      const [subject, ...summary] = (item.summary ?? "")
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const title = subject || tHome("doctorConsultationHeaderTitle");
+      const statusLabel = tHome(statusKey(item.status), {
+        defaultValue: tHome("doctorConsultationStatusUnknown"),
+      });
+      const date = formatDate(
+        item.created_at,
+        i18n.resolvedLanguage ?? i18n.language
       );
+      const preview =
+        previewText(
+          item,
+          tHome("doctorConsultationAttachPhoto"),
+          tHome("doctorConsultationVoiceMessage")
+        ) || summary.join(" ");
       return (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${item.summary}, ${tHome(
-            statusKey(item.status),
-            { defaultValue: tHome("doctorConsultationStatusUnknown") }
-          )}`}
+          accessibilityLabel={[title, preview, statusLabel, date, followup]
+            .filter(Boolean)
+            .join(", ")}
           onPress={() =>
             router.push({
               pathname: "/doctor-consultation/[taskId]",
@@ -201,35 +214,22 @@ export default function DoctorConsultationHistoryScreen() {
           }
           style={({ pressed }) => [styles.taskCard, pressed && styles.pressed]}
         >
-          <View style={styles.taskMetaRow}>
-            <Text style={styles.taskDate}>
-              {formatDate(
-                item.created_at,
-                i18n.resolvedLanguage ?? i18n.language
-              )}
-            </Text>
-            <Text
-              style={[
-                styles.status,
-                active ? styles.statusActive : styles.statusDone,
-              ]}
-            >
-              {tHome(statusKey(item.status), {
-                defaultValue: tHome("doctorConsultationStatusUnknown"),
-              })}
-            </Text>
-          </View>
           <View style={styles.taskContent}>
+            <View style={[styles.taskIcon, active && styles.taskIconActive]}>
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={21}
+                color={active ? colors.primaryText : colors.textSecondary}
+                accessible={false}
+              />
+            </View>
             <View style={styles.taskBody}>
               <Text numberOfLines={2} style={styles.taskTitle}>
-                {item.summary}
+                {title}
               </Text>
-              <Text numberOfLines={2} style={styles.taskPreview}>
-                {preview}
-              </Text>
-              {isFollowUpOpen(item) ? (
-                <Text style={styles.followup}>
-                  {tSettings("doctorConsultationHistoryFollowup")}
+              {preview ? (
+                <Text numberOfLines={2} style={styles.taskPreview}>
+                  {preview}
                 </Text>
               ) : null}
             </View>
@@ -237,8 +237,40 @@ export default function DoctorConsultationHistoryScreen() {
               name="chevron-forward"
               size={18}
               color={colors.textSecondary}
+              accessible={false}
             />
           </View>
+          <View style={styles.taskMetaRow}>
+            {date ? (
+              <View style={styles.taskDateGroup}>
+                <Ionicons
+                  name="time-outline"
+                  size={16}
+                  color={colors.textSecondary}
+                  accessible={false}
+                />
+                <Text style={styles.taskDate}>{date}</Text>
+              </View>
+            ) : null}
+            <View
+              style={[
+                styles.status,
+                active && styles.statusActive,
+                urgent && styles.statusUrgent,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusText,
+                  active && styles.statusTextActive,
+                  urgent && styles.statusTextUrgent,
+                ]}
+              >
+                {statusLabel}
+              </Text>
+            </View>
+          </View>
+          {followup ? <Text style={styles.followup}>{followup}</Text> : null}
         </Pressable>
       );
     },
@@ -265,6 +297,8 @@ export default function DoctorConsultationHistoryScreen() {
                 : router.replace("/(tabs)/profile")
             }
             accessibilityLabel={tCommon("back")}
+            style={styles.backButton}
+            iconColor={colors.primaryText}
           />
           <Text accessibilityRole="header" style={styles.headerTitle}>
             {tSettings("doctorConsultationHistory")}
@@ -297,11 +331,14 @@ export default function DoctorConsultationHistoryScreen() {
               </View>
             ) : error ? (
               <View style={styles.state}>
-                <Ionicons
-                  name="cloud-offline-outline"
-                  size={42}
-                  color={colors.textSecondary}
-                />
+                <View style={styles.stateIcon}>
+                  <Ionicons
+                    name="cloud-offline-outline"
+                    size={26}
+                    color={colors.primaryText}
+                    accessible={false}
+                  />
+                </View>
                 <Text style={styles.stateText}>
                   {tHome("doctorConsultationThreadError")}
                 </Text>
@@ -316,11 +353,14 @@ export default function DoctorConsultationHistoryScreen() {
               </View>
             ) : (
               <View style={styles.state}>
-                <Ionicons
-                  name="chatbubbles-outline"
-                  size={48}
-                  color={colors.textSecondary}
-                />
+                <View style={styles.stateIcon}>
+                  <Ionicons
+                    name="chatbubbles-outline"
+                    size={26}
+                    color={colors.primaryText}
+                    accessible={false}
+                  />
+                </View>
                 <Text style={styles.stateTitle}>
                   {tSettings("doctorConsultationHistoryEmpty")}
                 </Text>
@@ -340,42 +380,64 @@ function createStyles(colors: ReturnType<typeof useThemeColors>["colors"]) {
     header: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
+      gap: spacing.sm,
       minHeight: 44,
-      paddingHorizontal: 16,
-      paddingBottom: 12,
+      paddingHorizontal: spacing.xl,
+      paddingBottom: spacing.md,
     },
-    headerSpacer: { height: 40, width: 40 },
+    backButton: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+    },
+    headerSpacer: { width: 44 },
     headerTitle: {
       color: colors.textPrimary,
       flex: 1,
       fontSize: textSize.lg,
-      fontWeight: "800",
+      fontWeight: "700",
       textAlign: "center",
     },
-    listContent: { paddingHorizontal: 16, gap: 10 },
-    taskCard: {
-      alignItems: "center",
+    listContent: {
+      paddingHorizontal: spacing.xl,
       gap: spacing.md,
-      paddingVertical: spacing.lg,
+    },
+    taskCard: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: radius.xl,
+      gap: spacing.md,
+      padding: spacing.lg,
+      ...shadows.sm,
     },
     taskContent: {
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.md,
-      width: "100%",
+    },
+    taskIcon: {
+      width: 44,
+      height: 44,
+      alignItems: "center",
+      justifyContent: "center",
+      alignSelf: "flex-start",
+      borderRadius: radius.md,
+      backgroundColor: colors.surfaceMuted,
+    },
+    taskIconActive: {
+      backgroundColor: colors.primaryLight,
     },
     sectionTitle: {
       color: colors.textPrimary,
       fontSize: textSize.sm,
       fontWeight: "600",
-      paddingTop: spacing.lg,
-      paddingBottom: spacing.sm,
+      paddingTop: spacing.md,
     },
     followup: {
       color: colors.primaryText,
       fontSize: textSize.xs,
-      marginTop: spacing.sm,
+      fontWeight: "600",
     },
     taskBody: { flex: 1, minWidth: 0 },
     taskTitle: {
@@ -386,47 +448,73 @@ function createStyles(colors: ReturnType<typeof useThemeColors>["colors"]) {
     taskPreview: {
       color: colors.textSecondary,
       fontSize: textSize.sm,
-      lineHeight: textSize.sm + 5,
-      marginTop: 4,
+      marginTop: spacing.xs,
     },
     taskMetaRow: {
-      alignItems: "flex-start",
+      alignItems: "center",
       flexDirection: "row",
       flexWrap: "wrap",
+      justifyContent: "space-between",
       gap: spacing.sm,
-      width: "100%",
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      paddingTop: spacing.md,
+    },
+    taskDateGroup: {
+      flexDirection: "row",
+      alignItems: "center",
+      flexShrink: 1,
+      gap: spacing.xs,
     },
     taskDate: {
       color: colors.textSecondary,
-      flex: 1,
+      flexShrink: 1,
       fontSize: textSize.xs,
-      lineHeight: textSize.xs + 5,
-      minWidth: 96,
     },
     status: {
       flexShrink: 1,
-      borderRadius: 999,
-      fontSize: textSize.xs,
-      fontWeight: "700",
-      lineHeight: textSize.xs + 5,
-      overflow: "hidden",
-      paddingHorizontal: 8,
-      paddingVertical: 3,
+      borderRadius: radius.full,
+      backgroundColor: colors.surfaceMuted,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
     },
     statusActive: {
       backgroundColor: colors.primaryLight,
+    },
+    statusUrgent: {
+      backgroundColor: colors.surface,
+      borderColor: colors.danger,
+      borderWidth: StyleSheet.hairlineWidth,
+    },
+    statusText: {
+      color: colors.textSecondary,
+      fontSize: textSize.xs,
+      fontWeight: "600",
+    },
+    statusTextActive: {
       color: colors.primaryText,
     },
-    statusDone: {
-      backgroundColor: colors.surfaceMuted,
-      color: colors.textSecondary,
+    statusTextUrgent: {
+      color: colors.danger,
     },
-    pressed: { opacity: 0.78 },
+    pressed: { backgroundColor: colors.surfaceMuted },
     state: {
       alignItems: "center",
-      gap: 10,
-      paddingHorizontal: 28,
-      paddingTop: 96,
+      gap: spacing.md,
+      marginTop: spacing.xl,
+      padding: spacing.xxl,
+      borderRadius: radius.xl,
+      borderColor: colors.border,
+      borderWidth: 1,
+      backgroundColor: colors.surface,
+    },
+    stateIcon: {
+      width: 56,
+      height: 56,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.lg,
+      backgroundColor: colors.primaryLight,
     },
     stateTitle: {
       color: colors.textPrimary,
@@ -441,12 +529,14 @@ function createStyles(colors: ReturnType<typeof useThemeColors>["colors"]) {
     },
     retry: {
       backgroundColor: colors.primaryLight,
-      borderRadius: 12,
-      paddingHorizontal: 18,
-      paddingVertical: 10,
+      borderRadius: radius.md,
+      minHeight: 44,
+      justifyContent: "center",
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing.sm,
     },
     retryText: {
-      color: colors.primary,
+      color: colors.primaryText,
       fontSize: textSize.sm,
       fontWeight: "700",
     },
