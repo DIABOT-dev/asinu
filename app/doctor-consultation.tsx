@@ -803,10 +803,10 @@ function DoctorConsultationForm({ onDiscarded }: { onDiscarded: () => void }) {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={[
           styles.screen,
-          { backgroundColor: currentStep === 3 || isDark ? colors.background : "#F5FBFC" },
+          { backgroundColor: currentStep >= 3 || isDark ? colors.background : "#F5FBFC" },
         ]}
       >
-        {currentStep !== 3 && (
+        {currentStep < 3 && (
           <LinearGradient
             pointerEvents="none"
             accessible={false}
@@ -899,7 +899,7 @@ function DoctorConsultationForm({ onDiscarded }: { onDiscarded: () => void }) {
             : currentStep === 2 && screening.result?.isDone && !screening.busy ? "screening-result" : currentStep}
           contentContainerStyle={[
             styles.content,
-            { paddingBottom: currentStep === 3 ? 20 : insets.bottom + 24 },
+            { paddingBottom: currentStep >= 3 ? 20 : insets.bottom + 24 },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -1218,247 +1218,85 @@ function DoctorConsultationForm({ onDiscarded }: { onDiscarded: () => void }) {
             </View>
           )}
 
-          {/* ========================================================================= */}
-          {/* STEP 4: XÁC NHẬN                                                          */}
-          {/* ========================================================================= */}
           {currentStep === 4 && !isDiscarding && (
-            <>
-              {/* Card: Xác nhận trước khi gửi */}
-              <View style={styles.section}>
-                <View style={styles.cardHeaderRow}>
-                  <View style={styles.cardIconBox}>
-                    <Ionicons name="document-text" size={20} color="#3A968B" />
+            <View style={styles.reviewStep}>
+              <Text accessibilityRole="header" style={[styles.reviewHeading, { color: colors.textPrimary }]}>
+                {t("doctorConsultationReviewTitle")}
+              </Text>
+
+              <View style={[styles.reviewSummary, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                {[
+                  {
+                    label: t("doctorConsultationSpecialtyLabel"),
+                    value: selectedSpecialtyItem
+                      ? getSpecialtyLabel(selectedSpecialtyItem)
+                      : t("common:noDataAvailable"),
+                  },
+                  {
+                    label: t("doctorConsultationAssignmentLabel"),
+                    value: selectedDoctor?.fullName ?? t("doctorConsultationAutoAssign"),
+                  },
+                ].map(({ label, value }) => (
+                  <View key={label} style={styles.reviewField}>
+                    <Text style={[styles.reviewLabel, { color: colors.textSecondary }]}>{label}</Text>
+                    <Text style={[styles.reviewValue, { color: colors.textPrimary }]}>{value}</Text>
                   </View>
-                  <View style={styles.cardHeaderTextCol}>
-                    <Text
-                      style={[styles.cardTitle, { color: colors.textPrimary }]}
-                    >
-                      {t("doctorConsultationReviewTitle")}
-                    </Text>
-                  </View>
-                </View>
-
-                <View
-                  style={[
-                    styles.summaryDivider,
-                    {
-                      backgroundColor: isDark ? colors.border : "#E2ECE9",
-                      marginBottom: 4,
-                    },
-                  ]}
-                />
-
-                {/* Key - Value Rows */}
-                <View style={styles.summaryTable}>
-                  <View style={styles.summaryTableRow}>
-                    <Text
-                      style={[
-                        styles.summaryTableKey,
-                        { color: isDark ? colors.textPrimary : "#0F2F38" },
-                      ]}
-                    >
-                      {t("doctorConsultationSpecialtyLabel")}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.summaryTableVal,
-                        { color: isDark ? colors.textPrimary : "#0F2F38" },
-                      ]}
-                    >
-                      {selectedSpecialtyItem
-                        ? getSpecialtyLabel(selectedSpecialtyItem)
-                        : t("common:noDataAvailable")}
-                    </Text>
-                  </View>
-
-                  <View
-                    style={[
-                      styles.summaryDivider,
-                      { backgroundColor: isDark ? colors.border : "#F1F5F9" },
-                    ]}
-                  />
-
-                  <View style={styles.summaryTableRow}>
-                    <Text
-                      style={[
-                        styles.summaryTableKey,
-                        { color: isDark ? colors.textPrimary : "#0F2F38" },
-                      ]}
-                    >
-                      {t("doctorConsultationAssignmentLabel")}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.summaryTableVal,
-                        {
-                          color: selectedDoctor
-                            ? isDark
-                              ? colors.textPrimary
-                              : "#0F2F38"
-                            : "#64748B",
-                        },
-                      ]}
-                    >
-                      {selectedDoctor
-                        ? selectedDoctor.fullName
-                        : t("doctorConsultationAutoAssign")}
-                    </Text>
-                  </View>
-                </View>
-
-                <View
-                  style={[
-                    styles.summaryDivider,
-                    {
-                      backgroundColor: isDark ? colors.border : "#F1F5F9",
-                      marginTop: 4,
-                    },
-                  ]}
-                />
-
-                {/* Queue / Wait time status notice */}
-                <View style={styles.queueStatusRow}>
-                  <Ionicons name="time-outline" size={22} color="#3A968B" />
-                  <Text style={styles.queueStatusText}>
+                ))}
+                <View style={[styles.reviewQueue, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons accessible={false} name="time-outline" size={22} color={colors.primaryText} />
+                  <Text style={[styles.reviewQueueText, { color: colors.primaryText }]}>
                     {estimatedWaitMinutes == null
                       ? t("doctorConsultationEtaUnavailable")
-                      : t("doctorConsultationEta", {
-                          minutes: estimatedWaitMinutes,
-                        })}
+                      : t("doctorConsultationEta", { minutes: estimatedWaitMinutes })}
                   </Text>
                 </View>
-
-                {/* Emergency Red Warning Banner */}
-                <View
-                  style={[
-                    styles.emergencyBanner,
-                    {
-                      backgroundColor: isDark
-                        ? "rgba(185,28,28,0.12)"
-                        : "#FEF2F2",
-                      borderColor: isDark ? "rgba(185,28,28,0.3)" : "#FECACA",
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name="warning-outline"
-                    size={26}
-                    color="#DC2626"
-                    style={{ marginTop: 1 }}
-                  />
-                  <Text
-                    style={[
-                      styles.emergencyBannerText,
-                      { color: isDark ? "#FCA5A5" : "#DC2626" },
-                    ]}
-                  >
-                    {t("doctorConsultationEmergencyNotice")}
-                  </Text>
-                </View>
-
-                {/* Checkbox 1: Emergency confirmation */}
-                <Pressable
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: emergencyConfirmed }}
-                  onPress={() => setEmergencyConfirmed((value) => !value)}
-                  style={styles.consentCheckboxRow}
-                >
-                  <View
-                    style={[
-                      styles.checkboxSquare,
-                      {
-                        backgroundColor: emergencyConfirmed
-                          ? "#3A968B"
-                          : isDark
-                          ? colors.background
-                          : "#FFFFFF",
-                        borderColor: emergencyConfirmed
-                          ? "#3A968B"
-                          : isDark
-                          ? colors.border
-                          : "#CBD5E1",
-                      },
-                    ]}
-                  >
-                    {emergencyConfirmed && (
-                      <Ionicons name="checkmark" size={13} color="#FFFFFF" />
-                    )}
-                  </View>
-                  <Text
-                    style={[
-                      styles.consentCheckboxText,
-                      { color: isDark ? colors.textPrimary : "#475569" },
-                    ]}
-                  >
-                    {t("doctorConsultationEmergencyConfirm")}
-                  </Text>
-                </Pressable>
-
-                {/* Checkbox 2: Consent */}
-                <Pressable
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: consentAccepted }}
-                  onPress={() => setConsentAccepted((value) => !value)}
-                  style={styles.consentCheckboxRow}
-                >
-                  <View
-                    style={[
-                      styles.checkboxSquare,
-                      {
-                        backgroundColor: consentAccepted
-                          ? "#3A968B"
-                          : isDark
-                          ? colors.background
-                          : "#FFFFFF",
-                        borderColor: consentAccepted
-                          ? "#3A968B"
-                          : isDark
-                          ? colors.border
-                          : "#CBD5E1",
-                      },
-                    ]}
-                  >
-                    {consentAccepted && (
-                      <Ionicons name="checkmark" size={13} color="#FFFFFF" />
-                    )}
-                  </View>
-                  <Text
-                    style={[
-                      styles.consentCheckboxText,
-                      { color: isDark ? colors.textPrimary : "#475569" },
-                    ]}
-                  >
-                    {t("doctorConsultationConsent")}
-                  </Text>
-                </Pressable>
               </View>
 
-              <Pressable
-                accessibilityRole="button"
-                disabled={isSubmitting || directory.loading}
-                onPress={handleConfirm}
-                style={[
-                  styles.submitNavBtn,
-                  { opacity: isSubmitting || directory.loading ? 0.7 : 1 },
-                ]}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <View style={styles.submitNavBtnContent}>
-                    <Ionicons
-                      name="paper-plane"
-                      size={18}
-                      color="#FFFFFF"
-                      style={{ marginRight: 8 }}
-                    />
-                    <Text style={styles.submitNavBtnText}>
-                      {t("doctorConsultationSubmit")}
-                    </Text>
-                  </View>
-                )}
-              </Pressable>
-            </>
+              <View style={[
+                styles.reviewWarning,
+                { backgroundColor: isDark ? "#29191D" : "#FFF4F3", borderColor: isDark ? "#624045" : "#F0CDC8" },
+              ]}>
+                <Ionicons accessible={false} name="warning-outline" size={24} color={colors.danger} />
+                <Text style={[styles.reviewBody, { color: colors.textPrimary }]}>
+                  {t("doctorConsultationEmergencyNotice")}
+                </Text>
+              </View>
+
+              <View style={styles.reviewConfirmations}>
+                {([
+                  { key: "doctorConsultationEmergencyConfirm", checked: emergencyConfirmed, setChecked: setEmergencyConfirmed },
+                  { key: "doctorConsultationConsent", checked: consentAccepted, setChecked: setConsentAccepted },
+                ] as const).map(({ key, checked, setChecked }) => (
+                  <Pressable
+                    key={key}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked }}
+                    onPress={() => setChecked((value) => !value)}
+                    style={({ pressed }) => [
+                      styles.reviewCheckboxRow,
+                      {
+                        backgroundColor: checked ? colors.primaryLight : colors.surface,
+                        borderColor: checked ? colors.primaryText : colors.border,
+                      },
+                      pressed && styles.expertPressed,
+                    ]}
+                  >
+                    <View style={[
+                      styles.reviewCheckbox,
+                      {
+                        backgroundColor: checked ? colors.primaryText : colors.surface,
+                        borderColor: checked ? colors.primaryText : colors.textSecondary,
+                      },
+                    ]}>
+                      {checked && (
+                        <Ionicons accessible={false} name="checkmark" size={16} color={isDark ? colors.background : colors.surface} />
+                      )}
+                    </View>
+                    <Text style={[styles.reviewBody, { color: colors.textPrimary }]}>{t(key)}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
           )}
         </ScrollView>
         {currentStep === 3 && !isDiscarding && (
@@ -1477,6 +1315,36 @@ function DoctorConsultationForm({ onDiscarded }: { onDiscarded: () => void }) {
               <Text style={[styles.expertContinueText, { color: canAdvanceExpertStep ? isDark ? colors.background : colors.surface : colors.textSecondary }]}>
                 {t(choosingSpecialty ? "doctorConsultationSeeSpecialists" : "common:continue")}
               </Text>
+            </Pressable>
+          </View>
+        )}
+        {currentStep === 4 && !isDiscarding && (
+          <View style={[
+            styles.expertFooter,
+            { backgroundColor: colors.surface, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, 12) },
+          ]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: isSubmitting || directory.loading, busy: isSubmitting }}
+              disabled={isSubmitting || directory.loading}
+              onPress={handleConfirm}
+              style={({ pressed }) => [
+                styles.expertContinue,
+                styles.reviewSubmit,
+                { backgroundColor: colors.primaryText },
+                (pressed || directory.loading) && styles.expertPressed,
+              ]}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator
+                  accessibilityLabel={t("doctorConsultationSubmitting")}
+                  color={isDark ? colors.background : colors.surface}
+                />
+              ) : (
+                <Text style={[styles.reviewSubmitText, { color: isDark ? colors.background : colors.surface }]}>
+                  {t("doctorConsultationSubmit")}
+                </Text>
+              )}
             </Pressable>
           </View>
         )}
@@ -1706,32 +1574,6 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 720,
     alignSelf: "center",
-  },
-  section: {
-    paddingVertical: 14,
-  },
-  cardHeaderRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 14,
-  },
-  cardIconBox: {
-    alignItems: "center",
-    borderRadius: 10,
-    height: 36,
-    justifyContent: "center",
-    width: 36,
-  },
-  cardHeaderTextCol: {
-    flex: 1,
-    minWidth: 0,
-  },
-  cardTitle: {
-    color: "#0F2F38",
-    fontSize: 16,
-    fontWeight: "800",
-    letterSpacing: -0.2,
   },
   expertStep: {
     gap: 16,
@@ -2060,108 +1902,86 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 44,
   },
-  summaryTable: {
-    gap: 0,
+  reviewStep: {
+    gap: 18,
   },
-  summaryTableRow: {
-    alignItems: "stretch",
-    flexDirection: "column",
+  reviewHeading: {
+    fontSize: 28,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+  },
+  reviewSummary: {
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 14,
+    padding: 16,
+  },
+  reviewField: {
+    gap: 2,
+  },
+  reviewLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  reviewValue: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  reviewQueue: {
+    alignItems: "center",
+    borderRadius: 12,
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  summaryTableKey: {
-    color: "#0F2F38",
-    fontSize: 14,
-    fontWeight: "600",
-    lineHeight: 20,
-    marginBottom: 3,
-  },
-  summaryTableVal: {
-    color: "#0F2F38",
+  reviewQueueText: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: "500",
-    lineHeight: 20,
+    fontSize: 16,
+    fontWeight: "600",
     minWidth: 0,
-    textAlign: "left",
   },
-  summaryDivider: {
-    height: 1,
-    width: "100%",
-  },
-  queueStatusRow: {
-    alignItems: "center",
+  reviewWarning: {
+    alignItems: "flex-start",
+    borderRadius: 16,
+    borderWidth: 1,
     flexDirection: "row",
-    gap: 8,
-    marginTop: 14,
+    gap: 12,
+    padding: 14,
   },
-  queueStatusText: {
-    color: "#3A968B",
+  reviewBody: {
     flex: 1,
-    fontSize: 13,
-    fontWeight: "600",
-    lineHeight: 19,
+    fontSize: 17,
+    lineHeight: 26,
     minWidth: 0,
   },
-  emergencyBanner: {
+  reviewConfirmations: {
+    gap: 10,
+  },
+  reviewCheckboxRow: {
     alignItems: "flex-start",
     borderRadius: 14,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 10,
-    marginTop: 14,
+    gap: 12,
+    minHeight: 54,
     padding: 14,
   },
-  emergencyBannerText: {
-    flex: 1,
-    fontSize: 12.5,
-    lineHeight: 18,
-  },
-  consentCheckboxRow: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 12,
-  },
-  checkboxSquare: {
+  reviewCheckbox: {
     alignItems: "center",
-    borderRadius: 4,
+    borderRadius: 6,
     borderWidth: 1.5,
-    height: 20,
+    height: 24,
     justifyContent: "center",
-    marginTop: 3,
-    width: 20,
+    marginTop: 2,
+    width: 24,
   },
-  consentCheckboxText: {
-    color: "#475569",
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18.5,
+  reviewSubmit: {
+    minHeight: 56,
   },
-  submitNavBtn: {
-    alignItems: "center",
-    backgroundColor: "#3A968B",
-    borderRadius: 16,
-    elevation: 2,
-    justifyContent: "center",
-    minHeight: 52,
-    paddingVertical: 10,
-    shadowColor: "#3A968B",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-  },
-  submitNavBtnContent: {
-    alignItems: "center",
-    flexDirection: "row",
-    flexShrink: 1,
-    justifyContent: "center",
-    paddingHorizontal: 8,
-  },
-  submitNavBtnText: {
-    color: "#FFFFFF",
-    flexShrink: 1,
-    fontSize: 16,
-    fontWeight: "800",
+  reviewSubmitText: {
+    fontSize: 18,
+    fontWeight: "700",
     textAlign: "center",
   },
 });
