@@ -384,7 +384,7 @@ function permissionModalHarness({ language = 'vi', platform = 'ios', request } =
   const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes)
     : [tree, ...nodes(tree.props?.children)];
   const switches = () => nodes(render()).filter(node => node.type === 'Switch');
-  return { calls, states, auth, render, translate, switches, dialogs: () => nodes(lastTree),
+  return { calls, states, auth, data, render, translate, switches, dialogs: () => nodes(lastTree),
     settle: async () => { render(); await flush(); return render(); },
     blur: () => focusCleanup(),
     change: async (index, enabled = true) => { switches()[index].props.onValueChange(enabled); await render().props.onDismiss(); },
@@ -430,6 +430,21 @@ await test('data permissions live inside Permissions and yield the presenter for
   assert.equal(consent.props.visible, true); assert.deepEqual(h.calls.requests, []);
   consent.props.onDecline(); assert.equal(h.render().props.visible, true);
   assert.deepEqual(h.calls.toasts, []);
+});
+await test('data permissions avoid an off switch for an unknown value and keep confirmed states visible while checking', async () => {
+  const h = permissionModalHarness();
+  const labels = [h.translate('settings', 'aiDataConsentSettings'), h.translate('profile', 'healthFeed')];
+  const dataSwitches = () => h.switches().filter(node => labels.includes(node.props.accessibilityLabel));
+  h.data.ai = h.data.feed = null;
+  h.data.loading = true;
+  await h.settle();
+  assert.equal(dataSwitches().length, 0);
+  assert.equal(h.dialogs().filter(node => node.type === 'Loading').length, 0);
+  h.data.ai = h.data.feed = true;
+  assert.equal(dataSwitches().length, 2);
+  assert.ok(dataSwitches().every(node => node.props.value && node.props.disabled));
+  h.data.loading = false;
+  assert.ok(dataSwitches().every(node => node.props.value && !node.props.disabled));
 });
 await test('a stale permission switch cannot request access for a different account', async () => {
   const h = permissionModalHarness(); await h.settle();

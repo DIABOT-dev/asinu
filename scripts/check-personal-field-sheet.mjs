@@ -571,10 +571,12 @@ await test("a complete address round trip sends codes and canonical names in one
   await h.save();
   assert.deepEqual(h.calls.updates, [{ address }]);
   assert.deepEqual(h.calls.writes[0].address, address);
-  const clear = harness("address", { profile: { address } });
-  clear.button(clear.t("clearAddress")).props.onPress();
-  await clear.save();
-  assert.deepEqual(clear.calls.updates, [{ address: null }]);
+  const existing = harness("address", { profile: { address } });
+  assert.equal(existing.button("Xóa địa chỉ"), undefined);
+  assert.equal(existing.saveButton().props.disabled, true);
+  existing.input(existing.t("street")).props.onChangeText("14 Phố A");
+  await existing.save();
+  assert.deepEqual(existing.calls.updates, [{ address: { ...address, street: "14 Phố A" } }]);
 });
 await test("wards are disabled before province selection and changing province clears the prior ward", async () => {
   const h = harness("address");

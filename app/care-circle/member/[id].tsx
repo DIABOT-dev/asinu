@@ -1,16 +1,13 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { DoctorConnectButton } from '../../../src/components/DoctorConnectButton';
 import { isDoctorFeaturesEnabled } from '../../../src/lib/appEnv';
-import { HealthReportPanel } from '../../../src/components/HealthReportPanel';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
-import { careCircleApi, type MemberHealthLog, type MemberHealthSummary } from '../../../src/features/care-circle';
-import type { HealthReportData } from '../../../src/features/checkin/checkin.api';
-import type { TreeSummary } from '../../../src/features/tree/tree.store';
+import { careCircleApi, type MemberHealthLog } from '../../../src/features/care-circle';
 import { useScaledFontSize, useScaledTypography } from '../../../src/hooks/useScaledTypography';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import { colors, spacing } from '../../../src/styles';
@@ -73,64 +70,6 @@ const getLogValue = (log: MemberHealthLog): string => {
   }
 };
 
-const normalizeMemberReport = (raw: MemberHealthSummary['report']): HealthReportData | null => {
-  if (!raw) return null;
-
-  const sessions = Array.isArray(raw.sessions)
-    ? raw.sessions
-    : Array.isArray(raw.recentSessions)
-      ? raw.recentSessions
-      : [];
-  const severityDistribution = raw.severityDistribution || {};
-  const statusDistribution = raw.statusDistribution || {};
-  const alerts = raw.alerts || {};
-
-  return {
-    period: 'week',
-    totalDays: Number(raw.totalDays ?? 7),
-    checkinDays: Number(raw.checkinDays ?? 0),
-    sessions: sessions.map((session: any) => ({
-      date: session.date || session.session_date || session.created_at,
-      status: session.status || session.initial_status || 'fine',
-      severity: session.severity || session.triage_severity || null,
-      summary: session.summary || session.triage_summary || null,
-      flowState: session.flowState || session.flow_state || 'monitoring',
-      resolved: Boolean(session.resolved ?? session.resolved_at),
-    })),
-    severityDistribution: {
-      low: Number(severityDistribution.low || 0),
-      medium: Number(severityDistribution.medium || 0),
-      high: Number(severityDistribution.high || 0),
-      emergency: Number(severityDistribution.emergency || 0),
-    },
-    statusDistribution: {
-      fine: Number(statusDistribution.fine || 0),
-      tired: Number(statusDistribution.tired || 0),
-      very_tired: Number(statusDistribution.very_tired || 0),
-      specific_concern: Number(statusDistribution.specific_concern || 0),
-    },
-    commonSymptoms: Array.isArray(raw.commonSymptoms) ? raw.commonSymptoms : [],
-    alerts: {
-      familyAlerted: Number(alerts.familyAlerted || 0),
-      emergencyTriggered: Number(alerts.emergencyTriggered || 0),
-    },
-    trend: raw.trend === 'improving' || raw.trend === 'worsening' ? raw.trend : 'stable',
-    highlights: Array.isArray(raw.highlights) ? raw.highlights : [],
-    responseRate: Number(raw.responseRate || 0),
-    avgCheckinHour: Number(raw.avgCheckinHour || 0),
-  };
-};
-
-const normalizeMemberTreeSummary = (raw: MemberHealthSummary['treeSummary']): TreeSummary | null => {
-  if (!raw) return null;
-  return {
-    score: Number(raw.score || 0),
-    streakDays: Number(raw.streakDays || 0),
-    completedToday: Number(raw.completedToday || 0),
-    totalMissions: Number(raw.totalMissions || 0),
-  };
-};
-
 type Tab = 'overview' | 'checkins' | 'calendar' | 'logs';
 
 type CheckinSession = {
@@ -188,16 +127,10 @@ function MemberLogsScreen({ id, name, accountId }: { id: string; name?: string; 
     setRefreshKey((value) => value + 1);
     return () => {
       setFocused(false);
-      setSummary(null);
       setLogs([]);
       setCheckins([]);
     };
   }, [id, accountId]));
-
-  // Shared dashboard state
-  const [summary, setSummary] = useState<MemberHealthSummary | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(true);
-  const [summaryError, setSummaryError] = useState('');
 
   // Logs state
   const [logs, setLogs] = useState<MemberHealthLog[]>([]);
@@ -210,28 +143,10 @@ function MemberLogsScreen({ id, name, accountId }: { id: string; name?: string; 
   const [checkinsError, setCheckinsError] = useState('');
 
   useEffect(() => {
-    if (!id || !focused || activeTab === 'calendar') return;
+    if (!id || !focused || (activeTab !== 'logs' && activeTab !== 'checkins')) return;
     let active = true;
     const errorMessage = (error: unknown) => error instanceof ApiError && error.statusCode === 403
       ? t('healthAccessRequired') : getApiErrorMessage(error, t, 'cannotLoadLogs');
-    if (activeTab === 'overview') {
-      setSummary(null);
-      setSummaryError('');
-      setSummaryLoading(true);
-      careCircleApi.getMemberHealthSummary(Number(id))
-      .then(res => {
-        if (!active) return;
-        if (res.ok) {
-          setSummary(res);
-          if (res.patientName) setPatientName(res.patientName);
-        } else {
-          setSummaryError(t('noPermissionViewLogs'));
-        }
-      })
-      .catch(error => { if (active) setSummaryError(errorMessage(error)); })
-      .finally(() => { if (active) setSummaryLoading(false); });
-    }
-
     // Load logs
     if (activeTab === 'logs') {
       setLogs([]);
@@ -286,9 +201,8 @@ function MemberLogsScreen({ id, name, accountId }: { id: string; name?: string; 
     );
   }, [i18n.language, logFilter, logs]);
 
-  const isLoading = activeTab === 'calendar' ? false : activeTab === 'overview' ? summaryLoading : activeTab === 'logs' ? logsLoading : checkinsLoading;
-  const report = useMemo(() => normalizeMemberReport(summary?.report), [summary?.report]);
-  const treeSummary = useMemo(() => normalizeMemberTreeSummary(summary?.treeSummary), [summary?.treeSummary]);
+  const isLoading = (activeTab === 'logs' && logsLoading) ||
+    (activeTab === 'checkins' && checkinsLoading);
 
   return (
     <>
@@ -397,46 +311,16 @@ function MemberLogsScreen({ id, name, accountId }: { id: string; name?: string; 
           </>
         )}
         {activeTab === 'calendar' && focused && (
-          <>
-            <Text style={styles.emptyText}>{t('healthCalendarHint')}</Text>
-            <HealthJournalCalendar
-              key={`${accountId}:${id}:${refreshKey}`}
-              loadReport={loadCalendar}
-              subjectName={displayName}
-            />
-          </>
+          <HealthJournalCalendar
+            key={`${accountId}:${id}:${refreshKey}`}
+            loadReport={loadCalendar}
+            subjectName={displayName}
+          />
         )}
         {isLoading && (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
-        )}
-
-        {/* ── OVERVIEW TAB ── */}
-        {activeTab === 'overview' && !summaryLoading && overview.status !== 'denied' && (
-          <>
-            {summaryError !== '' && (
-              <View style={styles.center}>
-                <MaterialCommunityIcons name="lock-outline" size={48} color={colors.textSecondary} />
-                <Text style={styles.emptyText}>{summaryError}</Text>
-              </View>
-            )}
-            {summaryError === '' && !summary && (
-              <View style={styles.center}>
-                <MaterialCommunityIcons name="view-dashboard-outline" size={48} color={colors.textSecondary} />
-                <Text style={styles.emptyText}>{t('noOverviewData')}</Text>
-              </View>
-            )}
-            {summaryError === '' && summary && (
-              <HealthReportPanel
-                embedded
-                hideHeader
-                showEmptyReport
-                reportOverride={report}
-                treeSummaryOverride={treeSummary}
-              />
-            )}
-          </>
         )}
 
         {/* ── LOGS TAB ── */}

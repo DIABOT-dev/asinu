@@ -264,7 +264,12 @@ for (const language of ['vi', 'en']) {
     for (const section of ['sectionAccount', 'sectionSettings', 'sectionSystem']) h.toggleSection(h.t(section));
     const quickActions = read('src/components/HomeFeatureGrid.tsx');
     const quickRoutes = [...quickActions.matchAll(/route:\s*['"]([^'"]+)['"]/g)].map(match => match[1]);
-    for (const required of ['/doctor-consultation-history', '/privacy-center', '/doctor-care', '/logs', '/doctor-consultation', '/checkin-call/settings', '/coins', '/(tabs)/missions', '/checkin-rewards', '/checkin-rewards/history']) assert.ok(quickRoutes.includes(required), required);
+    for (const required of [
+      '/doctor-consultation-history', '/privacy-center', '/doctor-care', '/logs',
+      '/doctor-consultation', '/checkin-call/settings', '/coins', '/coins/redeem',
+      '/(tabs)/missions', '/checkin-rewards/history',
+    ]) assert.ok(quickRoutes.includes(required), required);
+    assert.ok(!quickRoutes.includes('/checkin-rewards'));
     const tree = h.render();
     const profileRoutes = nodes(tree, true).flatMap(node => [...String(node.props?.onPress || '').matchAll(/router\.push\(['"]([^'"]+)['"]/g)].map(match => match[1]));
     assert.deepEqual(profileRoutes.filter(route => quickRoutes.includes(route)), [], 'Features are opened through Quick actions');

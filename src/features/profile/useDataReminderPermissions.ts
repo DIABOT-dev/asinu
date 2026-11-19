@@ -2,10 +2,11 @@ import { useCallback, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { hasAiDataConsent, revokeAiDataConsent } from '../../lib/aiDataConsent';
-import { getHealthFeedPreference, setHealthFeedPreference } from '../../stores/health-feed-preference';
+import { readAiDataConsent, revokeAiDataConsent } from '../../lib/aiDataConsent';
+import { setHealthFeedPreference } from '../../stores/health-feed-preference';
 import { showToast } from '../../stores/toast.store';
 import { useAuthStore } from '../auth/auth.store';
+import { getNotificationPreferences } from '../notifications/notifications.api';
 
 /** Keep controllers outside the permission dialog while confirmations use the presenter. */
 export function useDataReminderPermissions(visible: boolean) {
@@ -30,11 +31,12 @@ export function useDataReminderPermissions(visible: boolean) {
     if (!current(generation.current) || operation.current) return;
     const version = generation.current, request = ++read.current;
     setLoading(true);
-    const results = await Promise.allSettled([hasAiDataConsent(), getHealthFeedPreference()]);
+    const [ai, feed] = await Promise.allSettled([readAiDataConsent(), getNotificationPreferences()]);
     if (!current(version) || read.current !== request || operation.current) return;
     setSnapshot({ token,
-      ai: results[0].status === 'fulfilled' ? results[0].value : null,
-      feed: results[1].status === 'fulfilled' ? results[1].value : null });
+      ai: ai.status === 'fulfilled' ? ai.value : null,
+      feed: feed.status === 'fulfilled' && feed.value.ok && typeof feed.value.health_feed_enabled === 'boolean'
+        ? feed.value.health_feed_enabled : null });
     setLoading(false);
   }, [current, token]);
   useFocusEffect(useCallback(() => {
@@ -45,7 +47,6 @@ export function useDataReminderPermissions(visible: boolean) {
     setBusy(false);
     setLoading(true);
     setPrompt(null);
-    setSnapshot({ token, ai: null, feed: null });
     if (visible) void refresh();
     const subscription = AppState.addEventListener('change', state => {
       if (state === 'active' && focused.current && !operation.current && promptOwner.current === null) void refresh();
@@ -88,7 +89,7 @@ export function useDataReminderPermissions(visible: boolean) {
     }
   };
   const change = (kind: 'ai' | 'feed', next: boolean) => {
-    if (!current(generation.current) || operation.current || promptOwner.current !== null ||
+    if (loading || !current(generation.current) || operation.current || promptOwner.current !== null ||
       snapshot.token !== token || snapshot[kind] === null) return;
     if (next) {
       promptOwner.current = { kind, version: generation.current };
@@ -99,7 +100,7 @@ export function useDataReminderPermissions(visible: boolean) {
   return {
     ai: snapshot.token === token ? snapshot.ai : null,
     feed: snapshot.token === token ? snapshot.feed : null,
-    busy, loading, prompt, refresh, change, cancel,
+    busy, loading: loading || snapshot.token !== token, prompt, refresh, change, cancel,
     agreeAi: () => {
       if (expectedPrompt?.kind !== 'ai' || promptOwner.current !== expectedPrompt || !current(expectedPrompt.version)) return;
       setSnapshot(previous => ({ ...previous, token, ai: true }));

@@ -103,18 +103,21 @@ export function AppPermissionsModal({ visible, onClose }: Props) {
   };
 
   const row = (key: string, label: string, icon: React.ComponentProps<typeof Ionicons>['name'],
-    granted: boolean, busy: boolean, unavailable: boolean, change: (enabled: boolean) => Promise<unknown>, retry?: () => Promise<unknown>, native = true) => (
+    granted: boolean | null, busy: boolean, unavailable: boolean, change: (enabled: boolean) => Promise<unknown>,
+    retry?: () => Promise<unknown>, { native = true, stableControl = false } = {}) => (
     <View key={key} style={styles.row}>
       <Ionicons name={icon} size={23} color={colors.primaryDark} accessible={false} />
       <View style={styles.copy}>
         <Text style={[styles.label, { color: colors.textPrimary }]}>{label}</Text>
         {unavailable && <Text style={[styles.status, { color: colors.textSecondary }]}>{t('devicePermissionUnavailable')}</Text>}
       </View>
-      {busy && <ActivityIndicator color={colors.primary} accessibilityLabel={t('devicePermissionLoading')} />}
+      {busy && !stableControl && <ActivityIndicator color={colors.primary} accessibilityLabel={t('devicePermissionLoading')} />}
       {unavailable && retry ? <Pressable accessibilityRole="button" style={styles.retry}
         accessibilityLabel={t('devicePermissionRetry', { name: label })} onPress={() => native ? requestChange(retry) : void retry()}>
         <Ionicons name="refresh-outline" size={22} color={colors.primaryDark} />
-      </Pressable> : <Switch accessibilityLabel={label} value={granted} disabled={busy || unavailable}
+      </Pressable> : granted === null ? <View accessible accessibilityLabel={t('devicePermissionLoading')}
+        accessibilityState={{ busy }} style={[styles.loadingControl, { backgroundColor: colors.border }]} />
+        : <Switch accessibilityLabel={label} value={granted} disabled={busy || unavailable}
         accessibilityHint={native ? t('devicePermissionSwitchHint') : undefined}
         accessibilityState={{ checked: granted, disabled: busy || unavailable, busy }}
         trackColor={{ false: colors.border, true: colors.primary }} thumbColor={colors.surface}
@@ -163,14 +166,14 @@ export function AppPermissionsModal({ visible, onClose }: Props) {
             })}
           <Text accessibilityRole="header" style={[styles.sectionHeading, { color: colors.textPrimary, borderColor: colors.border }]}>{tp('sectionData')}</Text>
           {isDoctorFeaturesEnabled && row('specialist', t('specialistSharing'), 'finger-print-outline', sharing.enabled === true,
-            sharing.loading || sharing.busy, sharing.failed, async value => { sharing.request(value); }, sharing.refresh, false)}
-          {row('ai', t('aiDataConsentSettings'), 'sparkles-outline', data.ai === true, data.busy || data.loading,
-            data.ai === null && !data.loading, async value => { data.change('ai', value); }, data.refresh, false)}
+            sharing.loading || sharing.busy, sharing.failed, async value => { sharing.request(value); }, sharing.refresh, { native: false })}
+          {row('ai', t('aiDataConsentSettings'), 'sparkles-outline', data.ai, data.busy || data.loading,
+            data.ai === null && !data.loading, async value => { data.change('ai', value); }, data.refresh, { native: false, stableControl: true })}
           {row('reminders', t('taskReminders'), 'alarm-outline', reminders.enabled,
             reminders.loading || reminders.pending, reminders.failed || (!reminders.loading && !reminders.available), reminders.change,
             async () => reminders.refresh())}
-          {row('feed', tp('healthFeed'), 'bookmark-outline', data.feed === true, data.busy || data.loading,
-            data.feed === null && !data.loading, async value => { data.change('feed', value); }, data.refresh, false)}
+          {row('feed', tp('healthFeed'), 'bookmark-outline', data.feed, data.busy || data.loading,
+            data.feed === null && !data.loading, async value => { data.change('feed', value); }, data.refresh, { native: false, stableControl: true })}
         </ScrollView>
         <ModalToastHost />
       </View>
@@ -208,6 +211,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 16, fontWeight: '600' },
   status: { fontSize: 12 },
   retry: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  loadingControl: { width: 48, height: 30, borderRadius: 10 },
   sectionHeading: { fontSize: 17, fontWeight: '700', marginTop: 12, paddingTop: 16, paddingHorizontal: 8, borderTopWidth: 1 },
   confirmButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', padding: 12 },
 });

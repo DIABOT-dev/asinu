@@ -728,28 +728,6 @@ export function ProfileFieldSheet({
                       />
                     </View>
                   </View>
-                  {(profile.address ||
-                    [address.province, address.ward, address.street].some(
-                      Boolean
-                    )) && (
-                    <Pressable
-                      onPress={() =>
-                        setValue({
-                          province: "",
-                          ward: "",
-                          street: "",
-                          provinceCode: "",
-                          wardCode: "",
-                        })
-                      }
-                      style={styles.clearAddressButton}
-                      disabled={saving}
-                      accessibilityRole="button"
-                      accessibilityLabel={t("clearAddress")}
-                    >
-                      <Text style={styles.error}>{t("clearAddress")}</Text>
-                    </Pressable>
-                  )}
                 </>
               )}
               {(error || (changed && invalid)) && (
@@ -939,7 +917,6 @@ function createStyles(
     },
     addressOptionText: { flex: 1, fontSize: 17, color: colors.textPrimary },
     placeholder: { color: colors.textSecondary },
-    clearAddressButton: { minHeight: 44, justifyContent: "center" },
     addressLabel: {
       fontSize: 15,
       fontWeight: "600",

@@ -30,7 +30,6 @@ function positive(value: string | number | null | undefined) {
 }
 
 export function MemberProfileCard({ name, avatarUrl }: { name: string; avatarUrl?: string }) {
-  const { t } = useTranslation('careCircle');
   const { colors } = useThemeColors();
   return (
     <View style={[styles.identity, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -39,10 +38,7 @@ export function MemberProfileCard({ name, avatarUrl }: { name: string; avatarUrl
           containerStyle={{ backgroundColor: colors.primaryLight, borderWidth: 0 }}
           initialsStyle={{ color: colors.primaryText, fontSize: 23 }} />
       </View>
-      <View style={styles.copy}>
-        <Text accessibilityRole="header" style={[styles.identityName, { color: colors.textPrimary }]}>{name}</Text>
-        <Text style={[styles.caption, { color: colors.primaryText }]}>{t('familyProfileLabel')}</Text>
-      </View>
+      <Text accessibilityRole="header" style={[styles.identityName, { color: colors.textPrimary }]}>{name}</Text>
     </View>
   );
 }
@@ -139,7 +135,7 @@ export function FamilyActionCard({ title, description, icon, tone, onPress, tile
 const styles = StyleSheet.create({
   identity: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: 20, borderWidth: 1 },
   identityAvatar: { padding: 3, borderRadius: 36, borderWidth: 1.5 },
-  identityName: { fontSize: 21, fontWeight: '700' },
+  identityName: { flex: 1, minWidth: 0, fontSize: 21, fontWeight: '700' },
   copy: { flex: 1, minWidth: 0, gap: 2 },
   caption: { fontSize: 13 },
   icon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },

@@ -1,7 +1,6 @@
 {
   "familyHealthTitle": "Health profile",
   "familyHealthOverview": "Health overview",
-  "familyProfileLabel": "Family member profile",
   "familyHealthTopics": "Health records",
   "familyPulse": "Heart rate",
   "familyBmi": "BMI",
@@ -210,7 +209,6 @@
   "viewHealthProfile": "View health profile",
   "memberHealthProfileTitle": "{{name}}'s health profile",
   "tabHealthCalendar": "Health calendar",
-  "healthCalendarHint": "Select a check-in day to view the status and detailed entries.",
   "shareMyHealthProfile": "Let {{name}} view my health profile",
   "healthAccessScope": "View only while connected in your Care Circle. Editing is not allowed.",
   "healthProfilePrivate": "Health profile access not granted",
@@ -268,7 +266,6 @@
   "memberLogsTitle": "{{name}}'s logs",
   "healthLogs": "Health Logs",
   "tabOverview": "Overview",
-  "noOverviewData": "No overview data yet",
   "noLogsYet": "No logs yet",
   "tabLogs": "Logs",
   "tabCheckins": "Check-ins",
