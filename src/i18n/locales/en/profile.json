@@ -45,6 +45,8 @@
   "sectionAccount": "Account",
   "sectionSystem": "Help & information",
   "shareApp": "Share Asinu",
+  "rateApp": "Rate the app",
+  "rateAppLinkError": "Could not open the review page. Please try again.",
   "shareMessage": "I'm using Asinu to track my health — check it out!",
   "logout": "Sign out",
   "logoutConfirmTitle": "Sign out?",

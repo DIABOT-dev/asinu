@@ -36,13 +36,13 @@ class ApiError extends Error {
   constructor(statusCode) { super('Fixture API failure'); this.statusCode = statusCode; }
 }
 
-function harness({ personalInformation: initialPersonalInformation = false, canGoBack = true, standalone = false, language = 'vi', bloodType = 'A+', save, uploadAvatar, multiplier = 1, isDark = false, doctorEnabled = false, profile: profileOverrides = {}, coins: coinOverrides = {} } = {}) {
+function harness({ personalInformation: initialPersonalInformation = false, canGoBack = true, standalone = false, language = 'vi', bloodType = 'A+', save, uploadAvatar, multiplier = 1, isDark = false, doctorEnabled = false, profile: profileOverrides = {}, coins: coinOverrides = {}, platform = 'ios', linkError = false } = {}) {
   const slots = [];
   let cursor = 0;
   let personalInformation = initialPersonalInformation;
   let pendingEffects = [];
   let needsRender = false;
-  const calls = { saves: [], uploads: [], toasts: [], profileWrites: [], focus: 0, routes: [], fontSizes: [], languages: [], coinReads: 0 };
+  const calls = { saves: [], uploads: [], toasts: [], profileWrites: [], focus: 0, routes: [], fontSizes: [], languages: [], coinReads: 0, links: [] };
   const preferences = { fontScale: 'normal', language };
   const profile = { id: 'profile-fixture', name: 'Demo', phone: '', age: 40, gender: 'Nam',
     heightCm: 170, weightKg: 70, bloodType, chronicDiseases: [], ...profileOverrides };
@@ -94,9 +94,12 @@ function harness({ personalInformation: initialPersonalInformation = false, canG
     react: { __esModule: true, default: hooks, ...hooks },
     'react-native': {
       ...Object.fromEntries(['ActivityIndicator', 'Image', 'KeyboardAvoidingView', 'Modal', 'Pressable', 'ScrollView', 'Switch', 'TouchableOpacity', 'View'].map(name => [name, name])),
-      Dimensions: { get: () => ({ width: 390, height: 844 }) }, Platform: { OS: 'ios' },
+      Dimensions: { get: () => ({ width: 390, height: 844 }) }, Platform: { OS: platform },
       StyleSheet: { create: value => value, absoluteFillObject: {} },
-      Linking: { openURL: async () => {} }, Share: { share: async () => {} },
+      Linking: { openURL: async url => {
+        calls.links.push(url);
+        if (linkError) throw new Error('Fixture link unavailable');
+      } }, Share: { share: async () => {} },
     },
     '@expo/vector-icons': { FontAwesome5: 'Icon', Ionicons: 'Icon', MaterialCommunityIcons: 'Icon' },
     'expo-image-picker': {
@@ -149,6 +152,7 @@ function harness({ personalInformation: initialPersonalInformation = false, canG
     '../../../src/lib/apiClient': { ApiError, apiClient: async () => ({}), getApiErrorMessage: (_error, t, key) => t(key) },
     '../../../src/lib/appEnv': { isDevBuild: false, isDoctorFeaturesEnabled: doctorEnabled, isCheckinUiGalleryEnabled: false },
     '../../../src/features/app-update/app-update.store': { useAppUpdateStore: Object.assign(selector => selector({ checking: false }), { getState: () => ({ check: async () => ({ status: 'current' }) }) }) },
+    '../../../src/features/app-update/update-policy': evaluate(read('src/features/app-update/update-policy.ts')),
     '../../../src/features/profile/ProfileMascotGreeting': { ProfileMascotGreeting: 'MascotGreeting' },
     '../../../src/features/profile/ProfileHealthcareBackground': {
       ProfileHealthcareBackground: () => evaluate(read('src/features/profile/ProfileHealthcareBackground.tsx'), {
@@ -233,6 +237,24 @@ await test('personal settings open as a standalone page with a back button above
   const direct = harness({ standalone: true, canGoBack: false });
   nodes(direct.render()).find(n => n.type === 'ScreenBackButton').props.onPress();
   assert.deepEqual(direct.calls.routes, ['/(tabs)/home']);
+});
+
+await test('Help & information opens the official app review listing and reports a failed link', async () => {
+  for (const [platform, url] of [
+    ['ios', 'https://apps.apple.com/app/id6758967197?action=write-review'],
+    ['android', 'https://play.google.com/store/apps/details?id=com.asinu.lite'],
+  ]) {
+    const h = harness({ platform });
+    const help = h.toggleSection(h.t('sectionSystem'));
+    const review = nodes(help).find(node => node.props.accessibilityLabel === h.t('rateApp'));
+    assert.equal(review.props.accessibilityRole, 'link');
+    await review.props.onPress();
+    assert.deepEqual(h.calls.links, [url]);
+  }
+  const unavailable = harness({ linkError: true });
+  const help = unavailable.toggleSection(unavailable.t('sectionSystem'));
+  await nodes(help).find(node => node.props.accessibilityLabel === unavailable.t('rateApp')).props.onPress();
+  assert.deepEqual(unavailable.calls.toasts, [[unavailable.t('rateAppLinkError'), 'error']]);
 });
 
 for (const language of ['vi', 'en']) {

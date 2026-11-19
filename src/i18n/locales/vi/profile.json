@@ -45,6 +45,8 @@
   "sectionAccount": "Tài khoản",
   "sectionSystem": "Trợ giúp & thông tin",
   "shareApp": "Chia sẻ Asinu",
+  "rateApp": "Đánh giá ứng dụng",
+  "rateAppLinkError": "Chưa mở được trang đánh giá. Bạn thử lại nhé.",
   "shareMessage": "Mình đang dùng Asinu để theo dõi sức khoẻ — thử xem nhé!",
   "logout": "Đăng xuất",
   "logoutConfirmTitle": "Đăng xuất?",

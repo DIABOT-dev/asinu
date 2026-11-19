@@ -19,6 +19,7 @@ import {
   Image,
   Linking,
   Modal,
+  Platform,
   Pressable,
   Share,
   StyleSheet,
@@ -33,6 +34,7 @@ import { Screen } from "../../../src/components/Screen";
 import { ScreenBackButton } from "../../../src/components/ScreenHeaderButton";
 import { ProfileTabSkeleton } from "../../../src/components/state/MainScreenSkeletons";
 import { useAppUpdateStore } from "../../../src/features/app-update/app-update.store";
+import { ANDROID_STORE_URL, IOS_STORE_URL } from "../../../src/features/app-update/update-policy";
 import { authApi } from "../../../src/features/auth/auth.api";
 import { useAuthStore } from "../../../src/features/auth/auth.store";
 import { FontSizePickerModal } from "../../../src/features/profile/FontSizePickerModal";
@@ -274,6 +276,16 @@ export default function ProfileScreen({
       // ignore
     }
   }, [t]);
+
+  const handleRateApp = async () => {
+    const url =
+      Platform.OS === "ios" ? `${IOS_STORE_URL}?action=write-review` : ANDROID_STORE_URL;
+    try {
+      await Linking.openURL(url);
+    } catch {
+      showToast(t("rateAppLinkError"), "error");
+    }
+  };
 
   const handleLogout = useCallback(async () => {
     setShowLogoutModal(false);
@@ -901,6 +913,26 @@ export default function ProfileScreen({
                             </View>
                             <Text allowFontScaling style={styles.rowLabel}>
                               {t("shareApp")}
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.actionCard}
+                            onPress={handleRateApp}
+                            activeOpacity={0.7}
+                            accessibilityRole="link"
+                            accessibilityLabel={t("rateApp")}
+                          >
+                            <View style={styles.rowIconWrap}>
+                              <Ionicons
+                                name="star-outline"
+                                size={24}
+                                color={colors.primaryText}
+                                accessible={false}
+                              />
+                            </View>
+                            <Text allowFontScaling style={styles.rowLabel}>
+                              {t("rateApp")}
                             </Text>
                           </TouchableOpacity>
 
