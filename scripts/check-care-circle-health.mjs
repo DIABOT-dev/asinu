@@ -274,9 +274,19 @@ await test('large-font calendar keeps wrapping labels, plain icons and a scrolla
   day.props.onPress(); nodes = h.render();
   assert.ok(nodes.some(node => node.type === 'ScrollView')); h.unmount();
 });
+
+function contrast(first, second) {
+  const luminance = hex => hex.slice(1).match(/../g).map(channel => {
+    const value = parseInt(channel, 16) / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  }).reduce((total, channel, i) => total + channel * [0.2126, 0.7152, 0.0722][i], 0);
+  const values = [luminance(first), luminance(second)];
+  return (Math.max(...values) + 0.05) / (Math.min(...values) + 0.05);
+}
+
 for (const language of ['vi', 'en']) {
   for (const dark of [false, true]) {
-    await test(`${language}/${dark ? 'dark' : 'light'}: health dates expose distinct status symbols and future dates never claim a missed check-in`, async () => {
+    await test(`${language}/${dark ? 'dark' : 'light'}: health dates have readable status colors and distinct symbols`, async () => {
       const statuses = ['fine', 'tired', 'very_tired', 'specific_concern'];
       const dates = ['01', '02', '03', '04'];
       const h = harness({ language, dark, loadReport: async () => ({ ...report, checkinDays: 4,
@@ -286,8 +296,17 @@ for (const language of ['vi', 'en']) {
       for (const [index, icon] of ['checkmark', 'remove', 'alert', 'ellipsis-horizontal'].entries()) {
         const date = nodes.find(node => node.props?.testID === `journal-day-2026-10-${dates[index]}`);
         assert.equal(date.props.disabled, false);
-        assert.equal(flattenElements(date).find(node => node.type === 'Icon').props.name, icon);
+        const descendants = flattenElements(date);
+        const symbol = descendants.find(node => node.type === 'Icon');
+        const badge = descendants.find(node => node.type === 'View' && node.props.children === symbol);
+        const numeral = descendants.find(node => node.type === 'Text');
+        const cellColor = Object.assign({}, ...date.props.style({ pressed: false })).backgroundColor;
+        assert.equal(symbol.props.name, icon);
+        assert.ok(contrast(Object.assign({}, ...numeral.props.style).color, cellColor) >= 4.5);
+        assert.ok(contrast(symbol.props.color, Object.assign({}, ...badge.props.style).backgroundColor) >= 4.5);
       }
+      const today = nodes.find(node => node.props?.testID === 'journal-day-2026-10-05');
+      assert.ok(today.props.accessibilityLabel.startsWith(h.t('todayLabel')));
       const future = nodes.find(node => node.props?.testID === 'journal-day-2026-10-06');
       assert.equal(future.props.accessibilityLabel, h.t('journalFutureDayAccessibility', { day: 6 }));
       assert.equal(future.props.disabled, true);

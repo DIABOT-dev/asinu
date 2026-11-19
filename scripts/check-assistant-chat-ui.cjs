@@ -618,8 +618,9 @@ test("a failed early-signal read retries the read instead of generating an asses
   assert.equal(h.evaluations, 0);
   h.unmount();
 });
-test("the three compact Home cards use real destinations and keep Asinu as a separate entry", () => {
+test("Home hides Asinu by default, keeps both connections, and supports re-enabling its card", () => {
   const routes = [];
+  const featureFlags = evaluate("src/lib/appEnv.ts");
   const { HomeConnections } = evaluate("src/components/HomeConnections.tsx", {
     "react-native": {
       Image: "Image",
@@ -640,15 +641,12 @@ test("the three compact Home cards use real destinations and keep Asinu as a sep
     "../hooks/useGuardedRouter": {
       useGuardedRouter: () => ({ push: (route) => routes.push(route) }),
     },
-    "../lib/appEnv": { isExpertConsultationEnabled: true },
+    "../lib/appEnv": featureFlags,
     "../../assets/images/care-circle/family_3d_art.png": "family",
     "../../assets/images/care-circle/expert-consultation-cutout.png": "expert",
   });
   const tree = HomeConnections();
-  assert.equal(
-    nodes(tree).find((node) => node.type === "AssistantEntry").props.variant,
-    "card"
-  );
+  assert.ok(!nodes(tree).some((node) => node.type === "AssistantEntry"));
   const images = nodes(tree).filter((node) => node.type === "Image");
   assert.deepEqual(images.map((node) => node.props.source), ["family", "expert"]);
   assert.deepEqual(images[0].props.style, images[1].props.style);
@@ -663,6 +661,11 @@ test("the three compact Home cards use real destinations and keep Asinu as a sep
     button.props.onPress();
   }
   assert.deepEqual(routes, ["/care-circle", "/doctor-consultation"]);
+  featureFlags.isAsinuAssistantEnabled = true;
+  assert.equal(
+    nodes(HomeConnections()).find((node) => node.type === "AssistantEntry")?.props.variant,
+    "card"
+  );
 });
 
 test("Early signals open as a bottom modal with their own content and no assistant composer", () => {

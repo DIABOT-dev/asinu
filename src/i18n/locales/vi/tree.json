@@ -56,7 +56,6 @@
   "journalSummaryFine": "Bạn đã báo ổn {{fine}} ngày trong tháng này.",
   "journalLatestStatus": "Lần gần nhất: {{status}}",
   "journalNoCheckin": "Chưa có check-in trong tháng này",
-  "journalNoCheckinHint": "Mỗi lần check-in sẽ được hiển thị trên lịch để bạn dễ theo dõi.",
   "journalLoadError": "Chưa thể tải nhật ký sức khỏe.",
   "journalLoading": "Đang tải lịch check-in…",
   "journalUpdating": "Đang cập nhật lịch check-in…",

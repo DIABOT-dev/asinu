@@ -248,8 +248,6 @@ function harness(language = "vi") {
     }
     if (url.includes("/reconsultation?"))
       return { data: { specialty: "general", tenant_id: "clinic-demo" } };
-    if (url === "/api/doctor/credits")
-      return { data: { available: 0, held: 0 } };
     if (url === "/api/doctor/screening")
       return {
         data: evaluateConsultationScreening(input.body, { birth_year: 1992 }),
@@ -462,6 +460,15 @@ function harness(language = "vi") {
     },
   };
 }
+
+await test("the consultation form opens without a credit banner or a credit lookup", async () => {
+  const h = harness();
+  const tree = await h.settle();
+  assert.ok(h.get(tree, "Intake"));
+  assert.ok(!h.calls.some(({ url }) => url === "/api/doctor/credits"));
+  const copy = nodes(tree).filter((node) => node.type === "Text").map((node) => node.props.children);
+  assert.ok(!copy.some((label) => typeof label === "string" && /^doctorCredit|Có 1 lượt/.test(label)));
+});
 
 await test("Back and re-entry restore the description and recheck screening without reusing consent", async () => {
   const h = harness();

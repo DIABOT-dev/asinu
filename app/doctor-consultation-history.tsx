@@ -324,9 +324,6 @@ export default function DoctorConsultationHistoryScreen() {
                 <Text style={styles.stateTitle}>
                   {tSettings("doctorConsultationHistoryEmpty")}
                 </Text>
-                <Text style={styles.stateText}>
-                  {tSettings("doctorConsultationHistoryEmptyDescription")}
-                </Text>
               </View>
             )
           }

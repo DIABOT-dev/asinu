@@ -256,15 +256,12 @@ export function DoctorConsultationIntake(props: IntakeProps) {
           {t('doctorConsultationSummaryLabel')}
         </Text>
         {showDescription ? (
-          <>
-            <Text style={[styles.helper, { color: colors.textSecondary }]}>{t('doctorScreeningDescriptionHint')}</Text>
-            <TextInput
-              accessibilityLabel={t('doctorConsultationSummaryLabel')} multiline textAlignVertical="top"
-              value={props.summary} onChangeText={props.onSummaryChange} maxLength={3000}
-              placeholder={t('doctorConsultationSummaryPlaceholder')} placeholderTextColor={colors.textSecondary}
-              style={[styles.summaryInput, { color: colors.textPrimary, borderColor: colors.border }]}
-            />
-          </>
+          <TextInput
+            accessibilityLabel={t('doctorConsultationSummaryLabel')} multiline textAlignVertical="top"
+            value={props.summary} onChangeText={props.onSummaryChange} maxLength={3000}
+            placeholder={t('doctorConsultationSummaryPlaceholder')} placeholderTextColor={colors.textSecondary}
+            style={[styles.summaryInput, { color: colors.textPrimary, borderColor: colors.border }]}
+          />
         ) : (
           <>
             <Text style={[styles.helper, { color: colors.textPrimary }]}>{props.summary}</Text>

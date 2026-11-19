@@ -134,8 +134,6 @@ export default function DoctorConsultationScreen() {
   const [reconsultationReady, setReconsultationReady] = useState(
     !previousTaskId
   );
-  const [creditAvailable, setCreditAvailable] = useState<number | null>(null);
-  const [creditHeld, setCreditHeld] = useState(0);
   const pendingSubmissionKey = `${PENDING_SUBMISSION_KEY}:${
     profile?.id ?? "anonymous"
   }:${previousTaskId ?? "new"}`;
@@ -266,22 +264,6 @@ export default function DoctorConsultationScreen() {
       active = false;
     };
   }, [previousTaskId, parentTenant, setSelectedSpecialty, t]);
-  useEffect(() => {
-    let active = true;
-    apiClient<{ data?: { available: number; held: number } }>(
-      "/api/doctor/credits"
-    )
-      .then((result) => {
-        if (active) {
-          setCreditAvailable(result.data?.available ?? 0);
-          setCreditHeld(result.data?.held ?? 0);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [profile?.id]);
 
   const loadTasks = async (tenantId = selectedTenantId) => {
     try {
@@ -883,17 +865,6 @@ export default function DoctorConsultationScreen() {
               {t("doctorReconsult")}
             </Text>
           )}
-          {creditAvailable !== null && (
-            <Text style={{ color: colors.textSecondary, marginBottom: 16 }}>
-              {t(
-                creditAvailable > 0
-                  ? "doctorCreditAvailable"
-                  : creditHeld > 0
-                  ? "doctorCreditHeld"
-                  : "doctorCreditNone"
-              )}
-            </Text>
-          )}
           {/* STEP 1: TÌNH TRẠNG                                                        */}
           {/* ========================================================================= */}
           {currentStep === 1 && !conditionDraft.ready && (
@@ -1055,14 +1026,6 @@ export default function DoctorConsultationScreen() {
                     >
                       {t("doctorConsultationSpecialistsTitle")}
                     </Text>
-                    <Text
-                      style={[
-                        styles.cardSubtitle,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {t("doctorConsultationSpecialistsHint")}
-                    </Text>
                   </View>
                 </View>
                 <Pressable
@@ -1099,9 +1062,6 @@ export default function DoctorConsultationScreen() {
                         ]}
                       >
                         {t("doctorConsultationAutoAssign")}
-                      </Text>
-                      <Text style={styles.doctorPreferenceHint}>
-                        {t("doctorConsultationAutoAssignHint")}
                       </Text>
                     </View>
                   </View>
@@ -1275,14 +1235,6 @@ export default function DoctorConsultationScreen() {
                       style={[styles.cardTitle, { color: colors.textPrimary }]}
                     >
                       {t("doctorConsultationPreAttachmentTitle")}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.cardSubtitle,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {t("doctorConsultationPreAttachmentHint")}
                     </Text>
                   </View>
                 </View>
@@ -1508,9 +1460,6 @@ export default function DoctorConsultationScreen() {
                         })}
                   </Text>
                 </View>
-                <Text style={styles.etaBasisText}>
-                  {t("doctorConsultationEtaBasis")}
-                </Text>
 
                 {/* Emergency Red Warning Banner */}
                 <View
@@ -1917,21 +1866,9 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: -0.2,
   },
-  cardSubtitle: {
-    color: "#6B8289",
-    fontSize: 12.5,
-    lineHeight: 17.5,
-    marginTop: 2,
-  },
   selectionList: {
     gap: 10,
     marginTop: 4,
-  },
-  doctorPreferenceHint: {
-    color: "#6B8289",
-    fontSize: 12,
-    lineHeight: 16,
-    marginTop: 2,
   },
   doctorListItem: {
     paddingVertical: 10,
@@ -2266,13 +2203,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     lineHeight: 19,
     minWidth: 0,
-  },
-  etaBasisText: {
-    color: "#64748B",
-    fontSize: 11.5,
-    lineHeight: 17,
-    marginLeft: 30,
-    marginTop: 3,
   },
   emergencyBanner: {
     alignItems: "flex-start",

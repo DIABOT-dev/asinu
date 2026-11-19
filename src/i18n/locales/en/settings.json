@@ -6,7 +6,6 @@
   "doctorConsultationHistoryClosed": "Closed",
   "doctorConsultationHistoryFollowup": "Follow-up available",
   "doctorConsultationHistoryEmpty": "No consultations yet",
-  "doctorConsultationHistoryEmptyDescription": "Consultation requests you send will appear here.",
   "fontSize": "App Font Size",
   "cameraQrPermission": "QR camera",
   "fontSmall": "Small",

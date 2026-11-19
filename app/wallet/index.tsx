@@ -740,10 +740,7 @@ export default function WalletScreen() {
               <View style={styles.generateLeftIconWrap}>
                 <MaterialCommunityIcons name="view-grid-plus-outline" size={26} color="#059669" />
               </View>
-              <View style={styles.generateTextWrap}>
               <ScaledText style={styles.generateTitle}>{t('generateQR')}</ScaledText>
-              <ScaledText style={styles.generateSub}>{t('generateQRHint')}</ScaledText>
-              </View>
               {creatingQR ? (
                 <ActivityIndicator size="small" color="#059669" />
               ) : (
@@ -877,7 +874,6 @@ export default function WalletScreen() {
             <View style={styles.emptyWrap}>
               <EmptyHistoryGraphic />
               <ScaledText style={styles.emptyTitle}>{t('noHistory')}</ScaledText>
-              <ScaledText style={styles.emptySub}>{t('historyEmptyDescription')}</ScaledText>
             </View>
           ) : (
             visiblePayments.map((p, idx) => {
@@ -1314,18 +1310,11 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
     generateLeftIconWrap: {
       marginRight: 12,
     },
-    generateTextWrap: {
-      flex: 1,
-    },
     generateTitle: {
+      flex: 1,
       color: '#064E3B',
       fontSize: scaledTypography.size.sm + 1,
       fontWeight: '700',
-    },
-    generateSub: {
-      color: '#047857',
-      fontSize: scaledTypography.size.xs,
-      marginTop: 2,
     },
 
     // ── QR Section ───────────────────────────────────────
@@ -1522,11 +1511,6 @@ function createStyles(scaledTypography: { size: { xs: number; sm: number; md: nu
       fontSize: scaledTypography.size.sm + 1,
       fontWeight: '600',
       marginTop: 8,
-    },
-    emptySub: {
-      color: '#9CA3AF',
-      fontSize: scaledTypography.size.xs,
-      marginTop: 4,
     },
     shimmerWrap: {
       gap: 12,

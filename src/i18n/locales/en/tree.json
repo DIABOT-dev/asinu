@@ -56,7 +56,6 @@
   "journalSummaryFine": "You reported feeling well on {{fine}} days this month.",
   "journalLatestStatus": "Latest status: {{status}}",
   "journalNoCheckin": "No check-ins this month",
-  "journalNoCheckinHint": "Each check-in will appear on the calendar so you can track changes over time.",
   "journalLoadError": "Unable to load your health journal.",
   "journalLoading": "Loading your check-in calendar…",
   "journalUpdating": "Updating your check-in calendar…",

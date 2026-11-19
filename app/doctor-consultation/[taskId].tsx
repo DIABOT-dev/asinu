@@ -1043,20 +1043,11 @@ export default function DoctorConsultationThreadScreen() {
                   {statusLabel}
                 </Text>
               </View>
-              <Text
-                style={[
-                  styles.statusHint,
-                  { color: isDark ? colors.textSecondary : "#64748B" },
-                ]}
-              >
-                {statusUnknown
-                  ? t("doctorConsultationStatusSyncingHint")
-                  : conversationOpen
-                  ? taskStatus?.status === "completed"
-                    ? t("doctorConsultationFollowUpOpen")
-                    : t("doctorConsultationStatusTrackingHint")
-                  : t("doctorConsultationConversationClosed")}
-              </Text>
+              {conversationOpen && taskStatus?.status === "completed" && (
+                <Text style={[styles.statusHint, { color: colors.textSecondary }]}>
+                  {t("doctorConsultationFollowUpOpen")}
+                </Text>
+              )}
               {statusUnknown && (
                 <Pressable
                   accessibilityRole="button"
@@ -1661,11 +1652,6 @@ export default function DoctorConsultationThreadScreen() {
                   style={[styles.ratingTitle, { color: colors.textPrimary }]}
                 >
                   {t("doctorConsultationRateDoctor")}
-                </Text>
-                <Text
-                  style={[styles.ratingHint, { color: colors.textSecondary }]}
-                >
-                  {t("doctorConsultationRatingHint")}
                 </Text>
                 <View style={styles.stars}>
                   {[1, 2, 3, 4, 5].map((score) => (
@@ -2304,7 +2290,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   ratingTitle: { fontSize: 16, fontWeight: "800" },
-  ratingHint: { fontSize: 13, lineHeight: 19 },
   stars: { flexDirection: "row", gap: spacing.sm },
   ratingInput: {
     borderRadius: radius.md,

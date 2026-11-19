@@ -4,7 +4,7 @@ import { ScaledText as Text } from "./ScaledText";
 import { AsinuAssistantButton } from "../features/app-assistant/AsinuAssistantButton";
 import { useThemeColors } from "../hooks/useThemeColors";
 import { useGuardedRouter } from "../hooks/useGuardedRouter";
-import { isExpertConsultationEnabled } from "../lib/appEnv";
+import { isAsinuAssistantEnabled, isExpertConsultationEnabled } from "../lib/appEnv";
 
 export function HomeConnections() {
   const { t } = useTranslation("home");
@@ -29,7 +29,7 @@ export function HomeConnections() {
   ];
   return (
     <View testID="home-connections" style={styles.row}>
-      <AsinuAssistantButton variant="card" />
+      {isAsinuAssistantEnabled && <AsinuAssistantButton variant="card" />}
       {entries.map((entry) => (
         <Pressable
           key={entry.route}
