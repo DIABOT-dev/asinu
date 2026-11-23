@@ -8,23 +8,22 @@ import { useGuardedRouter } from "../../hooks/useGuardedRouter";
 import { useThemeColors } from "../../hooks/useThemeColors";
 import { ivrApi, type IvrSession } from "./ivr.api";
 import { radius, spacing } from "../../styles/theme";
-import { isDoctorFeaturesEnabled } from "../../lib/appEnv";
+import { isExpertConsultationEnabled } from "../../lib/appEnv";
 export function DoctorIvrEntry({
   tenantId,
   taskId,
+  linkedSessionIds,
 }: {
   tenantId: string;
   taskId: string;
+  linkedSessionIds: (string | null | undefined)[];
 }) {
-  const { t } = useTranslation("home"),
-    router = useGuardedRouter(),
-    { colors } = useThemeColors();
   const [session, setSession] = useState<IvrSession | null>(null);
   useFocusEffect(
     useCallback(() => {
       let active = true;
       setSession(null);
-      if (!isDoctorFeaturesEnabled) return;
+      if (!isExpertConsultationEnabled) return;
       const load = async () => {
         try {
           if (!(await ivrApi.enabled())) return;
@@ -33,9 +32,7 @@ export function DoctorIvrEntry({
             setSession(
               value.sessions.find(
                 (s) =>
-                  !["cancelled", "unreachable", "expired", "closed"].includes(
-                    s.status
-                  )
+                  !["draft", "cancelled", "unreachable", "expired", "closed"].includes(s.status)
               ) || null
             );
         } catch {}
@@ -48,23 +45,46 @@ export function DoctorIvrEntry({
       };
     }, [tenantId, taskId])
   );
-  if (!isDoctorFeaturesEnabled || !session) return null;
+  if (
+    !isExpertConsultationEnabled ||
+    !session ||
+    (linkedSessionIds.includes(session.id) && !session.doctor_reply)
+  )
+    return null;
+  return (
+    <DoctorIvrInvitation
+      sessionId={session.id}
+      hasReply={!!session.doctor_reply}
+    />
+  );
+}
+
+export function DoctorIvrInvitation({
+  sessionId,
+  hasReply = false,
+}: {
+  sessionId: string;
+  hasReply?: boolean;
+}) {
+  const { t } = useTranslation("home");
+  const { colors } = useThemeColors();
+  const router = useGuardedRouter();
+  if (!isExpertConsultationEnabled) return null;
+  const title = t(hasReply ? "ivr.result" : "ivr.invitation");
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={t(
-        session.doctor_reply ? "ivr.result" : "ivr.invitation"
-      )}
+      accessibilityLabel={title}
       onPress={() =>
         router.push({
           pathname: "/doctor-interview/[sessionId]",
-          params: { sessionId: session.id },
+          params: { sessionId, ...(hasReply ? {} : { start: "1" }) },
         })
       }
       style={({ pressed }) => [
         styles.card,
         {
-          backgroundColor: pressed ? colors.primaryLight : 'transparent',
+          backgroundColor: pressed ? colors.primaryLight : "transparent",
         },
       ]}
     >
@@ -75,10 +95,10 @@ export function DoctorIvrEntry({
       />
       <View style={styles.content}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>
-          {t(session.doctor_reply ? "ivr.result" : "ivr.invitation")}
+          {title}
         </Text>
         <Text style={[styles.hint, { color: colors.textSecondary }]}>
-          {t("ivr.entryHint")}
+          {t(hasReply ? "ivr.openResult" : "ivr.answerQuestions")}
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={24} color={colors.primary} />

@@ -40,6 +40,7 @@ function hooks() {
     effects = [];
   const slots = [];
   return {
+    Fragment: "Fragment",
     useRef: (value) => (slots[cursor++] ??= { current: value }),
     useState: (initial) => {
       const index = cursor++;
@@ -83,6 +84,7 @@ function harness(language = "vi", initialStatus = null) {
     calls = [],
     navigation = [],
     openedUrls = [],
+    scrolls = [],
     toasts = [],
     sockets = [],
     intervals = new Map(),
@@ -120,9 +122,7 @@ function harness(language = "vi", initialStatus = null) {
   const apiClient = async (url, input) => {
     calls.push({ url, input });
     if (url.includes("/messages?")) {
-      if (held) await held;
-      if (failMessages) throw new Error("Offline");
-      return {
+      const response = {
         data: {
           summary: "Ca kiểm thử vừa gửi.",
           initial_request: initialRequest,
@@ -130,6 +130,9 @@ function harness(language = "vi", initialStatus = null) {
           task_status: status,
         },
       };
+      if (held) await held;
+      if (failMessages) throw new Error("Offline");
+      return response;
     }
     if (url.startsWith("/api/doctor/tasks?")) {
       if (failList) throw new Error("Directory offline");
@@ -155,6 +158,7 @@ function harness(language = "vi", initialStatus = null) {
       react: runtime,
       "../../src/features/doctor-ivr/DoctorIvrEntry": {
         DoctorIvrEntry: "IvrEntry",
+        DoctorIvrInvitation: "IvrInvitation",
       },
       "../../src/lib/native-permissions": {
         runNativePermission: (run) => run(),
@@ -234,9 +238,20 @@ function harness(language = "vi", initialStatus = null) {
       },
       clearTimeout: (id) => timers.delete(id),
       requestAnimationFrame: (work) => work(),
+      cancelAnimationFrame: () => undefined,
     }
   ).default;
-  const render = () => runtime.render(Screen);
+  const render = () => {
+    const tree = runtime.render(Screen);
+    const scroll = nodes(tree).find((node) => node.type === "Scroll");
+    if (scroll) {
+      scroll.props.ref.current = {
+        scrollTo: (options) => scrolls.push(options),
+        scrollToEnd: () => scrolls.push({ end: true }),
+      };
+    }
+    return tree;
+  };
   const settle = async () => {
     let tree;
     for (let i = 0; i < 7; i++) {
@@ -260,6 +275,7 @@ function harness(language = "vi", initialStatus = null) {
     sockets,
     navigation,
     openedUrls,
+    scrolls,
     toasts,
     t,
     render,
@@ -311,6 +327,12 @@ function harness(language = "vi", initialStatus = null) {
           type: "chat.task.status.changed",
           data: { task_id: "new-task", status: status?.status },
         }),
+      });
+      return settle();
+    },
+    chatChange: async (data) => {
+      sockets[0].onmessage({
+        data: JSON.stringify({ type: "chat.message.changed", data }),
       });
       return settle();
     },
@@ -612,6 +634,109 @@ await test("the initial request renders the original description and screening q
   h.cleanup();
 });
 
+await test("approved question sets render an invitation to the matching session in the chat", async () => {
+  const h = harness("vi", { status: "in_progress" });
+  const sessionId = "11111111-1111-4111-8111-111111111111";
+  h.messages([{
+    id: "question-invitation",
+    sender_type: "system",
+    content: "Bác sĩ đã gửi câu hỏi",
+    created_at: "2026-11-19T01:00:00.000Z",
+    ivr_session_id: sessionId,
+  }]);
+  const tree = await h.settle();
+  assert.equal(nodes(tree).find((node) => node.type === "IvrInvitation").props.sessionId, sessionId);
+  assert.deepEqual(nodes(tree).find((node) => node.type === "IvrEntry").props.linkedSessionIds, [sessionId]);
+  h.cleanup();
+});
+
+await test("Doctor's pin, quote, edit and reactions appear in the patient thread", async () => {
+  const h = harness("vi", { status: "in_progress", doctor: assignedDoctor });
+  const created_at = "2026-11-18T04:00:00.000Z";
+  const replyDate = "2026-11-19T04:00:00.000Z";
+  const older = { id: "older", content: "Ghim cũ", sender_type: "patient", created_at, pinned_at: created_at };
+  const original = {
+    id: "pinned", content: "Nội dung đã ghim", sender_type: "doctor",
+    sender_ref: assignedDoctor.id, created_at, pinned_at: "2026-11-20T04:00:00.000Z",
+  };
+  h.messages([
+    older,
+    original,
+    {
+      id: "reply", content: "Tôi đã đọc.", sender_type: "patient", created_at: replyDate,
+      reply_to_message_id: original.id,
+      reply_to: { id: original.id, sender_type: "doctor", kind: "text", content: original.content },
+      is_edited: true,
+      reactions: [{ emoji: "👍", count: 2, reacted_by_me: true }],
+    },
+    { ...older, id: "hidden", content: "Không hiện dòng này.", is_deleted_for_me: true },
+    { ...older, id: "removed", content: null, created_at: replyDate, deleted_at: replyDate },
+  ]);
+  const tree = await h.settle();
+  const dateFormat = new Intl.DateTimeFormat("vi-VN", {
+    day: "numeric", month: "short", year: "numeric",
+  });
+  for (const date of [created_at, replyDate]) {
+    assert.equal(h.texts(tree).filter((value) => value === dateFormat.format(new Date(date))).length, 1);
+  }
+  assert.ok(h.texts(tree).includes(h.t("doctorConsultationMessageEdited")));
+  assert.ok(h.texts(tree).includes(h.t("doctorConsultationOwnMessageUnsent")));
+  assert.ok(!h.texts(tree).includes("Không hiện dòng này."));
+
+  const jumpButtons = nodes(tree).filter((node) => node.type === "Button" &&
+    node.props.accessibilityHint === h.t("doctorConsultationJumpToMessage"));
+  assert.equal(jumpButtons.length, 2);
+  assert.deepEqual(h.texts(jumpButtons[0]), [h.t("doctorConsultationPinnedMessage"), original.content]);
+  assert.deepEqual(h.texts(jumpButtons[1]), [assignedDoctor.name, original.content]);
+  const scroll = nodes(tree).find((node) => node.type === "Scroll");
+  const originalRow = nodes(scroll).find((node) => node.props.onLayout &&
+    h.texts(node).includes(original.content));
+  originalRow.props.onLayout({ nativeEvent: { layout: { y: 240 } } });
+  scroll.props.onContentSizeChange();
+  assert.equal(h.scrolls.at(-1).end, true);
+  for (const button of jumpButtons) button.props.onPress();
+  assert.deepEqual(h.scrolls.slice(-2).map(({ y }) => y), [240 - theme.spacing.sm, 240 - theme.spacing.sm]);
+  const scrollCount = h.scrolls.length;
+  scroll.props.onContentSizeChange();
+  assert.equal(h.scrolls.length, scrollCount);
+
+  const reaction = nodes(tree).find((node) => node.props.accessibilityLabel ===
+    `${h.t("doctorConsultationReact")} 👍 2`);
+  assert.equal(reaction.props.accessibilityState.selected, true);
+  reaction.props.onPress();
+  await h.settle();
+  assert.ok(h.calls.some(({ input }) => input?.body?.action === "react" &&
+    input.body.message_id === "reply" && input.body.reaction === null));
+  h.cleanup();
+});
+
+await test("a Doctor chat change during a pending request triggers a fresh thread read", async () => {
+  const h = harness("en", { status: "in_progress", doctor: assignedDoctor });
+  const requestCount = () => h.calls.filter(({ url }) => url.includes("/messages?")).length;
+  try {
+    await h.settle();
+    await h.socketOpen();
+    const baseline = requestCount();
+    let unblock;
+    h.hold(new Promise((done) => { unblock = done; }));
+    await h.chatChange({ action: "created", message_id: "first" });
+    h.messages([{
+      id: "new-while-loading", sender_type: "doctor", sender_ref: assignedDoctor.id,
+      created_at: "2026-11-19T04:00:00.000Z", content: "Follow-up from Doctor", is_pinned: true,
+    }]);
+    await h.chatChange({ action: "pin", message_id: "new-while-loading" });
+    assert.equal(requestCount(), baseline + 1);
+    h.hold(null);
+    unblock();
+    const tree = await h.settle();
+    assert.ok(h.texts(tree).includes(h.t("doctorConsultationPinnedMessage")));
+    assert.ok(h.texts(tree).includes("Follow-up from Doctor"));
+    assert.equal(requestCount(), baseline + 2);
+  } finally {
+    h.cleanup();
+  }
+});
+
 await test("header call actions use the current room or request a call from the assigned specialist", async () => {
   const active = { status: "in_progress", call_available: true, doctor: assignedDoctor };
   const h = harness("vi", active);
@@ -631,8 +756,8 @@ await test("header call actions use the current room or request a call from the 
   callButton(tree, h.t("doctorConsultationVoiceCall")).props.onPress();
   tree = await h.settle();
   assert.deepEqual(h.openedUrls, [
-    join,
-    join + "#config.startAudioOnly=true&config.startWithVideoMuted=true",
+    join + "#config.disableDeepLinking=true",
+    join + "#config.disableDeepLinking=true&config.startAudioOnly=true&config.startWithVideoMuted=true",
   ]);
 
   h.status({ status: "completed", call_available: false });
@@ -646,9 +771,10 @@ await test("header call actions use the current room or request a call from the 
 
 await test("voice and video invitations label and open their respective join links", async () => {
   const h = harness("vi", { status: "in_progress", doctor: assignedDoctor });
-  const videoUrl = "https://meet.fixture.invalid/asinu-room";
+  const videoUrl = "https://meet.fixture.invalid/asinu-doctor-0123456789abcdef01234567";
   const voiceUrl = `${videoUrl}#config.startAudioOnly=true&config.startWithVideoMuted=true`;
-  h.messages([voiceUrl, videoUrl].map((content, index) => ({
+  const resourceUrl = "https://health.fixture.invalid/resource";
+  h.messages([voiceUrl, videoUrl, resourceUrl].map((content, index) => ({
     id: `call-invitation-${index}`,
     sender_type: "doctor",
     sender_ref: assignedDoctor.id,
@@ -663,9 +789,18 @@ await test("voice and video invitations label and open their respective join lin
   assert.deepEqual(joinLinks.map((link) => h.texts(link).at(-1)), [
     h.t("doctorConsultationJoinVoice"),
     h.t("doctorConsultationJoinVideo"),
+    h.t("doctorConsultationOpenLink"),
   ]);
   for (const link of joinLinks) link.props.onPress();
-  assert.deepEqual(h.openedUrls, [voiceUrl, videoUrl]);
+  assert.equal(h.openedUrls.length, 3);
+  assert.equal(h.openedUrls[2], resourceUrl);
+  h.openedUrls.slice(0, 2).forEach((opened, index) => {
+    const [base, hash] = opened.split("#");
+    assert.equal(base, videoUrl);
+    const config = new URLSearchParams(hash);
+    assert.equal(config.get("config.disableDeepLinking"), "true");
+    assert.equal(config.get("config.startAudioOnly"), index === 0 ? "true" : null);
+  });
   h.cleanup();
 });
 
@@ -715,4 +850,70 @@ await test("patient typing starts immediately, renews during input and stops aft
   h.cleanup();
   await tick();
   assert.deepEqual(signals(), [true, true, false, true, false, true, false, true, false]);
+});
+
+await test("consultation reacts and replies to a specialist message and displays projected results", async () => {
+  const doctor = { id: "doctor-test", name: "Chuyên gia Kiểm thử" };
+  const h = harness("vi", { status: "in_progress", doctor });
+  const incoming = {
+    id: "11111111-1111-4111-8111-111111111111",
+    sender_type: "doctor",
+    sender_ref: doctor.id,
+    message_type: "question",
+    content: "Nội dung được trích dẫn",
+    created_at: new Date().toISOString(),
+    read_at: new Date().toISOString(),
+  };
+  h.messages([incoming]);
+  try {
+    let tree = await h.settle();
+    const openActions = async () => {
+      nodes(tree).find((node) => node.props?.onLongPress).props.onLongPress();
+      tree = await h.settle();
+      return nodes(tree).find((node) => node.type === "Actions" && node.props.visible);
+    };
+    let sheet = await openActions();
+    nodes(sheet.props.headerContent).find((node) =>
+      node.props?.accessibilityLabel === `${h.t("doctorConsultationReact")} 👍`
+    ).props.onPress();
+    tree = await h.settle();
+    assert.ok(h.calls.some(({ input }) =>
+      input?.body?.action === "react" && input.body.message_id === incoming.id && input.body.reaction === "👍"
+    ));
+
+    h.messages([{ ...incoming, reactions: [{ emoji: "👍", count: 1, reacted_by_me: true }] }]);
+    tree = await h.poll();
+    const chip = nodes(tree).find((node) =>
+      node.props?.accessibilityLabel === `${h.t("doctorConsultationReact")} 👍 1`
+    );
+    assert.equal(chip?.props.accessibilityState?.selected, true);
+    chip.props.onPress();
+    tree = await h.settle();
+    assert.ok(h.calls.some(({ input }) => input?.body?.action === "react" && input.body.reaction === null));
+
+    sheet = await openActions();
+    sheet.props.onDismiss();
+    sheet.props.actions.find((action) => action.key === "reply").onPress();
+    tree = await h.settle();
+    assert.ok(h.texts(tree).includes(h.t("doctorConsultationReplyingTo", { name: doctor.name })));
+    h.composer(tree).props.onChangeText("Tin trả lời");
+    tree = await h.settle();
+    nodes(tree).find((node) => node.type === "Button" && node.props.children?.props?.name === "paper-plane").props.onPress();
+    tree = await h.settle();
+    assert.ok(h.calls.some(({ input }) => input?.body?.content === "Tin trả lời" && input.body.reply_to_message_id === incoming.id));
+    assert.ok(!h.texts(tree).includes(h.t("doctorConsultationReplyingTo", { name: doctor.name })));
+
+    h.messages([incoming, {
+      ...incoming,
+      id: "22222222-2222-4222-8222-222222222222",
+      sender_type: "patient",
+      content: "Tin trả lời",
+      reply_to_message_id: incoming.id,
+      reply_to: { id: incoming.id, sender_type: "doctor", content: incoming.content, kind: "text" },
+    }]);
+    tree = await h.poll();
+    assert.equal(h.texts(tree).filter((text) => text === incoming.content).length, 2);
+  } finally {
+    h.cleanup();
+  }
 });

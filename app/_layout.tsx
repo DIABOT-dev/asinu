@@ -175,11 +175,14 @@ export default function RootLayout() {
                           <Stack.Screen name="doctor-consultation" />
                           <Stack.Screen name="doctor-consultation/[taskId]" />
                           <Stack.Screen name="doctor-consultation-history" />
+                          <Stack.Screen
+                            name="doctor-interview/[sessionId]"
+                            options={{ presentation: "fullScreenModal" }}
+                          />
                           <Stack.Screen name="doctor-care" />
                           <Stack.Screen name="privacy-center" />
                         </Stack.Protected>
                         <Stack.Protected guard={isDoctorFeaturesEnabled}>
-                          <Stack.Screen name="doctor-interview/[sessionId]" />
                           <Stack.Screen name="doctor-call/[sessionId]" />
                           <Stack.Screen name="doctor-interview/preview" />
                         </Stack.Protected>

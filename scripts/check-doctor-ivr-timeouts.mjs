@@ -22,7 +22,7 @@ const visit = (node) => {
 visit(ast);
 assert.ok(effect, "Test must exercise the real response timer effect");
 const code = ts.transpileModule(
-  `const {q,session,busy,recording,voiceOption,error,pending,audioState,responseRetries,screenEpoch,focused,inFlight,recorder,state,replay,sendSkip,setTimeout,clearTimeout}=context;return (${effect})();`,
+  `const {q,session,params,busy,recording,voiceOption,error,pending,audioState,responseRetries,screenEpoch,focused,inFlight,recorder,state,replay,sendSkip,setTimeout,clearTimeout}=context;return (${effect})();`,
   { compilerOptions: { target: ts.ScriptTarget.ES2020 } }
 ).outputText;
 // Execute trusted screen logic with a controlled native clock; no reimplementation.
@@ -35,6 +35,7 @@ const setup = (patch = {}) => {
   const context = {
     q: { id: "q1" },
     session: { status: "in_progress", response_timeout_seconds: 10 },
+    params: { callAttempt: "fixture-call" },
     busy: false,
     recording: false,
     voiceOption: null,
@@ -72,6 +73,7 @@ dispose = run(flow.context);
 assert.deepEqual(flow.events, ["replay", "no_response"]);
 dispose();
 for (const patch of [
+  { params: {} },
   { audioState: { phase: "playing" } },
   { audioState: { phase: "loading" } },
   { busy: true },
@@ -107,5 +109,5 @@ for (const change of [
   assert.equal(item.timers.size, 0);
 }
 console.log(
-  "PASS actual QR-10 timer replays once then skips, excludes narration/recording/uploads, and rejects stale/background/answer races"
+  "PASS in-app questions have no response timer; calls retry once, with playback, recording, uploads and stale events excluded"
 );

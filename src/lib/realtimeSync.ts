@@ -112,6 +112,8 @@ const REFRESH_BY_TYPE: Record<string, RealtimeRefreshTarget[]> = {
   reengagement:            ['notifications'],
   engagement:              ['notifications'],
   doctor_message:          ['notifications'],
+  doctor_ivr_session:      ['notifications'],
+  doctor_ivr_reply:        ['notifications'],
 
 };
 

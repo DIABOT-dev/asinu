@@ -96,6 +96,7 @@ function AuthenticatedDoctorInterview() {
   const params = useLocalSearchParams<{
       sessionId: string;
       callAttempt?: string;
+      start?: string;
     }>(),
     id = Array.isArray(params.sessionId)
       ? params.sessionId[0]
@@ -108,6 +109,7 @@ function AuthenticatedDoctorInterview() {
     [error, setError] = useState<string | null>(null),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true);
+  const autoStartAttempted = useRef(false);
   const [recording, setRecording] = useState(false),
     [seconds, setSeconds] = useState(0),
     [voiceOption, setVoiceOption] = useState<IvrOption | null>(null),
@@ -400,6 +402,19 @@ function AuthenticatedDoctorInterview() {
       }
     }
   };
+  useEffect(() => {
+    if (
+      params.start !== "1" ||
+      params.callAttempt ||
+      session?.status !== "sent" ||
+      autoStartAttempted.current ||
+      !focused.current ||
+      inFlight.current
+    )
+      return;
+    autoStartAttempted.current = true;
+    void act({ action: "start" });
+  }, [act, params.callAttempt, params.start, session?.status]);
   const refreshQueue = useCallback(async () => {
     if (!owner) return;
     const values = await listPendingVoices(String(owner), id);
@@ -560,6 +575,7 @@ function AuthenticatedDoctorInterview() {
     if (responseRetries.current.question !== q?.id)
       responseRetries.current = { question: q?.id || "", count: 0 };
     if (
+      !params.callAttempt ||
       !q ||
       session?.status !== "in_progress" ||
       busy ||
@@ -586,6 +602,7 @@ function AuthenticatedDoctorInterview() {
     }, (session.response_timeout_seconds || 10) * 1000);
     return () => clearTimeout(timer);
   }, [
+    params.callAttempt,
     q?.id,
     session?.status,
     session?.response_timeout_seconds,
@@ -1157,6 +1174,7 @@ export function DoctorInterviewView({
         {session?.status === "in_progress" && q && (
           <>
             <DoctorIvrQuestion
+              key={q.id}
               question={q}
               index={index}
               total={session.content.questions.length}

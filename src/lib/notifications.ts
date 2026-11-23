@@ -697,7 +697,7 @@ export function routeFromNotificationData(
     return "/feed";
   }
   if (type === "doctor_ivr_session" || type === "doctor_ivr_reply") {
-    if (!isDoctorFeaturesEnabled) return "/(tabs)/home";
+    if (!isExpertConsultationEnabled) return "/(tabs)/home";
     const sessionId = String(data?.sessionId || "");
     if (
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(
@@ -706,7 +706,10 @@ export function routeFromNotificationData(
     )
       return {
         pathname: "/doctor-interview/[sessionId]",
-        params: { sessionId },
+        params: {
+          sessionId,
+          ...(type === "doctor_ivr_session" ? { start: "1" } : {}),
+        },
       };
     return "/doctor-consultation";
   }

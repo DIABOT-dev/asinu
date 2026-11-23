@@ -322,7 +322,14 @@ assert.ok(
   doctorRoutes.length >= 6,
   "Dedicated Dr.Asinu routes were not discovered"
 );
-const consultationRoutes = new Set(['doctor-consultation', 'doctor-consultation/[taskId]', 'doctor-consultation-history', 'doctor-care', 'privacy-center']);
+const consultationRoutes = new Set([
+  "doctor-consultation",
+  "doctor-consultation/[taskId]",
+  "doctor-consultation-history",
+  "doctor-interview/[sessionId]",
+  "doctor-care",
+  "privacy-center",
+]);
 function filteredRoutes(enabled, consultationEnabled = true) {
   const { layout } = evaluate(
     `export const layout = (${stack.getText(root)});`,
@@ -343,7 +350,7 @@ function filteredRoutes(enabled, consultationEnabled = true) {
   });
   return filterScreenChildren(mapped.children);
 }
-await test("the actual Expo navigator keeps consultation available while excluding IVR/interview screens", () => {
+await test("the Expo navigator keeps consultations and questionnaires available while excluding legacy calls and previews", () => {
   const result = filteredRoutes(false);
   assert.deepEqual(
     [...result.protectedScreens].sort(),
@@ -708,12 +715,12 @@ await test("an IVR invitation cannot appear from cached state or start polling w
     }
   );
   assert.equal(
-    component.DoctorIvrEntry({ tenantId: "fixture", taskId: "fixture" }),
+    component.DoctorIvrEntry({ tenantId: "fixture", taskId: "fixture", linkedSessionIds: [] }),
     null
   );
   assert.equal(requests, 0);
 });
-await test("consultation can receive messages and quick replies while IVR stays disabled", async () => {
+await test("consultation can receive messages, quick replies and questionnaires while legacy calls stay disabled", async () => {
   flags.isExpertConsultationEnabled = true;
   assert.equal(flags.isDoctorFeaturesEnabled, false);
   assert.equal(
@@ -721,6 +728,15 @@ await test("consultation can receive messages and quick replies while IVR stays 
       .pathname,
     "/doctor-consultation/[taskId]"
   );
+  const sessionId = "11111111-1111-4111-8111-111111111111";
+  assert.deepEqual(routeFromNotificationData({ type: "doctor_ivr_session", sessionId }), {
+    pathname: "/doctor-interview/[sessionId]",
+    params: { sessionId, start: "1" },
+  });
+  assert.deepEqual(routeFromNotificationData({ type: "doctor_ivr_reply", sessionId }), {
+    pathname: "/doctor-interview/[sessionId]",
+    params: { sessionId },
+  });
   await registerNotificationCategories();
   assert.ok(
     categories.some(
