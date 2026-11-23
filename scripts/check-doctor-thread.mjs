@@ -87,16 +87,20 @@ function harness(language = "vi", initialStatus = null) {
     scrolls = [],
     toasts = [],
     sockets = [],
+    appStateListeners = new Set(),
     intervals = new Map(),
     timers = new Map();
   let sequence = 0,
+    focused = true,
     status = initialStatus,
+    doctorPresence = null,
     messages = [],
     initialRequest = null,
     fallbackStatus = null,
     failMessages = false,
     failList = false,
-    held;
+    held,
+    heldFull;
   let now = Date.now();
   const TestDate = class extends Date {
     static now() {
@@ -127,9 +131,11 @@ function harness(language = "vi", initialStatus = null) {
           summary: "Ca kiểm thử vừa gửi.",
           initial_request: initialRequest,
           messages,
+          doctor_presence: doctorPresence,
           task_status: status,
         },
       };
+      if (!url.includes("view=messages") && heldFull) await heldFull;
       if (held) await held;
       if (failMessages) throw new Error("Offline");
       return response;
@@ -150,7 +156,10 @@ function harness(language = "vi", initialStatus = null) {
     constructor() {
       sockets.push(this);
     }
-    close() {}
+    close() {
+      this.closed = true;
+      this.onclose?.();
+    }
   }
   const Screen = evaluate(
     "app/doctor-consultation/[taskId].tsx",
@@ -167,6 +176,7 @@ function harness(language = "vi", initialStatus = null) {
       "expo-image-picker": {},
       "expo-router": {
         Stack: { Screen: "Stack" },
+        useIsFocused: () => focused,
         useLocalSearchParams: () => ({
           taskId: "new-task",
           tenantId: "clinic-demo",
@@ -175,6 +185,13 @@ function harness(language = "vi", initialStatus = null) {
       "react-i18next": { useTranslation: () => ({ t, i18n: { language } }) },
       "react-native": {
         ActivityIndicator: "Spinner",
+        AppState: {
+          currentState: "active",
+          addEventListener: (_event, listener) => {
+            appStateListeners.add(listener);
+            return { remove: () => appStateListeners.delete(listener) };
+          },
+        },
         KeyboardAvoidingView: "Keyboard",
         Platform: { OS: "ios" },
         Pressable: "Button",
@@ -216,7 +233,11 @@ function harness(language = "vi", initialStatus = null) {
         },
       },
       "../../src/lib/tokenStore": {
-        tokenStore: { loadToken: async () => "fixture-token", getToken: () => "fixture-token" },
+        tokenStore: {
+          loadToken: async () => "fixture-token",
+          getToken: () => "fixture-token",
+          subscribeSession: () => () => {},
+        },
       },
       "../../src/stores/toast.store": { showToast: (message, type) => toasts.push({ message, type }) },
       "../../src/styles": theme,
@@ -295,6 +316,13 @@ function harness(language = "vi", initialStatus = null) {
     status(value) {
       status = value;
     },
+    doctorPresence(value) {
+      doctorPresence = value;
+    },
+    presenceEvent: async (data) => {
+      sockets[0].onmessage({ data: JSON.stringify({ type: "chat.doctor.presence.changed", data }) });
+      return settle();
+    },
     messages(value) {
       messages = value;
     },
@@ -312,6 +340,9 @@ function harness(language = "vi", initialStatus = null) {
     },
     hold(value) {
       held = value;
+    },
+    holdFull(value) {
+      heldFull = value;
     },
     poll: async () => {
       intervals.forEach((work) => work());
@@ -334,6 +365,14 @@ function harness(language = "vi", initialStatus = null) {
       sockets[0].onmessage({
         data: JSON.stringify({ type: "chat.message.changed", data }),
       });
+      return settle();
+    },
+    appState: async (state) => {
+      appStateListeners.forEach((listener) => listener(state));
+      return settle();
+    },
+    focus: async (value) => {
+      focused = value;
       return settle();
     },
   };
@@ -434,6 +473,37 @@ await test("reconnecting WebSocket refreshes lifecycle changes missed while disc
     await h.socketOpen();
     h.status({ status: "completed", rateable: true });
     assert.equal(h.composer(await h.socketOpen()), undefined);
+  } finally {
+    h.cleanup();
+  }
+});
+
+await test("background closes the task socket and foreground reconnects it", async () => {
+  const h = harness("vi", { status: "in_progress", rateable: false });
+  try {
+    await h.settle();
+    await h.socketOpen();
+    assert.equal(h.sockets.length, 1);
+    await h.appState("background");
+    assert.equal(h.sockets[0].closed, true);
+    await h.appState("active");
+    assert.equal(h.sockets.length, 2);
+  } finally {
+    h.cleanup();
+  }
+});
+
+await test("leaving the consultation closes its socket even when the route remains mounted", async () => {
+  const h = harness("vi", { status: "in_progress", rateable: false });
+  try {
+    await h.settle();
+    await h.socketOpen();
+    await h.focus(false);
+    assert.equal(h.sockets[0].closed, true);
+    assert.equal(h.sockets.length, 1);
+    await h.focus(true);
+    assert.equal(h.sockets.length, 2);
+    assert.equal(h.sockets[1].closed, undefined);
   } finally {
     h.cleanup();
   }
@@ -606,9 +676,37 @@ await test("each specialist message shows its author, including after a removed 
     node.type === "Image" && node.props.source.uri === assignedDoctor.avatar_url
   ).length, 3);
   assert.ok(!h.texts(tree).includes("Hủy ca tư vấn"));
-  assert.equal(h.texts(tree).filter((text) => text === h.t("doctorConsultationStatus_in_progress")).length, 1);
+  assert.equal(h.texts(tree).filter((text) => text === h.t("doctorConsultationExpertStatusUnknown")).length, 1);
   assert.equal(h.calls.filter((call) => call.url.endsWith("/cancel")).length, 0);
   h.cleanup();
+});
+
+await test("waiting-user chat shows only the assigned expert's presence, and live presence expires", async () => {
+  const h = harness("vi", { status: "waiting_user", doctor: assignedDoctor });
+  const availableUntil = new Date(Date.now() + 45_000).toISOString();
+  try {
+    h.doctorPresence({ doctor_ref: assignedDoctor.id, status: "offline", expires_at: null });
+    let tree = await h.settle();
+    assert.ok(h.texts(tree).includes(h.t("doctorConsultationExpertOffline")));
+    assert.ok(!h.texts(tree).includes(h.t("doctorConsultationStatus_waiting_user")));
+    assert.ok(h.composer(tree));
+    await h.socketOpen();
+    tree = await h.presenceEvent({ doctor_ref: "other-expert", status: "online", expires_at: availableUntil });
+    assert.ok(!h.texts(tree).includes(h.t("doctorConsultationExpertOnline")));
+    tree = await h.presenceEvent({ doctor_ref: assignedDoctor.id, status: "online", expires_at: availableUntil });
+    assert.ok(h.texts(tree).includes(h.t("doctorConsultationExpertOnline")));
+    tree = await h.presenceEvent({ doctor_ref: "other-expert", status: "offline", expires_at: null });
+    assert.ok(h.texts(tree).includes(h.t("doctorConsultationExpertOnline")));
+    tree = await h.presenceEvent({ doctor_ref: assignedDoctor.id, status: "offline", expires_at: null });
+    assert.ok(h.texts(tree).includes(h.t("doctorConsultationExpertOffline")));
+    tree = await h.presenceEvent({ doctor_ref: assignedDoctor.id, status: "online", expires_at: availableUntil });
+    assert.ok(h.texts(tree).includes(h.t("doctorConsultationExpertOnline")));
+    tree = await h.advanceTime(46_000);
+    assert.ok(h.texts(tree).includes(h.t("doctorConsultationExpertOffline")));
+    assert.ok(!h.texts(tree).includes(h.t("doctorConsultationExpertOnline")));
+  } finally {
+    h.cleanup();
+  }
 });
 
 await test("the initial request renders the original description and screening questions as distinct fields", async () => {
@@ -733,6 +831,34 @@ await test("a Doctor chat change during a pending request triggers a fresh threa
     assert.ok(h.texts(tree).includes("Follow-up from Doctor"));
     assert.equal(requestCount(), baseline + 2);
   } finally {
+    h.cleanup();
+  }
+});
+
+await test("a new message appears while the consultation status request is still pending", async () => {
+  const h = harness("en", { status: "in_progress", doctor: assignedDoctor });
+  let unblock;
+  h.holdFull(new Promise((done) => { unblock = done; }));
+  try {
+    await h.settle();
+    await h.socketOpen();
+    const message = {
+      id: "realtime-while-status-pending",
+      sender_type: "doctor",
+      sender_ref: assignedDoctor.id,
+      content: "New reply",
+      created_at: "2026-11-19T04:00:00.000Z",
+    };
+    h.messages([message]);
+    const tree = await h.chatChange({ action: "created", message_id: message.id });
+    assert.ok(h.texts(tree).includes(message.content));
+    assert.equal(h.calls.filter(({ url }) => url.includes("/messages?") && !url.includes("view=messages")).length, 1);
+    assert.equal(h.calls.filter(({ url }) => url.includes("view=messages")).length, 1);
+    h.holdFull(null);
+    unblock();
+    assert.ok(h.texts(await h.settle()).includes(message.content));
+  } finally {
+    unblock();
     h.cleanup();
   }
 });
@@ -913,6 +1039,150 @@ await test("consultation reacts and replies to a specialist message and displays
     }]);
     tree = await h.poll();
     assert.equal(h.texts(tree).filter((text) => text === incoming.content).length, 2);
+  } finally {
+    h.cleanup();
+  }
+});
+
+function entryPromptFixture() {
+  const runtime = hooks();
+  const routes = [];
+  const requests = [];
+  let pathname = "/home";
+  let auth = { token: "fixture", hydrated: true, loading: false, profile: { id: 1, onboardingCompleted: true } };
+  let guidanceReady = true;
+  let blocked = false;
+  let requestsHeld;
+  let tasks = [];
+  let foregroundListener;
+  const authStore = Object.assign((select) => select(auth), { getState: () => auth });
+  const feature = { isExpertConsultationEnabled: true };
+  const taskService = evaluate("src/features/doctor-consultation/consultation-tasks.ts", {
+    "../../lib/appEnv": feature,
+    "../../lib/env": { env: { doctorTenantId: "clinic-default" } },
+    "../../lib/apiClient": {
+      async apiClient(url) {
+        requests.push(url);
+        if (url === "/api/doctor/clinics") {
+          return { data: { items: [{ tenant_id: "clinic-other" }] } };
+        }
+        const response = { data: { tasks: url.includes("clinic-other") ? tasks : [] } };
+        if (requestsHeld) await requestsHeld;
+        return response;
+      },
+    },
+  });
+  const { ConsultationEntryPrompt: Prompt } = evaluate(
+    "src/features/doctor-consultation/ConsultationEntryPrompt.tsx",
+    {
+      "expo-router": { usePathname: () => pathname },
+      "react": runtime,
+      "react-i18next": { useTranslation: () => ({ t: (key) => key }) },
+      "react-native": { AppState: {
+        currentState: "active",
+        addEventListener(_event, listener) {
+          foregroundListener = listener;
+          return { remove() { foregroundListener = undefined; } };
+        },
+      } },
+      "../../components/AppAlertModal": { AppAlertModal: "Alert" },
+      "../../hooks/useCheckinPresentation": { useCheckinPresentationBlocked: () => blocked },
+      "../../hooks/useGuardedRouter": { useGuardedRouter: () => ({ push: (route) => routes.push(route) }) },
+      "../../lib/appEnv": feature,
+      "../auth/auth.store": { useAuthStore: authStore },
+      "../guidance/guidance.store": { useGuidanceStore: (select) => select({
+        account: String(auth.profile?.id), ready: guidanceReady,
+        progress: { welcomeSeen: true }, welcomeOpen: !guidanceReady,
+      }) },
+      "./consultation-tasks": taskService,
+    },
+  );
+  return {
+    routes,
+    requests,
+    tasks(value) { tasks = value; },
+    path(value) { pathname = value; },
+    foreground(value) { foregroundListener(value); },
+    guidance(value) { guidanceReady = value; },
+    checkin(value) { blocked = value; },
+    logout() { auth = { ...auth, token: null, profile: null }; },
+    hold(value) { requestsHeld = value; },
+    async settle() {
+      runtime.render(Prompt);
+      await tick();
+      return runtime.render(Prompt).props;
+    },
+    cleanup: () => runtime.unmount(),
+  };
+}
+
+await test("Home prompts for an open consultation only once per entry and resumes the matching clinic chat", async () => {
+  const h = entryPromptFixture();
+  try {
+    h.tasks([
+      { task_id: "newer-closed", status: "completed", created_at: "2026-11-21", follow_up_until: "2020-01-01" },
+      { task_id: "open", status: "waiting_user", created_at: "2026-11-20" },
+    ]);
+    h.guidance(false);
+    assert.equal((await h.settle()).visible, false);
+    assert.deepEqual(h.requests, []);
+    h.guidance(true);
+    const modal = await h.settle();
+    assert.equal(modal.visible && modal.queued, true);
+    assert.equal(modal.buttons[1].text, "doctorConsultationContinueLater");
+    modal.onDismiss();
+    h.path("/account");
+    await h.settle();
+    h.path("/home");
+    h.foreground("inactive");
+    h.foreground("active");
+    assert.equal((await h.settle()).visible, false);
+    assert.equal(h.requests.length, 3);
+
+    h.foreground("background");
+    assert.equal((await h.settle()).visible, false);
+    h.foreground("active");
+    const nextModal = await h.settle();
+    assert.equal(nextModal.visible, true);
+    nextModal.onDismiss();
+    nextModal.buttons[0].onPress();
+    assert.deepEqual(h.routes, [{
+      pathname: "/doctor-consultation/[taskId]",
+      params: { taskId: "open", tenantId: "clinic-other" },
+    }]);
+  } finally {
+    h.cleanup();
+  }
+});
+
+await test("startup ignores closed and unknown cases, deep links to chat and results received after logout", async () => {
+  const h = entryPromptFixture();
+  try {
+    h.path("/doctor-consultation/open");
+    assert.equal((await h.settle()).visible, false);
+    h.path("/home");
+    assert.equal((await h.settle()).visible, false);
+    assert.deepEqual(h.requests, []);
+
+    h.tasks([{ task_id: "unknown", status: null, created_at: "2026-11-20" }]);
+    h.foreground("background");
+    h.foreground("active");
+    assert.equal((await h.settle()).visible, false);
+
+    h.foreground("background");
+    h.foreground("active");
+    h.checkin(true);
+    assert.equal((await h.settle()).visible, false);
+    assert.equal(h.requests.length, 3);
+    h.checkin(false);
+    h.tasks([{ task_id: "open", status: "in_progress", created_at: "2026-11-20" }]);
+    let release;
+    h.hold(new Promise((resolve) => { release = resolve; }));
+    await h.settle();
+    h.logout();
+    release();
+    assert.equal((await h.settle()).visible, false);
+    assert.deepEqual(h.routes, []);
   } finally {
     h.cleanup();
   }

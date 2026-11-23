@@ -13,33 +13,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScaledText as Text } from "../src/components/ScaledText";
 import { Screen } from "../src/components/Screen";
 import { ScreenBackButton } from "../src/components/ScreenHeaderButton";
+import {
+  isFollowUpOpen,
+  listConsultationTasks,
+  type ConsultationTask,
+} from "../src/features/doctor-consultation/consultation-tasks";
 import { useThemeColors } from "../src/hooks/useThemeColors";
 import { useGuardedRouter as useRouter } from "../src/hooks/useGuardedRouter";
-import { apiClient } from "../src/lib/apiClient";
 import { env } from "../src/lib/env";
 import { radius, shadows, spacing, typography } from "../src/styles";
-
-type ConsultationTask = {
-  tenant_id?: string;
-  task_id: string;
-  summary: string;
-  status?: string | null;
-  follow_up_until?: string | null;
-  created_at: string;
-  latest_message?: string | null;
-  latest_sender_type?: "patient" | "doctor" | null;
-  latest_message_at?: string | null;
-};
-
-type TaskListResponse = {
-  ok: boolean;
-  data?: { tasks: ConsultationTask[] };
-};
-
-type ClinicListResponse = {
-  ok: boolean;
-  data?: { items: Array<{ tenant_id: string }> };
-};
 
 const TERMINAL_STATUSES = new Set([
   "completed",
@@ -68,13 +50,6 @@ const previewText = (
   if (message?.startsWith("[ASINU_VOICE]")) return voiceLabel;
   return message;
 };
-
-const isFollowUpOpen = (task: ConsultationTask) =>
-  task.status === "completed" &&
-  Boolean(
-    task.follow_up_until &&
-      new Date(task.follow_up_until).getTime() > Date.now()
-  );
 
 const formatDate = (value: string, language: string) => {
   const date = new Date(value);
@@ -119,44 +94,7 @@ export default function DoctorConsultationHistoryScreen() {
     setLoading(true);
     setError(false);
     try {
-      const clinicResponse = await apiClient<ClinicListResponse>(
-        "/api/doctor/clinics",
-        { method: "POST", body: {} }
-      ).catch(() => null);
-      const tenantIds = Array.from(
-        new Set(
-          [
-            env.doctorTenantId,
-            ...(clinicResponse?.data?.items ?? []).map(
-              (item) => item.tenant_id
-            ),
-          ].filter(Boolean)
-        )
-      );
-      const responses = await Promise.allSettled(
-        tenantIds.map((tenantId) =>
-          apiClient<TaskListResponse>(
-            `/api/doctor/tasks?tenant_id=${encodeURIComponent(tenantId)}`,
-            {
-              retry: { attempts: 3, initialDelayMs: 500, backoffFactor: 2 },
-            }
-          )
-        )
-      );
-      const merged = responses.flatMap((response) =>
-        response.status === "fulfilled" ? response.value.data?.tasks ?? [] : []
-      );
-      const unique = Array.from(
-        new Map(merged.map((task) => [task.task_id, task])).values()
-      ).sort(
-        (left, right) =>
-          new Date(right.latest_message_at || right.created_at).getTime() -
-          new Date(left.latest_message_at || left.created_at).getTime()
-      );
-      setTasks(unique);
-      if (responses.every((response) => response.status === "rejected")) {
-        setError(true);
-      }
+      setTasks(await listConsultationTasks());
     } catch {
       setTasks([]);
       setError(true);

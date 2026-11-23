@@ -478,7 +478,7 @@ await test("every navigation call, href and Dr.Asinu API action across the entir
         const line =
           tree.getLineAndCharacterOfPosition(node.getStart(tree)).line + 1;
         const destinations = doctorApi ? resolve(node.arguments[0]) : values;
-        const consultationOnly = destinations.every((value) => /^\/(?:doctor-consultation(?:[/?#-]|$)|privacy-center(?:[/?#]|$))|^\/api\/doctor\/(?:tasks(?:[/?#]|$)|specialists(?:[/?#]|$)|specialty-options(?:[/?#]|$)|screening(?:[/?#]|$))/.test(value));
+        const consultationOnly = destinations.every((value) => /^\/(?:doctor-consultation(?:[/?#-]|$)|privacy-center(?:[/?#]|$))|^\/api\/doctor\/(?:tasks|clinics|specialists|specialty-options|screening)(?:[/?#]|$)/.test(value));
         assert.ok(
           hasVisibilityGuard(node, tree) || (consultationOnly && hasVisibilityGuard(node, tree, 'isExpertConsultationEnabled')),
           `Dr.Asinu action is not hidden: ${file}:${line}`

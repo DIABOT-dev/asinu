@@ -27,6 +27,7 @@ import {
 import { useAuthStore } from "../src/features/auth/auth.store";
 import { GlobalToastHost } from "../src/components/GlobalToastHost";
 import { CareCircleInvitationModal } from "../src/components/CareCircleInvitationModal";
+import { ConsultationEntryPrompt } from "../src/features/doctor-consultation/ConsultationEntryPrompt";
 import {
   QueuedModalHost,
   QueuedModalProvider,
@@ -209,6 +210,7 @@ export default function RootLayout() {
                       </Stack>
                       <GlobalToastHost />
                       <CareCircleInvitationModal />
+                      {isExpertConsultationEnabled && <ConsultationEntryPrompt />}
                       <AppUpdateGate />
                       <QueuedModalHost />
                     </CarePulseProvider>

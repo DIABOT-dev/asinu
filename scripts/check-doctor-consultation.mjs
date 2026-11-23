@@ -177,6 +177,17 @@ async function historyHarness(tasks, isDark = false) {
   const runtime = hooks();
   const navigation = [];
   const colors = isDark ? theme.darkColors : theme.lightColors;
+  const environment = { env: { doctorTenantId: "default-clinic" } };
+  const taskService = load("src/features/doctor-consultation/consultation-tasks.ts", {
+    "../../lib/appEnv": { isExpertConsultationEnabled: true },
+    "../../lib/env": environment,
+    "../../lib/apiClient": {
+      apiClient: async (resource) =>
+        resource === "/api/doctor/clinics"
+          ? { ok: true, data: { items: [] } }
+          : { ok: true, data: { tasks } },
+    },
+  });
   const Screen = load("app/doctor-consultation-history.tsx", {
     react: runtime,
     "@expo/vector-icons": { Ionicons: "Ionicons" },
@@ -210,13 +221,8 @@ async function historyHarness(tasks, isDark = false) {
     "../src/hooks/useGuardedRouter": {
       useGuardedRouter: () => ({ push: (route) => navigation.push(route) }),
     },
-    "../src/lib/apiClient": {
-      apiClient: async (resource) =>
-        resource === "/api/doctor/clinics"
-          ? { ok: true, data: { items: [] } }
-          : { ok: true, data: { tasks } },
-    },
-    "../src/lib/env": { env: { doctorTenantId: "default-clinic" } },
+    "../src/features/doctor-consultation/consultation-tasks": taskService,
+    "../src/lib/env": environment,
     "../src/styles": theme,
   }).default;
   const screen = await runtime.settle(Screen);

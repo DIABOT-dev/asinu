@@ -5,11 +5,12 @@ import {
 import { runNativePermission } from "../../src/lib/native-permissions";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useIsFocused, useLocalSearchParams } from "expo-router";
 import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  AppState,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -76,6 +77,11 @@ type ConsultationDoctor = {
   id: string;
   name: string;
   avatar_url: string | null;
+};
+type DoctorPresence = {
+  doctor_ref: string;
+  status: "online" | "offline";
+  expires_at: string | null;
 };
 type InitialRequest = {
   description: string;
@@ -145,6 +151,7 @@ type ThreadResponse = {
     summary: string | null;
     initial_request?: InitialRequest | null;
     messages: TaskMessage[];
+    doctor_presence?: DoctorPresence | null;
     typing?: {
       actor_type: string | null;
       expires_at: string | null;
@@ -239,6 +246,7 @@ export default function DoctorConsultationThreadScreen() {
   const { t, i18n } = useTranslation("home");
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const focused = useIsFocused();
   const { taskId: rawTaskId, tenantId: rawTenantId } = useLocalSearchParams<{
     taskId: string;
     tenantId?: string;
@@ -254,6 +262,8 @@ export default function DoctorConsultationThreadScreen() {
   const [initialRequest, setInitialRequest] = useState<InitialRequest | null>(null);
   const [messages, setMessages] = useState<TaskMessage[]>([]);
   const [doctorTyping, setDoctorTyping] = useState(false);
+  const [doctorPresence, setDoctorPresence] = useState<DoctorPresence | null>(null);
+  const presenceEventVersion = useRef(0);
   const [draft, setDraft] = useState("");
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const composerInputRef = useRef<NativeTextInput>(null);
@@ -293,6 +303,7 @@ export default function DoctorConsultationThreadScreen() {
   const taskStatusRef = useRef(taskStatus);
   taskStatusRef.current = taskStatus;
   const threadLoadRef = useRef({ version: 0, pending: false, refreshRequested: false });
+  const messageSyncRef = useRef({ started: 0, applied: 0, pending: false, refreshRequested: false });
   const [statusClock, setStatusClock] = useState(() => Date.now());
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [busyModalVisible, setBusyModalVisible] = useState(false);
@@ -301,6 +312,57 @@ export default function DoctorConsultationThreadScreen() {
   const [actionMessage, setActionMessage] = useState<TaskMessage | null>(null);
   const busyModalShownRef = useRef(false);
 
+  const messagesEndpoint = `/api/doctor/tasks/${encodeURIComponent(taskId ?? "")}/messages`;
+  const tenantQuery = `tenant_id=${encodeURIComponent(activeTenantId)}`;
+
+  const applyMessages = (data: ThreadResponse["data"], order: number) => {
+    if (!data || order <= messageSyncRef.current.applied) return;
+    messageSyncRef.current.applied = order;
+    setSummary(data.summary ?? null);
+    setInitialRequest(data.initial_request ?? null);
+    setMessages(data.messages);
+    setDoctorTyping(data.typing?.is_typing === true);
+    const unread = data.messages
+      .filter((message) => message.sender_type !== "patient" &&
+        !message.is_deleted_for_me && !isUnsent(message) && !message.read_at)
+      .map((message) => message.id);
+    if (unread.length) {
+      void apiClient(`${messagesEndpoint}/action`, {
+        method: "POST",
+        body: { tenant_id: activeTenantId, action: "read", message_ids: unread },
+      }).catch(() => undefined);
+    }
+  };
+
+  const loadMessageUpdates = async () => {
+    if (!taskId) return;
+    const sync = messageSyncRef.current;
+    if (sync.pending) {
+      sync.refreshRequested = true;
+      return;
+    }
+    sync.pending = true;
+    const order = ++sync.started;
+    const token = tokenStore.getToken();
+    const current = () => sync === messageSyncRef.current && token === tokenStore.getToken();
+    try {
+      const response = await apiClient<ThreadResponse>(`${messagesEndpoint}?${tenantQuery}&view=messages`, {
+        retry: { attempts: 2 },
+      });
+      if (!current() || !response.data) return;
+      applyMessages(response.data, order);
+      setLoading(false);
+    } catch {
+      if (current()) void loadThread(false, true);
+    } finally {
+      sync.pending = false;
+      if (current() && sync.refreshRequested) {
+        sync.refreshRequested = false;
+        void loadMessageUpdates();
+      }
+    }
+  };
+
   const loadThread = async (showLoading = false, refreshIfBusy = false) => {
     if (!taskId) return;
     if (threadLoadRef.current.pending) {
@@ -308,43 +370,25 @@ export default function DoctorConsultationThreadScreen() {
       return;
     }
     const request = ++threadLoadRef.current.version;
+    const messageOrder = ++messageSyncRef.current.started;
+    const presenceVersionAtFetch = presenceEventVersion.current;
     threadLoadRef.current.pending = true;
+    const token = tokenStore.getToken();
     const current = () => request === threadLoadRef.current.version;
     if (showLoading) setLoading(true);
     try {
       const response = await apiClient<ThreadResponse>(
-        `/api/doctor/tasks/${encodeURIComponent(
-          taskId
-        )}/messages?tenant_id=${encodeURIComponent(activeTenantId)}`,
+        `${messagesEndpoint}?${tenantQuery}`,
         {
           // A tunnel/backend cold start should not surface as a false chat
           // loading error on the first render.
           retry: { attempts: 3, initialDelayMs: 500, backoffFactor: 2 },
         }
       );
-      if (!current()) return;
-      setSummary(response.data?.summary ?? null);
-      setInitialRequest(response.data?.initial_request ?? null);
-      setMessages(response.data?.messages ?? []);
-      setDoctorTyping(response.data?.typing?.is_typing === true);
-      const unreadDoctorMessages = (response.data?.messages ?? [])
-        .filter(
-          (message) => message.sender_type !== "patient" &&
-            !message.is_deleted_for_me && !isUnsent(message) && !message.read_at
-        )
-        .map((message) => message.id);
-      if (unreadDoctorMessages.length) {
-        void apiClient(
-          `/api/doctor/tasks/${encodeURIComponent(taskId)}/messages/action`,
-          {
-            method: "POST",
-            body: {
-              tenant_id: activeTenantId,
-              action: "read",
-              message_ids: unreadDoctorMessages,
-            },
-          }
-        ).catch(() => undefined);
+      if (!current() || token !== tokenStore.getToken()) return;
+      applyMessages(response.data, messageOrder);
+      if (presenceVersionAtFetch === presenceEventVersion.current) {
+        setDoctorPresence(response.data?.doctor_presence ?? null);
       }
       // The Doctor integration can be temporarily unavailable while ASINU
       // still serves persisted messages. Recover the lifecycle from ASINU's
@@ -380,7 +424,7 @@ export default function DoctorConsultationThreadScreen() {
         }
       }
 
-      if (!current()) return;
+      if (!current() || token !== tokenStore.getToken()) return;
       setRateable(resolvedTaskStatus?.rateable === true);
       setTaskStatus(resolvedTaskStatus);
       if (
@@ -393,7 +437,7 @@ export default function DoctorConsultationThreadScreen() {
         setBusyModalVisible(true);
       }
     } catch (error) {
-      if (current() && showLoading) {
+      if (current() && token === tokenStore.getToken() && showLoading) {
         showToast(
           getApiErrorMessage(error, t, "doctorConsultationThreadError"),
           "error"
@@ -413,85 +457,156 @@ export default function DoctorConsultationThreadScreen() {
   };
 
   useEffect(() => {
-    let disposed = false;
-    let connected = false;
-    let socket: WebSocket | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    setCallingMode(null);
     followLatest.current = true;
     messageOffsets.current.clear();
+    setReplyToId(null);
+  }, [taskId, activeTenantId]);
+
+  useEffect(() => {
+    if (!focused || !taskId) return;
+    let disposed = false;
+    let connected = false;
+    let connecting = false;
+    let socket: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let appState = AppState.currentState;
+    setCallingMode(null);
     const fallbackTimer = setInterval(() => {
       // A live chat socket does not mean the newly enqueued task is ready yet.
       if (
-        !connected ||
-        !taskStatusRef.current?.status ||
-        ["new", "queued", "assigned"].includes(taskStatusRef.current.status)
+        appState === "active" &&
+        (!connected ||
+          !taskStatusRef.current?.status ||
+          ["new", "queued", "assigned"].includes(taskStatusRef.current.status))
       )
         void loadThread();
     }, 5000);
 
+    const scheduleReconnect = () => {
+      if (disposed || appState !== "active" || reconnectTimer) return;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        void connect();
+      }, 5000);
+    };
+
     const connect = async () => {
-      const token = await tokenStore.loadToken();
-      if (disposed || !taskId || !token) return;
+      if (disposed || appState !== "active" || !taskId || socket || connecting) return;
+      connecting = true;
       try {
+        const token = await tokenStore.loadToken();
+        if (disposed || appState !== "active" || !token) return;
+        if (token !== tokenStore.getToken()) {
+          scheduleReconnect();
+          return;
+        }
         const baseUrl = env.apiBaseUrl
           .replace(/^http/i, "ws")
           .replace(/\/$/, "");
         const url = `${baseUrl}/api/doctor/chat/ws?tenant_id=${encodeURIComponent(
           activeTenantId
         )}&task_id=${encodeURIComponent(taskId)}`;
-        socket = new WebSocket(url, ["asinu-chat", token]);
-        socket.onopen = () => {
-          if (disposed) return;
+        const connection = new WebSocket(url, ["asinu-chat", token]);
+        socket = connection;
+        connection.onopen = () => {
+          if (disposed || appState !== "active" || socket !== connection) {
+            connection.close();
+            return;
+          }
           connected = true;
           setRealtimeConnected(true);
           void loadThread(false, true);
         };
-        socket.onmessage = (event) => {
-          if (disposed) return;
+        connection.onmessage = (event) => {
+          if (disposed || socket !== connection || token !== tokenStore.getToken()) return;
           try {
             const envelope = JSON.parse(String(event.data)) as {
               type?: string;
-              data?: {
+              data?: Partial<DoctorPresence> & {
                 actor_type?: string | null;
                 is_typing?: boolean;
               };
             };
-            if (
-              envelope.type === "chat.message.changed" ||
-              envelope.type === "chat.task.status.changed"
-            ) {
+            if (envelope.type === "chat.message.changed") {
+              void loadMessageUpdates();
+            } else if (envelope.type === "chat.task.status.changed") {
               void loadThread(false, true);
             } else if (envelope.type === "chat.typing.changed") {
               setDoctorTyping(
                 envelope.data?.actor_type === "doctor" &&
                   envelope.data?.is_typing === true
               );
+            } else if (envelope.type === "chat.doctor.presence.changed") {
+              const pulse = envelope.data;
+              const doctorId = taskStatusRef.current?.doctor?.id;
+              if (
+                pulse?.doctor_ref &&
+                (!doctorId || doctorId === pulse.doctor_ref) &&
+                (pulse.status === "offline" ||
+                  (pulse.status === "online" && typeof pulse.expires_at === "string"))
+              ) {
+                presenceEventVersion.current++;
+                setDoctorPresence({
+                  doctor_ref: pulse.doctor_ref,
+                  status: pulse.status,
+                  expires_at: pulse.status === "online" ? pulse.expires_at ?? null : null,
+                });
+              }
             }
           } catch {
             // The REST refresh below remains the safe source of truth.
           }
         };
-        socket.onerror = () => {
+        connection.onerror = () => {
+          if (socket !== connection) return;
           connected = false;
           setRealtimeConnected(false);
+          connection.close();
         };
-        socket.onclose = () => {
+        connection.onclose = () => {
+          if (socket !== connection) return;
+          socket = null;
           connected = false;
           setRealtimeConnected(false);
-          if (!disposed) {
-            reconnectTimer = setTimeout(() => void connect(), 5000);
-          }
+          scheduleReconnect();
         };
       } catch {
         connected = false;
         setRealtimeConnected(false);
-        if (!disposed) reconnectTimer = setTimeout(() => void connect(), 5000);
+        scheduleReconnect();
+      } finally {
+        connecting = false;
       }
     };
 
-    setReplyToId(null);
-    void loadThread(true);
+    const resetConnection = () => {
+      connected = false;
+      setRealtimeConnected(false);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+      const previous = socket;
+      socket = null;
+      previous?.close();
+    };
+    const unsubscribeSession = tokenStore.subscribeSession(() => {
+      resetConnection();
+      if (appState === "active" && tokenStore.getToken()) void connect();
+    });
+    const appStateSubscription = AppState.addEventListener("change", (nextState) => {
+      const wasActive = appState === "active";
+      appState = nextState;
+      if (nextState !== "active") {
+        resetConnection();
+        return;
+      }
+      if (!wasActive) {
+        void loadThread(false, true);
+        void connect();
+      }
+    });
+
+    setDoctorPresence(null);
+    void loadThread(loading);
     void connect();
     return () => {
       disposed = true;
@@ -499,13 +614,13 @@ export default function DoctorConsultationThreadScreen() {
       threadLoadRef.current.version++;
       threadLoadRef.current.pending = false;
       threadLoadRef.current.refreshRequested = false;
-      connected = false;
-      setRealtimeConnected(false);
-      if (reconnectTimer) clearTimeout(reconnectTimer);
+      messageSyncRef.current = { started: 0, applied: 0, pending: false, refreshRequested: false };
+      unsubscribeSession();
+      appStateSubscription.remove();
       clearInterval(fallbackTimer);
-      socket?.close();
+      resetConnection();
     };
-  }, [taskId, activeTenantId]);
+  }, [taskId, activeTenantId, focused]);
 
   useEffect(
     () => () => {
@@ -880,6 +995,19 @@ export default function DoctorConsultationThreadScreen() {
   );
 
   const assignedDoctor = taskStatus?.doctor;
+  const showDoctorPresence = conversationOpen && (Boolean(assignedDoctor) || currentStatus === "waiting_user");
+  const presenceForDoctor = doctorPresence?.doctor_ref === assignedDoctor?.id ? doctorPresence : null;
+  const doctorPresenceExpiresAt = presenceForDoctor?.status === "online"
+    ? Date.parse(presenceForDoctor.expires_at ?? "")
+    : 0;
+  const doctorOnline = doctorPresenceExpiresAt > Date.now();
+  const headerStatusLabel = showDoctorPresence
+    ? t(doctorOnline
+      ? "doctorConsultationExpertOnline"
+      : presenceForDoctor
+        ? "doctorConsultationExpertOffline"
+        : "doctorConsultationExpertStatusUnknown")
+    : statusLabel;
 
   const messageActions: AppActionSheetAction[] = [];
   if (actionMessage) {
@@ -1090,6 +1218,13 @@ export default function DoctorConsultationThreadScreen() {
   );
 
   useEffect(() => {
+    const remaining = doctorPresenceExpiresAt - Date.now();
+    if (!(remaining > 0)) return;
+    const timer = setTimeout(() => setStatusClock(Date.now()), remaining + 30);
+    return () => clearTimeout(timer);
+  }, [doctorPresenceExpiresAt]);
+
+  useEffect(() => {
     const followUpUntil = taskStatus?.follow_up_until;
     if (
       !followUpUntil ||
@@ -1214,7 +1349,9 @@ export default function DoctorConsultationThreadScreen() {
                 styles.statusDot,
                 {
                   backgroundColor:
-                    statusIsTerminal || statusUnknown ? "#94A3B8" : "#10B981",
+                    (showDoctorPresence ? doctorOnline : !statusIsTerminal && !statusUnknown)
+                      ? "#10B981"
+                      : "#94A3B8",
                 },
               ]}
             />
@@ -1225,7 +1362,7 @@ export default function DoctorConsultationThreadScreen() {
                 { color: isDark ? colors.textSecondary : "#64748B" },
               ]}
             >
-              {statusLabel}
+              {headerStatusLabel}
             </Text>
           </View>
         </View>
@@ -1315,7 +1452,9 @@ export default function DoctorConsultationThreadScreen() {
           >
             {renderDatePill(dateLabel(visibleMessages[0]?.created_at))}
 
-            {currentStatus !== "started" && currentStatus !== "in_progress" && (
+            {currentStatus !== "started" &&
+              currentStatus !== "in_progress" &&
+              currentStatus !== "waiting_user" && (
               <View
                 style={[
                   styles.statusCard,
