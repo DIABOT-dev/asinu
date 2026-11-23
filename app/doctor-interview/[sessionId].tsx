@@ -40,10 +40,13 @@ import { useGuardedRouter } from "../../src/hooks/useGuardedRouter";
 import { useThemeColors } from "../../src/hooks/useThemeColors";
 import { useAuthStore } from "../../src/features/auth/auth.store";
 import {
+  answerAudioKey,
   ivrApi,
   type IvrSession,
   type IvrOption,
 } from "../../src/features/doctor-ivr/ivr.api";
+import { ivrAnswerAudio, ivrPromptAudio, loadIvrAnswerAudio } from "../../src/features/doctor-ivr/ivr-answer-audio";
+import viHome from "../../src/i18n/locales/vi/home.json";
 import {
   savePendingVoice,
   listPendingVoices,
@@ -101,7 +104,7 @@ function AuthenticatedDoctorInterview() {
     id = Array.isArray(params.sessionId)
       ? params.sessionId[0]
       : params.sessionId;
-  const { t } = useTranslation("home"),
+  const { t, i18n } = useTranslation("home"),
     router = useGuardedRouter();
   const owner = useAuthStore((s) => s.profile?.id),
     token = useAuthStore((s) => s.token);
@@ -138,13 +141,14 @@ function AuthenticatedDoctorInterview() {
       | null
     >(null);
   const recordingStart = useRef(0),
-    lastSound = useRef(0),
     heardSound = useRef(false),
+    hasMetering = useRef(false),
     recordRetry = useRef<Record<string, number>>({}),
     voiceStartVersion = useRef(0);
   const finishRecording = useRef<() => Promise<void>>(async () => {}),
     pendingOption = useRef<IvrOption | null>(null),
     audio = useRef<CheckinCallAudio | null>(null),
+    loadAudio = useRef<((key: string) => Promise<string>) | null>(null),
     queueBusy = useRef(false);
   const files = useRef(new Set<string>()),
     closingPlayed = useRef(false);
@@ -238,41 +242,78 @@ function AuthenticatedDoctorInterview() {
       }
     }
   }, [id, t, validId, accept]);
+  const promptLanguage = i18n.resolvedLanguage?.startsWith("en") ? "en" : "vi";
   useEffect(() => {
-    const cache = new Map<string, string>();
+    const cache = new Map<string, Promise<string>>();
     let disposed = false;
-    const player = new CheckinCallAudio({
-      load: async (prompt) => {
-        if (!prompt.key.startsWith("question:"))
-          throw new Error("Device speech");
-        const question = prompt.key.slice("question:".length);
-        if (cache.has(question)) return cache.get(question)!;
-        const value = await ivrApi.audio(id, question);
-        const uri = `${FileSystem.cacheDirectory}ivr-${Crypto.randomUUID()}.${
-          value.mimeType.includes("wav")
-            ? "wav"
-            : value.mimeType.includes("mp4") || value.mimeType.includes("m4a")
-            ? "m4a"
-            : "mp3"
-        }`;
-        files.current.add(uri);
-        await FileSystem.writeAsStringAsync(uri, value.base64, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        if (disposed) {
-          files.current.delete(uri);
-          await FileSystem.deleteAsync(uri, { idempotent: true });
-          throw new Error("Playback ended");
+    const loadPromptAudio = (key: string) => {
+      const cached = cache.get(key);
+      if (cached) return cached;
+      const pending = (async () => {
+        const [kind, question, option] = key.split(":");
+        if (kind === "instruction" || kind === "skipped")
+          return loadIvrAnswerAudio(ivrPromptAudio[promptLanguage][kind]);
+        if (kind === "selected") {
+          const label = state.current?.content.questions
+            .find((item) => item.id === question)?.options.find((item) => item.id === option)?.label.trim();
+          const common = viHome.ivr.preview;
+          const source = label === common.yes ? ivrAnswerAudio.vi.yes
+            : label === common.no ? ivrAnswerAudio.vi.no : undefined;
+          if (source !== undefined) {
+            const uri = await loadIvrAnswerAudio(source).catch(() => null);
+            if (uri) return uri;
+          }
         }
-        cache.set(question, uri);
-        return uri;
+        let value: { base64: string; mimeType: string };
+        if (kind === "closing") {
+          try {
+            value = await ivrApi.closingAudio(id);
+          } catch (error) {
+            if (state.current?.safety_notice) throw error;
+            return loadIvrAnswerAudio(ivrPromptAudio[promptLanguage].closing);
+          }
+        } else {
+          value = kind === "selected"
+            ? await ivrApi.answerAudio(id, question, option)
+            : await ivrApi.audio(id, question);
+        }
+        if (disposed) throw new Error("Playback ended");
+        const extension = value.mimeType.includes("wav")
+          ? "wav"
+          : value.mimeType.includes("mp4") || value.mimeType.includes("m4a")
+          ? "m4a"
+          : "mp3";
+        const uri = `${FileSystem.cacheDirectory}ivr-${Crypto.randomUUID()}.${extension}`;
+        files.current.add(uri);
+        try {
+          await FileSystem.writeAsStringAsync(uri, value.base64, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          if (disposed) throw new Error("Playback ended");
+          return uri;
+        } catch (error) {
+          files.current.delete(uri);
+          await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
+          throw error;
+        }
+      })();
+      cache.set(key, pending);
+      void pending.catch(() => {
+        if (cache.get(key) === pending) cache.delete(key);
+      });
+      return pending;
+    };
+    loadAudio.current = loadPromptAudio;
+    const player = new CheckinCallAudio({
+      load: (prompt) => {
+        if (prompt.key === "reply") return Promise.reject(new Error("Device speech"));
+        return loadPromptAudio(prompt.key);
       },
       invalidate: async (prompt) => {
-        const question = prompt.key.slice("question:".length),
-          uri = cache.get(question);
-        cache.delete(question);
-        if (uri) {
-          files.current.delete(uri);
+        const pending = cache.get(prompt.key);
+        cache.delete(prompt.key);
+        const uri = await pending?.catch(() => undefined);
+        if (uri && files.current.delete(uri)) {
           await FileSystem.deleteAsync(uri, { idempotent: true });
         }
       },
@@ -285,12 +326,13 @@ function AuthenticatedDoctorInterview() {
       create: async (uri) => {
         const { sound } = await Audio.Sound.createAsync(
           { uri },
-          { shouldPlay: false }
+          { shouldPlay: false, keepAudioSessionActive: true }
         );
         await sound.setRateAsync(speechRateRef.current);
         return sound;
       },
       stopSpeech: () => Speech.stop(),
+      allowDeviceSpeech: (prompt) => prompt.key === "reply",
       speak: (prompt, callbacks) =>
         Speech.speak(prompt.text, {
           language: "vi-VN",
@@ -312,6 +354,7 @@ function AuthenticatedDoctorInterview() {
     audio.current = player;
     return () => {
       disposed = true;
+      loadAudio.current = null;
       promptWaiter.current?.finish();
       audio.current = null;
       void player.dispose();
@@ -319,7 +362,7 @@ function AuthenticatedDoctorInterview() {
         void FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
       files.current.clear();
     };
-  }, [id, owner, token]);
+  }, [id, owner, promptLanguage, token]);
   useFocusEffect(
     useCallback(() => {
       focused.current = true;
@@ -369,7 +412,10 @@ function AuthenticatedDoctorInterview() {
       setError(t("ivr.error"));
     }
   }, [validId, t]);
-  const act = async (input: Record<string, unknown>, confirmation?: string) => {
+  const act = async (
+    input: Record<string, unknown>,
+    confirmation?: { key: string; text: string }
+  ) => {
     if (inFlight.current || !focused.current) return;
     inFlight.current = true;
     setBusy(true);
@@ -382,11 +428,7 @@ function AuthenticatedDoctorInterview() {
       const value = await ivrApi.act(id, input);
       if (focused.current && epoch === screenEpoch.current) {
         if (confirmation)
-          await waitForSpeech(
-            `selected:${input.request_id}`,
-            confirmation,
-            10000
-          );
+          await waitForSpeech(confirmation.key, confirmation.text, 10000);
         if (focused.current && epoch === screenEpoch.current) accept(value);
       }
       return value;
@@ -484,6 +526,10 @@ function AuthenticatedDoctorInterview() {
       text,
       language: "vi",
     });
+    for (const option of question.options) {
+      if (option.type === "option")
+        void loadAudio.current?.(answerAudioKey(question.id, option.id)).catch(() => {});
+    }
   }, [index, speechRate]);
   useEffect(() => {
     if (session?.status === "in_progress" && q && !recording && !voiceOption) {
@@ -545,7 +591,10 @@ function AuthenticatedDoctorInterview() {
           request_id: Crypto.randomUUID(),
           revision: current.revision,
         },
-        t("ivr.selected", { answer: option.label })
+        {
+          key: answerAudioKey(question.id, option.id),
+          text: t("ivr.selected", { answer: option.label }),
+        }
       );
     } finally {
       if (focused.current) setSelectedOption(null);
@@ -566,7 +615,9 @@ function AuthenticatedDoctorInterview() {
         request_id: Crypto.randomUUID(),
         skip_reason: reason,
       },
-      reason === "no_response" ? t("ivr.noResponse") : undefined
+      reason === "no_response"
+        ? { key: "skipped", text: t("ivr.noResponse") }
+        : undefined
     );
   };
   // QR-10: wait AFTER narration, replay once, then record an explicit
@@ -640,7 +691,7 @@ function AuthenticatedDoctorInterview() {
       if (!focused.current || version !== voiceStartVersion.current) return;
       // Keep the instruction and beep outside the recording.
       await waitForSpeech(
-        `instruction:${Crypto.randomUUID()}`,
+        "instruction",
         t("ivr.recordInstruction"),
         6000
       );
@@ -653,7 +704,8 @@ function AuthenticatedDoctorInterview() {
       const beep = (
         await Audio.Sound.createAsync(
           require("../../assets/sounds/ivr_beep.wav"),
-          { shouldPlay: false }
+          // The iOS player otherwise schedules audio-session deactivation at the end of the beep.
+          { shouldPlay: false, keepAudioSessionActive: true }
         )
       ).sound;
       if (!focused.current || version !== voiceStartVersion.current) {
@@ -671,16 +723,16 @@ function AuthenticatedDoctorInterview() {
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
       });
+      hasMetering.current = false;
       heardSound.current = false;
-      lastSound.current = Date.now();
-      recordingStart.current = Date.now();
+      recordingStart.current = 0;
       const result = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY,
         (status) => {
-          if (typeof status.metering === "number" && status.metering > -42) {
-            heardSound.current = true;
-            lastSound.current = Date.now();
-          }
+          if (version !== voiceStartVersion.current || !recorder.current ||
+              typeof status.metering !== "number" || Number.isNaN(status.metering)) return;
+          hasMetering.current = true;
+          if (status.metering > -42) heardSound.current = true;
         }
       );
       if (!focused.current || version !== voiceStartVersion.current) {
@@ -689,6 +741,7 @@ function AuthenticatedDoctorInterview() {
         if (uri) await FileSystem.deleteAsync(uri, { idempotent: true });
         return;
       }
+      recordingStart.current = Date.now();
       recorder.current = result.recording;
       setRecording(true);
       setSeconds(option.max_record_s || 30);
@@ -711,9 +764,27 @@ function AuthenticatedDoctorInterview() {
     inFlight.current = true;
     setBusy(true);
     setRecording(false);
-    const elapsed = (Date.now() - recordingStart.current) / 1000,
-      question = value.current_question_id!;
+    const question = value.current_question_id!;
+    const retryShortRecording = async () => {
+      recordRetry.current[question] = (recordRetry.current[question] || 0) + 1;
+      setVoiceOption(null);
+      inFlight.current = false;
+      setBusy(false);
+      if (recordRetry.current[question] < 2) {
+        setError(t("ivr.silence"));
+        setVoiceOption(option);
+        setConsentVisible(true);
+      } else await sendSkip("no_speech");
+    };
     try {
+      let durationMs: number | undefined;
+      try {
+        durationMs = current.getStatus().durationMillis;
+      } catch {
+        // Still stop and release the recorder if its status is unavailable.
+      }
+      const elapsed = (typeof durationMs === "number" && Number.isFinite(durationMs)
+        ? durationMs : Date.now() - recordingStart.current) / 1000;
       await current.stopAndUnloadAsync();
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
@@ -721,18 +792,9 @@ function AuthenticatedDoctorInterview() {
       });
       const uri = current.getURI();
       if (!uri) throw new Error("Missing recording");
-      if (elapsed < 1 || !heardSound.current) {
+      if (elapsed < 1 || (hasMetering.current && !heardSound.current)) {
         await FileSystem.deleteAsync(uri, { idempotent: true });
-        recordRetry.current[question] =
-          (recordRetry.current[question] || 0) + 1;
-        setVoiceOption(null);
-        inFlight.current = false;
-        setBusy(false);
-        if (recordRetry.current[question] < 2) {
-          setError(t("ivr.silence"));
-          setVoiceOption(option);
-          setConsentVisible(true);
-        } else await sendSkip("no_speech");
+        await retryShortRecording();
         return;
       }
       const fields = {
@@ -754,6 +816,11 @@ function AuthenticatedDoctorInterview() {
         await removePendingVoice(queued);
         accept(updated);
       } catch (e) {
+        if (e instanceof ApiError && e.code === "IVR_AUDIO_TOO_SHORT") {
+          await removePendingVoice(queued);
+          await retryShortRecording();
+          return;
+        }
         // Reserve this voice answer with a small request; the original remains in
         // the private app directory and retries with the same idempotency key.
         try {
@@ -774,26 +841,20 @@ function AuthenticatedDoctorInterview() {
       await refreshQueue();
     } catch (e) {
       fail(e);
+      if (focused.current) setVoiceOption(null);
     } finally {
       inFlight.current = false;
-      if (focused.current) {
-        setBusy(false);
-        setVoiceOption(null);
-      }
+      if (focused.current) setBusy(false);
     }
   };
   useEffect(() => {
     if (!recording) return;
     const maximum = voiceOption?.max_record_s || 30;
     const timer = setInterval(() => {
+      if (!recorder.current) return;
       const elapsed = (Date.now() - recordingStart.current) / 1000;
       setSeconds(Math.max(0, Math.ceil(maximum - elapsed)));
-      if (
-        elapsed >= maximum ||
-        (heardSound.current && Date.now() - lastSound.current >= 3000) ||
-        (!heardSound.current && elapsed >= 3)
-      )
-        void finishRecording.current();
+      if (elapsed >= maximum) void finishRecording.current();
     }, 200);
     return () => clearInterval(timer);
   }, [recording, voiceOption?.max_record_s]);

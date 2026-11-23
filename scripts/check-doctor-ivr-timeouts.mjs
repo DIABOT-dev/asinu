@@ -9,7 +9,7 @@ const ast = ts.createSourceFile(
   true,
   ts.ScriptKind.TSX
 );
-let effect;
+let effect, recordingEffect;
 const visit = (node) => {
   if (
     ts.isCallExpression(node) &&
@@ -17,6 +17,9 @@ const visit = (node) => {
     node.arguments[0]?.getText(ast).includes("responseRetries.current.question")
   )
     effect = node.arguments[0].getText(ast);
+  if (ts.isCallExpression(node) && node.expression.getText(ast) === "useEffect" &&
+      node.arguments[0]?.getText(ast).includes("finishRecording.current"))
+    recordingEffect = node.arguments[0].getText(ast);
   ts.forEachChild(node, visit);
 };
 visit(ast);
@@ -111,3 +114,29 @@ for (const change of [
 console.log(
   "PASS in-app questions have no response timer; calls retry once, with playback, recording, uploads and stale events excluded"
 );
+
+assert.ok(recordingEffect);
+const runRecording = new Function("context", ts.transpileModule(
+  `const {recording,voiceOption,recorder,recordingStart,finishRecording,setSeconds,Date,setInterval,clearInterval}=context;
+   return (${recordingEffect})();`,
+  { compilerOptions: { target: ts.ScriptTarget.ES2020 } }
+).outputText);
+function recordingTimer(limit) {
+  let now = 10000, tick, finished = 0, remaining;
+  runRecording({
+    recording: true, voiceOption: { max_record_s: limit }, recorder: { current: {} },
+    recordingStart: { current: now },
+    finishRecording: { current: () => finished++ }, setSeconds: (value) => { remaining = value; },
+    Date: { now: () => now }, setInterval: (fn) => { tick = fn; }, clearInterval: () => {},
+  });
+  return {
+    silence(ms) { now += ms; tick(); return { finished, remaining }; },
+  };
+}
+for (const limit of [30, 60]) {
+  const voice = recordingTimer(limit);
+  assert.deepEqual(voice.silence(3000), { finished: 0, remaining: limit - 3 });
+  assert.deepEqual(voice.silence((limit - 3) * 1000 - 1), { finished: 0, remaining: 1 });
+  assert.deepEqual(voice.silence(1), { finished: 1, remaining: 0 });
+}
+console.log("PASS silence never sends a recording automatically before its 30 or 60-second limit");
