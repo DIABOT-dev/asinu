@@ -1,5 +1,5 @@
 import { runNativePermission } from "./native-permissions";
-import { checkinPresentation } from './checkin-presentation';
+import { checkinPresentation } from "./checkin-presentation";
 import { isDoctorFeaturesEnabled, isExpertConsultationEnabled } from "./appEnv";
 // Push notification service for care circle invitations
 // Note: This requires expo-notifications to be installed
@@ -31,7 +31,8 @@ export function setupNotificationHandler(): void {
         const data = (notification?.request?.content?.data || {}) as any;
         // Local re-emit (đã alert ở lần đầu) → KHÔNG show banner/sound nữa,
         // chỉ giữ trong notification list. Tránh double-banner trong foreground.
-        const isLocalReemit = !!data?._isLocalReemit || checkinPresentation.isBlocked();
+        const isLocalReemit =
+          !!data?._isLocalReemit || checkinPresentation.isBlocked();
         return {
           shouldShowAlert: !isLocalReemit,
           shouldPlaySound: !isLocalReemit,
@@ -55,10 +56,22 @@ export function setupNotificationHandler(): void {
  */
 export async function registerNotificationCategories(): Promise<void> {
   try {
-    await Notifications.setNotificationCategoryAsync('MEDICATION_DOSE',[
-      {identifier:'MED_TAKEN',buttonTitle:i18n.t('TAKEN',{ns:'v21'}),options:{opensAppToForeground:true,isAuthenticationRequired:true}},
-      {identifier:'MED_SKIP',buttonTitle:i18n.t('SKIPPED',{ns:'v21'}),options:{opensAppToForeground:true,isAuthenticationRequired:true}},
-      {identifier:'MED_OUT',buttonTitle:i18n.t('OUT_OF_MEDS',{ns:'v21'}),options:{opensAppToForeground:true,isAuthenticationRequired:true}},
+    await Notifications.setNotificationCategoryAsync("MEDICATION_DOSE", [
+      {
+        identifier: "MED_TAKEN",
+        buttonTitle: i18n.t("TAKEN", { ns: "v21" }),
+        options: { opensAppToForeground: true, isAuthenticationRequired: true },
+      },
+      {
+        identifier: "MED_SKIP",
+        buttonTitle: i18n.t("SKIPPED", { ns: "v21" }),
+        options: { opensAppToForeground: true, isAuthenticationRequired: true },
+      },
+      {
+        identifier: "MED_OUT",
+        buttonTitle: i18n.t("OUT_OF_MEDS", { ns: "v21" }),
+        options: { opensAppToForeground: true, isAuthenticationRequired: true },
+      },
     ]);
     await Notifications.setNotificationCategoryAsync("health_alert", [
       {
@@ -478,20 +491,70 @@ export type NotificationRoute =
   | { pathname: string; params?: Record<string, string> };
 
 export function routeFromNotificationData(
-  data: Record<string, unknown> | null | undefined, actionIdentifier?: string
+  data: Record<string, unknown> | null | undefined,
+  actionIdentifier?: string
 ): NotificationRoute | null {
-  if(data?.callType==='medication'||data?.type==='med_reminder'||data?.type==='med_consent') {
-    const consent=typeof data.medConsentId==='string'?data.medConsentId:typeof data.scheduleId==='string'?data.scheduleId:null;
-    if(consent)return {pathname:'/medication/consent',params:{scheduleId:consent,attemptId:String(data.attemptId||'')}};
-    const dose=typeof data.medDoseId==='string'?data.medDoseId:typeof data.episodeId==='string'?data.episodeId:null;
-    if(dose)return {pathname:'/medication/call/[doseId]',params:{doseId:dose,attemptId:String(data.attemptId||''),...(['MED_TAKEN','MED_SKIP','MED_OUT'].includes(actionIdentifier||'')?{quickButton:String(['MED_TAKEN','MED_SKIP','MED_OUT'].indexOf(actionIdentifier!)+1)}:{})}};
-    return '/medication';
+  if (
+    data?.callType === "medication" ||
+    data?.type === "med_reminder" ||
+    data?.type === "med_consent"
+  ) {
+    const consent =
+      typeof data.medConsentId === "string"
+        ? data.medConsentId
+        : typeof data.scheduleId === "string"
+        ? data.scheduleId
+        : null;
+    if (consent)
+      return {
+        pathname: "/medication/consent",
+        params: {
+          scheduleId: consent,
+          attemptId: String(data.attemptId || ""),
+        },
+      };
+    const dose =
+      typeof data.medDoseId === "string"
+        ? data.medDoseId
+        : typeof data.episodeId === "string"
+        ? data.episodeId
+        : null;
+    if (dose)
+      return {
+        pathname: "/medication/call/[doseId]",
+        params: {
+          doseId: dose,
+          attemptId: String(data.attemptId || ""),
+          ...(["MED_TAKEN", "MED_SKIP", "MED_OUT"].includes(
+            actionIdentifier || ""
+          )
+            ? {
+                quickButton: String(
+                  ["MED_TAKEN", "MED_SKIP", "MED_OUT"].indexOf(
+                    actionIdentifier!
+                  ) + 1
+                ),
+              }
+            : {}),
+        },
+      };
+    return "/medication";
   }
-  if (data?.type === 'coin_card' && typeof data.redemptionId === 'string' &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(data.redemptionId))
-    return { pathname: '/coins/card/[cardId]', params: { cardId: data.redemptionId } };
-  if(typeof data?.type==='string'&&data.type.startsWith('coin_'))return '/coins';
-  if(typeof data?.type==='string'&&data.type.startsWith('med_'))return '/medication';
+  if (
+    data?.type === "coin_card" &&
+    typeof data.redemptionId === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(
+      data.redemptionId
+    )
+  )
+    return {
+      pathname: "/coins/card/[cardId]",
+      params: { cardId: data.redemptionId },
+    };
+  if (typeof data?.type === "string" && data.type.startsWith("coin_"))
+    return "/coins";
+  if (typeof data?.type === "string" && data.type.startsWith("med_"))
+    return "/medication";
   if (data?.callType === "doctor_ivr" || data?.type === "doctor_ivr_call") {
     if (!isDoctorFeaturesEnabled || typeof data?.episodeId !== "string")
       return "/(tabs)/home";
@@ -634,7 +697,7 @@ export function routeFromNotificationData(
     return "/feed";
   }
   if (type === "doctor_ivr_session" || type === "doctor_ivr_reply") {
-    if (!isDoctorFeaturesEnabled) return "/(tabs)/home";
+    if (!isExpertConsultationEnabled) return "/(tabs)/home";
     const sessionId = String(data?.sessionId || "");
     if (
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(
@@ -643,9 +706,19 @@ export function routeFromNotificationData(
     )
       return {
         pathname: "/doctor-interview/[sessionId]",
-        params: { sessionId },
+        params: {
+          sessionId,
+          ...(type === "doctor_ivr_session" ? { start: "1" } : {}),
+        },
       };
     return "/doctor-consultation";
+  }
+  if (type === "doctor_care") {
+    if (!isExpertConsultationEnabled) return "/(tabs)/home";
+    return {
+      pathname: "/doctor-care",
+      params: { relationshipId: String(data?.relationship_id || "") },
+    };
   }
   if (type === "doctor_message") {
     if (!isExpertConsultationEnabled) return "/(tabs)/home";

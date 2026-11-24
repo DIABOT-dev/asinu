@@ -33,6 +33,7 @@ type Inputs = {
   answers: ScreeningAnswer[];
   locale: 'vi' | 'en';
   onAnswersChange: (answers: ScreeningAnswer[]) => void;
+  onReady?: () => void;
 };
 const fingerprint = (input: Inputs, answers = input.answers) =>
   JSON.stringify([input.owner, input.locale, input.summary.trim(), answers]);
@@ -48,7 +49,7 @@ export function useConsultationScreening(input: Inputs) {
   }>({ key: '', result: null, busy: false, error: false });
   const key = fingerprint(input);
 
-  const run = async (answers = current.current.answers) => {
+  const run = async (answers = current.current.answers, announceReady = false) => {
     if (!isExpertConsultationEnabled) {return;}
     const snapshot = current.current;
     const requestKey = fingerprint(snapshot, answers);
@@ -74,7 +75,10 @@ export function useConsultationScreening(input: Inputs) {
         throw new Error('Invalid screening response');
       }
       if (mounted.current && request === sequence.current && current.current.owner === snapshot.owner) {
-        setState({ key: requestKey, result: response.data, busy: false, error: false });
+        setState({ key: requestKey, result, busy: false, error: false });
+        if (announceReady && result.status === 'ready' && fingerprint(current.current, answers) === requestKey) {
+          current.current.onReady?.();
+        }
       }
     } catch {
       if (mounted.current && request === sequence.current && current.current.owner === snapshot.owner) {
@@ -104,24 +108,16 @@ export function useConsultationScreening(input: Inputs) {
     result,
     busy: state.key === key && state.busy,
     error: state.key === key && state.error,
-    check: () => run(),
+    check: () => run(current.current.answers, state.key === key && state.error),
     answer: (answer: ScreeningAnswer) => {
       if (pending.current) {return Promise.resolve();}
       const answers = [...current.current.answers, answer];
       current.current.onAnswersChange(answers);
-      return run(answers);
-    },
-    back: () => {
-      sequence.current++;
-      pending.current = null;
-      const answers = current.current.answers.slice(0, -1);
-      current.current.onAnswersChange(answers);
-      return run(answers);
+      return run(answers, true);
     },
     reset: () => {
       sequence.current++;
       pending.current = null;
-      current.current.onAnswersChange([]);
       setState({ key: '', result: null, busy: false, error: false });
     },
   };

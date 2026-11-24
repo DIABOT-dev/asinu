@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { File as NodeFile } from "node:buffer";
 import fs from "node:fs";
 import ts from "typescript";
 import React from "react";
@@ -114,7 +115,17 @@ console.log(
 let token = "token-a",
   resolveRequest;
 const calls = [];
-const api = evaluate("src/features/doctor-ivr/ivr.api.ts", {
+const fixtureRecording = Buffer.from("synthetic recording bytes");
+const { ivrApi: api, answerAudioKey } = evaluate("src/features/doctor-ivr/ivr.api.ts", {
+  "expo-file-system": {
+    File: class extends NodeFile {
+      constructor(uri) {
+        assert.equal(uri, "file:///queued.m4a");
+        super([fixtureRecording], "queued.m4a", { type: "audio/mp4" });
+      }
+    },
+  },
+  "react-native": { Platform: { OS: "ios" } },
   "../../lib/tokenStore": {
     tokenStore: { getToken: () => token, loadToken: async () => token },
   },
@@ -128,11 +139,23 @@ const api = evaluate("src/features/doctor-ivr/ivr.api.ts", {
       return { ok: true, enabled: true, data: { id: "session-a" } };
     },
   },
-}).ivrApi;
+});
 assert.equal((await api.get("session-a")).id, "session-a");
 assert.equal(calls[0].options.headers.Authorization, "Bearer token-a");
 await api.list("clinic / a", "task / a");
 assert.match(calls.at(-1).path, /clinic%20%2F%20a/);
+await api.answerAudio("session-a", "q1", "q1_a");
+assert.equal(calls.at(-1).path, "/api/doctor/ivr/sessions/session-a/audio/q1/answers/q1_a");
+await api.closingAudio("session-a");
+assert.equal(calls.at(-1).path, "/api/doctor/ivr/sessions/session-a/closing-audio");
+await api.voice("session-a", { question_id: "q_final" }, "file:///queued.m4a");
+const upload = calls.at(-1);
+assert.equal(upload.path, "/api/doctor/ivr/sessions/session-a/voice");
+assert.equal(upload.options.body.get("question_id"), "q_final");
+const recordingPart = upload.options.body.get("file");
+assert.ok(recordingPart instanceof NodeFile);
+assert.equal(recordingPart.type, "audio/mp4");
+assert.deepEqual(Buffer.from(await recordingPart.arrayBuffer()), fixtureRecording);
 resolveRequest = true;
 const stale = api.get("session-a");
 await Promise.resolve();
@@ -192,8 +215,13 @@ function findHandlers(node) {
     ["act", "select", "beginRecording", "load", "waitForSpeech"].includes(node.name.getText(ast))
   )
     handlers[node.name.getText(ast)] = node.initializer.getText(ast);
-  if (ts.isPropertyAssignment(node) && node.name.getText(ast) === "onState")
-    handlers.onState = node.initializer.getText(ast);
+  if (
+    ts.isPropertyAssignment(node) &&
+    ["allowDeviceSpeech", "load", "onState"].includes(node.name.getText(ast))
+  ) {
+    const name = node.name.getText(ast);
+    handlers[name === "load" ? "loadPrompt" : name] = node.initializer.getText(ast);
+  }
   ts.forEachChild(node, findHandlers);
 }
 findHandlers(ast);
@@ -226,7 +254,7 @@ function interaction({ voice = false } = {}) {
     rejectRequest = no;
   });
   const code = ts.transpileModule(
-    `const {state,focused,screenEpoch,inFlight,events,requests,response,speech,readbacks,poll} = dependencies;
+    `const {state,focused,screenEpoch,inFlight,events,requests,response,speech,readbacks,poll,answerAudioKey} = dependencies;
     const id='session-a', busy=false, recording=false, voiceOption=null, pending=[], pendingOption={current:null}, recordingConsented={current:false},validId=true,useCallback=fn=>fn,setLoading=()=>{},getApiErrorMessage=e=>e.message;
     const setBusy=value=>events.push(['busy',value]),setError=()=>{},setSelectedOption=value=>events.push(['selected',value]),setVoiceOption=value=>events.push(['voice',value]),setAiConsent=value=>events.push(['consent',value]),setConsentVisible=value=>events.push(['recordingConsent',value]);
     const audio={current:{stop:()=>{events.push(['stop']);return new Promise(()=>{});}}};
@@ -249,6 +277,7 @@ function interaction({ voice = false } = {}) {
     speech,
     readbacks,
     poll,
+    answerAudioKey,
   });
   return {
     ...actions,
@@ -291,6 +320,7 @@ await new Promise(resolve => setImmediate(resolve));
 assert.equal(h.state.current.current_question_id, "q1", "Keep the current question during confirmation");
 assert.equal(h.readbacks.length, 1);
 assert.equal(h.readbacks[0].text, "Bạn đã chọn: Có");
+assert.equal(h.readbacks[0].key, "selected:q1:q1_a");
 assert.equal(h.inFlight.current, true);
 h.resolvePoll(next);
 await latePoll;
@@ -360,44 +390,63 @@ console.log(
 );
 
 // Exercise the real waiter and audio state callback with the shared player.
-// Only the native speech bridge and clock are controlled by this test.
+// The audio download, native player and clock are controlled by this test.
 const { CheckinCallAudio: ReadbackAudio } = evaluate(
   "src/features/checkin-call/checkin-call.audio.ts", {}
 );
-for (const outcome of ["done", "error", "timeout", "cancel", "unavailable"]) {
+for (const outcome of ["done", "error", "unavailableAudio", "timeout", "cancel", "unavailable"]) {
   const timers = new Map(), states = [];
-  let timerId = 0, callbacks, settled = false;
+  const key = answerAudioKey("q1", "q1_a");
+  let timerId = 0, playback, settled = false, deviceSpoken = false;
   const code = ts.transpileModule(`
-    const {timers,states,schedule}=dependencies;
+    const {timers,states,schedule,loadPromptAudio}=dependencies;
     const promptWaiter={current:null},audio={current:null},focused={current:true};
     const useCallback=fn=>fn,setAudioState=value=>states.push(value);
     const setTimeout=schedule,clearTimeout=id=>timers.delete(id);
     const waitForSpeech=${handlers.waitForSpeech};
     const onState=${handlers.onState};
-    return {audio,waitForSpeech,onState};
+    return {audio,waitForSpeech,onState,load:${handlers.loadPrompt},allowDeviceSpeech:${handlers.allowDeviceSpeech}};
   `, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
   // eslint-disable-next-line no-new-func
   const bridge = new Function("dependencies", code)({
     timers, states,
     schedule: (run, delay) => { const id = ++timerId; timers.set(id, { run, delay }); return id; },
+    loadPromptAudio: async (promptKey) => {
+      assert.equal(promptKey, key);
+      if (outcome === "unavailableAudio") throw new Error("Offline");
+      return "file:///vieneu-confirmation.wav";
+    },
   });
   const player = new ReadbackAudio({
-    load: async () => { throw new Error("Use device speech for confirmation"); },
+    load: bridge.load,
     prepare: async () => {},
-    create: async () => { throw new Error("Unexpected recording playback"); },
+    create: async (uri) => {
+      assert.equal(uri, "file:///vieneu-confirmation.wav");
+      return {
+        setOnPlaybackStatusUpdate: (listener) => { playback = listener; },
+        play: () => playback({ playing: true }),
+        pauseAsync: async () => {},
+        unloadAsync: async () => {},
+      };
+    },
     stopSpeech: async () => {},
-    speak: (_prompt, events) => { callbacks = events; events.onStart(); },
+    allowDeviceSpeech: bridge.allowDeviceSpeech,
+    speak: (_prompt, events) => { deviceSpoken = true; events.onDone(); },
     onState: bridge.onState,
   });
+  for (const promptKey of [key, "question:q2", "instruction", "skipped", "closing"])
+    assert.equal(bridge.allowDeviceSpeech({ key: promptKey }), false);
   if (outcome !== "unavailable") bridge.audio.current = player;
-  const result = bridge.waitForSpeech("selected:answer", "Bạn đã chọn: Có", 10000)
+  const result = bridge.waitForSpeech(key, "Bạn đã chọn: Có", 10000)
     .then(() => { settled = true; });
   await new Promise(resolve => setImmediate(resolve));
-  if (outcome !== "unavailable") {
+  if (outcome === "unavailableAudio") {
+    assert.equal(states.at(-1).phase, "error");
+  } else if (outcome !== "unavailable") {
     assert.equal(settled, false, "Starting speech cannot advance the question");
     assert.equal(states.at(-1).phase, "playing");
-    if (outcome === "done") callbacks.onDone();
-    if (outcome === "error") callbacks.onError();
+    if (outcome === "done") playback({ didJustFinish: true });
+    if (outcome === "error") playback({ error: "Cannot decode audio" });
     if (outcome === "cancel") await player.stop();
     if (outcome === "timeout") {
       const timer = [...timers.values()][0];
@@ -406,6 +455,7 @@ for (const outcome of ["done", "error", "timeout", "cancel", "unavailable"]) {
     }
   }
   await result;
+  assert.equal(deviceSpoken, false, "Confirmations must never switch to device speech");
   assert.equal(settled, true, `${outcome} must release the transition`);
   assert.equal(timers.size, 0, "Completion and cancellation must clear the guard timer");
   await player.stop(true);
@@ -413,24 +463,91 @@ for (const outcome of ["done", "error", "timeout", "cancel", "unavailable"]) {
 }
 console.log("PASS actual readback waits for speech completion and cannot strand the session on audio error, timeout, interruption or missing audio");
 
+const previewAst = ts.createSourceFile(
+  "preview.tsx",
+  fs.readFileSync("src/features/doctor-ivr/DoctorIvrPreview.tsx", "utf8"),
+  ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX
+);
+const previewAudio = {};
+function findPreviewAudio(node) {
+  if (ts.isVariableDeclaration(node) && node.name.getText(previewAst) === "previewAnswers")
+    previewAudio.answers = node.initializer.getText(previewAst);
+  if (ts.isNewExpression(node) && node.expression.getText(previewAst) === "CheckinCallAudio")
+    previewAudio.dependencies = node.arguments[0].getText(previewAst);
+  ts.forEachChild(node, findPreviewAudio);
+}
+findPreviewAudio(previewAst);
+const clips = Object.fromEntries(["vi", "en"].map((language) => [language,
+  Object.fromEntries(["often", "sometimes", "no", "normal", "rest", "stopped", "yes"].map((key) => {
+    const file = `assets/sounds/ivr-confirmation/${language}-${key}.mp3`;
+    assert.ok(fs.statSync(file).size > 1000);
+    return [key, file];
+  }))
+]));
+for (const { language, fail } of [{ language: "vi", fail: false }, { language: "en", fail: true }]) {
+  const code = ts.transpileModule(`
+    const {language, ivrAnswerAudio, loaded, device, status, Audio} = input;
+    const active={current:true},promptWaiter={current:null},currentState={current:{speechRate:0.9}};
+    const setState=fn=>status.push(fn({}).audioState);
+    const loadIvrAnswerAudio=async (file)=>{loaded.push(file);return file;};
+    const Speech={stop:async()=>{},speak:(text)=>device.push(text)};
+    const previewAnswers=${previewAudio.answers};
+    return ${previewAudio.dependencies};
+  `, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
+  const loaded = [], device = [], status = [], played = [];
+  const Audio = {
+    setAudioModeAsync: async () => {},
+    Sound: { createAsync: async ({ uri }) => {
+      if (fail) throw new Error("Cannot decode the audio");
+      let update;
+      return { sound: {
+        setRateAsync: async () => {},
+        setOnPlaybackStatusUpdate: (listener) => { update = listener; },
+        play: () => { played.push(uri); update({ didJustFinish: true }); },
+        pauseAsync: async () => {},
+        unloadAsync: async () => {},
+      } };
+    } },
+  };
+  const deps = new Function("input", code)({ language, ivrAnswerAudio: clips, loaded, device, status, Audio });
+  const prompt = { key: answerAudioKey("q3", "q3_a"), text: "Yes", language };
+  const player = new ReadbackAudio(deps);
+  await player.play(prompt);
+  assert.deepEqual(loaded, [clips[language].yes]);
+  assert.deepEqual(device, []);
+  assert.deepEqual(played, fail ? [] : [clips[language].yes]);
+  assert.equal(status.at(-1).phase, fail ? "error" : "finished");
+  await player.stop(true);
+  player.dispose();
+}
+console.log("PASS preview confirms the Yes choice with its bundled Tuấn Anh recording in each language");
+
 for (const maximum of [30, 60]) {
-  const recordingState = { option: null, seconds: null };
+  const recordingState = { option: null, seconds: null, cueKeepsAudioSession: false };
   const code = ts.transpileModule(`
     const {recordingState,maximum}=dependencies;
     const option={id:'voice',type:'voice',max_record_s:maximum};
     const pendingOption={current:option},state={current:{current_question_id:maximum===60?'q_final':'q2'}},focused={current:true};
-    const recordingConsented={current:false},voiceStartVersion={current:0},cue={current:null},recorder={current:null},heardSound={current:false},lastSound={current:0},recordingStart={current:0};
+    const recordingConsented={current:false},voiceStartVersion={current:0},cue={current:null},recorder={current:null},hasMetering={current:false},heardSound={current:false},recordingStart={current:0};
+    let clock=1000;const Date={now:()=>clock};
     const setVoiceOption=value=>{recordingState.option=value;},setSeconds=value=>{recordingState.seconds=value;};
-    const setBusy=()=>{},setError=()=>{},setRecording=()=>{},setConsentVisible=()=>{},t=key=>key,waitForSpeech=async()=>{},Crypto={randomUUID:()=> 'instruction-test'},fail=e=>{throw e;};
+    const setBusy=()=>{},setError=()=>{},setRecording=()=>{},setConsentVisible=()=>{},t=key=>key,waitForSpeech=async()=>{},fail=e=>{throw e;};
     const require=()=> 'beep.wav',FileSystem={deleteAsync:async()=>{}},audio={current:{stop:async()=>{}}};
-    const Audio={requestPermissionsAsync:async()=>({granted:true}),setAudioModeAsync:async()=>{},RecordingOptionsPresets:{HIGH_QUALITY:{}},Sound:{createAsync:async()=>({sound:{play:()=>{},unloadAsync:async()=>{}}})},Recording:{createAsync:async()=>({recording:{stopAndUnloadAsync:async()=>{},getURI:()=> 'file:///voice.m4a'}})}};
-    const beginRecording=${handlers.beginRecording};return beginRecording();
+    const Audio={requestPermissionsAsync:async()=>({granted:true}),setAudioModeAsync:async()=>{},RecordingOptionsPresets:{HIGH_QUALITY:{}},Sound:{createAsync:async(source, options)=>{
+      recordingState.cueKeepsAudioSession=options.keepAudioSessionActive;
+      return {sound:{play:()=>{},unloadAsync:async()=>{}}};
+    }},Recording:{createAsync:async()=>{
+      clock+=2200;return {recording:{stopAndUnloadAsync:async()=>{},getURI:()=> 'file:///voice.m4a'}};
+    }}};
+    const beginRecording=${handlers.beginRecording};return beginRecording().then(()=>recordingStart.current);
   `, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
   // The real modal clears voiceOption before Agree invokes this local handler.
   // eslint-disable-next-line no-new-func
-  await new Function("dependencies", code)({ recordingState, maximum });
+  const startedAt = await new Function("dependencies", code)({ recordingState, maximum });
   assert.equal(recordingState.option.max_record_s, maximum);
   assert.equal(recordingState.seconds, maximum);
+  assert.equal(startedAt, 3200, "Microphone setup time must not consume the recording window");
+  assert.equal(recordingState.cueKeepsAudioSession, true, "Ending the beep must not deactivate the iOS recorder's audio session");
 }
 console.log("PASS dismissing recording consent preserves 30-second answers and the 60-second final question");
 

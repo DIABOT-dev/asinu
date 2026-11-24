@@ -83,7 +83,6 @@ function DoctorCallHandoff() {
           position: "absolute",
           top: insets.top + 8,
           left: 16,
-          backgroundColor: colors.surface,
         }}
         onPress={() => {
           void endVoipCall(attemptId);

@@ -17,6 +17,7 @@ type LegacyAudioMode = {
 
 type RecordingStatus = {
   metering?: number;
+  durationMillis?: number;
   isFinished?: boolean;
   hasError?: boolean;
   error?: string | null;
@@ -106,6 +107,10 @@ class LegacyRecording {
   getURI() {
     return this.stopPromise ? this.recordingUri : this.nativeRecorder.uri ?? null;
   }
+
+  getStatus(): RecordingStatus {
+    return this.nativeRecorder.getStatus();
+  }
 }
 
 class LegacySound {
@@ -174,7 +179,7 @@ export const Audio = {
       return { sound, status: { isLoaded: true } };
     },
   },
-  requestPermissionsAsync: () => runNativePermission(requestRecordingPermissionsAsync, { key: 'microphone' }),
+  requestPermissionsAsync: (canRun?: () => boolean) => runNativePermission(requestRecordingPermissionsAsync, { key: 'microphone', canRun }),
   getPermissionsAsync: getRecordingPermissionsAsync,
   setAudioModeAsync: async (mode: LegacyAudioMode) => {
     const mapped: Record<string, boolean> = {};

@@ -147,12 +147,8 @@ function AccountGiftFlow({
         familyAlerted ? 'checkinGift.familyThanks' : 'checkinGift.thanks'
       )}
       notice={
-        status && status !== 'fine'
-          ? t(
-              status === 'very_tired'
-                ? 'checkinGift.urgentNotice'
-                : 'checkinGift.followupNotice'
-            )
+        status && status !== 'fine' && status !== 'very_tired'
+          ? t('checkinGift.followupNotice')
           : undefined
       }
       onRules={(period) =>

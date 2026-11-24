@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Stack, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import {
@@ -26,6 +26,7 @@ import { ScaledTextInput as RNTextInput } from '../../src/components/ScaledTextI
 import { LogEntryHeader } from '../../src/components/LogEntryHeader';
 import { Screen } from '../../src/components/Screen';
 import { TextInput } from '../../src/components/TextInput';
+import { useAuthStore } from '../../src/features/auth/auth.store';
 import { logsApi } from '../../src/features/logs/logs.api';
 import { useLogsStore } from '../../src/features/logs/logs.store';
 import { validateWaterPayload } from '../../src/features/logs/logs.validation';
@@ -55,6 +56,8 @@ export default function WaterLogScreen() {
   const [todayTotalMl, setTodayTotalMl] = useState(0);
 
   const createWater = useLogsStore((state) => state.createWater);
+  const profileId = useAuthStore((state) => state.profile?.id);
+  const token = useAuthStore((state) => state.token);
 
   const shakeX = useSharedValue(0);
   const shakeStyle = useAnimatedStyle(() => ({
@@ -63,9 +66,18 @@ export default function WaterLogScreen() {
 
   const numVal = parseFloat(volume) || 0;
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    const current = () => active && useAuthStore.getState().profile?.id === profileId
+      && useAuthStore.getState().token === token;
+    setVolume('');
+    setNotes('');
+    setVolumeError('');
+    setTodayTotalMl(0);
+    setIsLoading(true);
     (async () => {
       try {
+        if (!profileId) return;
         // Lấy TẤT CẢ water logs HÔM NAY (VN timezone) → SUM volume_ml.
         // KHÔNG pre-fill input — input để trống cho user nhập "lượng vừa
         // uống lần này", tránh cộng dồn từ ngày cũ.
@@ -74,12 +86,13 @@ export default function WaterLogScreen() {
           const v = Number(log?.volume_ml || 0);
           return sum + (isFinite(v) ? v : 0);
         }, 0);
-        setTodayTotalMl(total);
+        if (current()) setTodayTotalMl(total);
       } catch { /* ignore */ } finally {
-        setIsLoading(false);
+        if (current()) setIsLoading(false);
       }
     })();
-  }, []);
+    return () => { active = false; };
+  }, [profileId, token]));
 
   const handleBack = useCallback(() => router.back(), [router]);
 

@@ -36,6 +36,8 @@ export type CareCircleConnection = {
   status: "accepted";
   /** This user's consent is independent from the requester's permission. */
   addressee_can_view_logs?: boolean;
+  requester_shares_notifications?: boolean;
+  addressee_shares_notifications?: boolean;
   relationship_type?: string;
   role?: string;
   permissions: {
@@ -59,6 +61,52 @@ export type CareCircleConnection = {
   updated_at: string;
 };
 
+export type MemberNotification = {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  created_at: string;
+};
+
+export type MemberNotifications = {
+  memberName: string | null;
+  notifications: MemberNotification[];
+  nextBefore: number | null;
+};
+
+export type MemberHealthOverview = {
+  name: string | null;
+  avatarUrl: string | null;
+  heightCm: string | number | null;
+  weightKg: string | number | null;
+  systolic: number | null;
+  diastolic: number | null;
+  pulse: number | null;
+  bloodPressureUnit: string | null;
+  glucose: string | number | null;
+  glucoseUnit: string | null;
+};
+
+type MemberLogReading = {
+  systolic?: number;
+  diastolic?: number;
+  value?: number | string;
+  unit?: string;
+  meal_text?: string;
+  amount_ml?: number;
+  dose_units?: number;
+};
+
+export type MemberHealthLog = {
+  id: string;
+  log_type: string;
+  occurred_at: string;
+  note: string | null;
+  metadata: MemberLogReading | null;
+  detail?: MemberLogReading | null;
+};
+
 export type MemberHealthSummary = {
   ok: boolean;
   patientName?: string;
@@ -75,7 +123,6 @@ export type MemberHealthSummary = {
   quickMetrics?: {
     glucose?: string | number | null;
     bloodPressure?: string | null;
-    weight?: string | number | null;
     water?: string | number | null;
   };
   treeSummary?: {
@@ -128,6 +175,7 @@ export type CreateInvitationPayload = {
   addressee_id: string;
   relationship_type?: string;
   role?: string;
+  share_notifications?: boolean;
   permissions: {
     can_view_logs: boolean;
     can_receive_alerts: boolean;
@@ -305,17 +353,36 @@ export const careCircleApi = {
     return response.report;
   },
 
+  async getMemberNotifications(memberId: string, before: number | null, signal: AbortSignal) {
+    const query = before === null ? "" : `?before=${before}`;
+    return apiClient<MemberNotifications>(
+      `/api/care-circle/member/${encodeURIComponent(memberId)}/notifications${query}`, { signal }
+    );
+  },
+
+  async updateNotificationAccess(connectionId: string, shareNotifications: boolean) {
+    const response = await apiClient<{ access: Pick<CareCircleConnection,
+      'requester_shares_notifications' | 'addressee_shares_notifications'
+    > }>(`/api/care-circle/connections/${encodeURIComponent(connectionId)}/notification-access`, {
+      method: "PUT",
+      body: { share_notifications: shareNotifications },
+    });
+    return response.access;
+  },
+
+  async getMemberHealthOverview(memberId: string, signal: AbortSignal) {
+    const response = await apiClient<{ ok: boolean; overview: MemberHealthOverview }>(
+      `/api/care-circle/member/${encodeURIComponent(memberId)}/health-overview`,
+      { signal }
+    );
+    return response.overview;
+  },
+
   async getPatientLogs(patientId: string) {
     const response = await apiClient<{
       ok: boolean;
       patientName: string;
-      logs: Array<{
-        id: number;
-        log_type: string;
-        occurred_at: string;
-        note: string | null;
-        metadata: any;
-      }>;
+      logs: MemberHealthLog[];
     }>(`/api/mobile/caregiver/logs/${patientId}`);
     return response;
   },

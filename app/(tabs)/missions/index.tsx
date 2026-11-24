@@ -25,14 +25,13 @@ import type { Mission } from '../../../src/features/missions/missions.store';
 import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import { getBottomTabBarHeight } from '../../../src/styles';
 
-type MissionKey = 'daily_checkin' | 'log_bp' | 'log_glucose' | 'log_water' | 'log_weight';
+type MissionKey = 'daily_checkin' | 'log_bp' | 'log_glucose' | 'log_water';
 
 const MISSION_ORDER: MissionKey[] = [
   'daily_checkin',
   'log_bp',
   'log_glucose',
   'log_water',
-  'log_weight',
 ];
 
 const MISSION_ROUTES: Record<MissionKey, string> = {
@@ -40,7 +39,6 @@ const MISSION_ROUTES: Record<MissionKey, string> = {
   log_bp: '/logs/blood-pressure',
   log_glucose: '/logs/glucose',
   log_water: '/logs/water',
-  log_weight: '/logs/weight',
 };
 
 const MISSION_CONFIG: Record<
@@ -49,38 +47,27 @@ const MISSION_CONFIG: Record<
     image: ImageSourcePropType;
     defaultGoal: number;
     titleKey: string;
-    descKey: string;
   }
 > = {
   daily_checkin: {
     image: require('../../../assets/images/missions/icons-v2/checkin-v2.png'),
     defaultGoal: 1,
     titleKey: 'dailyCheckIn',
-    descKey: 'dailyCheckInDesc',
   },
   log_bp: {
     image: require('../../../assets/images/missions/icons-v2/blood-pressure-v2.png'),
     defaultGoal: 2,
     titleKey: 'measureBP',
-    descKey: 'measureBPDesc',
   },
   log_glucose: {
     image: require('../../../assets/images/missions/icons-v2/glucose-v2.png'),
     defaultGoal: 2,
     titleKey: 'measureGlucose',
-    descKey: 'measureGlucoseDesc',
   },
   log_water: {
     image: require('../../../assets/images/missions/icons-v2/water-v2.png'),
     defaultGoal: 4,
     titleKey: 'waterIntake',
-    descKey: 'waterIntakeDesc',
-  },
-  log_weight: {
-    image: require('../../../assets/images/missions/icons-v2/weight-v2.png'),
-    defaultGoal: 1,
-    titleKey: 'weightMission',
-    descKey: 'weightMissionDesc',
   },
 };
 
@@ -88,7 +75,6 @@ type MissionItem = {
   id: string;
   missionKey: MissionKey;
   title: string;
-  description: string;
   progress: number;
   goal: number;
   status: 'active' | 'completed';
@@ -106,7 +92,6 @@ export default function MissionsScreen() {
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [refreshing, setRefreshing] = useState(false);
   const [completedExpanded, setCompletedExpanded] = useState(false);
-  const [helpExpanded, setHelpExpanded] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -142,7 +127,6 @@ export default function MissionsScreen() {
         id: existing.id,
         missionKey: key,
         title: existing.title || t(config.titleKey as any),
-        description: existing.description || t(config.descKey as any),
         progress,
         goal,
         status: existing.status === 'completed' || progress >= goal ? 'completed' : 'active',
@@ -186,10 +170,11 @@ export default function MissionsScreen() {
                     goal={item.goal} completed={false} />
                 ) : null}
               </View>
-              <View style={[styles.rowAction, done && styles.completedAction]}>
-                <Ionicons name={done ? 'checkmark' : 'chevron-forward'} size={20}
-                  color={colors.primaryText} />
-              </View>
+              {done ? (
+                <View style={[styles.rowAction, styles.completedAction]}>
+                  <Ionicons name="checkmark" size={20} color={colors.primaryText} />
+                </View>
+              ) : null}
             </Pressable>
           </React.Fragment>
         );
@@ -201,7 +186,7 @@ export default function MissionsScreen() {
     <Screen>
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <ScreenBackButton style={styles.backButton} iconColor={colors.textPrimary} onPress={() => {
+          <ScreenBackButton style={styles.backButton} onPress={() => {
             if (router.canGoBack()) {
               router.back();
             } else {
@@ -266,30 +251,6 @@ export default function MissionsScreen() {
                   {completedExpanded ? renderGroup(completed, 'completed') : null}
                 </View>
               ) : null}
-              <View style={styles.helpSection}>
-                <Pressable testID="missions-help-toggle" accessibilityRole="button"
-                  accessibilityState={{ expanded: helpExpanded }}
-                  onPress={() => setHelpExpanded((value) => !value)}
-                  style={({ pressed }) => [styles.disclosure, pressed && styles.pressedDisclosure]}>
-                  <View style={styles.disclosureLabel}>
-                    <Ionicons name="information-circle-outline" size={21} color={colors.textSecondary} />
-                    <Text allowFontScaling style={styles.helpTitle}>{t('howItWorks')}</Text>
-                  </View>
-                  <Ionicons name={helpExpanded ? 'chevron-up' : 'chevron-down'}
-                    size={18} color={colors.textSecondary} />
-                </Pressable>
-                {helpExpanded ? (
-                  <View testID="missions-help" style={styles.helpContent}>
-                    <Text allowFontScaling style={styles.helpText}>{t('instructions')}</Text>
-                    {orderedMissions.map((item) => (
-                      <View key={item.missionKey} style={styles.helpItem}>
-                        <Text allowFontScaling style={styles.helpItemTitle}>{item.title}</Text>
-                        <Text allowFontScaling style={styles.helpText}>{item.description}</Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-              </View>
             </>
           )}
         </RippleRefreshScrollView>
@@ -351,11 +312,5 @@ function createStyles({ colors, isDark }: ReturnType<typeof useThemeColors>) {
     },
     disclosureLabel: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
     pressedDisclosure: { opacity: 0.65 },
-    helpSection: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: 8 },
-    helpTitle: { fontSize: 15, fontWeight: '500', color: colors.textSecondary, flexShrink: 1 },
-    helpContent: { paddingHorizontal: 4, paddingTop: 8, gap: 16 },
-    helpText: { fontSize: 14, color: colors.textSecondary },
-    helpItem: { gap: 2 },
-    helpItemTitle: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
   });
 }

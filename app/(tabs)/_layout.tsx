@@ -6,16 +6,16 @@ import { Image, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInitialLoadingGate } from '../../src/hooks/useInitialLoadingGate';
+import { useScaledFontSize } from '../../src/hooks/useScaledTypography';
 import { useThemeColors } from '../../src/hooks/useThemeColors';
 import { bottomTabBar } from '../../src/styles';
 import { useOnboardingGate } from '../../src/features/auth/useOnboardingGate';
 
 const homeIcon = require('../../src/assets/tab-icons/home.png');
 const healthcheckIcon = require('../../src/assets/tab-icons/healthcheck.png');
-const careCircleIcon = require('../../src/assets/tab-icons/care-circle.png');
-const profileIcon = require('../../src/assets/tab-icons/profile.png');
+const operationsIcon = require('../../src/assets/tab-icons/operations.png');
 const missionIcon = require('../../src/assets/tab-icons/mission.png');
-const tabIconModules = [homeIcon, healthcheckIcon, careCircleIcon, profileIcon, missionIcon];
+const tabIconModules = [homeIcon, healthcheckIcon, operationsIcon, missionIcon];
 type TabIconSource = number | { uri: string };
 
 function TabIconSkeleton() {
@@ -72,7 +72,8 @@ export default function TabsLayout() {
   const { t } = useTranslation('common');
   const { colors } = useThemeColors();
   const { bottom } = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, fontScale } = useWindowDimensions();
+  const labelSize = Math.min(17, Math.round(useScaledFontSize(12) * fontScale));
   const sideInset = Math.max(bottomTabBar.horizontalInset, (width - bottomTabBar.maxWidth) / 2);
   const [tabIconSources, setTabIconSources] = useState<Array<TabIconSource | null>>(
     () => tabIconModules.map(() => null),
@@ -111,10 +112,13 @@ export default function TabsLayout() {
     () => ({
       headerShown: false,
       lazy: true,
-      tabBarActiveTintColor: colors.primary,
+      tabBarActiveTintColor: colors.primaryText,
       tabBarInactiveTintColor: colors.textSecondary,
       tabBarHideOnKeyboard: false,
-      tabBarShowLabel: false,
+      tabBarShowLabel: true,
+      tabBarLabelPosition: 'below-icon' as const,
+      tabBarAllowFontScaling: false,
+      tabBarLabelStyle: [styles.tabLabel, { fontSize: labelSize }],
       tabBarItemStyle: { flex: 1, minHeight: bottomTabBar.contentHeight },
       tabBarIconStyle: styles.iconBounds,
       tabBarStyle: {
@@ -130,24 +134,22 @@ export default function TabsLayout() {
         paddingTop: bottomTabBar.verticalPadding,
       },
     }),
-    [bottom, colors, sideInset]
+    [bottom, colors, labelSize, sideInset]
   );
 
-  // Keep the whole visible tab bar in loading state until all four icons are ready.
+  // Keep the whole visible tab bar in loading state until all three icons are ready.
   // The short minimum gate also makes cached bundled assets render the skeleton
   // consistently instead of skipping it in a single frame.
-  const allVisibleTabIconsLoaded = tabIconSources.slice(0, 4).every(Boolean);
+  const allVisibleTabIconsLoaded = tabIconSources.slice(0, 3).every(Boolean);
   const showTabBarLoading = useInitialLoadingGate(allVisibleTabIconsLoaded, 800, allVisibleTabIconsLoaded);
   const visibleTabIconsReady = !showTabBarLoading;
   const homeIconSource = tabIconSources[0] ?? homeIcon;
   const connectIconSource = tabIconSources[1] ?? healthcheckIcon;
-  const overviewIconSource = tabIconSources[2] ?? careCircleIcon;
-  const profileIconSource = tabIconSources[3] ?? profileIcon;
-  const missionIconSource = tabIconSources[4] ?? missionIcon;
+  const operationsIconSource = tabIconSources[2] ?? operationsIcon;
+  const missionIconSource = tabIconSources[3] ?? missionIcon;
   const renderHomeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={homeIconSource} focused={focused} ready={visibleTabIconsReady} />, [homeIconSource, visibleTabIconsReady]);
-  const renderMissionIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={missionIconSource} focused={focused} ready={Boolean(tabIconSources[4])} />, [missionIconSource, tabIconSources[4]]);
-  const renderProfileIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={profileIconSource} focused={focused} ready={visibleTabIconsReady} />, [profileIconSource, visibleTabIconsReady]);
-  const renderTreeIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={overviewIconSource} focused={focused} ready={visibleTabIconsReady} />, [overviewIconSource, visibleTabIconsReady]);
+  const renderMissionIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={missionIconSource} focused={focused} ready={Boolean(tabIconSources[3])} />, [missionIconSource, tabIconSources[3]]);
+  const renderOperationsIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={operationsIconSource} focused={focused} ready={visibleTabIconsReady} />, [operationsIconSource, visibleTabIconsReady]);
   const renderCareCircleIcon = useCallback(({ focused }: { focused: boolean }) => <TabIcon source={connectIconSource} focused={focused} ready={visibleTabIconsReady} />, [connectIconSource, visibleTabIconsReady]);
 
   if (!canShowTabs) return null;
@@ -176,16 +178,22 @@ export default function TabsLayout() {
         name="tree/index"
         options={{
           title: t('tabOverview'),
-          tabBarAccessibilityLabel: t('tabOverview'),
-          tabBarIcon: renderTreeIcon
+          href: null,
         }}
       />
       <Tabs.Screen
         name="profile/index"
         options={{
           title: t('tabProfile'),
-          tabBarAccessibilityLabel: t('tabProfile'),
-          tabBarIcon: renderProfileIcon
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="operations/index"
+        options={{
+          title: t('tabActions'),
+          tabBarAccessibilityLabel: t('tabActions'),
+          tabBarIcon: renderOperationsIcon,
         }}
       />
       {/* Missions screen vẫn giữ route cho profile và deep link.
@@ -217,6 +225,12 @@ const styles = StyleSheet.create({
   iconBounds: {
     width: 60,
     height: 38,
+  },
+  tabLabel: {
+    fontFamily: 'Inter_600SemiBold',
+    fontWeight: 'normal',
+    lineHeight: 22,
+    includeFontPadding: false,
   },
   iconFrame: {
     borderRadius: 999,

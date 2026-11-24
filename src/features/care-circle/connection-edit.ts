@@ -4,6 +4,7 @@ export type ConnectionEditValues = {
   relationship_type?: string;
   role?: string;
   permissions: CareCircleConnection['permissions'];
+  shareNotifications: boolean;
 };
 
 export function getConnectionEditChanges(
@@ -21,10 +22,12 @@ export function getConnectionEditChanges(
   const permissionsChanged = (
     Object.keys(draft.permissions) as Array<keyof ConnectionEditValues['permissions']>
   ).some(key => draft.permissions[key] !== saved.permissions[key]);
+  const notificationAccessChanged = draft.shareNotifications !== saved.shareNotifications;
 
   return {
     updates,
     permissionsChanged,
-    hasChanges: Object.keys(updates).length > 0 || permissionsChanged,
+    notificationAccessChanged,
+    hasChanges: Object.keys(updates).length > 0 || permissionsChanged || notificationAccessChanged,
   };
 }

@@ -1,17 +1,24 @@
-import { DoctorIvrEntry } from "../../src/features/doctor-ivr/DoctorIvrEntry";
-import { runNativePermission } from '../../src/lib/native-permissions';
+import {
+  DoctorIvrEntry,
+  DoctorIvrInvitation,
+} from "../../src/features/doctor-ivr/DoctorIvrEntry";
+import { runNativePermission } from "../../src/lib/native-permissions";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { Stack, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { Stack, useIsFocused, useLocalSearchParams } from "expo-router";
+import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  AppState,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  type TextInput as NativeTextInput,
   View,
   Linking,
   Image,
@@ -34,9 +41,20 @@ import { tokenStore } from "../../src/lib/tokenStore";
 import { showToast } from "../../src/stores/toast.store";
 import { radius, spacing } from "../../src/styles";
 
+const messageReactions = ["👍", "❤️", "😊", "😮", "😢", "🙏"] as const;
+type ReactionEmoji = (typeof messageReactions)[number];
+type MessageQuote = {
+  id: string;
+  sender_type: "patient" | "doctor" | "system";
+  content: string | null;
+  kind?: "text" | "attachment" | "voice";
+};
+
 type TaskMessage = {
   id: string;
-  sender_type: "patient" | "doctor";
+  sender_type: "patient" | "doctor" | "system";
+  sender_ref?: string | null;
+  ivr_session_id?: string | null;
   message_type: "question" | "consultation" | "reply" | "follow_up" | "voice";
   content: string | null;
   created_at: string;
@@ -48,8 +66,49 @@ type TaskMessage = {
   is_deleted_for_me?: boolean;
   is_edited?: boolean;
   is_pinned?: boolean;
+  pinned_at?: string | null;
+  reactions?: Array<{ emoji: ReactionEmoji; count: number; reacted_by_me: boolean }>;
+  reply_to_message_id?: string | null;
+  reply_to?: MessageQuote | null;
   delivery_status?: "sent" | "seen";
 };
+
+type ConsultationDoctor = {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+};
+type DoctorPresence = {
+  doctor_ref: string;
+  status: "online" | "offline";
+  expires_at: string | null;
+};
+type InitialRequest = {
+  description: string;
+  answers: Array<{ step: string; question: string; answer: string }>;
+  risk_label: string;
+};
+type CallMode = "voice" | "video";
+
+const browserRoomUrl = (href: string, mode?: CallMode) => {
+  const [base, hash] = href.split("#", 2);
+  const options = new URLSearchParams(hash);
+  options.set("config.disableDeepLinking", "true");
+  if (mode === "voice") {
+    options.set("config.startAudioOnly", "true");
+    options.set("config.startWithVideoMuted", "true");
+  }
+  return `${base}#${options.toString()}`;
+};
+
+const isSystemMessage = (message: TaskMessage) =>
+  message.sender_type === "system" ||
+  (message.sender_type === "doctor" &&
+    ["doctor-sla-worker", "doctor-ivr-worker"].includes(message.sender_ref ?? ""));
+
+const isUnsent = (message: TaskMessage) => Boolean(message.is_deleted || message.deleted_at);
+const isPinned = (message: TaskMessage) => message.is_pinned ?? Boolean(message.pinned_at);
+const pinTime = (message: TaskMessage) => Date.parse(message.pinned_at ?? message.created_at) || 0;
 
 type Attachment = {
   name: string;
@@ -90,7 +149,9 @@ type ThreadResponse = {
   data?: {
     task_id: string;
     summary: string | null;
+    initial_request?: InitialRequest | null;
     messages: TaskMessage[];
+    doctor_presence?: DoctorPresence | null;
     typing?: {
       actor_type: string | null;
       expires_at: string | null;
@@ -103,6 +164,9 @@ type ThreadResponse = {
       follow_up_until?: string | null;
       follow_up_open?: boolean;
       reopen_open?: boolean;
+      doctor?: ConsultationDoctor | null;
+      call_available?: boolean;
+      video_room?: { provider: "jitsi"; join_url: string } | null;
     } | null;
   };
 };
@@ -155,7 +219,7 @@ const formatMessageTime = (dateString?: string) => {
 const formatHeaderDate = (
   dateString: string | undefined,
   todayLabel: string,
-  locale: string,
+  locale: string
 ) => {
   const date = dateString ? new Date(dateString) : new Date();
   const validDate = isNaN(date.getTime()) ? new Date() : date;
@@ -182,6 +246,7 @@ export default function DoctorConsultationThreadScreen() {
   const { t, i18n } = useTranslation("home");
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const focused = useIsFocused();
   const { taskId: rawTaskId, tenantId: rawTenantId } = useLocalSearchParams<{
     taskId: string;
     tenantId?: string;
@@ -191,18 +256,37 @@ export default function DoctorConsultationThreadScreen() {
   const activeTenantId = tenantId || env.doctorTenantId;
   const { colors, isDark } = useThemeColors();
   const scrollRef = useRef<ScrollView>(null);
+  const followLatest = useRef(true);
+  const messageOffsets = useRef(new Map<string, number>());
   const [summary, setSummary] = useState<string | null>(null);
+  const [initialRequest, setInitialRequest] = useState<InitialRequest | null>(null);
   const [messages, setMessages] = useState<TaskMessage[]>([]);
   const [doctorTyping, setDoctorTyping] = useState(false);
+  const [doctorPresence, setDoctorPresence] = useState<DoctorPresence | null>(null);
+  const presenceEventVersion = useRef(0);
   const [draft, setDraft] = useState("");
+  const [replyToId, setReplyToId] = useState<string | null>(null);
+  const composerInputRef = useRef<NativeTextInput>(null);
+  const replyTarget = messages.find((message) =>
+    message.id === replyToId && !message.is_deleted && !message.deleted_at && !message.is_deleted_for_me
+  );
+  const patientTypingRef = useRef<{
+    renew: () => void;
+    stop: () => void;
+  } | null>(null);
+  const typingSendQueue = useRef<Promise<unknown>>(Promise.resolve());
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState("");
   const [messageActionBusy, setMessageActionBusy] = useState(false);
   const messageActionInFlight = useRef(false);
-  const editedMessage = messages.find(message => message.id === editingMessageId);
-  const hasMessageEditChanges = Boolean(editedMessage) && Boolean(editingDraft.trim()) &&
+  const editedMessage = messages.find(
+    (message) => message.id === editingMessageId
+  );
+  const hasMessageEditChanges =
+    Boolean(editedMessage) &&
+    Boolean(editingDraft.trim()) &&
     editingDraft.trim() !== (editedMessage?.content ?? "").trim();
   const editMessageSaveDisabled = messageActionBusy || !hasMessageEditChanges;
   const [recording, setRecording] = useState(false);
@@ -218,51 +302,93 @@ export default function DoctorConsultationThreadScreen() {
   const [taskStatus, setTaskStatus] = useState<TaskStatusResponse | null>(null);
   const taskStatusRef = useRef(taskStatus);
   taskStatusRef.current = taskStatus;
-  const threadLoadRef = useRef({ version: 0, pending: false });
+  const threadLoadRef = useRef({ version: 0, pending: false, refreshRequested: false });
+  const messageSyncRef = useRef({ started: 0, applied: 0, pending: false, refreshRequested: false });
   const [statusClock, setStatusClock] = useState(() => Date.now());
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [busyModalVisible, setBusyModalVisible] = useState(false);
+  const [callingMode, setCallingMode] = useState<CallMode | null>(null);
+  const callRequestRef = useRef<symbol | null>(null);
   const [actionMessage, setActionMessage] = useState<TaskMessage | null>(null);
   const busyModalShownRef = useRef(false);
 
-  const loadThread = async (showLoading = false) => {
-    if (!taskId || threadLoadRef.current.pending) return;
+  const messagesEndpoint = `/api/doctor/tasks/${encodeURIComponent(taskId ?? "")}/messages`;
+  const tenantQuery = `tenant_id=${encodeURIComponent(activeTenantId)}`;
+
+  const applyMessages = (data: ThreadResponse["data"], order: number) => {
+    if (!data || order <= messageSyncRef.current.applied) return;
+    messageSyncRef.current.applied = order;
+    setSummary(data.summary ?? null);
+    setInitialRequest(data.initial_request ?? null);
+    setMessages(data.messages);
+    setDoctorTyping(data.typing?.is_typing === true);
+    const unread = data.messages
+      .filter((message) => message.sender_type !== "patient" &&
+        !message.is_deleted_for_me && !isUnsent(message) && !message.read_at)
+      .map((message) => message.id);
+    if (unread.length) {
+      void apiClient(`${messagesEndpoint}/action`, {
+        method: "POST",
+        body: { tenant_id: activeTenantId, action: "read", message_ids: unread },
+      }).catch(() => undefined);
+    }
+  };
+
+  const loadMessageUpdates = async () => {
+    if (!taskId) return;
+    const sync = messageSyncRef.current;
+    if (sync.pending) {
+      sync.refreshRequested = true;
+      return;
+    }
+    sync.pending = true;
+    const order = ++sync.started;
+    const token = tokenStore.getToken();
+    const current = () => sync === messageSyncRef.current && token === tokenStore.getToken();
+    try {
+      const response = await apiClient<ThreadResponse>(`${messagesEndpoint}?${tenantQuery}&view=messages`, {
+        retry: { attempts: 2 },
+      });
+      if (!current() || !response.data) return;
+      applyMessages(response.data, order);
+      setLoading(false);
+    } catch {
+      if (current()) void loadThread(false, true);
+    } finally {
+      sync.pending = false;
+      if (current() && sync.refreshRequested) {
+        sync.refreshRequested = false;
+        void loadMessageUpdates();
+      }
+    }
+  };
+
+  const loadThread = async (showLoading = false, refreshIfBusy = false) => {
+    if (!taskId) return;
+    if (threadLoadRef.current.pending) {
+      if (refreshIfBusy) threadLoadRef.current.refreshRequested = true;
+      return;
+    }
     const request = ++threadLoadRef.current.version;
+    const messageOrder = ++messageSyncRef.current.started;
+    const presenceVersionAtFetch = presenceEventVersion.current;
     threadLoadRef.current.pending = true;
+    const token = tokenStore.getToken();
     const current = () => request === threadLoadRef.current.version;
     if (showLoading) setLoading(true);
     try {
       const response = await apiClient<ThreadResponse>(
-        `/api/doctor/tasks/${encodeURIComponent(
-          taskId
-        )}/messages?tenant_id=${encodeURIComponent(activeTenantId)}`,
+        `${messagesEndpoint}?${tenantQuery}`,
         {
           // A tunnel/backend cold start should not surface as a false chat
           // loading error on the first render.
           retry: { attempts: 3, initialDelayMs: 500, backoffFactor: 2 },
         }
       );
-      if (!current()) return;
-      setSummary(response.data?.summary ?? null);
-      setMessages(response.data?.messages ?? []);
-      setDoctorTyping(response.data?.typing?.is_typing === true);
-      const unreadDoctorMessages = (response.data?.messages ?? [])
-        .filter(
-          (message) => message.sender_type === "doctor" && !message.read_at
-        )
-        .map((message) => message.id);
-      if (unreadDoctorMessages.length) {
-        void apiClient(
-          `/api/doctor/tasks/${encodeURIComponent(taskId)}/messages/action`,
-          {
-            method: "POST",
-            body: {
-              tenant_id: activeTenantId,
-              action: "read",
-              message_ids: unreadDoctorMessages,
-            },
-          }
-        ).catch(() => undefined);
+      if (!current() || token !== tokenStore.getToken()) return;
+      applyMessages(response.data, messageOrder);
+      if (presenceVersionAtFetch === presenceEventVersion.current) {
+        setDoctorPresence(response.data?.doctor_presence ?? null);
       }
       // The Doctor integration can be temporarily unavailable while ASINU
       // still serves persisted messages. Recover the lifecycle from ASINU's
@@ -298,7 +424,7 @@ export default function DoctorConsultationThreadScreen() {
         }
       }
 
-      if (!current()) return;
+      if (!current() || token !== tokenStore.getToken()) return;
       setRateable(resolvedTaskStatus?.rateable === true);
       setTaskStatus(resolvedTaskStatus);
       if (
@@ -311,7 +437,7 @@ export default function DoctorConsultationThreadScreen() {
         setBusyModalVisible(true);
       }
     } catch (error) {
-      if (current() && showLoading) {
+      if (current() && token === tokenStore.getToken() && showLoading) {
         showToast(
           getApiErrorMessage(error, t, "doctorConsultationThreadError"),
           "error"
@@ -319,91 +445,182 @@ export default function DoctorConsultationThreadScreen() {
       }
     } finally {
       if (current()) {
-        threadLoadRef.current.pending = false;
+        const thread = threadLoadRef.current;
+        thread.pending = false;
         if (showLoading) setLoading(false);
+        if (thread.refreshRequested) {
+          thread.refreshRequested = false;
+          void loadThread();
+        }
       }
     }
   };
 
   useEffect(() => {
+    followLatest.current = true;
+    messageOffsets.current.clear();
+    setReplyToId(null);
+  }, [taskId, activeTenantId]);
+
+  useEffect(() => {
+    if (!focused || !taskId) return;
     let disposed = false;
     let connected = false;
+    let connecting = false;
     let socket: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let appState = AppState.currentState;
+    setCallingMode(null);
     const fallbackTimer = setInterval(() => {
       // A live chat socket does not mean the newly enqueued task is ready yet.
-      if (!connected || !taskStatusRef.current?.status ||
-        ["new", "queued", "assigned"].includes(taskStatusRef.current.status)) void loadThread();
+      if (
+        appState === "active" &&
+        (!connected ||
+          !taskStatusRef.current?.status ||
+          ["new", "queued", "assigned"].includes(taskStatusRef.current.status))
+      )
+        void loadThread();
     }, 5000);
 
+    const scheduleReconnect = () => {
+      if (disposed || appState !== "active" || reconnectTimer) return;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        void connect();
+      }, 5000);
+    };
+
     const connect = async () => {
-      const token = await tokenStore.loadToken();
-      if (disposed || !taskId || !token) return;
+      if (disposed || appState !== "active" || !taskId || socket || connecting) return;
+      connecting = true;
       try {
+        const token = await tokenStore.loadToken();
+        if (disposed || appState !== "active" || !token) return;
+        if (token !== tokenStore.getToken()) {
+          scheduleReconnect();
+          return;
+        }
         const baseUrl = env.apiBaseUrl
           .replace(/^http/i, "ws")
           .replace(/\/$/, "");
         const url = `${baseUrl}/api/doctor/chat/ws?tenant_id=${encodeURIComponent(
           activeTenantId
         )}&task_id=${encodeURIComponent(taskId)}`;
-        socket = new WebSocket(url, ["asinu-chat", token]);
-        socket.onopen = () => {
+        const connection = new WebSocket(url, ["asinu-chat", token]);
+        socket = connection;
+        connection.onopen = () => {
+          if (disposed || appState !== "active" || socket !== connection) {
+            connection.close();
+            return;
+          }
           connected = true;
           setRealtimeConnected(true);
-          void loadThread();
+          void loadThread(false, true);
         };
-        socket.onmessage = (event) => {
+        connection.onmessage = (event) => {
+          if (disposed || socket !== connection || token !== tokenStore.getToken()) return;
           try {
             const envelope = JSON.parse(String(event.data)) as {
               type?: string;
-              data?: {
+              data?: Partial<DoctorPresence> & {
                 actor_type?: string | null;
                 is_typing?: boolean;
               };
             };
-            if (envelope.type === "chat.message.changed" || envelope.type === "chat.task.status.changed") {
-              void loadThread();
+            if (envelope.type === "chat.message.changed") {
+              void loadMessageUpdates();
+            } else if (envelope.type === "chat.task.status.changed") {
+              void loadThread(false, true);
             } else if (envelope.type === "chat.typing.changed") {
               setDoctorTyping(
                 envelope.data?.actor_type === "doctor" &&
                   envelope.data?.is_typing === true
               );
+            } else if (envelope.type === "chat.doctor.presence.changed") {
+              const pulse = envelope.data;
+              const doctorId = taskStatusRef.current?.doctor?.id;
+              if (
+                pulse?.doctor_ref &&
+                (!doctorId || doctorId === pulse.doctor_ref) &&
+                (pulse.status === "offline" ||
+                  (pulse.status === "online" && typeof pulse.expires_at === "string"))
+              ) {
+                presenceEventVersion.current++;
+                setDoctorPresence({
+                  doctor_ref: pulse.doctor_ref,
+                  status: pulse.status,
+                  expires_at: pulse.status === "online" ? pulse.expires_at ?? null : null,
+                });
+              }
             }
           } catch {
             // The REST refresh below remains the safe source of truth.
           }
         };
-        socket.onerror = () => {
+        connection.onerror = () => {
+          if (socket !== connection) return;
           connected = false;
           setRealtimeConnected(false);
+          connection.close();
         };
-        socket.onclose = () => {
+        connection.onclose = () => {
+          if (socket !== connection) return;
+          socket = null;
           connected = false;
           setRealtimeConnected(false);
-          if (!disposed) {
-            reconnectTimer = setTimeout(() => void connect(), 5000);
-          }
+          scheduleReconnect();
         };
       } catch {
         connected = false;
         setRealtimeConnected(false);
-        if (!disposed) reconnectTimer = setTimeout(() => void connect(), 5000);
+        scheduleReconnect();
+      } finally {
+        connecting = false;
       }
     };
 
-    void loadThread(true);
-    void connect();
-    return () => {
-      disposed = true;
-      threadLoadRef.current.version++;
-      threadLoadRef.current.pending = false;
+    const resetConnection = () => {
       connected = false;
       setRealtimeConnected(false);
       if (reconnectTimer) clearTimeout(reconnectTimer);
-      clearInterval(fallbackTimer);
-      socket?.close();
+      reconnectTimer = null;
+      const previous = socket;
+      socket = null;
+      previous?.close();
     };
-  }, [taskId, activeTenantId]);
+    const unsubscribeSession = tokenStore.subscribeSession(() => {
+      resetConnection();
+      if (appState === "active" && tokenStore.getToken()) void connect();
+    });
+    const appStateSubscription = AppState.addEventListener("change", (nextState) => {
+      const wasActive = appState === "active";
+      appState = nextState;
+      if (nextState !== "active") {
+        resetConnection();
+        return;
+      }
+      if (!wasActive) {
+        void loadThread(false, true);
+        void connect();
+      }
+    });
+
+    setDoctorPresence(null);
+    void loadThread(loading);
+    void connect();
+    return () => {
+      disposed = true;
+      callRequestRef.current = null;
+      threadLoadRef.current.version++;
+      threadLoadRef.current.pending = false;
+      threadLoadRef.current.refreshRequested = false;
+      messageSyncRef.current = { started: 0, applied: 0, pending: false, refreshRequested: false };
+      unsubscribeSession();
+      appStateSubscription.remove();
+      clearInterval(fallbackTimer);
+      resetConnection();
+    };
+  }, [taskId, activeTenantId, focused]);
 
   useEffect(
     () => () => {
@@ -414,14 +631,29 @@ export default function DoctorConsultationThreadScreen() {
   );
 
   useEffect(() => {
-    requestAnimationFrame(() =>
-      scrollRef.current?.scrollToEnd({ animated: true })
-    );
+    const frame = requestAnimationFrame(() => {
+      if (followLatest.current) scrollRef.current?.scrollToEnd({ animated: false });
+    });
+    return () => cancelAnimationFrame(frame);
   }, [messages.length]);
+
+  const handleThreadScroll = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentSize, contentOffset, layoutMeasurement } = nativeEvent;
+    followLatest.current = contentSize.height - contentOffset.y - layoutMeasurement.height < 80;
+  };
+
+  const jumpToMessage = (messageId: string) => {
+    const offset = messageOffsets.current.get(messageId);
+    if (offset === undefined || !scrollRef.current) return;
+    followLatest.current = false;
+    scrollRef.current.scrollTo({ y: Math.max(offset - spacing.sm, 0), animated: true });
+  };
 
   const send = async () => {
     const content = draft.trim();
     if (!taskId || !content || sending || !conversationOpen) return;
+    const repliedTo = replyTarget?.id;
+    patientTypingRef.current?.stop();
     setSending(true);
     try {
       await apiClient(
@@ -434,11 +666,14 @@ export default function DoctorConsultationThreadScreen() {
             message_type:
               taskStatus?.status === "completed" ? "follow_up" : "reply",
             client_message_id: createClientMessageId(),
+            ...(repliedTo ? { reply_to_message_id: repliedTo } : {}),
           },
         }
       );
       setDraft("");
-      await loadThread();
+      setReplyToId((current) => current === repliedTo ? null : current);
+      followLatest.current = true;
+      await loadThread(false, true);
     } catch {
       showToast(t("doctorConsultationMessageError"), "error");
     } finally {
@@ -448,16 +683,19 @@ export default function DoctorConsultationThreadScreen() {
 
   const runMessageAction = async (
     messageId: string,
-    action: "edit" | "unsend" | "delete_for_me" | "pin" | "unpin",
-    content?: string
+    action: "edit" | "unsend" | "delete_for_me" | "pin" | "unpin" | "react",
+    content?: string,
+    reaction?: ReactionEmoji | null
   ) => {
-    if (!taskId || messageActionInFlight.current) {
+    if (!taskId || messageActionInFlight.current || (action === "react" && !conversationOpen)) {
       return;
     }
-    if (action === "edit" && (
-      messageId !== editingMessageId || !hasMessageEditChanges ||
-      content?.trim() !== editingDraft.trim()
-    )) {
+    if (
+      action === "edit" &&
+      (messageId !== editingMessageId ||
+        !hasMessageEditChanges ||
+        content?.trim() !== editingDraft.trim())
+    ) {
       return;
     }
     messageActionInFlight.current = true;
@@ -472,12 +710,15 @@ export default function DoctorConsultationThreadScreen() {
             action,
             message_id: messageId,
             ...(content ? { content } : {}),
+            ...(action === "react" ? { reaction: reaction ?? null } : {}),
           },
         }
       );
-      setEditingMessageId(null);
-      setEditingDraft("");
-      await loadThread();
+      if (action !== "react") {
+        setEditingMessageId(null);
+        setEditingDraft("");
+      }
+      await loadThread(false, true);
     } catch {
       showToast(t("doctorConsultationMessageError"), "error");
     } finally {
@@ -487,55 +728,9 @@ export default function DoctorConsultationThreadScreen() {
   };
 
   const showMessageActions = (message: TaskMessage) => {
-    if (message.is_deleted || message.is_deleted_for_me) return;
+    if (message.is_deleted || message.deleted_at || message.is_deleted_for_me) return;
     setActionMessage(message);
   };
-
-  const messageActions: AppActionSheetAction[] = [];
-  if (actionMessage) {
-    const ownMessage = actionMessage.sender_type === "patient";
-    const content = actionMessage.content ?? "";
-    const isRichMessage = Boolean(
-      parseAttachment(content) || parseVoice(content)
-    );
-    if (ownMessage && !isRichMessage) {
-      messageActions.push({
-        key: "edit",
-        label: t("doctorConsultationEditMessage"),
-        icon: "create-outline",
-        onPress: () => {
-          setEditingMessageId(actionMessage.id);
-          setEditingDraft(actionMessage.content ?? "");
-        },
-      });
-      messageActions.push({
-        key: "unsend",
-        label: t("doctorConsultationUnsendMessage"),
-        icon: "arrow-undo-outline",
-        destructive: true,
-        onPress: () => void runMessageAction(actionMessage.id, "unsend"),
-      });
-    }
-    messageActions.push({
-      key: "delete_for_me",
-      label: t("doctorConsultationDeleteForMe"),
-      icon: "trash-outline",
-      destructive: true,
-      onPress: () => void runMessageAction(actionMessage.id, "delete_for_me"),
-    });
-    messageActions.push({
-      key: "pin",
-      label: actionMessage.is_pinned
-        ? t("doctorConsultationUnpinMessage")
-        : t("doctorConsultationPinMessage"),
-      icon: "pin-outline",
-      onPress: () =>
-        void runMessageAction(
-          actionMessage.id,
-          actionMessage.is_pinned ? "unpin" : "pin"
-        ),
-    });
-  }
 
   const startVoiceRecording = async () => {
     if (recording || sending || !conversationOpen) return;
@@ -563,6 +758,7 @@ export default function DoctorConsultationThreadScreen() {
   const stopVoiceRecording = async () => {
     const activeRecording = recordingRef.current;
     if (!activeRecording || !taskId || !conversationOpen) return;
+    const repliedTo = replyTarget?.id;
     setRecording(false);
     setSending(true);
     try {
@@ -578,6 +774,7 @@ export default function DoctorConsultationThreadScreen() {
         type: "audio/m4a",
       } as any);
       formData.append("tenant_id", activeTenantId);
+      if (repliedTo) formData.append("reply_to_message_id", repliedTo);
       formData.append(
         "duration_ms",
         String(Date.now() - recordingStartedAtRef.current)
@@ -587,7 +784,9 @@ export default function DoctorConsultationThreadScreen() {
         body: formData,
         headers: { "X-Client-Message-Id": createClientMessageId() },
       });
-      await loadThread();
+      setReplyToId((current) => current === repliedTo ? null : current);
+      followLatest.current = true;
+      await loadThread(false, true);
     } catch {
       showToast(t("doctorConsultationVoiceError"), "error");
     } finally {
@@ -595,23 +794,62 @@ export default function DoctorConsultationThreadScreen() {
     }
   };
 
-  const resolveMediaUrl = async (messageId: string, url: string, kind: 'voice' | 'attachment') => {
+  const resolveMediaUrl = async (
+    messageId: string,
+    url: string,
+    kind: "voice" | "attachment"
+  ) => {
     const expiry = Number(/[?&]expires_at=(\d+)(?:&|$)/.exec(url)?.[1]);
     if (!expiry || expiry > Date.now() / 1000 + 30) return url;
     const token = tokenStore.getToken();
     const response = await apiClient<ThreadResponse>(
-      `/api/doctor/tasks/${encodeURIComponent(taskId)}/messages?tenant_id=${encodeURIComponent(activeTenantId)}`
+      `/api/doctor/tasks/${encodeURIComponent(
+        taskId
+      )}/messages?tenant_id=${encodeURIComponent(activeTenantId)}`
     );
-    if (tokenStore.getToken() !== token) throw new Error('Session changed');
-    const message = response.data?.messages?.find(message => message.id === messageId);
-    const media = kind === 'voice' ? parseVoice(message?.content || '') : parseAttachment(message?.content || '');
-    if (!media?.url) throw new Error('File is unavailable');
+    if (tokenStore.getToken() !== token) throw new Error("Session changed");
+    const message = response.data?.messages?.find(
+      (message) => message.id === messageId
+    );
+    const media =
+      kind === "voice"
+        ? parseVoice(message?.content || "")
+        : parseAttachment(message?.content || "");
+    if (!media?.url) throw new Error("File is unavailable");
     return media.url;
   };
 
   const openAttachment = async (messageId: string, url: string) => {
-    try { await Linking.openURL(await resolveMediaUrl(messageId, url, 'attachment')); }
-    catch { showToast(t('doctorConsultationAttachmentError'), 'error'); }
+    try {
+      await Linking.openURL(
+        await resolveMediaUrl(messageId, url, "attachment")
+      );
+    } catch {
+      showToast(t("doctorConsultationAttachmentError"), "error");
+    }
+  };
+
+  const renderAttachmentPreview = (attachment: Attachment, messageId: string) => {
+    const isImage = attachment.mime_type?.startsWith("image/");
+    return (
+      <Pressable
+        accessibilityRole={isImage ? "imagebutton" : "button"}
+        accessibilityLabel={attachment.name}
+        onPress={() => void openAttachment(messageId, attachment.url)}
+        style={isImage ? undefined : styles.messageDocument}
+      >
+        {isImage ? (
+          <Image source={{ uri: attachment.url }} style={styles.messageAttachment} />
+        ) : (
+          <>
+            <Ionicons accessible={false} name="document-text-outline" size={20} color={colors.primaryText} />
+            <Text style={[styles.messageDocumentLabel, { color: colors.primaryText }]}>
+              {t("doctorConsultationOpenDocument")}
+            </Text>
+          </>
+        )}
+      </Pressable>
+    );
   };
 
   const playVoice = async (messageId: string, url: string) => {
@@ -623,7 +861,7 @@ export default function DoctorConsultationThreadScreen() {
       }
       await soundRef.current?.unloadAsync?.();
       const result = await Audio.Sound.createAsync(
-        { uri: await resolveMediaUrl(messageId, url, 'voice') },
+        { uri: await resolveMediaUrl(messageId, url, "voice") },
         { shouldPlay: true }
       );
       soundRef.current = result.sound;
@@ -638,9 +876,12 @@ export default function DoctorConsultationThreadScreen() {
 
   const handlePickImage = async () => {
     if (!taskId || sending || !conversationOpen) return;
+    const repliedTo = replyTarget?.id;
     try {
-      const permission =
-        await runNativePermission(() => ImagePicker.requestMediaLibraryPermissionsAsync(), { key: 'photo-library' });
+      const permission = await runNativePermission(
+        () => ImagePicker.requestMediaLibraryPermissionsAsync(),
+        { key: "photo-library" }
+      );
       if (!permission.granted) {
         showToast(t("doctorConsultationPhotoPermission"), "error");
         return;
@@ -658,6 +899,7 @@ export default function DoctorConsultationThreadScreen() {
           name: asset.fileName || `doctor-consultation-${Date.now()}.jpg`,
           type: asset.mimeType || "image/jpeg",
         } as any);
+        if (repliedTo) formData.append("reply_to_message_id", repliedTo);
         setSending(true);
         await apiClient(
           `/api/doctor/tasks/${encodeURIComponent(
@@ -669,7 +911,9 @@ export default function DoctorConsultationThreadScreen() {
             headers: { "X-Client-Message-Id": createClientMessageId() },
           }
         );
-        await loadThread();
+        setReplyToId((current) => current === repliedTo ? null : current);
+        followLatest.current = true;
+        await loadThread(false, true);
         showToast(t("doctorConsultationImageSent"), "success");
       }
     } catch (error) {
@@ -707,9 +951,14 @@ export default function DoctorConsultationThreadScreen() {
     }
   };
 
-  const firstMessageDate = messages[0]?.created_at;
-  const dateHeader = formatHeaderDate(
-    firstMessageDate,
+  const visibleMessages = messages.filter((message) => !message.is_deleted_for_me);
+  const messagesById = new Map(visibleMessages.map((message) => [message.id, message]));
+  const pinnedMessage = visibleMessages.reduce<TaskMessage | null>((latest, message) => {
+    if (!isPinned(message) || isUnsent(message) || isSystemMessage(message)) return latest;
+    return !latest || pinTime(message) >= pinTime(latest) ? message : latest;
+  }, null);
+  const dateLabel = (date?: string) => formatHeaderDate(
+    date,
     t("doctorConsultationToday"),
     i18n.language === "en" ? "en-US" : "vi-VN"
   );
@@ -741,8 +990,239 @@ export default function DoctorConsultationThreadScreen() {
   const statusLabel = taskStatus?.status
     ? t(`doctorConsultationStatus_${taskStatus.status}`)
     : t("doctorConsultationStatusSyncing");
-  const statusIsTerminal =
-    Boolean(currentStatus && ["completed", ...terminalStatuses].includes(currentStatus));
+  const statusIsTerminal = Boolean(
+    currentStatus && ["completed", ...terminalStatuses].includes(currentStatus)
+  );
+
+  const assignedDoctor = taskStatus?.doctor;
+  const showDoctorPresence = conversationOpen && (Boolean(assignedDoctor) || currentStatus === "waiting_user");
+  const presenceForDoctor = doctorPresence?.doctor_ref === assignedDoctor?.id ? doctorPresence : null;
+  const doctorPresenceExpiresAt = presenceForDoctor?.status === "online"
+    ? Date.parse(presenceForDoctor.expires_at ?? "")
+    : 0;
+  const doctorOnline = doctorPresenceExpiresAt > Date.now();
+  const headerStatusLabel = showDoctorPresence
+    ? t(doctorOnline
+      ? "doctorConsultationExpertOnline"
+      : presenceForDoctor
+        ? "doctorConsultationExpertOffline"
+        : "doctorConsultationExpertStatusUnknown")
+    : statusLabel;
+
+  const messageActions: AppActionSheetAction[] = [];
+  if (actionMessage) {
+    if (conversationOpen && !sending && !recording) {
+      messageActions.push({
+        key: "reply",
+        label: t("doctorConsultationReplyToMessage"),
+        icon: "arrow-undo-outline",
+        onPress: () => {
+          setReplyToId(actionMessage.id);
+          requestAnimationFrame(() => composerInputRef.current?.focus());
+        },
+      });
+    }
+    const ownMessage = actionMessage.sender_type === "patient";
+    const content = actionMessage.content ?? "";
+    const isRichMessage = Boolean(
+      parseAttachment(content) || parseVoice(content)
+    );
+    if (ownMessage && !isRichMessage) {
+      messageActions.push({
+        key: "edit",
+        label: t("doctorConsultationEditMessage"),
+        icon: "create-outline",
+        onPress: () => {
+          setEditingMessageId(actionMessage.id);
+          setEditingDraft(actionMessage.content ?? "");
+        },
+      });
+      messageActions.push({
+        key: "unsend",
+        label: t("doctorConsultationUnsendMessage"),
+        icon: "arrow-undo-outline",
+        destructive: true,
+        onPress: () => void runMessageAction(actionMessage.id, "unsend"),
+      });
+    }
+    messageActions.push({
+      key: "delete_for_me",
+      label: t("doctorConsultationDeleteForMe"),
+      icon: "trash-outline",
+      destructive: true,
+      onPress: () => void runMessageAction(actionMessage.id, "delete_for_me"),
+    });
+    messageActions.push({
+      key: "pin",
+      label: isPinned(actionMessage)
+        ? t("doctorConsultationUnpinMessage")
+        : t("doctorConsultationPinMessage"),
+      icon: "pin-outline",
+      onPress: () =>
+        void runMessageAction(
+          actionMessage.id,
+          isPinned(actionMessage) ? "unpin" : "pin"
+        ),
+    });
+  }
+
+  const authorOf = (message: Pick<TaskMessage, "sender_type" | "sender_ref">) =>
+    message.sender_type === "patient"
+      ? t("doctorConsultationYou")
+      : message.sender_type === "system"
+        ? t("doctorConsultationSystem")
+        : (message.sender_ref === assignedDoctor?.id && assignedDoctor?.name) ||
+          t("doctorConsultationDoctor");
+
+  const replyPreview = (message: Pick<MessageQuote, "content" | "kind">) => {
+    if (message.kind === "voice" || message.content?.startsWith("[ASINU_VOICE]"))
+      return t("doctorConsultationVoiceMessage");
+    if (message.kind === "attachment" || message.content?.startsWith("[ASINU_ATTACHMENT]"))
+      return t("doctorConsultationReplyAttachment");
+    return message.content?.trim() || t("doctorConsultationReplyUnavailable");
+  };
+
+  const changeReaction = (message: TaskMessage, emoji: ReactionEmoji) => {
+    const selected = message.reactions?.some((item) => item.emoji === emoji && item.reacted_by_me);
+    void runMessageAction(message.id, "react", undefined, selected ? null : emoji);
+  };
+
+  const renderMessageQuote = (message: TaskMessage) => {
+    if (!message.reply_to_message_id || isUnsent(message)) return null;
+    const quote = message.reply_to;
+    const original = quote ? messagesById.get(quote.id) : undefined;
+    const canJump = !!original && !isUnsent(original);
+    return (
+      <Pressable
+        accessibilityRole={canJump ? "button" : undefined}
+        accessibilityHint={canJump ? t("doctorConsultationJumpToMessage") : undefined}
+        disabled={!canJump}
+        onPress={() => {
+          if (canJump) jumpToMessage(original.id);
+        }}
+        style={[styles.messageQuote, { backgroundColor: colors.surfaceMuted }]}
+      >
+        <Text numberOfLines={1} style={[styles.quoteAuthor, { color: colors.textPrimary }]}>
+          {quote ? authorOf(original ?? quote) : t("doctorConsultationReplyToMessage")}
+        </Text>
+        <Text numberOfLines={2} style={[styles.quoteText, { color: colors.textSecondary }]}>
+          {quote ? replyPreview(quote) : t("doctorConsultationReplyUnavailable")}
+        </Text>
+      </Pressable>
+    );
+  };
+
+  const renderMessageReactions = (message: TaskMessage) => {
+    if (!message.reactions?.length || isUnsent(message))
+      return null;
+    return (
+      <View style={styles.messageReactionRow}>
+        {message.reactions.map(({ emoji, count, reacted_by_me }) => (
+          <Pressable
+            key={emoji}
+            accessibilityRole="button"
+            accessibilityLabel={`${t("doctorConsultationReact")} ${emoji} ${count}`}
+            accessibilityState={{ selected: reacted_by_me, disabled: !conversationOpen || messageActionBusy }}
+            disabled={!conversationOpen || messageActionBusy}
+            onPress={() => changeReaction(message, emoji)}
+            style={[styles.messageReactionChip, {
+              backgroundColor: colors.surface,
+              borderColor: reacted_by_me ? colors.primary : colors.border,
+            }]}
+          >
+            <Text style={[styles.quoteText, { color: colors.textPrimary }]}>
+              {emoji}{count > 1 ? ` ${count}` : ""}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    );
+  };
+
+  const renderDatePill = (label: string) => (
+    <View style={styles.datePillContainer}>
+      <View style={[styles.datePill, { backgroundColor: colors.surfaceMuted }]}>
+        <Text style={[styles.datePillText, { color: colors.textSecondary }]}>{label}</Text>
+      </View>
+    </View>
+  );
+
+  const renderEditedLabel = (message: TaskMessage) =>
+    !isUnsent(message) && (message.is_edited || message.edited_at) ? (
+      <Text style={[styles.editedLabel, { color: colors.textSecondary }]}>
+        {t("doctorConsultationMessageEdited")}
+      </Text>
+    ) : null;
+
+  const canCall = taskStatus?.call_available === true && !statusIsTerminal;
+
+  const startCall = async (mode: CallMode) => {
+    if (!taskId || !canCall || callRequestRef.current) return;
+    const token = tokenStore.getToken();
+    const request = Symbol();
+    callRequestRef.current = request;
+    setCallingMode(mode);
+    const current = () => callRequestRef.current === request && tokenStore.getToken() === token;
+    try {
+      const messageEndpoint = `/api/doctor/tasks/${encodeURIComponent(taskId)}/messages`;
+      const response = await apiClient<ThreadResponse>(
+        `${messageEndpoint}?tenant_id=${encodeURIComponent(activeTenantId)}`
+      );
+      if (!current()) return;
+      const liveStatus = response.data?.task_status;
+      if (!liveStatus?.call_available) {
+        if (liveStatus) setTaskStatus(liveStatus);
+        showToast(t("doctorConsultationCallUnavailable"), "error");
+        return;
+      }
+      if (liveStatus.video_room?.provider === "jitsi") {
+        const roomUrl = new URL(liveStatus.video_room.join_url);
+        if (roomUrl.protocol !== "https:" || !roomUrl.hostname || roomUrl.username || roomUrl.password) {
+          throw new Error("Invalid consultation room");
+        }
+        await Linking.openURL(browserRoomUrl(roomUrl.href, mode));
+        return;
+      }
+      await apiClient(messageEndpoint, {
+        method: "POST",
+        body: {
+          tenant_id: activeTenantId,
+          content: t(mode === "voice" ? "doctorConsultationRequestVoiceCall" : "doctorConsultationRequestVideoCall"),
+          message_type: "reply",
+          client_message_id: createClientMessageId(),
+        },
+      });
+      if (!current()) return;
+      showToast(t(mode === "voice" ? "doctorConsultationVoiceCallRequested" : "doctorConsultationVideoCallRequested"), "success");
+      followLatest.current = true;
+      await loadThread(false, true);
+    } catch {
+      if (current()) showToast(t("doctorConsultationCallError"), "error");
+    } finally {
+      if (callRequestRef.current === request) {
+        callRequestRef.current = null;
+        setCallingMode(null);
+      }
+    }
+  };
+
+  const renderDoctorAvatar = (doctor: ConsultationDoctor | null | undefined, inMessage = false) => (
+    <View style={[
+      styles.doctorAvatar,
+      inMessage && styles.doctorMessageAvatar,
+      { backgroundColor: colors.primaryLight },
+    ]}>
+      <Ionicons accessible={false} name={doctor || inMessage ? "person-outline" : "medical-outline"} size={19} color={colors.primaryText} />
+      {doctor?.avatar_url && <Image source={{ uri: doctor.avatar_url }} style={styles.doctorAvatarImage} />}
+    </View>
+  );
+
+  useEffect(() => {
+    const remaining = doctorPresenceExpiresAt - Date.now();
+    if (!(remaining > 0)) return;
+    const timer = setTimeout(() => setStatusClock(Date.now()), remaining + 30);
+    return () => clearTimeout(timer);
+  }, [doctorPresenceExpiresAt]);
 
   useEffect(() => {
     const followUpUntil = taskStatus?.follow_up_until;
@@ -778,22 +1258,54 @@ export default function DoctorConsultationThreadScreen() {
 
   useEffect(() => {
     if (!taskId || !conversationOpen) return;
-    const isTyping = draft.trim().length > 0;
-    const timer = setTimeout(() => {
-      void apiClient(
-        `/api/doctor/tasks/${encodeURIComponent(taskId)}/messages/action`,
-        {
-          method: "POST",
-          body: {
-            tenant_id: activeTenantId,
-            action: "typing",
-            is_typing: isTyping,
-          },
+    let lastSignalAt: number | null = null;
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    const publish = (isTyping: boolean) => {
+      const token = tokenStore.getToken();
+      if (!token) return;
+      const signalAt = lastSignalAt;
+      typingSendQueue.current = typingSendQueue.current
+        .then(() => {
+          if (tokenStore.getToken() !== token) return;
+          if (isTyping && signalAt !== lastSignalAt) return;
+          return apiClient(
+            `/api/doctor/tasks/${encodeURIComponent(taskId)}/messages/action`,
+            {
+              method: "POST",
+              timeoutMs: 3_000,
+              body: {
+                tenant_id: activeTenantId,
+                action: "typing",
+                is_typing: isTyping,
+              },
+            },
+          );
+        })
+        .catch(() => undefined);
+    };
+    const stop = () => {
+      clearTimeout(idleTimer);
+      if (lastSignalAt === null) return;
+      lastSignalAt = null;
+      publish(false);
+    };
+    patientTypingRef.current = {
+      renew: () => {
+        const now = Date.now();
+        if (lastSignalAt === null || now - lastSignalAt >= 2_000) {
+          lastSignalAt = now;
+          publish(true);
         }
-      ).catch(() => undefined);
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [activeTenantId, conversationOpen, draft, taskId]);
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(stop, 3_000);
+      },
+      stop,
+    };
+    return () => {
+      patientTypingRef.current = null;
+      stop();
+    };
+  }, [activeTenantId, conversationOpen, taskId]);
 
   return (
     <View
@@ -819,6 +1331,7 @@ export default function DoctorConsultationThreadScreen() {
         ]}
       >
         <ScreenBackButton onPress={() => router.back()} />
+        {renderDoctorAvatar(assignedDoctor)}
 
         <View style={styles.headerInfo}>
           <Text
@@ -828,13 +1341,18 @@ export default function DoctorConsultationThreadScreen() {
             ]}
             numberOfLines={1}
           >
-            {t("doctorConsultationConversation")}
+            {assignedDoctor?.name ?? t("doctorConsultationConversation")}
           </Text>
           <View style={styles.headerStatusRow}>
             <View
               style={[
                 styles.statusDot,
-                { backgroundColor: statusIsTerminal || statusUnknown ? "#94A3B8" : "#10B981" },
+                {
+                  backgroundColor:
+                    (showDoctorPresence ? doctorOnline : !statusIsTerminal && !statusUnknown)
+                      ? "#10B981"
+                      : "#94A3B8",
+                },
               ]}
             />
             <Text
@@ -844,21 +1362,75 @@ export default function DoctorConsultationThreadScreen() {
                 { color: isDark ? colors.textSecondary : "#64748B" },
               ]}
             >
-              {statusLabel}
+              {headerStatusLabel}
             </Text>
           </View>
         </View>
 
-        <View style={styles.headerAvatar}>
-          <Ionicons
-            name="medical"
-            size={18}
-            color={isDark ? colors.textSecondary : "#00A88F"}
-          />
+        <View style={styles.headerCalls}>
+          {([
+            { mode: "voice", icon: "call-outline", label: t("doctorConsultationVoiceCall") },
+            { mode: "video", icon: "videocam-outline", label: t("doctorConsultationVideoCall") },
+          ] as const).map(({ mode, icon, label }) => (
+            <Pressable
+              key={mode}
+              accessibilityRole="button"
+              accessibilityLabel={label}
+              accessibilityState={{ disabled: !canCall || callingMode !== null, busy: callingMode === mode }}
+              disabled={!canCall || callingMode !== null}
+              onPress={() => void startCall(mode)}
+              style={({ pressed }) => [
+                styles.headerCallButton,
+                pressed && styles.headerCallPressed,
+              ]}
+            >
+              {callingMode === mode ? <ActivityIndicator size="small" color={colors.primaryText} /> : (
+                <Ionicons accessible={false} name={icon} size={21} color={canCall ? colors.primaryText : colors.textSecondary} />
+              )}
+            </Pressable>
+          ))}
         </View>
       </View>
 
-      <DoctorIvrEntry tenantId={activeTenantId} taskId={taskId} />
+      {currentStatus === "completed" && (
+        <Pressable
+          accessibilityRole="button"
+          style={styles.reconsultationAction}
+          onPress={() => router.push({
+            pathname: "/doctor-consultation",
+            params: { previousTaskId: taskId, tenantId: activeTenantId },
+          })}
+        >
+          <Text style={[styles.reconsultationText, { color: colors.primaryText }]}>{t("doctorReconsult")}</Text>
+        </Pressable>
+      )}
+      <DoctorIvrEntry
+        tenantId={activeTenantId}
+        taskId={taskId}
+        linkedSessionIds={messages.map((message) => message.ivr_session_id)}
+      />
+      {!loading && pinnedMessage && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityHint={t("doctorConsultationJumpToMessage")}
+          onPress={() => jumpToMessage(pinnedMessage.id)}
+          style={[
+            styles.pinnedMessageBar,
+            { backgroundColor: colors.surfaceMuted, borderBottomColor: colors.border },
+          ]}
+        >
+          <Ionicons accessible={false} name="pin-outline" size={20} color={colors.primaryText} />
+          <View style={styles.pinnedMessageContent}>
+            <Text style={[styles.quoteAuthor, { color: colors.textPrimary }]}>
+              {t("doctorConsultationPinnedMessage")}
+            </Text>
+            <Text numberOfLines={1} style={[styles.quoteText, { color: colors.textSecondary }]}>
+              {replyPreview(pinnedMessage)}
+            </Text>
+          </View>
+          <Ionicons accessible={false} name="chevron-down" size={18} color={colors.textSecondary} />
+        </Pressable>
+      )}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
@@ -872,94 +1444,93 @@ export default function DoctorConsultationThreadScreen() {
             ref={scrollRef}
             contentContainerStyle={styles.messagesScroll}
             keyboardShouldPersistTaps="handled"
-            onContentSizeChange={() =>
-              scrollRef.current?.scrollToEnd({ animated: false })
-            }
+            scrollEventThrottle={32}
+            onScroll={handleThreadScroll}
+            onContentSizeChange={() => {
+              if (followLatest.current) scrollRef.current?.scrollToEnd({ animated: false });
+            }}
           >
-            {/* Centered Date Pill */}
-            <View style={styles.datePillContainer}>
+            {renderDatePill(dateLabel(visibleMessages[0]?.created_at))}
+
+            {currentStatus !== "started" &&
+              currentStatus !== "in_progress" &&
+              currentStatus !== "waiting_user" && (
               <View
                 style={[
-                  styles.datePill,
+                  styles.statusCard,
                   {
-                    backgroundColor: isDark ? colors.surface : "#E4EFF8",
+                    backgroundColor: isDark
+                      ? colors.surface
+                      : statusIsTerminal || statusUnknown
+                      ? "#F8FAFC"
+                      : "#F0FDF4",
+                    borderColor: isDark
+                      ? colors.border
+                      : statusIsTerminal || statusUnknown
+                      ? "#E2E8F0"
+                      : "#BBF7D0",
                   },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.datePillText,
-                    { color: isDark ? colors.textSecondary : "#475569" },
-                  ]}
-                >
-                  {dateHeader}
-                </Text>
+                <View style={styles.statusHeading}>
+                  <Ionicons
+                    name={
+                      statusUnknown
+                        ? "time-outline"
+                        : statusIsTerminal
+                        ? "checkmark-circle"
+                        : "pulse"
+                    }
+                    size={18}
+                    color={
+                      statusIsTerminal || statusUnknown ? "#64748B" : "#00A88F"
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.statusLabel,
+                      {
+                        color:
+                          statusIsTerminal || statusUnknown
+                            ? isDark
+                              ? colors.textPrimary
+                              : "#334155"
+                            : "#00A88F",
+                      },
+                    ]}
+                  >
+                    {statusLabel}
+                  </Text>
+                </View>
+                {conversationOpen && taskStatus?.status === "completed" && (
+                  <Text style={[styles.statusHint, { color: colors.textSecondary }]}>
+                    {t("doctorConsultationFollowUpOpen")}
+                  </Text>
+                )}
+                {statusUnknown && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t("common:retry")}
+                    onPress={() => void loadThread(true)}
+                    style={{
+                      minHeight: 56,
+                      alignSelf: "flex-start",
+                      justifyContent: "center",
+                      paddingHorizontal: 16,
+                    }}
+                  >
+                    <Text
+                      style={{ color: colors.primaryText, fontWeight: "600" }}
+                    >
+                      {t("common:retry")}
+                    </Text>
+                  </Pressable>
+                )}
               </View>
-            </View>
-
-            <View
-              style={[
-                styles.statusCard,
-                {
-                  backgroundColor: isDark
-                    ? colors.surface
-                    : statusIsTerminal || statusUnknown
-                    ? "#F8FAFC"
-                    : "#F0FDF4",
-                  borderColor: isDark
-                    ? colors.border
-                    : statusIsTerminal || statusUnknown
-                    ? "#E2E8F0"
-                    : "#BBF7D0",
-                },
-              ]}
-            >
-              <View style={styles.statusHeading}>
-                <Ionicons
-                  name={statusUnknown ? "time-outline" : statusIsTerminal ? "checkmark-circle" : "pulse"}
-                  size={18}
-                  color={statusIsTerminal || statusUnknown ? "#64748B" : "#00A88F"}
-                />
-                <Text
-                  style={[
-                    styles.statusLabel,
-                    {
-                      color: statusIsTerminal || statusUnknown
-                        ? isDark
-                          ? colors.textPrimary
-                          : "#334155"
-                        : "#00A88F",
-                    },
-                  ]}
-                >
-                  {statusLabel}
-                </Text>
-              </View>
-              <Text
-                style={[
-                  styles.statusHint,
-                  { color: isDark ? colors.textSecondary : "#64748B" },
-                ]}
-              >
-                {statusUnknown ? t("doctorConsultationStatusSyncingHint") : conversationOpen
-                  ? taskStatus?.status === "completed"
-                    ? t("doctorConsultationFollowUpOpen")
-                    : t("doctorConsultationStatusTrackingHint")
-                  : t("doctorConsultationConversationClosed")}
-              </Text>
-              {statusUnknown && (
-                <Pressable accessibilityRole="button" accessibilityLabel={t("common:retry")}
-                  onPress={() => void loadThread(true)}
-                  style={{ minHeight: 56, alignSelf: "flex-start", justifyContent: "center", paddingHorizontal: 16 }}>
-                  <Text style={{ color: colors.primaryText, fontWeight: "600" }}>{t("common:retry")}</Text>
-                </Pressable>
-              )}
-            </View>
+            )}
 
             {taskStatus?.consultation_summary ? (
-              <View
-                style={styles.summaryCard}
-              >
+              <View style={styles.summaryCard}>
                 <View style={styles.summaryHeading}>
                   <Ionicons
                     name="document-text-outline"
@@ -1006,69 +1577,89 @@ export default function DoctorConsultationThreadScreen() {
               </View>
             ) : null}
 
-            {/* Initial Request Bubble (Patient sent) */}
-            {summary && (
+            {(summary || initialRequest) && (
               <View style={[styles.bubbleWrapper, styles.patientWrapper]}>
-                <View
-                  style={[
-                    styles.patientCard,
-                    {
-                      backgroundColor: isDark
-                        ? "rgba(224, 248, 244, 0.18)"
-                        : "#E0F7F4",
-                      borderColor: isDark ? colors.border : "#B2DFDB",
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.initialRequestTag,
-                      { color: isDark ? "#48CBB5" : "#00A88F" },
-                    ]}
-                  >
+                <View style={[
+                  styles.patientCard,
+                  { backgroundColor: colors.primaryLight, borderColor: colors.border },
+                ]}>
+                  <Text accessibilityRole="header" style={[styles.initialRequestTag, { color: colors.primaryText }]}>
                     {t("doctorConsultationInitialRequest")}
                   </Text>
-                  <Text
-                    style={[
-                      styles.initialRequestContent,
-                      { color: isDark ? colors.textPrimary : "#0F172A" },
-                    ]}
-                  >
-                    {summary}
+                  <Text style={[styles.initialRequestContent, { color: colors.textPrimary }]}>
+                    {initialRequest?.description ?? summary}
                   </Text>
-                  <View style={styles.messageFooterRight}>
-                    <Text
-                      style={[
-                        styles.timestampText,
-                        { color: isDark ? colors.textSecondary : "#64748B" },
-                      ]}
-                    >
-                      {formatMessageTime(messages[0]?.created_at)}
-                    </Text>
-                    <Ionicons
-                      name="checkmark-done"
-                      size={16}
-                      color="#00A88F"
-                      style={styles.checkIcon}
-                    />
-                  </View>
+                  {initialRequest && (
+                    <>
+                      <Text accessibilityRole="header" style={[styles.initialRequestTag, { color: colors.primaryText }]}>
+                        {t("doctorConsultationDeclaredAnswers")}
+                      </Text>
+                      {initialRequest.answers.map(({ step, question, answer }) => (
+                        <View key={step} style={styles.initialAnswer}>
+                          <Text style={[styles.initialQuestion, { color: colors.textPrimary }]}>{question}</Text>
+                          <Text style={[styles.initialAnswerValue, { color: colors.textPrimary }]}>{answer}</Text>
+                        </View>
+                      ))}
+                      <Text style={[styles.initialRisk, { color: colors.primaryText }]}>{initialRequest.risk_label}</Text>
+                    </>
+                  )}
                 </View>
               </View>
             )}
 
             {/* Chat Messages */}
-            {messages.map((message, index) => {
+            {visibleMessages.map((message, index) => {
+              const removed = isUnsent(message);
+              const newDay = index > 0 &&
+                new Date(message.created_at).toDateString() !==
+                  new Date(visibleMessages[index - 1].created_at).toDateString();
+              const row = (content: ReactNode) => (
+                <Fragment key={message.id}>
+                  {newDay && renderDatePill(dateLabel(message.created_at))}
+                  <View onLayout={({ nativeEvent }) => {
+                    messageOffsets.current.set(message.id, nativeEvent.layout.y);
+                  }}>
+                    {content}
+                  </View>
+                </Fragment>
+              );
+              if (message.ivr_session_id && !removed) {
+                return row(<DoctorIvrInvitation sessionId={message.ivr_session_id} />);
+              }
               const fromPatient = message.sender_type === "patient";
-              const content = message.content ?? "";
+              const content = removed ? "" : message.content ?? "";
               const attachment = parseAttachment(content);
               const voice = parseVoice(content);
-              const joinUrl = content.match(/https:\/\/[^\s]+/)?.[0] ?? null;
+              const originalLink = !attachment && !voice && !removed
+                ? content.match(/https:\/\/[^\s<>"']+/)?.[0] ?? null
+                : null;
+              const isCallInvitation = message.sender_type === "doctor" && originalLink !== null &&
+                /\/asinu-doctor-[\da-f]{24}\/?$/i.test(originalLink.split(/[?#]/, 1)[0]);
+              const messageLink = isCallInvitation ? browserRoomUrl(originalLink) : originalLink;
+              const messageText = isCallInvitation
+                ? content.replace(originalLink, "").trimEnd()
+                : content;
+              const isVoiceCallLink =
+                isCallInvitation &&
+                /(?:#|&)config\.startAudioOnly=true(?:&|$)/.test(messageLink ?? "");
               const timeStr = formatMessageTime(message.created_at);
 
+              if (isSystemMessage(message)) {
+                if (removed) return null;
+                return row(
+                  <View style={[styles.systemMessage, { backgroundColor: colors.surfaceMuted }]}>
+                    <View style={styles.systemLabelRow}>
+                      <Ionicons accessible={false} name="information-circle-outline" size={16} color={colors.textSecondary} />
+                      <Text style={[styles.systemLabel, { color: colors.textSecondary }]}>{t("doctorConsultationSystem")}</Text>
+                    </View>
+                    <Text style={[styles.systemContent, { color: colors.textPrimary }]}>{content}</Text>
+                  </View>
+                );
+              }
+
               if (fromPatient) {
-                return (
+                return row(
                   <View
-                    key={message.id || index}
                     style={[styles.bubbleWrapper, styles.patientWrapper]}
                   >
                     <Pressable
@@ -1084,6 +1675,7 @@ export default function DoctorConsultationThreadScreen() {
                         },
                       ]}
                     >
+                      {renderMessageQuote(message)}
                       {editingMessageId === message.id ? (
                         <View style={styles.editMessageBox}>
                           <TextInput
@@ -1109,8 +1701,14 @@ export default function DoctorConsultationThreadScreen() {
                             <Pressable
                               disabled={editMessageSaveDisabled}
                               accessibilityRole="button"
-                              accessibilityState={{ disabled: editMessageSaveDisabled, busy: messageActionBusy }}
-                              style={editMessageSaveDisabled && styles.editSaveDisabled}
+                              accessibilityState={{
+                                disabled: editMessageSaveDisabled,
+                                busy: messageActionBusy,
+                              }}
+                              style={
+                                editMessageSaveDisabled &&
+                                styles.editSaveDisabled
+                              }
                               onPress={() =>
                                 void runMessageAction(
                                   message.id,
@@ -1125,27 +1723,18 @@ export default function DoctorConsultationThreadScreen() {
                             </Pressable>
                           </View>
                         </View>
-                      ) : message.is_deleted || message.is_deleted_for_me ? (
+                      ) : removed ? (
                         <Text
                           style={[
                             styles.deletedMessageText,
                             { color: colors.textSecondary },
                           ]}
                         >
-                          {t("doctorConsultationMessageUnsent")}
+                          {t("doctorConsultationOwnMessageUnsent")}
                         </Text>
                       ) : attachment ? (
                         <View style={styles.attachmentContent}>
-                          <Pressable
-                            accessibilityRole="imagebutton"
-                            accessibilityLabel={attachment.name}
-                            onPress={() => void openAttachment(message.id, attachment.url)}
-                          >
-                            <Image
-                              source={{ uri: attachment.url }}
-                              style={styles.messageAttachment}
-                            />
-                          </Pressable>
+                          {renderAttachmentPreview(attachment, message.id)}
                           <View style={styles.attachmentBottomRow}>
                             <Text
                               numberOfLines={1}
@@ -1223,8 +1812,11 @@ export default function DoctorConsultationThreadScreen() {
                               ]}
                             >
                               {voice.duration_ms
-                                ? t('doctorConsultationVoiceDuration', {
-                                    seconds: Math.max(1, Math.round(voice.duration_ms / 1000)),
+                                ? t("doctorConsultationVoiceDuration", {
+                                    seconds: Math.max(
+                                      1,
+                                      Math.round(voice.duration_ms / 1000)
+                                    ),
                                   })
                                 : t("doctorConsultationVoiceMessage")}
                             </Text>
@@ -1303,24 +1895,19 @@ export default function DoctorConsultationThreadScreen() {
                           </View>
                         </>
                       )}
+                      {renderEditedLabel(message)}
+                      {renderMessageReactions(message)}
                     </Pressable>
                   </View>
                 );
               }
 
-              // Specialist message with avatar on the left
-              return (
+              const messageDoctor = message.sender_ref === assignedDoctor?.id ? assignedDoctor : null;
+              return row(
                 <View
-                  key={message.id || index}
                   style={[styles.bubbleWrapper, styles.doctorWrapper]}
                 >
-                  <View style={styles.doctorMsgAvatar}>
-                    <Ionicons
-                      name="person-outline"
-                      size={18}
-                      color={isDark ? colors.textSecondary : "#008B76"}
-                    />
-                  </View>
+                  {renderDoctorAvatar(messageDoctor, true)}
                   <Pressable
                     delayLongPress={350}
                     onLongPress={() => showMessageActions(message)}
@@ -1332,20 +1919,17 @@ export default function DoctorConsultationThreadScreen() {
                       },
                     ]}
                   >
-                    {/* Specialist name label */}
-                    {index === 0 ||
-                    messages[index - 1]?.sender_type === "patient" ? (
-                      <Text
-                        style={[
-                          styles.doctorHeaderName,
-                          { color: isDark ? "#48CBB5" : "#008B76" },
-                        ]}
-                      >
-                        {t("doctorConsultationDoctor")}
-                      </Text>
-                    ) : null}
+                    <Text
+                      style={[
+                        styles.doctorHeaderName,
+                        { color: isDark ? "#48CBB5" : "#008B76" },
+                      ]}
+                    >
+                      {messageDoctor?.name ?? t("doctorConsultationDoctor")}
+                    </Text>
+                    {renderMessageQuote(message)}
 
-                    {message.is_deleted || message.is_deleted_for_me ? (
+                    {removed ? (
                       <Text
                         style={[
                           styles.deletedMessageText,
@@ -1368,7 +1952,10 @@ export default function DoctorConsultationThreadScreen() {
                           value={editingDraft}
                         />
                         <View style={styles.editMessageActions}>
-                          <Pressable disabled={messageActionBusy} onPress={() => setEditingMessageId(null)}>
+                          <Pressable
+                            disabled={messageActionBusy}
+                            onPress={() => setEditingMessageId(null)}
+                          >
                             <Text style={styles.editCancelText}>
                               {t("doctorConsultationCancel")}
                             </Text>
@@ -1376,8 +1963,13 @@ export default function DoctorConsultationThreadScreen() {
                           <Pressable
                             disabled={editMessageSaveDisabled}
                             accessibilityRole="button"
-                            accessibilityState={{ disabled: editMessageSaveDisabled, busy: messageActionBusy }}
-                            style={editMessageSaveDisabled && styles.editSaveDisabled}
+                            accessibilityState={{
+                              disabled: editMessageSaveDisabled,
+                              busy: messageActionBusy,
+                            }}
+                            style={
+                              editMessageSaveDisabled && styles.editSaveDisabled
+                            }
                             onPress={() =>
                               void runMessageAction(
                                 message.id,
@@ -1394,16 +1986,7 @@ export default function DoctorConsultationThreadScreen() {
                       </View>
                     ) : attachment ? (
                       <View style={styles.attachmentContent}>
-                        <Pressable
-                          accessibilityRole="imagebutton"
-                          accessibilityLabel={attachment.name}
-                          onPress={() => void openAttachment(message.id, attachment.url)}
-                        >
-                          <Image
-                            source={{ uri: attachment.url }}
-                            style={styles.messageAttachment}
-                          />
-                        </Pressable>
+                        {renderAttachmentPreview(attachment, message.id)}
                         <Text
                           style={[
                             styles.attachmentName,
@@ -1433,8 +2016,11 @@ export default function DoctorConsultationThreadScreen() {
                           ]}
                         >
                           {voice.duration_ms
-                            ? t('doctorConsultationVoiceDuration', {
-                                seconds: Math.max(1, Math.round(voice.duration_ms / 1000)),
+                            ? t("doctorConsultationVoiceDuration", {
+                                seconds: Math.max(
+                                  1,
+                                  Math.round(voice.duration_ms / 1000)
+                                ),
                               })
                             : t("doctorConsultationVoiceMessage")}
                         </Text>
@@ -1446,14 +2032,14 @@ export default function DoctorConsultationThreadScreen() {
                           { color: colors.textPrimary },
                         ]}
                       >
-                        {content}
+                        {messageText}
                       </Text>
                     )}
 
-                    {joinUrl ? (
+                    {messageLink ? (
                       <Pressable
                         accessibilityRole="link"
-                        onPress={() => void Linking.openURL(joinUrl)}
+                        onPress={() => void Linking.openURL(messageLink)}
                         style={[
                           styles.videoLink,
                           {
@@ -1465,14 +2051,24 @@ export default function DoctorConsultationThreadScreen() {
                         ]}
                       >
                         <Ionicons
-                          name="videocam-outline"
+                          name={
+                            !isCallInvitation
+                              ? "link-outline"
+                              : isVoiceCallLink ? "call-outline" : "videocam-outline"
+                          }
                           size={18}
                           color="#00A88F"
                         />
                         <Text
                           style={[styles.videoLinkText, { color: "#00A88F" }]}
                         >
-                          {t("doctorConsultationJoinVideo")}
+                          {t(
+                            !isCallInvitation
+                              ? "doctorConsultationOpenLink"
+                              : isVoiceCallLink
+                              ? "doctorConsultationJoinVoice"
+                              : "doctorConsultationJoinVideo"
+                          )}
                         </Text>
                       </Pressable>
                     ) : null}
@@ -1491,6 +2087,8 @@ export default function DoctorConsultationThreadScreen() {
                         </Text>
                       </View>
                     ) : null}
+                    {renderEditedLabel(message)}
+                    {renderMessageReactions(message)}
                   </Pressable>
                 </View>
               );
@@ -1512,18 +2110,11 @@ export default function DoctorConsultationThreadScreen() {
 
             {/* Rating Section if available */}
             {rateable && (
-              <View
-                style={styles.ratingCard}
-              >
+              <View style={styles.ratingCard}>
                 <Text
                   style={[styles.ratingTitle, { color: colors.textPrimary }]}
                 >
                   {t("doctorConsultationRateDoctor")}
-                </Text>
-                <Text
-                  style={[styles.ratingHint, { color: colors.textSecondary }]}
-                >
-                  {t("doctorConsultationRatingHint")}
                 </Text>
                 <View style={styles.stars}>
                   {[1, 2, 3, 4, 5].map((score) => (
@@ -1585,6 +2176,26 @@ export default function DoctorConsultationThreadScreen() {
         )}
 
         {/* Composer Toolbar */}
+        {conversationOpen && replyTarget && (
+          <View style={[styles.replyComposer, { backgroundColor: colors.surfaceMuted }]}>
+            <View style={styles.replyComposerContent}>
+              <Text numberOfLines={1} style={[styles.quoteAuthor, { color: colors.textPrimary }]}>
+                {t("doctorConsultationReplyingTo", { name: authorOf(replyTarget) })}
+              </Text>
+              <Text numberOfLines={1} style={[styles.quoteText, { color: colors.textSecondary }]}>
+                {replyPreview(replyTarget)}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("doctorConsultationCancelReply")}
+              onPress={() => setReplyToId(null)}
+              style={styles.replyDismiss}
+            >
+              <Ionicons name="close" size={20} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+        )}
         {conversationOpen ? (
           <View
             style={[
@@ -1648,9 +2259,15 @@ export default function DoctorConsultationThreadScreen() {
               </Pressable>
 
               <TextInput
+                ref={composerInputRef}
                 multiline
                 maxLength={5000}
-                onChangeText={setDraft}
+                onBlur={() => patientTypingRef.current?.stop()}
+                onChangeText={(text) => {
+                  setDraft(text);
+                  if (text.trim()) patientTypingRef.current?.renew();
+                  else patientTypingRef.current?.stop();
+                }}
                 placeholder={t("doctorConsultationReplyPlaceholder")}
                 placeholderTextColor={isDark ? colors.textSecondary : "#94A3B8"}
                 style={[
@@ -1696,18 +2313,26 @@ export default function DoctorConsultationThreadScreen() {
               },
             ]}
           >
-            {statusUnknown ? <ActivityIndicator color={colors.textSecondary} size="small" /> : <Ionicons
-              name="lock-closed-outline"
-              size={18}
-              color={colors.textSecondary}
-            />}
+            {statusUnknown ? (
+              <ActivityIndicator color={colors.textSecondary} size="small" />
+            ) : (
+              <Ionicons
+                name="lock-closed-outline"
+                size={18}
+                color={colors.textSecondary}
+              />
+            )}
             <Text
               style={[
                 styles.closedComposerText,
                 { color: colors.textSecondary },
               ]}
             >
-              {t(statusUnknown ? "doctorConsultationStatusSyncingHint" : "doctorConsultationConversationClosed")}
+              {t(
+                statusUnknown
+                  ? "doctorConsultationStatusSyncingHint"
+                  : "doctorConsultationConversationClosed"
+              )}
             </Text>
           </View>
         )}
@@ -1717,6 +2342,32 @@ export default function DoctorConsultationThreadScreen() {
         title={t("doctorConsultationMessageActions")}
         cancelLabel={t("doctorConsultationCancel")}
         actions={messageActions}
+        headerContent={actionMessage && conversationOpen && (
+          <View style={styles.reactionChoices}>
+            {messageReactions.map((emoji) => {
+              const selected = actionMessage.reactions?.some((item) => item.emoji === emoji && item.reacted_by_me);
+              return (
+                <Pressable
+                  key={emoji}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t("doctorConsultationReact")} ${emoji}`}
+                  accessibilityState={{ selected }}
+                  disabled={messageActionBusy}
+                  onPress={() => {
+                    setActionMessage(null);
+                    changeReaction(actionMessage, emoji);
+                  }}
+                  style={[styles.reactionChoice, {
+                    backgroundColor: colors.surfaceMuted,
+                    borderColor: selected ? colors.primary : colors.border,
+                  }]}
+                >
+                  <Text style={styles.reactionEmoji}>{emoji}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
         onDismiss={() => setActionMessage(null)}
       />
       <AppAlertModal
@@ -1769,14 +2420,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
-    gap: 12,
+    gap: 8,
     paddingBottom: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     zIndex: 10,
   },
   headerInfo: {
     flex: 1,
     justifyContent: "center",
+    minWidth: 0,
   },
   headerTitle: {
     fontSize: 16,
@@ -1800,17 +2452,66 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
   },
-  headerAvatar: {
+  doctorAvatar: {
     alignItems: "center",
+    borderRadius: 20,
+    height: 40,
+    justifyContent: "center",
+    overflow: "hidden",
+    width: 40,
+  },
+  doctorMessageAvatar: {
     borderRadius: 18,
     height: 36,
-    justifyContent: "center",
+    marginTop: 2,
     width: 36,
+  },
+  doctorAvatarImage: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+  },
+  headerCalls: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  headerCallButton: {
+    alignItems: "center",
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  headerCallPressed: {
+    opacity: 0.75,
+  },
+  reconsultationAction: {
+    alignSelf: "flex-start",
+    justifyContent: "center",
+    marginHorizontal: 16,
+    minHeight: 44,
+  },
+  reconsultationText: {
+    fontSize: 15,
+    fontWeight: "700",
   },
   center: {
     alignItems: "center",
     flex: 1,
     justifyContent: "center",
+  },
+  pinnedMessageBar: {
+    alignItems: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: spacing.sm,
+    minHeight: 52,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  pinnedMessageContent: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
   },
   messagesScroll: {
     flexGrow: 1,
@@ -1892,31 +2593,59 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
   },
-  doctorMsgAvatar: {
+  systemMessage: {
+    alignSelf: "center",
+    borderRadius: 12,
+    gap: 4,
+    marginBottom: 12,
+    maxWidth: "92%",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  systemLabelRow: {
     alignItems: "center",
-    borderRadius: 18,
-    height: 36,
+    flexDirection: "row",
+    gap: 5,
     justifyContent: "center",
-    width: 36,
-    marginTop: 2,
+  },
+  systemLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  systemContent: {
+    fontSize: 14,
+    textAlign: "center",
   },
   patientCard: {
     borderRadius: 16,
     borderWidth: 1,
+    gap: 10,
     minWidth: 0,
-    maxWidth: "85%",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    maxWidth: "94%",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   initialRequestTag: {
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: "700",
-    marginBottom: 4,
   },
   initialRequestContent: {
+    fontSize: 17,
+    fontWeight: "600",
+  },
+  initialAnswer: {
+    gap: 2,
+  },
+  initialQuestion: {
     fontSize: 15,
-    fontWeight: "500",
-    lineHeight: 22,
+    fontWeight: "600",
+  },
+  initialAnswerValue: {
+    fontSize: 16,
+  },
+  initialRisk: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   patientBubble: {
     borderRadius: 16,
@@ -1943,6 +2672,17 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 15,
     lineHeight: 22,
+  },
+  messageDocument: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 44,
+  },
+  messageDocumentLabel: {
+    flexShrink: 1,
+    fontSize: 14,
+    fontWeight: "700",
   },
   messageAttachment: {
     aspectRatio: 1,
@@ -1988,6 +2728,10 @@ const styles = StyleSheet.create({
   timestampText: {
     fontSize: 12,
     fontWeight: "500",
+  },
+  editedLabel: {
+    fontSize: 12,
+    marginTop: spacing.xs,
   },
   checkIcon: {
     marginLeft: 2,
@@ -2091,6 +2835,72 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
+  messageQuote: {
+    borderRadius: radius.md,
+    gap: 2,
+    marginBottom: spacing.xs,
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  quoteAuthor: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  quoteText: {
+    fontSize: 13,
+  },
+  messageReactionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    marginTop: spacing.xs,
+  },
+  messageReactionChip: {
+    alignItems: "center",
+    borderRadius: radius.full,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 28,
+    paddingHorizontal: 8,
+  },
+  reactionChoices: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    justifyContent: "center",
+    marginBottom: spacing.sm,
+  },
+  reactionChoice: {
+    alignItems: "center",
+    borderRadius: radius.full,
+    borderWidth: 1,
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
+  reactionEmoji: {
+    fontSize: 20,
+  },
+  replyComposer: {
+    alignItems: "center",
+    borderRadius: radius.md,
+    flexDirection: "row",
+    marginHorizontal: 16,
+    paddingStart: spacing.md,
+  },
+  replyComposerContent: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+    paddingVertical: spacing.xs,
+  },
+  replyDismiss: {
+    alignItems: "center",
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
   composerWrapper: {
     alignItems: "center",
     flexDirection: "row",
@@ -2154,7 +2964,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   ratingTitle: { fontSize: 16, fontWeight: "800" },
-  ratingHint: { fontSize: 13, lineHeight: 19 },
   stars: { flexDirection: "row", gap: spacing.sm },
   ratingInput: {
     borderRadius: radius.md,

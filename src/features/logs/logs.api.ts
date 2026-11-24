@@ -30,12 +30,6 @@ export type MedicationLogPayload = BaseLogPayload & {
   frequency_text?: string;
 };
 
-export type WeightLogPayload = BaseLogPayload & {
-  weight_kg: number;
-  bodyfat_pct?: number; // maps to body_fat_percent
-  muscle_pct?: number; // maps to muscle_percent
-};
-
 export type WaterLogPayload = BaseLogPayload & {
   volume_ml: number;
 };
@@ -108,13 +102,6 @@ const transformToBackendPayload = (logType: string, frontendPayload: BaseLogPayl
         unit: frontendPayload.unit || 'mmHg'
       };
       break;
-    case 'weight':
-      data = {
-        weight_kg: frontendPayload.weight_kg,
-        body_fat_percent: frontendPayload.bodyfat_pct,
-        muscle_percent: frontendPayload.muscle_pct
-      };
-      break;
     case 'water':
       data = {
         volume_ml: frontendPayload.volume_ml
@@ -169,7 +156,7 @@ const transformToFrontendLogs = (backendLogs: any[]): LogEntry[] => {
 
   }
   
-  return backendLogs.map((log, idx) => {
+  return backendLogs.filter(log => log.log_type !== 'weight').map((log, idx) => {
     const detail = log.detail || {};
 
     const rawStatus =
@@ -211,13 +198,6 @@ const transformToFrontendLogs = (backendLogs: any[]): LogEntry[] => {
           diastolic: typeof detail.diastolic === 'string' ? parseInt(detail.diastolic, 10) : detail.diastolic,
           pulse: detail.pulse ? (typeof detail.pulse === 'string' ? parseInt(detail.pulse, 10) : detail.pulse) : null,
           unit: detail.unit
-        };
-      case 'weight':
-        return { 
-          ...baseEntry, 
-          weight_kg: typeof detail.weight_kg === 'string' ? parseFloat(detail.weight_kg) : detail.weight_kg, 
-          bodyfat_pct: detail.body_fat_percent ? (typeof detail.body_fat_percent === 'string' ? parseFloat(detail.body_fat_percent) : detail.body_fat_percent) : null,
-          muscle_pct: detail.muscle_percent ? (typeof detail.muscle_percent === 'string' ? parseFloat(detail.muscle_percent) : detail.muscle_percent) : null
         };
       case 'water':
         return { ...baseEntry, volume_ml: typeof detail.volume_ml === 'string' ? parseInt(detail.volume_ml, 10) : detail.volume_ml };
@@ -307,13 +287,6 @@ export const logsApi = {
   },
   createMedication(payload: MedicationLogPayload) {
     const backendPayload = transformToBackendPayload('medication', payload);
-    return apiClient<CreateLogResponse>('/api/mobile/logs', {
-      method: 'POST',
-      body: backendPayload
-    });
-  },
-  createWeight(payload: WeightLogPayload) {
-    const backendPayload = transformToBackendPayload('weight', payload);
     return apiClient<CreateLogResponse>('/api/mobile/logs', {
       method: 'POST',
       body: backendPayload

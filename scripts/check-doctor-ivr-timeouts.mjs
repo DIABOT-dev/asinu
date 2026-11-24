@@ -9,7 +9,7 @@ const ast = ts.createSourceFile(
   true,
   ts.ScriptKind.TSX
 );
-let effect;
+let effect, recordingEffect;
 const visit = (node) => {
   if (
     ts.isCallExpression(node) &&
@@ -17,12 +17,15 @@ const visit = (node) => {
     node.arguments[0]?.getText(ast).includes("responseRetries.current.question")
   )
     effect = node.arguments[0].getText(ast);
+  if (ts.isCallExpression(node) && node.expression.getText(ast) === "useEffect" &&
+      node.arguments[0]?.getText(ast).includes("finishRecording.current"))
+    recordingEffect = node.arguments[0].getText(ast);
   ts.forEachChild(node, visit);
 };
 visit(ast);
 assert.ok(effect, "Test must exercise the real response timer effect");
 const code = ts.transpileModule(
-  `const {q,session,busy,recording,voiceOption,error,pending,audioState,responseRetries,screenEpoch,focused,inFlight,recorder,state,replay,sendSkip,setTimeout,clearTimeout}=context;return (${effect})();`,
+  `const {q,session,params,busy,recording,voiceOption,error,pending,audioState,responseRetries,screenEpoch,focused,inFlight,recorder,state,replay,sendSkip,setTimeout,clearTimeout}=context;return (${effect})();`,
   { compilerOptions: { target: ts.ScriptTarget.ES2020 } }
 ).outputText;
 // Execute trusted screen logic with a controlled native clock; no reimplementation.
@@ -35,6 +38,7 @@ const setup = (patch = {}) => {
   const context = {
     q: { id: "q1" },
     session: { status: "in_progress", response_timeout_seconds: 10 },
+    params: { callAttempt: "fixture-call" },
     busy: false,
     recording: false,
     voiceOption: null,
@@ -72,6 +76,7 @@ dispose = run(flow.context);
 assert.deepEqual(flow.events, ["replay", "no_response"]);
 dispose();
 for (const patch of [
+  { params: {} },
   { audioState: { phase: "playing" } },
   { audioState: { phase: "loading" } },
   { busy: true },
@@ -107,5 +112,31 @@ for (const change of [
   assert.equal(item.timers.size, 0);
 }
 console.log(
-  "PASS actual QR-10 timer replays once then skips, excludes narration/recording/uploads, and rejects stale/background/answer races"
+  "PASS in-app questions have no response timer; calls retry once, with playback, recording, uploads and stale events excluded"
 );
+
+assert.ok(recordingEffect);
+const runRecording = new Function("context", ts.transpileModule(
+  `const {recording,voiceOption,recorder,recordingStart,finishRecording,setSeconds,Date,setInterval,clearInterval}=context;
+   return (${recordingEffect})();`,
+  { compilerOptions: { target: ts.ScriptTarget.ES2020 } }
+).outputText);
+function recordingTimer(limit) {
+  let now = 10000, tick, finished = 0, remaining;
+  runRecording({
+    recording: true, voiceOption: { max_record_s: limit }, recorder: { current: {} },
+    recordingStart: { current: now },
+    finishRecording: { current: () => finished++ }, setSeconds: (value) => { remaining = value; },
+    Date: { now: () => now }, setInterval: (fn) => { tick = fn; }, clearInterval: () => {},
+  });
+  return {
+    silence(ms) { now += ms; tick(); return { finished, remaining }; },
+  };
+}
+for (const limit of [30, 60]) {
+  const voice = recordingTimer(limit);
+  assert.deepEqual(voice.silence(3000), { finished: 0, remaining: limit - 3 });
+  assert.deepEqual(voice.silence((limit - 3) * 1000 - 1), { finished: 0, remaining: 1 });
+  assert.deepEqual(voice.silence(1), { finished: 1, remaining: 0 });
+}
+console.log("PASS silence never sends a recording automatically before its 30 or 60-second limit");

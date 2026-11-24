@@ -27,6 +27,7 @@ import {
 import { useAuthStore } from "../src/features/auth/auth.store";
 import { GlobalToastHost } from "../src/components/GlobalToastHost";
 import { CareCircleInvitationModal } from "../src/components/CareCircleInvitationModal";
+import { ConsultationEntryPrompt } from "../src/features/doctor-consultation/ConsultationEntryPrompt";
 import {
   QueuedModalHost,
   QueuedModalProvider,
@@ -52,7 +53,10 @@ import { applyTheme, spacing } from "../src/styles";
 import { useScaledTypography } from "../src/hooks/useScaledTypography";
 import { trackScreenViewed } from "../src/lib/screenTracking";
 import { useGuardedRouter } from "../src/hooks/useGuardedRouter";
-import { isDoctorFeaturesEnabled, isExpertConsultationEnabled } from "../src/lib/appEnv";
+import {
+  isDoctorFeaturesEnabled,
+  isExpertConsultationEnabled,
+} from "../src/lib/appEnv";
 import { AppUpdateGate } from "../src/features/app-update/AppUpdateGate";
 
 registerGlobals();
@@ -67,10 +71,13 @@ export default function RootLayout() {
   const router = useGuardedRouter();
   const { t } = useTranslation("auth");
   const { colors, isDark } = useThemeColors();
-  const authScreenOptions = useMemo(() => ({
-    animation: "none" as const,
-    contentStyle: { backgroundColor: isDark ? "#0A1A2F" : "#FAFCFE" },
-  }), [isDark]);
+  const authScreenOptions = useMemo(
+    () => ({
+      animation: "none" as const,
+      contentStyle: { backgroundColor: isDark ? "#0A1A2F" : "#FAFCFE" },
+    }),
+    [isDark]
+  );
   const scaledTypography = useScaledTypography();
   const setSystemScheme = useThemeStore((s) => s.setSystemScheme);
   // Load Inter font weights — chuẩn typography cho healthcare app.
@@ -169,10 +176,14 @@ export default function RootLayout() {
                           <Stack.Screen name="doctor-consultation" />
                           <Stack.Screen name="doctor-consultation/[taskId]" />
                           <Stack.Screen name="doctor-consultation-history" />
+                          <Stack.Screen
+                            name="doctor-interview/[sessionId]"
+                            options={{ presentation: "fullScreenModal" }}
+                          />
+                          <Stack.Screen name="doctor-care" />
                           <Stack.Screen name="privacy-center" />
                         </Stack.Protected>
                         <Stack.Protected guard={isDoctorFeaturesEnabled}>
-                          <Stack.Screen name="doctor-interview/[sessionId]" />
                           <Stack.Screen name="doctor-call/[sessionId]" />
                           <Stack.Screen name="doctor-interview/preview" />
                         </Stack.Protected>
@@ -199,6 +210,7 @@ export default function RootLayout() {
                       </Stack>
                       <GlobalToastHost />
                       <CareCircleInvitationModal />
+                      {isExpertConsultationEnabled && <ConsultationEntryPrompt />}
                       <AppUpdateGate />
                       <QueuedModalHost />
                     </CarePulseProvider>

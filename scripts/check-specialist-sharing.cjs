@@ -61,7 +61,7 @@ function harness({enabled=false, visible=true}={}) {
     blur:()=>{focused=false;slots.forEach(slot=>{slot.cleanup?.();slot.cleanup=null;});}, foreground:()=>listeners.forEach(fn=>fn('active')),
   };
 }
-const nodes=value=>!value||typeof value!=='object'?[]:Array.isArray(value)?value.flatMap(nodes):[value,...nodes(value.props?.children)];
+const nodes=value=>!value||typeof value!=='object'?[]:Array.isArray(value)?value.flatMap(nodes):typeof value.type==='function'?nodes(value.type(value.props)):[value,...nodes(value.props?.children)];
 const posts=h=>h.calls.requests.filter(x=>x.method==='POST');
 let checks=0;
 async function test(name,fn){await fn();checks++;console.log('PASS '+name);}
@@ -93,7 +93,7 @@ async function test(name,fn){await fn();checks++;console.log('PASS '+name);}
   });
   await test('POST errors retain actual state and retry uses the same idempotency request ID',async()=>{
     const h=harness();await h.settle();h.read().request(true);h.server.postError=true;await h.read().confirm();
-    assert.equal(h.read().enabled,false);assert.equal(h.read().saveError,true);assert.equal(h.calls.toasts.length,0);const id=posts(h)[0].body.request_id;
+    assert.equal(h.read().enabled,false);assert.equal(h.read().saveError,true);assert.deepEqual(h.calls.toasts.at(-1),["privacyRequestError","error"]);const id=posts(h)[0].body.request_id;
     h.server.postError=false;await h.read().confirm();assert.equal(posts(h)[1].body.request_id,id);assert.equal(h.read().enabled,true);h.blur();
   });
   await test('unavailable state disables sharing and retry only performs a read',async()=>{
@@ -101,7 +101,7 @@ async function test(name,fn){await fn();checks++;console.log('PASS '+name);}
     h.server.readError=false;h.server.enabled=true;await h.read().refresh();assert.equal(h.read().enabled,true);assert.equal(posts(h).length,0);h.blur();
   });
   await test('wrong action in a successful HTTP response cannot produce a success state',async()=>{
-    const h=harness();await h.settle();h.read().request(true);h.server.wrongAction=true;await h.read().confirm();assert.equal(h.read().saveError,true);assert.equal(h.read().enabled,false);assert.equal(h.calls.toasts.length,0);h.blur();
+    const h=harness();await h.settle();h.read().request(true);h.server.wrongAction=true;await h.read().confirm();assert.equal(h.read().saveError,true);assert.equal(h.read().enabled,false);assert.deepEqual(h.calls.toasts.at(-1),["privacyRequestError","error"]);h.blur();
   });
   await test('account changes and blur invalidate an old confirmation before any POST',async()=>{
     for(const change of ['account','blur']){const h=harness();await h.settle();h.read().request(true);const old=h.read();if(change==='account')h.auth.token='fixture-token-b';else h.blur();await old.confirm();assert.equal(posts(h).length,0);h.blur();}

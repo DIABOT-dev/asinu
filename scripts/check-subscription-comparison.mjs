@@ -92,18 +92,16 @@ for (const language of ['vi', 'en']) for (const mode of ['light', 'dark']) {
       const entry = h.render();
       const link = nodes(entry).find(node => node.type === 'Pressable');
       assert.equal(link.props.accessibilityRole, 'button');
-      assert.equal(link.props.accessibilityLabel, `${h.t('comparison.title')}. ${h.t('comparison.headerSubtitle')}`);
+      assert.equal(link.props.accessibilityLabel, h.t('comparison.title'));
       assert.equal(link.props.accessibilityHint, h.t('comparison.openHint'));
       assert.equal(link.props.accessibilityState?.expanded, undefined);
-      assert.ok(texts(link).includes(h.t('comparison.title')));
-      assert.ok(texts(link).includes(h.t('comparison.headerSubtitle')));
+      assert.deepEqual(texts(link), [h.t('comparison.title')]);
       assert.ok(style(link.props.style).minHeight >= 56);
       assert.deepEqual(nodes(link).filter(node => node.type === 'Icon').map(node => node.props.name), ['stethoscope']);
       assert.equal(nodes(entry).filter(node => node.props.testID?.startsWith('comparison-scenario-')).length, 0);
       link.props.onPress(); assert.deepEqual(h.navigations, ['/subscription/comparison']);
       const tree = h.renderContent();
       assert.equal(nodes(tree).filter(node => node.props.testID?.startsWith('comparison-scenario-')).length, 5);
-      assert.ok(texts(tree).includes(h.t('comparison.subtitle')));
       const stacked = dimensions.width < 360 || dimensions.fontScale * dimensions.multiplier > 1.15;
       assert.equal(nodes(tree).some(node => node.props.testID === 'comparison-table-header'), !stacked);
       for (const key of ['missed', 'unanswered', 'busy', 'trend', 'people']) {

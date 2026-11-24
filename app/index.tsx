@@ -6,7 +6,6 @@ import {
   Dimensions,
   Easing,
   Image,
-  InteractionManager,
   StyleSheet,
   View,
 } from "react-native";
@@ -148,7 +147,8 @@ export default function Index() {
     )
       return;
     let cancelled = false;
-    const task = InteractionManager.runAfterInteractions(async () => {
+    const routeStartup = async () => {
+      if (cancelled) return;
       // Cold-start deep link: nếu user mở app bằng cách tap notification,
       // ưu tiên route đó thay vì replace về home (nếu không sẽ ghi đè).
       // A failed profile request does not invalidate the restored session.
@@ -213,10 +213,31 @@ export default function Index() {
       } else {
         router.replace("/login");
       }
-    });
+    };
+    // These native globals are not declared in this project's TypeScript libraries.
+    const { requestIdleCallback, cancelIdleCallback } =
+      globalThis as typeof globalThis & {
+        requestIdleCallback?: (
+          work: () => void,
+          options: { timeout: number }
+        ) => number;
+        cancelIdleCallback?: (id: number) => void;
+      };
+    let cancelTask: () => void;
+    if (
+      typeof requestIdleCallback === "function" &&
+      typeof cancelIdleCallback === "function"
+    ) {
+      // Startup routing must not wait indefinitely for the splash to become idle.
+      const task = requestIdleCallback(routeStartup, { timeout: 100 });
+      cancelTask = () => cancelIdleCallback(task);
+    } else {
+      const task = setTimeout(routeStartup, 0);
+      cancelTask = () => clearTimeout(task);
+    }
     return () => {
       cancelled = true;
-      task.cancel();
+      cancelTask();
     };
   }, [
     minSplashDone,

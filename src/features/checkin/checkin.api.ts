@@ -1,5 +1,7 @@
 import { apiClient } from '../../lib/apiClient';
 import { withManualCheckinCallCompletion } from '../checkin-call/checkin-call.completion';
+import type { MeasurementInput } from './triage-measurement';
+import { waitForTriage } from './wait-for-triage';
 
 export type CheckinStatus = 'fine' | 'specific_concern' | 'tired' | 'very_tired';
 export type FlowState = 'monitoring' | 'follow_up' | 'high_alert' | 'resolved';
@@ -53,8 +55,14 @@ export interface TriageResult {
   options?: string[];
   optionsGrouped?: TriageOptionGroup[] | null; // T3 group theo body location
   questionProgress?: { current: number; total: number };
-  questionGroup?: { key: string; label: string; index: number; total: number } | null;
+  questionGroup?: { key: string; label: string; index: number; total: number; kind?: 'topic' } | null;
+  assessmentVersion?: 3;
+  questionSource?: 'ai' | 'fallback';
+  answerInput?: 'measurement';
   exclusiveOptions?: string[];
+  exclusiveOptionGroups?: string[][];
+  requiredOptionGroups?: string[][];
+  measurementInputs?: MeasurementInput[];
   multiSelect?: boolean;
   // when done
   summary?: string;
@@ -222,12 +230,13 @@ export const checkinApi = {
       body: { checkin_id, status },
     })),
 
-  triage: (checkin_id: number, previous_answers: TriageAnswer[], phaseId?: string) =>
-    apiClient<TriageResult>('/api/mobile/checkin/triage', {
+  triage: (checkin_id: number, previous_answers: TriageAnswer[], phaseId?: string, signal?: AbortSignal) =>
+    waitForTriage<TriageResult>(() => apiClient('/api/mobile/checkin/triage', {
       method: 'POST',
-      body: { checkin_id, previous_answers, conclusion_format: 'narrative', assessment_version: 2, adaptive_questions: true, ...(phaseId ? { phase_id: phaseId } : {}) },
-      timeoutMs: 90000,
-    }),
+      body: { checkin_id, previous_answers, conclusion_format: 'narrative', assessment_version: 3, interview_layout: 'eight_groups', adaptive_questions: true, wait_for_ai: true, ...(phaseId ? { phase_id: phaseId } : {}) },
+      timeoutMs: 30000,
+      signal,
+    }), signal),
 
   emergency: (location?: { lat: number; lng: number; accuracy?: number }) =>
     apiClient<{

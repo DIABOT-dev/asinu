@@ -44,19 +44,20 @@ type JournalLoadState = {
 };
 
 const STATUS_COLORS: Record<JournalStatus, { background: string; foreground: string; border: string }> = {
-  fine: { background: '#E6F3ED', foreground: '#206A52', border: '#CBE3D7' },
-  tired: { background: '#FBF0DC', foreground: '#805B20', border: '#EDDDBD' },
-  very_tired: { background: '#F9E9E4', foreground: '#9B4437', border: '#EDCFC6' },
-  specific_concern: { background: '#EEEBF7', foreground: '#6B5793', border: '#DCD4EC' },
+  fine: { background: '#CEF0E3', foreground: '#125C45', border: '#9BD6BF' },
+  tired: { background: '#FAE9BF', foreground: '#70490D', border: '#E4C485' },
+  very_tired: { background: '#F8DCD7', foreground: '#8D302C', border: '#E3ABA1' },
+  specific_concern: { background: '#EAE0F6', foreground: '#5A3B81', border: '#CBB6E1' },
 };
 
 const DARK_STATUS_COLORS: Record<JournalStatus, { background: string; foreground: string; border: string }> = {
-  fine: { background: '#193D34', foreground: '#A7DCC5', border: '#305D4E' },
-  tired: { background: '#3F3322', foreground: '#E6C78F', border: '#6B5432' },
-  very_tired: { background: '#462D2B', foreground: '#E7B3A9', border: '#70443D' },
-  specific_concern: { background: '#342F47', foreground: '#C7BBDC', border: '#514663' },
+  fine: { background: '#194B3D', foreground: '#B4F5D9', border: '#478376' },
+  tired: { background: '#503817', foreground: '#FFDB9A', border: '#876639' },
+  very_tired: { background: '#532D30', foreground: '#FFC3B8', border: '#8F5457' },
+  specific_concern: { background: '#3D3058', foreground: '#E3CEFA', border: '#6E578E' },
 };
 
+const HEADER_INK = '#F2FFFB';
 const WEEKDAY_KEYS = ['dayMon', 'dayTue', 'dayWed', 'dayThu', 'dayFri', 'daySat', 'daySun'];
 const STATUS_ICONS = { fine: 'checkmark', tired: 'remove', very_tired: 'alert', specific_concern: 'ellipsis-horizontal' } as const;
 
@@ -117,8 +118,9 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
   const { t: th } = useTranslation('home');
   const { t: tc } = useTranslation('careCircle');
   const { colors, isDark } = useThemeColors();
+  const statusPalette = isDark ? DARK_STATUS_COLORS : STATUS_COLORS;
   const { fontScale } = useWindowDimensions();
-  const legendFontSize = useScaledFontSize(12);
+  const legendFontSize = useScaledFontSize(13);
   const largeLegend = legendFontSize * fontScale > 16;
   const insets = useSafeAreaInsets();
   const styles = useMemo(
@@ -226,6 +228,7 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
   };
 
   const selectedStatus = selectedSession ? normalizeStatus(selectedSession.status) : 'fine';
+  const selectedColors = statusPalette[selectedStatus];
   const selectedBodyLabels = selectedSession
     ? [
         ...(selectedSession.bodyLocations || []).map((location) => {
@@ -264,22 +267,24 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
       {!attentionOnly && <View style={[styles.card, plain && styles.plain]}>
         <View style={styles.monthHeader}>
           <View style={styles.monthHeading}>
+            <View style={styles.monthIcon}>
+              {loading
+                ? <ActivityIndicator size="small" color={HEADER_INK}
+                  accessibilityLabel={t(report ? 'journalUpdating' : 'journalLoading')} />
+                : <Ionicons name="pulse-outline" size={23} color={HEADER_INK} accessible={false} />}
+            </View>
             <Text allowFontScaling accessibilityRole="header" style={styles.monthTitle}>
               {t('journalMonthLabel', {
                 month: i18n.language.startsWith('vi') ? month.getMonth() + 1 : month.toLocaleDateString(locale, { month: 'short' }),
                 year: month.getFullYear(),
               })}
             </Text>
-            <View style={styles.loadingIndicator}>
-              {loading && <ActivityIndicator size="small" color={colors.primaryDark}
-                accessibilityLabel={t(report ? 'journalUpdating' : 'journalLoading')} />}
-            </View>
           </View>
           <View style={styles.monthNavigation}>
             <Pressable onPress={() => setMonth((value) => shiftMonth(value, -1))}
               style={({ pressed }) => [styles.monthButton, pressed && styles.pressed]}
               accessibilityRole="button" accessibilityLabel={t('journalPreviousMonth')}>
-              <Ionicons name="chevron-back" size={20} color={colors.primaryText} />
+              <Ionicons name="chevron-back" size={22} color={HEADER_INK} />
             </Pressable>
             <Pressable onPress={() => canMoveNext && setMonth((value) => shiftMonth(value, 1))}
               disabled={!canMoveNext}
@@ -287,8 +292,7 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
                 pressed && canMoveNext && styles.pressed]}
               accessibilityRole="button" accessibilityLabel={t('journalNextMonth')}
               accessibilityState={{ disabled: !canMoveNext }}>
-              <Ionicons name="chevron-forward" size={20}
-                color={canMoveNext ? colors.primaryText : colors.textSecondary} />
+              <Ionicons name="chevron-forward" size={22} color={HEADER_INK} />
             </Pressable>
           </View>
         </View>
@@ -331,10 +335,13 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
                 }
                 const session = sessionsByDate.get(dateKey);
                 const status = session ? normalizeStatus(session.status) : null;
-                const statusColors = status ? (isDark ? DARK_STATUS_COLORS[status] : STATUS_COLORS[status]) : null;
+                const statusColors = status ? statusPalette[status] : null;
                 const isToday = dateKey === todayKey;
                 const isFuture = dateKey > todayKey && !session;
                 const isSelected = selectedSession?.date.slice(0, 10) === dateKey;
+                const dayLabel = status
+                  ? t('journalDayAccessibility', { day, status: statusLabel(status) })
+                  : t(isFuture ? 'journalFutureDayAccessibility' : 'journalMissingDayAccessibility', { day });
 
                 return (
                   <View key={dateKey} style={styles.daySlot}>
@@ -344,15 +351,10 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
                       testID={`journal-day-${dateKey}`}
                       accessibilityState={{ selected: isSelected, disabled: !session }}
                       accessibilityRole={session ? 'button' : undefined}
-                      accessibilityLabel={
-                        session
-                          ? t('journalDayAccessibility', { day, status: statusLabel(status!) })
-                          : t(isFuture ? 'journalFutureDayAccessibility' : 'journalMissingDayAccessibility', { day })
-                      }
+                      accessibilityLabel={isToday ? `${t('todayLabel')}. ${dayLabel}` : dayLabel}
                       style={({ pressed }) => [
                         styles.dayCell,
-                        !statusColors && !isToday && styles.dayCellEmpty,
-                        isFuture && styles.dayCellFuture,
+                        !statusColors && !isToday && !isFuture && styles.dayCellEmpty,
                         statusColors && {
                           backgroundColor: statusColors.background,
                         },
@@ -371,9 +373,9 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
                       >
                         {day}
                       </Text>
-                      <View style={styles.dayMarker} accessible={false}>
+                      <View style={[styles.dayMarker, statusColors && { backgroundColor: statusColors.foreground }]} accessible={false}>
                         {status && statusColors ? <Ionicons name={STATUS_ICONS[status]} size={12}
-                          color={statusColors.foreground} /> : !isFuture ? (
+                          color={statusColors.background} accessible={false} /> : !isFuture ? (
                           <View style={styles.missingDot} />
                         ) : null}
                       </View>
@@ -386,15 +388,13 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
             {/* Legend */}
             <View style={styles.legendRow} testID="journal-legend">
               {(['fine', 'tired', 'very_tired', 'specific_concern'] as JournalStatus[]).map((status) => {
-                const itemColors = isDark ? DARK_STATUS_COLORS[status] : STATUS_COLORS[status];
+                const itemColors = statusPalette[status];
                 return (
                   <View key={status} style={[styles.legendItem, largeLegend && styles.legendItemWide]}>
-                    <View style={[styles.legendSwatch, { backgroundColor: itemColors.background }]} accessible={false}>
-                      <Ionicons name={STATUS_ICONS[status]} size={12} color={itemColors.foreground} />
+                    <View style={[styles.legendSwatch, { backgroundColor: itemColors.foreground }]} accessible={false}>
+                      <Ionicons name={STATUS_ICONS[status]} size={14} color={itemColors.background} accessible={false} />
                     </View>
-                    <Text allowFontScaling
-                      style={styles.legendText}
-                    >
+                    <Text allowFontScaling style={styles.legendText}>
                       {statusLabel(status)}
                     </Text>
                   </View>
@@ -419,25 +419,28 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
         )}
         {showSummary && (!error || report) ? (
           <View style={styles.summaryCard} testID="journal-month-summary">
+            <View style={styles.summaryIcon} accessible={false}>
+              <Ionicons name="clipboard-outline" size={20} color={colors.primaryText} accessible={false} />
+            </View>
             {loading && !report ? (
               <View style={styles.loadingLines} accessible={false}>
                 <View style={styles.loadingLine} />
                 <View style={[styles.loadingLine, { width: '65%' }]} />
               </View>
             ) : (
-              <>
+              <View style={styles.summaryCopy}>
                 <Text allowFontScaling style={styles.summaryTitle}>
                   {!hasMonthCheckins ? t('journalNoCheckin') : subjectName
                     ? tc(attentionDays > 0 ? 'memberSummaryAttention' : 'memberSummaryFine', { name: subjectName, fine: fineDays, attention: attentionDays })
                     : attentionDays > 0 ? t('journalSummaryAttention', { fine: fineDays, attention: attentionDays })
                       : t('journalSummaryFine', { fine: fineDays })}
                 </Text>
-                <Text allowFontScaling style={styles.summaryMeta}>
-                  {latestSession ? t('journalLatestStatus', {
+                {latestSession && <Text allowFontScaling style={styles.summaryMeta}>
+                  {t('journalLatestStatus', {
                     status: statusLabel(normalizeStatus(latestSession.status)),
-                  }) : t('journalNoCheckinHint')}
-                </Text>
-              </>
+                  })}
+                </Text>}
+              </View>
             )}
           </View>
         ) : null}
@@ -454,7 +457,7 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
           {attentionSessions.length > 0 ? (
             attentionSessions.map((session) => {
               const status = normalizeStatus(session.status);
-              const statusColors = isDark ? DARK_STATUS_COLORS[status] : STATUS_COLORS[status];
+              const statusColors = statusPalette[status];
               return (
                 <Pressable
                   key={`${session.id || session.date}`}
@@ -551,11 +554,12 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
                   <View style={[
                     styles.statusPill,
                     {
-                      backgroundColor: (isDark ? DARK_STATUS_COLORS : STATUS_COLORS)[selectedStatus].background,
-                      borderColor: (isDark ? DARK_STATUS_COLORS : STATUS_COLORS)[selectedStatus].border,
+                      backgroundColor: selectedColors.background,
+                      borderColor: selectedColors.border,
                     },
                   ]}>
-                    <Text allowFontScaling style={[styles.statusPillText, { color: (isDark ? DARK_STATUS_COLORS : STATUS_COLORS)[selectedStatus].foreground }]}>
+                    <Ionicons name={STATUS_ICONS[selectedStatus]} size={16} color={selectedColors.foreground} accessible={false} />
+                    <Text allowFontScaling style={[styles.statusPillText, { color: selectedColors.foreground }]}>
                       {statusLabel(selectedStatus)}
                     </Text>
                   </View>
@@ -623,58 +627,68 @@ function createStyles(
   palette: ReturnType<typeof useThemeColors>['colors'],
   isDark: boolean,
 ) {
+  const calendarSurface = isDark ? palette.surface : '#FAFDFB';
+  const emptyDaySurface = isDark ? '#222D31' : '#EEF5F2';
   return StyleSheet.create({
     section: { gap: 20 },
     plain: { backgroundColor: 'transparent', borderWidth: 0, borderRadius: 0, paddingHorizontal: 0 },
     card: {
-      backgroundColor: isDark ? palette.surface : '#FDFFFE',
-      borderRadius: 24, borderWidth: 1, borderColor: isDark ? palette.border : '#DFE9E3',
-      paddingHorizontal: 12, paddingTop: 16, paddingBottom: 20,
+      backgroundColor: calendarSurface,
+      borderRadius: 24, borderWidth: 1, borderColor: isDark ? palette.border : '#CBDED5',
+      padding: 12,
     },
-    monthHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center',
-      justifyContent: 'space-between', columnGap: 8, rowGap: 4, paddingHorizontal: 4, marginBottom: 16 },
-    monthHeading: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, gap: 4 },
+    monthHeader: {
+      flexDirection: 'row', alignItems: 'center', borderRadius: 16,
+      backgroundColor: isDark ? '#154540' : '#0D554D',
+      paddingVertical: 8, paddingLeft: 10, paddingRight: 4, marginBottom: 12,
+    },
+    monthHeading: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    monthIcon: { width: 32, height: 34, borderRadius: 10, backgroundColor: 'rgba(229,255,247,0.16)',
+      alignItems: 'center', justifyContent: 'center' },
+    monthTitle: { color: HEADER_INK, fontSize: 18, fontWeight: '700', flex: 1 },
     monthNavigation: { flexDirection: 'row', alignItems: 'center' },
     monthButton: { width: 44, height: 44, borderRadius: 14, alignItems: 'center',
       justifyContent: 'center', backgroundColor: 'transparent' },
-    monthButtonDisabled: { opacity: 0.35 },
-    monthTitle: { color: palette.textPrimary, fontSize: 20, fontWeight: '700', flexShrink: 1 },
-    loadingIndicator: { width: 20, minHeight: 20 },
+    monthButtonDisabled: { opacity: 0.45 },
     loadingDay: { backgroundColor: isDark ? '#213B36' : '#E8F0EB', borderColor: 'transparent' },
-    loadingLines: { gap: 10, width: '100%' },
+    loadingLines: { flex: 1, gap: 10 },
     loadingLine: { height: 14, width: '90%', borderRadius: 7,
       backgroundColor: isDark ? '#213B36' : '#E8F0EB' },
-    summaryCard: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.border,
-      marginTop: 20, paddingHorizontal: 4, paddingTop: 16, gap: 6 },
-    summaryTitle: { color: palette.textPrimary, fontSize: 14, fontWeight: '600' },
+    summaryCard: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14,
+      backgroundColor: palette.primaryLight, padding: 12, marginTop: 16 },
+    summaryIcon: { width: 34, height: 34, borderRadius: 11, backgroundColor: calendarSurface,
+      alignItems: 'center', justifyContent: 'center' },
+    summaryCopy: { flex: 1, minWidth: 0, gap: 3 },
+    summaryTitle: { color: palette.textPrimary, fontSize: 14, fontWeight: '700' },
     summaryMeta: { color: palette.textSecondary, fontSize: 13 },
-    weekRow: { flexDirection: 'row', marginBottom: 8 },
-    weekday: { width: '14.2857%', textAlign: 'center', fontSize: 11.5,
-      fontWeight: '600', color: palette.textSecondary },
+    weekRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8,
+      paddingVertical: 6, borderRadius: 10, backgroundColor: isDark ? '#203937' : '#E4F2ED' },
+    weekday: { width: '14.2857%', textAlign: 'center', fontSize: 12,
+      fontWeight: '700', color: palette.primaryText },
     calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 6 },
     daySlot: { width: '14.2857%', paddingHorizontal: 2 },
-    dayCellBlank: { width: '100%', minHeight: 48 },
-    dayCell: { width: '100%', minHeight: 48, borderRadius: 14,
-      paddingVertical: 6, alignItems: 'center', justifyContent: 'center', gap: 2 },
-    dayCellEmpty: { backgroundColor: 'transparent' },
-    dayCellFuture: { opacity: 0.4 },
-    dayCellToday: { backgroundColor: palette.primaryLight, borderWidth: 1.5, borderColor: palette.primaryText },
-    dayCellTodayChecked: { borderWidth: 1.5, borderColor: palette.primaryText },
-    dayCellSelected: { borderWidth: 2, borderColor: palette.textPrimary },
-    dayText: { fontSize: 14, fontWeight: '600' },
+    dayCellBlank: { width: '100%', minHeight: 52 },
+    dayCell: { width: '100%', minHeight: 52, borderRadius: 12,
+      borderWidth: 2, borderColor: 'transparent', paddingVertical: 3,
+      alignItems: 'center', justifyContent: 'center', gap: 2 },
+    dayCellEmpty: { backgroundColor: emptyDaySurface },
+    dayCellToday: { backgroundColor: palette.primaryLight, borderColor: palette.primaryText },
+    dayCellTodayChecked: { borderColor: palette.primaryText },
+    dayCellSelected: { borderColor: palette.textPrimary },
+    dayText: { fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
     dayTextEmpty: { color: palette.textSecondary },
     dayTextToday: { color: palette.primaryText, fontWeight: '700' },
-    dayMarker: { height: 12, alignItems: 'center', justifyContent: 'center' },
-    missingDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: palette.textSecondary, opacity: 0.55 },
+    dayMarker: { width: 18, height: 16, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+    missingDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: palette.textSecondary },
     legendRow: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 12,
-      marginTop: 24, paddingHorizontal: 4 },
+      marginTop: 16, paddingHorizontal: 4 },
     legendItem: { width: '46%', flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0 },
     legendItemWide: { width: '100%' },
-    legendSwatch: { width: 20, height: 20, borderRadius: 7, flexShrink: 0,
+    legendSwatch: { width: 22, height: 22, borderRadius: 7, flexShrink: 0,
       alignItems: 'center', justifyContent: 'center' },
-    legendMissing: { backgroundColor: palette.surfaceMuted },
-    legendToday: { borderWidth: 1.5, borderColor: palette.primaryText, backgroundColor: palette.primaryLight },
-    legendText: { flex: 1, fontSize: 12, fontWeight: '500', color: palette.textSecondary },
+    legendMissing: { backgroundColor: emptyDaySurface },
+    legendToday: { borderWidth: 2, borderColor: palette.primaryText, backgroundColor: palette.primaryLight },
+    legendText: { flex: 1, fontSize: 13, fontWeight: '600', color: palette.textPrimary },
     errorState: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.lg },
     errorText: { color: palette.textSecondary, fontSize: 14, textAlign: 'center' },
     retryButton: { minHeight: 44, justifyContent: 'center', backgroundColor: palette.primaryLight,
@@ -682,7 +696,7 @@ function createStyles(
     retryText: { color: palette.primaryText, fontSize: 14, fontWeight: '600' },
     attentionSection: { gap: 12 },
     attentionTitle: { color: palette.textPrimary, fontSize: 16, fontWeight: '600', paddingHorizontal: 4 },
-    attentionCard: { backgroundColor: isDark ? palette.surface : '#FDFFFE',
+    attentionCard: { backgroundColor: calendarSurface,
       alignItems: 'center', borderRadius: 20, borderWidth: 1, flexDirection: 'row',
       flexWrap: 'wrap', gap: 12, minHeight: 76, paddingHorizontal: 16, paddingVertical: 16 },
     attentionCopy: { flex: 1, minWidth: 120 },
@@ -705,8 +719,9 @@ function createStyles(
     sheetTitle: { color: palette.textPrimary, flex: 1, fontSize: 22, fontWeight: '700' },
     closeButton: { alignItems: 'center', borderRadius: 16, height: 44, justifyContent: 'center', width: 44 },
     statusLine: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-    statusPill: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 7, maxWidth: '100%' },
-    statusPillText: { fontSize: 14, fontWeight: '600' },
+    statusPill: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 12, borderWidth: 1,
+      paddingHorizontal: 12, paddingVertical: 7, maxWidth: '100%' },
+    statusPillText: { fontSize: 14, fontWeight: '600', flexShrink: 1 },
     reportedTime: { color: palette.textSecondary, fontSize: 14 },
     detailBlock: { gap: 10 },
     detailLabel: { color: palette.textSecondary, fontSize: 14, fontWeight: '600' },

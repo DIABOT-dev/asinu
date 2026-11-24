@@ -1,0 +1,12 @@
+{
+  "asset": "expert-consultation-v1.png",
+  "tool": "image_gen.imagegen",
+  "mode": "built-in",
+  "transparent_background": true,
+  "export": {
+    "width": 256,
+    "height": 256,
+    "alpha": true
+  },
+  "prompt": "Create a single square mobile app icon asset: a friendly medical specialist / doctor, head-and-upper-torso bust, facing forward with a slight three-quarter turn. Soft rounded 3D clay render matching a premium small healthcare shortcut icon family. Warm ivory face with minimal simple facial features, dark deep teal neatly styled hair, an ivory white doctor's coat, muted mint/teal shirt, and a clear teal stethoscope around the neck so it is unmistakably a healthcare specialist. Clean silhouette and chunky simple shapes readable when rendered at 60 x 60 pixels. Restrained warm ivory, deep teal and pale mint palette; smooth satin material, gentle studio light from upper left, subtle dimensional shading. The bust fills about 85 percent of the square canvas and is centered. Isolated on a truly transparent background. No badge, no surrounding tile, no frame, no text, no logo, no medical cross, no props outside the bust, no scene or scenery. One professional, approachable person only."
+}

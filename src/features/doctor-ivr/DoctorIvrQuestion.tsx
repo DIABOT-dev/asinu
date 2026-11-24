@@ -158,11 +158,14 @@ export function DoctorIvrQuestion({
             {question.options.map((option) => {
               const selected = option.id === selectedOptionId;
               const voice = option.type === "voice";
+              const label = voice && !question.fixed && !callMode
+                ? t("ivr.otherVoiceAnswer")
+                : option.label;
               return (
                 <Pressable
                   key={option.id}
                   accessibilityRole="button"
-                  accessibilityLabel={`${option.key}. ${option.label}`}
+                  accessibilityLabel={`${option.key}. ${label}`}
                   accessibilityState={{ disabled, selected }}
                   disabled={disabled}
                   onPress={() => onSelect(option)}
@@ -206,7 +209,7 @@ export function DoctorIvrQuestion({
                   <Text
                     style={[styles.answerText, { color: colors.textPrimary }]}
                   >
-                    {option.label}
+                    {label}
                   </Text>
                   {selected ? (
                     speaking ? (

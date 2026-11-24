@@ -479,6 +479,18 @@ await test("leaving Overview ignores a pending health result", async () => {
 
 function reminderHarness() {
   const r = runtime();
+  const { QuickActionTile } = evaluate("src/components/QuickActionTile.tsx", {
+    react: {},
+    "react-native": {
+      Pressable: "Button",
+      View: "View",
+      StyleSheet: { create: (value) => value },
+    },
+    "./ScaledText": { ScaledText: "Text" },
+    "../hooks/useThemeColors": {
+      useThemeColors: () => ({ colors: {}, isDark: false }),
+    },
+  });
   const listeners = new Set();
   const auth = { token: "session-a" };
   const server = { allowed: false, pending: null, error: false, remindersEnabled: true, preferenceError: false, pendingPrefs: null };
@@ -503,11 +515,12 @@ function reminderHarness() {
       "@expo/vector-icons": { Ionicons: "Icon" },
       "react-i18next": { useTranslation: () => ({ t: (key) => key }) },
       "../../components/ScaledText": { ScaledText: "Text" },
+      "../../components/QuickActionTile": { QuickActionTile },
       "../../hooks/useGuardedRouter": {
         useGuardedRouter: () => ({ push: (path) => calls.routes.push(path) }),
       },
       "../../hooks/useThemeColors": { useThemeColors: () => ({ colors: {} }) },
-      "../auth/auth.store": { useAuthStore: { getState: () => auth } },
+      "../auth/auth.store": { useAuthStore: Object.assign(select => select(auth), { getState: () => auth }) },
       "../notifications/notifications.api": {
         getNotificationPreferences: async () => {
           if (server.preferenceError) throw new Error("Reminder preference unavailable");
@@ -524,13 +537,17 @@ function reminderHarness() {
       },
     },
   );
+  const renderTile = () => {
+    const tile = ReminderSettingsEntry({ variant: "tile" });
+    return QuickActionTile(tile.props);
+  };
   return {
     ...r,
     auth,
     server,
     calls,
-    read: () => r.render(ReminderSettingsEntry),
-    settle: () => r.settle(ReminderSettingsEntry),
+    read: () => r.render(renderTile),
+    settle: () => r.settle(renderTile),
     foreground: () => listeners.forEach((listener) => listener("active")),
   };
 }
@@ -617,10 +634,30 @@ await test("duplicate taps recheck permission once and open one reminder screen"
   button.props.onPress();
   button.props.onPress();
   assert.equal(h.read().props.disabled, true);
+  const [iconFrame] = h.read().props.children({ pressed: false }).props.children;
+  assert.equal(iconFrame.props.children[0].props.name, "alarm-outline");
   assert.equal(h.calls.reads, 2);
   finish(true);
   await h.settle();
   assert.deepEqual(h.calls.routes, ["/reminder-config"]);
+  h.blur();
+});
+await test("returning to Utilities clears a pending reminder shortcut check", async () => {
+  const h = reminderHarness();
+  h.server.allowed = true;
+  await h.settle();
+  let finish;
+  h.server.pending = new Promise(resolve => { finish = resolve; });
+  h.read().props.onPress();
+  h.blur();
+  h.server.pending = null;
+  h.focus();
+  await h.settle();
+  assert.equal(h.read().props.accessibilityState.busy, false);
+  assert.equal(h.read().props.disabled, false);
+  finish(true);
+  await flush();
+  assert.deepEqual(h.calls.routes, []);
   h.blur();
 });
 await test("a late permission read cannot replace a newer revoked permission", async () => {
@@ -1134,11 +1171,12 @@ for (const language of ["vi", "en"]) {
       assert.equal(progress.at(-1).props.accessibilityValue.max, 5);
       assert.ok(nodes.some((node) => node.props.children === t("balance", { count: 24 })));
       for (const count of [10, 5, 2, 20]) assert.ok(nodes.some((node) => node.props.children === t("taskCoins", { count })));
-      const details = nodes.find(
-        (node) => node.props.accessibilityRole === "button",
+      const buttons = nodes.filter((node) => node.props.accessibilityRole === "button");
+      assert.deepEqual(
+        buttons.map((node) => node.props.accessibilityLabel),
+        [language === "vi" ? "Cách nhận xu" : "How to earn coins"],
       );
-      assert.equal(details.props.accessibilityLabel, t("rules"));
-      details.props.onPress();
+      buttons[0].props.onPress();
       assert.equal(opened, 1);
     });
   }
@@ -1167,13 +1205,13 @@ await test("granting notifications in-app immediately updates reminder access wi
   assert.equal(reminder.calls.reads, reads);
 });
 
-function coinDetailsHarness() {
+function coinDetailsHarness(options) {
   const r = runtime();
   const auth = { profile: { id: "alice" } };
   const storage = new Map();
-  const calls = { redeems: [], toasts: [], errors: [], history: [] };
+  const calls = { redeems: [], toasts: [], errors: [], history: [], rewards: 0 };
   const reward = { code: "GREETING_CARD", cost: 50, daily_limit: 1, monthly_limit: 0 };
-  const server = { balance: 100, pendingCoins: null, pendingRedeem: null, pendingStorage: null, failRedeem: false, pages: { "": [] } };
+  const server = { balance: 100, pendingCoins: null, pendingRedeem: null, pendingStorage: null, failRedeem: false, pages: {} };
   const t = key => key;
   const useAuthStore = Object.assign(select => select(auth), { getState: () => auth });
   const data = () => ({ ...journeyData(), balance: server.balance });
@@ -1181,6 +1219,7 @@ function coinDetailsHarness() {
     react: r.hooks,
     "expo-router": r.router,
     "../../hooks/useGuardedRouter": { useGuardedRouter: () => ({ push() {} }) },
+    "../../hooks/useLoadOnScrollEnd": evaluate("src/hooks/useLoadOnScrollEnd.ts", { react: r.hooks }),
     "react-i18next": { useTranslation: () => ({ t }) },
     "@react-native-async-storage/async-storage": { __esModule: true, default: {
       getItem: async key => server.pendingStorage ? await server.pendingStorage : storage.get(key) ?? null,
@@ -1192,8 +1231,15 @@ function coinDetailsHarness() {
     "./V21Layout": { v21Error: error => calls.errors.push(error) },
     "./v21.api": { v21Api: {
       coins: async () => server.pendingCoins ?? data(),
-      rewards: async () => ({ items: [reward], recipients: [{ id: 7, name: "Fixture recipient" }], templates: [{ code: "fixture-card", title: "Fixture card", title_en: "Fixture card" }] }),
-      history: async before => { calls.history.push(before || ""); return { items: server.pages[before || ""] ?? [] }; },
+      rewards: async () => {
+        calls.rewards++;
+        return { items: [reward], recipients: [{ id: 7, name: "Fixture recipient" }], templates: [{ code: "fixture-card", title: "Fixture card", title_en: "Fixture card" }] };
+      },
+      history: async (before, limit, scope) => {
+        calls.history.push({ before, limit, ...(scope && { scope }) });
+        if (server.failHistory) throw new Error("Fixture history unavailable");
+        return server.pages[before || ""] ?? { items: [], nextBefore: null };
+      },
       redeem: async (code, id, payload) => {
         calls.redeems.push({ code, id, payload });
         if (server.pendingRedeem) await server.pendingRedeem;
@@ -1203,11 +1249,20 @@ function coinDetailsHarness() {
       },
     } },
   });
+  const CoinDetailsTest = () => useHealthCoins(options);
+  const read = () => r.render(CoinDetailsTest);
   return { ...r, auth, server, calls, storage, reward, data,
-    read: () => r.render(useHealthCoins), settle: () => r.settle(useHealthCoins),
-    prepare: () => { r.render(useHealthCoins).selectReward(reward); r.render(useHealthCoins).selectRecipient(7); r.render(useHealthCoins).selectTemplate("fixture-card"); },
+    read, settle: () => r.settle(CoinDetailsTest),
+    prepare: () => { read().selectReward(reward); read().selectRecipient(7); read().selectTemplate("fixture-card"); },
   };
 }
+await test("the coin earning view loads its balance without requesting shop data or history", async () => {
+  const h = coinDetailsHarness({ includeRedemption: false });
+  await h.settle();
+  assert.equal(h.read().data.balance, 100);
+  assert.equal(h.calls.rewards, 0);
+  assert.deepEqual(h.calls.history, []);
+});
 await test("coin details load backend values and require a recipient and template before redemption", async () => {
   const h = coinDetailsHarness(); await h.settle();
   assert.equal(h.read().data.balance, 100);
@@ -1260,13 +1315,111 @@ await test("leaving the coin screen before request preparation prevents a redemp
 
 await test("coin history loads the next cursor once, removes duplicate entries and stops at the last page", async () => {
   const h = coinDetailsHarness();
-  h.server.pages[""] = Array.from({ length: 30 }, (_, index) => entry(60 - index, 2));
-  h.server.pages["31"] = [entry(31, 2), entry(30, 2)];
+  h.server.pages[""] = { items: Array.from({ length: 10 }, (_, index) => entry(60 - index, 2)), nextBefore: "51" };
+  h.server.pages["51"] = { items: [entry(51, 2), entry(50, 2)], nextBefore: null };
   await h.settle(); assert.equal(h.read().hasMore, true);
-  await h.read().more();
-  assert.deepEqual(h.calls.history, ["", "31"]);
-  assert.equal(h.read().history.length, 31); assert.equal(h.read().hasMore, false);
+  assert.equal(h.read().history.length, 10);
+  assert.deepEqual(h.calls.history, [{ before: undefined, limit: 10 }]);
+  const more = h.read().more;
+  await Promise.all([more(), more()]);
+  assert.deepEqual(h.calls.history, [{ before: undefined, limit: 10 }, { before: "51", limit: 10 }]);
+  assert.equal(h.read().history.length, 11); assert.equal(h.read().hasMore, false);
   await h.read().more(); assert.equal(h.calls.history.length, 2); h.blur();
+});
+
+await test("reward usage history paginates with its own scope and shows only actual spending", async () => {
+  const h = coinDetailsHarness({ historyScope: "usage" });
+  h.server.pages[""] = { items: [entry(60, 2), entry(59, -2, "EXPIRE")], nextBefore: "59" };
+  h.server.pages["59"] = { items: [entry(58, 50, "REFUND"), entry(57, -50, "REDEEM")], nextBefore: "57" };
+  h.server.pages["57"] = { items: [entry(56, -40, "REDEEM")], nextBefore: null };
+  await h.settle();
+  assert.deepEqual(h.read().history, []);
+  assert.equal(h.read().hasMore, true);
+  await h.read().more();
+  assert.deepEqual(h.read().history.map(item => item.id), ["57"]);
+  await h.read().more();
+  assert.deepEqual(h.read().history.map(item => item.id), ["57", "56"]);
+  assert.equal(h.read().hasMore, false);
+  assert.deepEqual(h.calls.history, [
+    { before: undefined, limit: 10, scope: "usage" },
+    { before: "59", limit: 10, scope: "usage" },
+    { before: "57", limit: 10, scope: "usage" },
+  ]);
+  h.blur();
+});
+
+await test("earned coins use a scoped history and recover from a failed first page", async () => {
+  const h = coinDetailsHarness({ includeRedemption: false, historyScope: "earned" });
+  h.server.failHistory = true;
+  await h.settle();
+  assert.equal(h.read().data.balance, 100);
+  assert.equal(h.calls.rewards, 0);
+  assert.equal(h.read().historyError, true);
+  h.server.failHistory = false;
+  h.server.pages[""] = { items: [entry(20, 50, "REFUND"), entry(19, -50, "REDEEM"), entry(18, 10, "CHECKIN")], nextBefore: "18" };
+  h.server.pages["18"] = { items: [entry(17, -5, "EXPIRE"), entry(16, 5, "MED_ANSWER")], nextBefore: null };
+  await h.read().more();
+  await h.read().more();
+  assert.deepEqual(h.read().history.map(item => item.id), ["18", "16"]);
+  assert.equal(h.read().historyError, false);
+  assert.equal(h.read().hasMore, false);
+  assert.deepEqual(h.calls.history, [
+    { before: undefined, limit: 10, scope: "earned" },
+    { before: undefined, limit: 10, scope: "earned" },
+    { before: "18", limit: 10, scope: "earned" },
+  ]);
+  h.blur();
+});
+
+await test("the health coin header opens earning history separately from the earning guide", () => {
+  const r = runtime();
+  let opens = 0;
+  const coins = { data: journeyData(), open: () => { opens++; } };
+  const { CoinDetailsModal, CoinHistoryButton } = evaluate("src/features/v21/CoinDetailsModal.tsx", {
+    "@expo/vector-icons": { Ionicons: "Icon" },
+    "expo-linear-gradient": { LinearGradient: "Gradient" },
+    "react-native": {
+      Modal: "Modal", Pressable: "Pressable", ScrollView: "Scroll", View: "View",
+      StyleSheet: { create: styles => styles }, useWindowDimensions: () => ({ height: 800 }),
+    },
+    "react-i18next": { useTranslation: () => ({ t: key => key }) },
+    "react-native-safe-area-context": { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
+    "../../components/ScaledText": { ScaledText: "Text" },
+    "../../hooks/useThemeColors": { useThemeColors: () => ({ colors: {} }) },
+    "../../hooks/useLoadOnScrollEnd": { useLoadOnScrollEnd: () => ({}) },
+    "./HealthCoinIcon": { HealthCoinIcon: "Coin" },
+    "./CoinDetailsContent": { CoinEarnTab: "EarnTab", CoinHistoryTab: "HistoryTab" },
+  });
+  const { default: CoinsScreen } = evaluate("app/coins/index.tsx", {
+    react: r.hooks,
+    "react-native": { RefreshControl: "Refresh" },
+    "react-i18next": { useTranslation: () => ({ t: key => key }) },
+    "../../src/features/v21/V21Layout": { V21Layout: "Layout" },
+    "../../src/features/v21/HealthCoinJourney": { HealthCoinJourney: "Journey" },
+    "../../src/features/v21/CoinDetailsModal": { CoinDetailsModal, CoinHistoryButton },
+    "../../src/features/v21/useHealthCoins": { useHealthCoins: (options) => {
+      assert.deepEqual(options, { includeRedemption: false, historyScope: "earned" });
+      return coins;
+    } },
+  });
+  const read = () => r.render(CoinsScreen);
+  const button = read().props.headerAction;
+  assert.equal(button.props.label, "coinEarnHistory");
+  const panelNodes = () => {
+    const modal = journeyNodes(read()).find(node => node.type === CoinDetailsModal);
+    const panel = journeyNodes(CoinDetailsModal(modal.props)).find(node => typeof node.type === "function");
+    return journeyNodes(panel.type(panel.props));
+  };
+  button.props.onPress();
+  const history = panelNodes();
+  assert.ok(history.some(node => node.props.children === "coinEarnHistory"));
+  assert.equal(history.find(node => node.type === "HistoryTab").props.scope, "earned");
+  journeyNodes(read()).find(node => node.type === "Journey").props.onOpenDetails();
+  const guide = panelNodes();
+  assert.ok(guide.some(node => node.type === "EarnTab"));
+  assert.ok(guide.some(node => node.props.children === "coinsEarnTitle"));
+  assert.ok(!guide.some(node => node.props.children === "balance"));
+  assert.equal(opens, 2);
 });
 
 await test("withdrawing task reminders immediately locks reminder times without leaving Profile", async () => {
@@ -1287,21 +1440,35 @@ await test("an older reminder preference result cannot undo a newer withdrawal",
   assert.equal(h.read().props.disabled, true); h.blur();
 });
 
-await test("the real card reward view allows a free preview with insufficient coins but keeps redemption disabled", () => {
+await test("the reward shop uses real categories and opens greeting recipient, message and review in order", () => {
   const r = runtime();
-  const recipient = { id: 7, name: "Fixture family" };
+  const selectionRuntime = runtime();
+  const catalogRuntime = runtime();
+  let redeemed = 0;
+  const recipient = { id: 7, name: "Fixture family", avatarUrl: "https://images.example.test/family.jpg" };
+  const relativeWithoutPhoto = { id: 8, name: "Fixture sibling", avatarUrl: null };
   const template = { code: "MISS_YOU", title: "Fixture card", title_en: "Fixture card", body: "Fixture greeting" };
   const reward = { code: "GREETING_CARD", cost: 50 };
+  const ticket = { code: "DRAW_TICKET", cost: 40 };
   const coins = {
-    busy: false, selected: null, recipient: recipient.id, template: template.code,
-    data: { balance: 12 }, catalog: { items: [reward], recipients: [recipient], templates: [template] },
-    selectReward: item => { coins.selected = item; }, cancelReward() {},
+    busy: false, selected: null, recipient: null, template: null,
+    data: { balance: 12 }, catalog: { items: [reward, ticket], recipients: [recipient, relativeWithoutPhoto], templates: [template], drawPeriodId: "test-draw" },
+    selectReward: item => { coins.selected = item; },
+    selectRecipient: id => { coins.recipient = id; },
+    selectTemplate: code => { coins.template = code; },
+    cancelReward() { coins.selected = null; },
+    redeem: async () => { redeemed++; },
   };
-  const { CoinSpendTab } = evaluate("src/features/v21/CoinDetailsContent.tsx", {
-    react: r.hooks,
+  const { CoinAmount, CoinRewardSelection } = evaluate("src/features/v21/CoinDetailsContent.tsx", {
+    react: selectionRuntime.hooks,
     "@expo/vector-icons": { Ionicons: "Icon", MaterialCommunityIcons: "Icon" },
     "react-native": { ActivityIndicator: "Spinner", Pressable: "Pressable", View: "View", useWindowDimensions: () => ({ width: 393 }) },
-    "react-i18next": { useTranslation: () => ({ t: key => key, i18n: { language: "vi" } }) },
+    "react-i18next": { useTranslation: () => ({
+      t: (key, options) => key === "greetingSendConfirm" ? `${key}:${options.count}` : key,
+      i18n: { language: "vi" },
+    }) },
+    "../../components/AppAlertModal": { AppAlertModal: "ConfirmDialog" },
+    "../../components/Avatar": { Avatar: "Avatar" },
     "../../components/ScaledText": { ScaledText: "Text" },
     "../../hooks/useThemeColors": { useThemeColors: () => ({ colors: {} }) },
     "../../hooks/useScaledTypography": { useScaledFontSize: n => n },
@@ -1309,17 +1476,164 @@ await test("the real card reward view allows a free preview with insufficient co
     "./coin-details.styles": { coinDetailsStyles: {} },
     "./GreetingCard": { GreetingCard: "GreetingCard" },
   });
-  const preview = journeyNodes(r.render(() => CoinSpendTab({ coins }))).find(node => node.props?.label === "greetingPreview");
-  assert.equal(preview.props.disabled, false); preview.props.onPress();
-  const selection = r.render(() => CoinSpendTab({ coins }));
-  const readSelection = () => r.render(() => selection.type(selection.props));
-  const review = journeyNodes(readSelection()).find(node => node.props?.label === "coinsReviewAction");
+  let width = 393;
+  let openedDrawRules = 0;
+  const { CoinRewardsCatalog } = evaluate("src/features/v21/CoinRewardsCatalog.tsx", {
+    react: catalogRuntime.hooks,
+    "@expo/vector-icons": { Ionicons: "Icon" },
+    "expo-image": { Image: "Image" },
+    "react-native": {
+      Pressable: "Pressable", ScrollView: "ScrollView", View: "View", useWindowDimensions: () => ({ width }),
+      StyleSheet: { create: styles => styles },
+    },
+    "react-i18next": {
+      useTranslation: () => ({ t: (key, options) => options ? `${key}:${options.count}` : key, i18n: { language: "vi" } }),
+    },
+    "../../components/ScaledText": { ScaledText: "Text" },
+    "../../hooks/useThemeColors": { useThemeColors: () => ({ colors: {} }) },
+    "../../hooks/useScaledTypography": { useScaledFontSize: n => n },
+    "./HealthCoinIcon": { HealthCoinIcon: "Coin" },
+    "../../../assets/images/rewards/product-photos-v2/reward-ticket-photo-v2.png": "Ticket",
+    "../../../assets/images/rewards/family-greeting-card-cover.jpg": "GreetingCover",
+  });
+  const readCatalog = () => journeyNodes(catalogRuntime.render(() => CoinRewardsCatalog({
+    catalog: coins.catalog, balance: coins.data.balance, onSelect: coins.selectReward, busy: coins.busy,
+    onDrawRules: () => openedDrawRules++,
+  })));
+  const grid = readCatalog();
+  assert.ok(grid.some(node => node.type === "Image" && node.props.source === "GreetingCover" && node.props.contentFit === "cover"));
+  assert.deepEqual(
+    grid.filter(node => node.props.accessibilityRole === "progressbar").map(node => node.props.accessibilityValue),
+    [{ min: 0, max: 50, now: 12 }, { min: 0, max: 40, now: 12 }],
+  );
+  assert.ok(grid.some(node => node.props.children === "rewardMissingLabel"));
+  assert.ok(grid.some(node => node.props.children === "cost:28"));
+  assert.ok(grid.some(node => node.props.children === "rewardNextShortfall:28"));
+  assert.equal(grid.some(node => node.props.accessibilityLabel === "coinsChooseReward"), false);
+  grid.find(node => node.props.accessibilityLabel === "rewardDrawRules").props.onPress();
+  assert.equal(openedDrawRules, 1);
+  assert.ok(grid.some(node => node.props.style?.some?.(style => style?.width === "48%")));
+  grid.find(node => node.props.accessibilityLabel === "rewardCategoryDraw").props.onPress();
+  const filtered = readCatalog();
+  assert.equal(filtered.find(node => node.props.accessibilityLabel === "rewardCategoryDraw").props.accessibilityState.selected, true);
+  assert.deepEqual(filtered.filter(node => node.props.accessibilityRole === "progressbar").map(node => node.props.accessibilityLabel), ["DRAW_TICKET"]);
+  filtered.find(node => node.props.accessibilityLabel === "rewardCategoryAll").props.onPress();
+  assert.equal(readCatalog().filter(node => node.props.accessibilityRole === "progressbar").length, 2);
+
+  coins.catalog.items = [reward];
+  const singleReward = readCatalog();
+  const tabs = singleReward.filter(node => node.props.accessibilityRole === "tab");
+  assert.deepEqual(tabs.map(tab => tab.props.accessibilityLabel), [
+    "rewardCategoryAll", "rewardCategoryGreeting", "rewardCategoryDraw",
+  ]);
+  assert.ok(singleReward.some(node => node.props.style?.some?.(style => style?.width === "48%")));
+  tabs[2].props.onPress();
+  const emptyCategory = readCatalog();
+  assert.equal(emptyCategory.find(node => node.props.accessibilityLabel === "rewardCategoryDraw").props.accessibilityState.selected, true);
+  assert.ok(emptyCategory.some(node => node.props.children === "rewardCategoryEmpty"));
+  assert.ok(!emptyCategory.some(node => node.props.accessibilityRole === "progressbar"));
+  emptyCategory.find(node => node.props.accessibilityLabel === "rewardCategoryAll").props.onPress();
+  width = 320;
+  assert.ok(readCatalog().some(node => node.props.style?.some?.(style => style?.width === "100%")));
+  coins.catalog.items = [];
+  const emptyCatalog = readCatalog();
+  assert.equal(emptyCatalog.filter(node => node.props.accessibilityRole === "tab").length, 3);
+  assert.ok(emptyCatalog.some(node => node.props.children === "noRewards"));
+  const preview = grid.find(node => node.props.accessibilityLabel === "greetingPreview");
+  assert.equal(preview.props.disabled, false);
+  const { default: RedeemCoinsScreen } = evaluate("app/coins/redeem.tsx", {
+    react: r.hooks,
+    "@expo/vector-icons": { Ionicons: "Icon" },
+    "react-native": { Pressable: "Pressable", RefreshControl: "Refresh", StyleSheet: { create: styles => styles } },
+    "react-i18next": { useTranslation: () => ({ t: key => key }) },
+    "../../src/hooks/useGuardedRouter": { useGuardedRouter: () => ({}) },
+    "../../src/hooks/useThemeColors": { useThemeColors: () => ({ colors: {} }) },
+    "../../src/features/v21/V21Layout": { V21Layout: "Layout" },
+    "../../src/features/v21/CoinDetailsModal": { CoinDetailsModal: "Details", CoinHistoryButton: "HistoryButton" },
+    "../../src/features/v21/CoinDetailsContent": { CoinRewardSelection },
+    "../../src/features/v21/CoinRewardsCatalog": { CoinRewardsCatalog: "Catalog" },
+    "../../src/features/v21/useHealthCoins": { useHealthCoins: () => coins },
+  });
+  const readScreen = () => r.render(RedeemCoinsScreen);
+  journeyNodes(readScreen()).find(node => node.type === "Catalog").props.onSelect(reward);
+  const readSelection = () => selectionRuntime.render(() => CoinRewardSelection(
+    journeyNodes(readScreen()).find(node => node.type === CoinRewardSelection).props,
+  ));
+  const firstStep = journeyNodes(readSelection());
+  assert.ok(!firstStep.some(node => node.type === "GreetingCard" || node.props.accessibilityLabel === "chooseTemplate"));
+  assert.equal(firstStep.find(node => node.props.label === "common:continue").props.disabled, true);
+  const readAvatar = (person) => {
+    const row = firstStep.find(node => node.props.label === person.name);
+    return journeyNodes(row.type(row.props)).find(node => node.type === "Avatar").props;
+  };
+  assert.equal(readAvatar(recipient).imageUrl, recipient.avatarUrl);
+  assert.equal(readAvatar(relativeWithoutPhoto).imageUrl, undefined);
+  assert.equal(readAvatar(relativeWithoutPhoto).name, relativeWithoutPhoto.name);
+  firstStep.find(node => node.props.label === recipient.name).props.onPress();
+  const continueButton = journeyNodes(readSelection()).find(node => node.props.label === "common:continue");
+  assert.equal(continueButton.props.disabled, false);
+  continueButton.props.onPress();
+  const messages = journeyNodes(readSelection());
+  assert.ok(!messages.some(node => node.type === CoinAmount || node.props.text === "missingCoins"));
+  assert.ok(messages.some(node => node.props.accessibilityLabel === "chooseTemplate"));
+  assert.ok(!messages.some(node => node.props.accessibilityLabel === "chooseRecipient"));
+  assert.ok(!messages.some(node => node.props.children === "greetingTo"));
+  assert.equal(messages.find(node => node.props.label === "greetingPreviewCard").props.disabled, true);
+  messages.find(node => node.props.accessibilityLabel === template.title).props.onPress();
+  const review = journeyNodes(readSelection()).find(node => node.props?.label === "greetingPreviewCard");
   assert.equal(review.props.disabled, false); review.props.onPress();
   const nodes = journeyNodes(readSelection());
+  assert.equal(readScreen().props.title, "greetingTitle");
+  assert.ok(!nodes.some(node => node.type === CoinAmount || node.props.text === "missingCoins"));
   assert.equal(nodes.find(node => node.type === "GreetingCard").props.template, template);
-  assert.equal(nodes.find(node => node.props?.label === "redeem").props.disabled, true);
+  const send = () => journeyNodes(readSelection()).find(node => node.props.label === "greetingSend");
+  const dialog = () => journeyNodes(readSelection()).find(node => node.type === "ConfirmDialog").props;
+  assert.equal(dialog().visible, false);
+  assert.equal(send().props.disabled, false);
+  send().props.onPress();
+  assert.equal(dialog().visible, true);
+  assert.equal(dialog().title, "greetingSendConfirm:50");
+  assert.equal(dialog().message, "missingCoins");
+  assert.equal(dialog().buttons.find(button => button.text === "greetingSend").disabled, true);
+  assert.equal(redeemed, 0);
+  dialog().onDismiss();
+  assert.equal(dialog().visible, false);
   coins.data.balance = 50;
-  assert.equal(journeyNodes(readSelection()).find(node => node.props?.label === "redeem").props.disabled, false);
+  send().props.onPress();
+  const confirm = dialog().buttons.find(button => button.text === "greetingSend");
+  assert.equal(confirm.disabled, false);
+  assert.equal(redeemed, 0);
+  dialog().onDismiss();
+  confirm.onPress();
+  assert.equal(redeemed, 1);
+  readScreen().props.onBack();
+  assert.ok(journeyNodes(readSelection()).some(node => node.props.accessibilityLabel === "chooseTemplate"));
+  readScreen().props.onBack();
+  assert.ok(journeyNodes(readSelection()).some(node => node.props.accessibilityLabel === "chooseRecipient"));
+  assert.ok(!journeyNodes(readSelection()).some(node => node.type === "GreetingCard"));
+  coins.catalog.items = [reward];
+  assert.ok(readCatalog().some(node => node.props.accessibilityLabel === "greetingSend"));
+});
+
+await test("greeting stationery uses one border and displays the full message on the letter", () => {
+  const { GreetingCard } = evaluate("src/features/v21/GreetingCard.tsx", {
+    "@expo/vector-icons": { Ionicons: "Icon" },
+    "react-native": { Platform: { select: platforms => platforms.ios }, StyleSheet: { create: styles => styles }, Text: "NativeText", View: "View" },
+    "react-i18next": { useTranslation: () => ({ t: key => key, i18n: { language: "vi" } }) },
+    "../../components/ScaledText": { ScaledText: "Text" },
+    "../../hooks/useScaledTypography": { useScaledFontSize: size => size },
+  });
+  const template = { code: "MISS_YOU", title: "Lời chúc", body: "Chúc mọi điều tốt lành.", title_en: "Best wishes" };
+  for (const compact of [false, true]) {
+    const card = journeyNodes(GreetingCard({ template, recipientName: "Fixture name", compact, selected: compact }));
+    const bordered = card.filter(node => {
+      const style = Object.assign({}, ...[node.props.style].flat());
+      return style.borderWidth > 0;
+    });
+    assert.equal(bordered.length, 1);
+    assert.equal(bordered[0].props.testID, "family-greeting-card");
+    assert.equal(card.find(node => node.props.children === template.body).props.numberOfLines, compact ? 2 : undefined);
+  }
 });
 
 function greetingHarness() {
@@ -1448,7 +1762,7 @@ await test("a backend rejection or failed save never displays a false reminder p
   const h = taskReminderHarness(); h.server.savedOverride = false; await h.settle(); await h.read().change(true);
   assert.equal(h.read().enabled, false);
   h.server.savedOverride = null; h.server.writeError = true; await h.read().change(true);
-  assert.equal(h.read().enabled, false); assert.equal(h.read().pending, false); assert.equal(h.calls.toasts.length, 1); h.blur();
+  assert.equal(h.read().enabled, false); assert.equal(h.read().pending, false); assert.equal(h.calls.toasts.length, 2); h.blur();
 });
 await test("duplicate task reminder toggles write once and wait for server confirmation", async () => {
   const h = taskReminderHarness(); await h.settle(); let finish;
@@ -1507,9 +1821,9 @@ const deferred = () => {
 
 await test('profile focus and mount together request subscription status exactly once', async () => {
   const r = runtime(); const calls = []; let clock = 10000;
-  const run = screenLifecycle('app/(tabs)/profile/index.tsx', text =>
+  const run = screenLifecycle('src/features/profile/ProfileScreen.tsx', text =>
     /^use(?:Focus)?Effect\(/.test(text) && text.includes('/api/subscriptions/status'), {
-    ...r.hooks, ...r.router, Date: { now: () => clock }, lastFetchRef: { current: 0 },
+    ...r.hooks, ...r.router, personalInformation: false, Date: { now: () => clock }, lastFetchRef: { current: 0 },
     profileReadyRef: { current: false }, setProfileReady() {}, setSubStatus() {},
     fetchLogs: async () => { calls.push('unused-logs'); }, fetchMissions: async () => { calls.push('unused-missions'); },
     apiClient: async path => { calls.push(path); return {}; },
@@ -2242,7 +2556,6 @@ function missionsScreenHarness({ language = 'vi', dark = false } = {}) {
   };
 }
 const missionFixtures = () => [
-  { missionKey: 'log_weight', progress: 0, goal: 1 },
   { missionKey: 'log_water', progress: 1, goal: 4 },
   { missionKey: 'log_glucose', progress: 0, goal: 2 },
   { missionKey: 'log_bp', progress: 1, goal: 2 },
@@ -2258,8 +2571,8 @@ for (const language of ['vi', 'en']) {
       assert.equal(h.requests.length, 1);
       assert.equal(h.find('missions-completed'), undefined);
       const rows = journeyNodes(h.find('missions-remaining')).filter(node => node.props?.testID?.startsWith('mission-'));
-      assert.deepEqual(rows.map(row => row.props.testID), ['mission-log_bp', 'mission-log_glucose', 'mission-log_water', 'mission-log_weight']);
-      assert.ok(journeyNodes(h.find('missions-summary')).some(node => node.props.children === h.t('completionSummary', { completed: 1, total: 5 })));
+      assert.deepEqual(rows.map(row => row.props.testID), ['mission-log_bp', 'mission-log_glucose', 'mission-log_water']);
+      assert.ok(journeyNodes(h.find('missions-summary')).some(node => node.props.children === h.t('completionSummary', { completed: 1, total: 4 })));
       for (const row of rows) {
         assert.equal(row.props.accessibilityRole, 'button');
         assert.ok(row.props.accessibilityLabel && row.props.accessibilityHint);
@@ -2269,7 +2582,7 @@ for (const language of ['vi', 'en']) {
       h.find('missions-completed-toggle').props.onPress();
       assert.equal(h.find('missions-completed-toggle').props.accessibilityState.expanded, true);
       h.find('mission-daily_checkin').props.onPress();
-      assert.deepEqual(h.routes, ['/logs/blood-pressure', '/logs/glucose', '/logs/water', '/logs/weight', '/checkin']);
+      assert.deepEqual(h.routes, ['/logs/blood-pressure', '/logs/glucose', '/logs/water', '/checkin']);
       assert.ok(h.nodes().filter(node => node.type === 'Text').every(node => node.props.allowFontScaling && !node.props.numberOfLines));
       assert.ok(h.nodes().filter(node => node.type === 'Image').every(node => node.props.resizeMode === 'contain' && node.props.accessible === false));
       const group = flattenMissionStyle(h.find('missions-remaining').props.style);
@@ -2296,15 +2609,13 @@ for (const language of ['vi', 'en']) {
     assert.ok(journeyNodes(h.find('missions-summary')).some(node => node.props.children === h.t('completionSummary', { completed: 0, total: 1 })));
     h.store.errorState = 'remote-failed';
     assert.equal(h.nodes().filter(node => node.type === 'OfflineBanner').length, 1);
-    assert.ok(h.find('mission-log_weight')); h.blur();
+    assert.ok(h.find('mission-log_water')); h.blur();
   });
 }
 await test('mission disclosures neither navigate nor refetch, and completed tasks stay discoverable', async () => {
   const h = missionsScreenHarness(); h.store.missions = missionFixtures(); await h.settle();
-  h.find('missions-help-toggle').props.onPress();
-  assert.ok(h.find('missions-help'));
-  assert.equal(h.find('missions-help-toggle').props.accessibilityState.expanded, true);
-  h.find('missions-help-toggle').props.onPress(); assert.equal(h.find('missions-help'), undefined);
+  assert.equal(h.find('missions-help-toggle'), undefined);
+  assert.equal(h.find('missions-help'), undefined);
   for (let i = 0; i < 2; i++) h.find('missions-completed-toggle').props.onPress();
   assert.equal(h.find('missions-completed'), undefined);
   await h.settle(); assert.deepEqual(h.routes, []); assert.equal(h.requests.length, 1);
@@ -2334,12 +2645,111 @@ await test('mission progress is bounded and only actual completion moves a row i
     { ...missionFixtures()[1], progress: Number.NaN, goal: 0 },
     { ...missionFixtures()[2], progress: 99 },
   ];
-  assert.ok(h.find('mission-log_weight')); assert.ok(h.find('mission-log_water'));
-  assert.equal(h.find('mission-log_glucose'), undefined);
+  assert.ok(h.find('mission-log_water')); assert.ok(h.find('mission-log_glucose'));
+  assert.equal(h.find('mission-log_bp'), undefined);
   h.find('missions-completed-toggle').props.onPress();
-  assert.ok(h.find('mission-log_glucose'));
+  assert.ok(h.find('mission-log_bp'));
   const summary = journeyNodes(h.find('missions-summary')).find(node => node.type === 'Progress');
   assert.equal(summary.props.progress, 1); assert.equal(summary.props.goal, 3); h.blur();
 });
 
+function dataPermissionHarness() {
+  const r = runtime(), auth = { token: 'session-a' };
+  let visible = true;
+  const server = { ai: false, feed: false, fail: false, pending: null, pendingFeedRead: null };
+  const calls = { writes: [], toasts: [] };
+  const { useDataReminderPermissions: runDataPermissions } = evaluate('src/features/profile/useDataReminderPermissions.ts', {
+    react: r.hooks, 'expo-router': r.router,
+    'react-native': { AppState: { addEventListener: () => ({ remove() {} }) } },
+    'react-i18next': { useTranslation: () => ({ t: key => key }) },
+    '../auth/auth.store': { useAuthStore: Object.assign(select => select(auth), { getState: () => auth }) },
+    '../../lib/aiDataConsent': {
+      readAiDataConsent: async () => server.ai,
+      revokeAiDataConsent: async () => { calls.writes.push(['ai', false]); if (server.fail) throw new Error('offline'); server.ai = false; },
+    },
+    '../notifications/notifications.api': {
+      getNotificationPreferences: async () => server.pendingFeedRead ?? {ok: true, health_feed_enabled: server.feed},
+    },
+    '../../stores/health-feed-preference': {
+      setHealthFeedPreference: async value => {
+        calls.writes.push(['feed', value]);
+        if (server.pending) await server.pending;
+        if (server.fail) throw new Error('offline');
+        server.feed = value; return value;
+      },
+    },
+    '../../stores/toast.store': { showToast: (...args) => calls.toasts.push(args) },
+  });
+  const render = () => runDataPermissions(visible);
+  return { ...r, auth, server, calls, read: () => r.render(render), settle: () => r.settle(render),
+    close: async () => { visible = false; return r.settle(render); },
+    open: async () => { visible = true; return r.settle(render); } };
+}
+await test('opening relocated data permissions reads state without granting consent or sending notifications', async () => {
+  const h = dataPermissionHarness(); await h.settle();
+  assert.equal(h.read().ai, false); assert.equal(h.read().feed, false);
+  h.read().agreeAi(); h.read().agreeFeed();
+  assert.deepEqual(h.calls.writes, []); assert.deepEqual(h.calls.toasts, []); h.blur();
+});
+await test('reopening data permissions retains confirmed switches while verifying a fresh response', async () => {
+  const h = dataPermissionHarness();
+  h.server.ai = true;
+  h.server.feed = true;
+  await h.settle();
+  await h.close();
+  let finish;
+  h.server.pendingFeedRead = new Promise(resolve => { finish = resolve; });
+  await h.open();
+  assert.equal(h.read().loading, true);
+  assert.equal(h.read().ai, true);
+  assert.equal(h.read().feed, true);
+  h.read().change('feed', false);
+  assert.deepEqual(h.calls.writes, []);
+  finish({ok: false});
+  await flush();
+  assert.equal(h.read().loading, false);
+  assert.equal(h.read().feed, null);
+  h.blur();
+});
+await test('health feed requires confirmation, reports both saved states, and blocks duplicate writes', async () => {
+  const h = dataPermissionHarness(); await h.settle();
+  h.read().change('feed', true); assert.equal(h.read().prompt, 'feed');
+  assert.deepEqual(h.calls.writes, []);
+  h.read().cancel(); h.read().agreeFeed(); assert.deepEqual(h.calls.writes, []);
+  h.read().change('feed', true); h.read().agreeFeed(); await flush();
+  assert.equal(h.read().feed, true);
+  assert.deepEqual(h.calls.toasts.at(-1), ['healthFeedEnabled', 'success']);
+  let finish; h.server.pending = new Promise(resolve => { finish = resolve; });
+  h.read().change('feed', false); h.read().change('feed', false);
+  assert.equal(h.read().busy, true); assert.equal(h.calls.writes.length, 2);
+  finish(); await flush(); assert.equal(h.read().feed, false);
+  assert.deepEqual(h.calls.toasts.at(-1), ['healthFeedDisabled', 'success']); h.blur();
+});
+await test('AI denial is a cancellation and withdrawing existing consent reports the saved result', async () => {
+  const h = dataPermissionHarness(); await h.settle();
+  h.read().change('ai', true); assert.equal(h.read().prompt, 'ai');
+  h.read().cancel(); h.read().agreeAi(); assert.equal(h.read().ai, false);
+  assert.deepEqual(h.calls.writes, []); assert.deepEqual(h.calls.toasts, []);
+  h.read().change('ai', true); h.server.ai = true; h.read().agreeAi();
+  assert.deepEqual(h.calls.toasts.at(-1), ['aiDataConsentGranted', 'success']);
+  h.read().change('ai', false); await flush(); assert.equal(h.read().ai, false);
+  assert.deepEqual(h.calls.writes, [['ai', false]]);
+  assert.deepEqual(h.calls.toasts.at(-1), ['aiDataConsentRevoked', 'success']); h.blur();
+});
+await test('failed data preference saves keep the confirmed switch and show an error', async () => {
+  const h = dataPermissionHarness(); h.server.feed = true; await h.settle(); h.server.fail = true;
+  h.read().change('feed', false); await flush();
+  assert.equal(h.read().feed, true); assert.equal(h.read().busy, false);
+  assert.deepEqual(h.calls.toasts.at(-1), ['saveError', 'error']); h.blur();
+});
+for (const leave of ['account', 'close', 'blur']) {
+  await test(`${leave}: stale data permission confirmations and responses cannot change another session`, async () => {
+    const h = dataPermissionHarness(); await h.settle(); h.read().change('feed', true);
+    const stale = h.read();
+    if (leave === 'account') h.auth.token = 'session-b';
+    else if (leave === 'close') await h.close();
+    else h.blur();
+    stale.agreeFeed(); assert.deepEqual(h.calls.writes, []); assert.deepEqual(h.calls.toasts, []); h.blur();
+  });
+}
 console.log(`UI feature state: ${checks} runtime checks passed.`);

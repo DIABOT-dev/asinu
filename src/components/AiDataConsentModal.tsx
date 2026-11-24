@@ -2,6 +2,7 @@ import { saveAiDataConsent } from '../lib/aiDataConsent';
 export { AI_DATA_CONSENT_KEY, hasAiDataConsent, saveAiDataConsent, revokeAiDataConsent } from '../lib/aiDataConsent';
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { showToast } from '../stores/toast.store';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { QueuedModal } from './QueuedModal';
@@ -16,9 +17,10 @@ type Props = {
   visible: boolean;
   onAgree: () => void;
   onDecline: () => void;
+  toastHost?: ReactNode;
 };
 
-export function AiDataConsentModal({ visible, onAgree, onDecline }: Props) {
+export function AiDataConsentModal({ visible, onAgree, onDecline, toastHost }: Props) {
   const { t } = useTranslation('common');
   const [saving, setSaving] = useState(false);
   const typography = useScaledTypography();
@@ -192,6 +194,7 @@ export function AiDataConsentModal({ visible, onAgree, onDecline }: Props) {
               </Pressable>
             </View>
           </ScrollView>
+          {toastHost}
         </View>
       </View>
     </QueuedModal>

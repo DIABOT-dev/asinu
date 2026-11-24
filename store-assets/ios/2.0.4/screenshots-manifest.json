@@ -1,0 +1,100 @@
+[
+  {
+    "file": "vi/ipad-13/01-home.png",
+    "width": 2064,
+    "height": 2752,
+    "mode": "RGB",
+    "sha256": "1592eb25440ead60419a0c53d3c870b3c3ba32e50738e50da25bb5a6ebc825dc"
+  },
+  {
+    "file": "vi/ipad-13/02-health-calendar.png",
+    "width": 2064,
+    "height": 2752,
+    "mode": "RGB",
+    "sha256": "d2a11951ea915c0991813c4201244d0efeb26eeddd5515a56039610a73177e20"
+  },
+  {
+    "file": "vi/ipad-13/03-medication-today.png",
+    "width": 2064,
+    "height": 2752,
+    "mode": "RGB",
+    "sha256": "7fec61d5fd241872740961571dc4a72df9203ef1f2161b77b2c177adcf542dde"
+  },
+  {
+    "file": "vi/ipad-13/04-medication-schedules.png",
+    "width": 2064,
+    "height": 2752,
+    "mode": "RGB",
+    "sha256": "a17200a9f7483bccc7cfdab9161fe015dcd1d879d8469ababf3f9ba95b898fed"
+  },
+  {
+    "file": "vi/ipad-13/05-health-journal.png",
+    "width": 2064,
+    "height": 2752,
+    "mode": "RGB",
+    "sha256": "26b47e923b472fed86377586a274f6cd9393d4d42eca0111973be4c563a04a9b"
+  },
+  {
+    "file": "vi/ipad-13/06-health-coins.png",
+    "width": 2064,
+    "height": 2752,
+    "mode": "RGB",
+    "sha256": "623c3e527c98ae8bf33cdb75827841393c4a12996c767b3b20429396830ce19e"
+  },
+  {
+    "file": "vi/ipad-13/07-checkin-body-regions.png",
+    "width": 2064,
+    "height": 2752,
+    "mode": "RGB",
+    "sha256": "a2b0c4f6452ff817d47327e6c1059787d2cd9f27faca4fa00b4fea1283b98dbb"
+  },
+  {
+    "file": "vi/iphone-6.9/01-home.png",
+    "width": 1320,
+    "height": 2868,
+    "mode": "RGB",
+    "sha256": "44aee623f5c64e49f8fad187ddbed8f7efc7cdc3efe5af9af3bbaa4989265e2c"
+  },
+  {
+    "file": "vi/iphone-6.9/02-health-calendar.png",
+    "width": 1320,
+    "height": 2868,
+    "mode": "RGB",
+    "sha256": "b7829c5eb55b686c3ee46a5c2bd5195dd28410ddcac59ad5680c9d13196ddc6c"
+  },
+  {
+    "file": "vi/iphone-6.9/03-medication-today.png",
+    "width": 1320,
+    "height": 2868,
+    "mode": "RGB",
+    "sha256": "d8729124c22ae91558226b134a4d79e19ad6f0b05cfffd88be317ed5ccd14476"
+  },
+  {
+    "file": "vi/iphone-6.9/04-medication-schedules.png",
+    "width": 1320,
+    "height": 2868,
+    "mode": "RGB",
+    "sha256": "b0a9a97d8fe42cd50d7bafadb2c5835a393de7c08cfa01085a45d19d552a948d"
+  },
+  {
+    "file": "vi/iphone-6.9/05-health-journal.png",
+    "width": 1320,
+    "height": 2868,
+    "mode": "RGB",
+    "sha256": "3383c97b536ecc200d69c8e4d7336dd5af0d4f4bb9e0eb9e4ea8cda05df21f4a"
+  },
+  {
+    "file": "vi/iphone-6.9/06-health-coins.png",
+    "width": 1320,
+    "height": 2868,
+    "mode": "RGB",
+    "sha256": "3517c91fcfc436a25c95f4f0612578c1444b05928ffc66563232325b94e81875"
+  },
+  {
+    "file": "vi/iphone-6.9/07-checkin-body-regions.png",
+    "width": 1320,
+    "height": 2868,
+    "mode": "RGB",
+    "sha256": "5f37bfdb890d575e3dfc6e1527138026c350d1656a484a8dc7d48fd5e083fd5f"
+  }
+]

@@ -19,6 +19,7 @@ type Props = {
   title: string;
   cancelLabel: string;
   actions: AppActionSheetAction[];
+  headerContent?: React.ReactNode;
   onDismiss: () => void;
 };
 
@@ -27,6 +28,7 @@ export function AppActionSheetModal({
   title,
   cancelLabel,
   actions,
+  headerContent,
   onDismiss,
 }: Props) {
   const { colors } = useThemeColors();
@@ -61,6 +63,7 @@ export function AppActionSheetModal({
           <Text style={[styles.title, { color: colors.textPrimary }]}>
             {title}
           </Text>
+          {headerContent}
           <ScrollView
             style={styles.actionList}
             contentContainerStyle={styles.actionListContent}

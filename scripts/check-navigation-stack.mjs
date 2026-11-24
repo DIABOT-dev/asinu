@@ -33,7 +33,7 @@ const { StackRouter } = evaluate(read('node_modules/expo-router/build/layouts/St
   '../useScreens': { getSingularId }, './stack-utils': {}, '../react-navigation/native': { StackRouter: BaseStackRouter },
   '../utils/children': {}, '../views/Protected': {},
 });
-const names = ['home', 'subscription/index', 'subscription/plans', 'care-circle/index', 'checkin', 'login/index', 'logs/index',
+const names = ['account', 'personal-information', 'home', 'subscription/index', 'subscription/plans', 'care-circle/index', 'checkin', 'login/index', 'logs/index',
   'logs/glucose', 'legal/content', 'checkin-call/settings', 'checkin-call/voice-settings',
   'checkin-call/[episodeId]', 'feed/[id]', 'doctor-consultation/[taskId]'];
 const options = { routeNames: names, routeParamList: {}, routeGetIdList: {} };
@@ -109,6 +109,15 @@ const call = (attemptId = 'a', answered = false) => ({ pathname: '/checkin-call/
 test('reproduces the original raw PUSH screen-stacking bug using Expo', () => {
   const h = harness(); for (let i = 0; i < 10; i++) h.raw.push('/subscription');
   h.commit(); assert.equal(h.count('subscription/index'), 10);
+});
+test('avatar opens one standalone account screen and details return through account to Home', () => {
+  const h = harness();
+  for (let i = 0; i < 10; i++) h.ui.push('/account');
+  h.commit(); assert.equal(h.count('account'), 1);
+  h.advance(900); h.ui.push('/personal-information'); h.commit();
+  assert.equal(h.current().name, 'personal-information');
+  h.advance(900); h.ui.back(); h.commit(); assert.equal(h.current().name, 'account');
+  h.advance(900); h.ui.back(); h.commit(); assert.equal(h.current().name, 'home');
 });
 test('100 rapid button taps queue exactly one screen', () => {
   const h = harness(); for (let i = 0; i < 100; i++) h.ui.push('/subscription');

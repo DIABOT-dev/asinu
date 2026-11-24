@@ -56,7 +56,6 @@
   "journalSummaryFine": "Bạn đã báo ổn {{fine}} ngày trong tháng này.",
   "journalLatestStatus": "Lần gần nhất: {{status}}",
   "journalNoCheckin": "Chưa có check-in trong tháng này",
-  "journalNoCheckinHint": "Mỗi lần check-in sẽ được hiển thị trên lịch để bạn dễ theo dõi.",
   "journalLoadError": "Chưa thể tải nhật ký sức khỏe.",
   "journalLoading": "Đang tải lịch check-in…",
   "journalUpdating": "Đang cập nhật lịch check-in…",
@@ -106,7 +105,6 @@
   "earlyDisclaimer": "Đây là gợi ý tham khảo, không phải chẩn đoán.",
   "earlyEvaluate": "Xem Tín hiệu sớm của tôi",
   "earlyRedFlagTitle": "Có dấu hiệu cần hỗ trợ khẩn cấp",
-  "earlyCall115": "Gọi 115 ngay",
   "earlyFamilySent": "✓ Đã báo cho gia đình",
   "earlyFamilyUnavailable": "Chưa có người thân đủ quyền nhận cảnh báo",
   "earlyFound": "Asinu nhận thấy",
@@ -118,5 +116,13 @@
   "earlyConsult": "Tham vấn chuyên gia",
   "earlyRetry": "Thử lại",
   "earlyOpen": "Xem sức khỏe gần đây",
-  "journalFutureDayAccessibility": "Ngày {{day}}, chưa đến ngày này."
+  "journalFutureDayAccessibility": "Ngày {{day}}, chưa đến ngày này.",
+  "earlyLoading": "Đang tải tín hiệu sớm…",
+  "earlyNoAssessment": "Chưa có bản tổng hợp",
+  "earlyLevelHeading": "Mức độ hiện tại",
+  "earlyRecordedSignals": "Dấu hiệu đã ghi nhận",
+  "earlyUrgentSignals": "Dấu hiệu cần ưu tiên",
+  "earlyNextStep": "Hướng kiểm tra",
+  "earlyUpdatedAt": "Cập nhật: {{time}}",
+  "earlyRefreshError": "Chưa làm mới được dữ liệu. Kết quả đang hiển thị là lần ghi nhận trước."
 }

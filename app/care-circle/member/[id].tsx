@@ -1,29 +1,28 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { DoctorConnectButton } from '../../../src/components/DoctorConnectButton';
 import { isDoctorFeaturesEnabled } from '../../../src/lib/appEnv';
-import { HealthReportPanel } from '../../../src/components/HealthReportPanel';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScaledText as Text } from '../../../src/components/ScaledText';
-import { careCircleApi, type MemberHealthSummary } from '../../../src/features/care-circle';
-import type { HealthReportData } from '../../../src/features/checkin/checkin.api';
-import type { TreeSummary } from '../../../src/features/tree/tree.store';
-import { useScaledTypography } from '../../../src/hooks/useScaledTypography';
+import { careCircleApi, type MemberHealthLog } from '../../../src/features/care-circle';
+import { useScaledFontSize, useScaledTypography } from '../../../src/hooks/useScaledTypography';
+import { useThemeColors } from '../../../src/hooks/useThemeColors';
 import { colors, spacing } from '../../../src/styles';
 import { useGuardedRouter as useRouter } from '@/hooks/useGuardedRouter';
 import { ScreenBackButton } from '../../../src/components/ScreenHeaderButton';
 import { HealthJournalCalendar } from '../../../src/components/HealthJournalCalendar';
 import { ApiError, getApiErrorMessage } from '../../../src/lib/apiClient';
 import { useAuthStore } from '../../../src/features/auth/auth.store';
+import { FamilyActionCard, MemberHealthMetrics } from '../../../src/features/care-circle/components/MemberOverviewCards';
+import { useMemberOverview } from '../../../src/features/care-circle/useMemberOverview';
 
 // ── Log type config ──────────────────────────────────────────────
 const LOG_TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string; labelKey: string }> = {
   glucose:    { icon: 'water',                 color: '#3b82f6', bg: '#eff6ff', labelKey: 'glucose' },
   bp:         { icon: 'heart-pulse',           color: '#ef4444', bg: '#fef2f2', labelKey: 'bloodPressure' },
-  weight:     { icon: 'scale-bathroom',        color: '#8b5cf6', bg: '#f5f3ff', labelKey: 'weight' },
   water:      { icon: 'cup-water',             color: '#06b6d4', bg: '#ecfeff', labelKey: 'water' },
   medication: { icon: 'pill',                  color: '#f59e0b', bg: '#fffbeb', labelKey: 'medication' },
   meal:       { icon: 'food-apple-outline',    color: '#10b981', bg: '#ecfdf5', labelKey: 'meal' },
@@ -31,6 +30,10 @@ const LOG_TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string;
 };
 const getLogConfig = (type: string) =>
   LOG_TYPE_CONFIG[type] || { icon: 'clipboard-text-outline', color: colors.textSecondary, bg: colors.surfaceMuted, labelKey: type };
+const getLogCategory = (type: string) => type === 'blood_pressure' ? 'bp' : type;
+const MAIN_LOG_FILTERS = ['bp', 'glucose', 'meal', 'water'] as const;
+const EXTRA_LOG_FILTERS = ['medication', 'insulin'] as const;
+type LogFilter = (typeof MAIN_LOG_FILTERS)[number] | (typeof EXTRA_LOG_FILTERS)[number] | null;
 
 // ── Checkin status config ────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { icon: string; color: string; bg: string; labelKey: string }> = {
@@ -59,77 +62,19 @@ const formatCheckinDateTime = (iso: string, language: string) => {
   });
 };
 
-const getLogValue = (log: { log_type: string; metadata: any }): string => {
-  const m = log.metadata || {};
+const getLogValue = (log: MemberHealthLog): string => {
+  const m = log.detail || log.metadata || {};
   switch (log.log_type) {
     case 'glucose': return m.value ? `${m.value} ${m.unit || 'mg/dL'}` : '';
-    case 'bp':      return m.systolic ? `${m.systolic}/${m.diastolic} mmHg` : '';
-    case 'weight':  return m.value ? `${m.value} ${m.unit || 'kg'}` : '';
+    case 'bp':      return m.systolic && m.diastolic ? `${m.systolic}/${m.diastolic} ${m.unit || 'mmHg'}` : '';
     case 'water':   return m.amount_ml ? `${m.amount_ml} ml` : '';
+    case 'meal':    return typeof m.meal_text === 'string' ? m.meal_text : '';
     case 'insulin': return m.dose_units ? `${m.dose_units} units` : '';
     default: return '';
   }
 };
 
-const normalizeMemberReport = (raw: MemberHealthSummary['report']): HealthReportData | null => {
-  if (!raw) return null;
-
-  const sessions = Array.isArray(raw.sessions)
-    ? raw.sessions
-    : Array.isArray(raw.recentSessions)
-      ? raw.recentSessions
-      : [];
-  const severityDistribution = raw.severityDistribution || {};
-  const statusDistribution = raw.statusDistribution || {};
-  const alerts = raw.alerts || {};
-
-  return {
-    period: 'week',
-    totalDays: Number(raw.totalDays ?? 7),
-    checkinDays: Number(raw.checkinDays ?? 0),
-    sessions: sessions.map((session: any) => ({
-      date: session.date || session.session_date || session.created_at,
-      status: session.status || session.initial_status || 'fine',
-      severity: session.severity || session.triage_severity || null,
-      summary: session.summary || session.triage_summary || null,
-      flowState: session.flowState || session.flow_state || 'monitoring',
-      resolved: Boolean(session.resolved ?? session.resolved_at),
-    })),
-    severityDistribution: {
-      low: Number(severityDistribution.low || 0),
-      medium: Number(severityDistribution.medium || 0),
-      high: Number(severityDistribution.high || 0),
-      emergency: Number(severityDistribution.emergency || 0),
-    },
-    statusDistribution: {
-      fine: Number(statusDistribution.fine || 0),
-      tired: Number(statusDistribution.tired || 0),
-      very_tired: Number(statusDistribution.very_tired || 0),
-      specific_concern: Number(statusDistribution.specific_concern || 0),
-    },
-    commonSymptoms: Array.isArray(raw.commonSymptoms) ? raw.commonSymptoms : [],
-    alerts: {
-      familyAlerted: Number(alerts.familyAlerted || 0),
-      emergencyTriggered: Number(alerts.emergencyTriggered || 0),
-    },
-    trend: raw.trend === 'improving' || raw.trend === 'worsening' ? raw.trend : 'stable',
-    highlights: Array.isArray(raw.highlights) ? raw.highlights : [],
-    responseRate: Number(raw.responseRate || 0),
-    avgCheckinHour: Number(raw.avgCheckinHour || 0),
-  };
-};
-
-const normalizeMemberTreeSummary = (raw: MemberHealthSummary['treeSummary']): TreeSummary | null => {
-  if (!raw) return null;
-  return {
-    score: Number(raw.score || 0),
-    streakDays: Number(raw.streakDays || 0),
-    completedToday: Number(raw.completedToday || 0),
-    totalMissions: Number(raw.totalMissions || 0),
-  };
-};
-
-type Tab = 'calendar' | 'overview' | 'logs' | 'checkins';
+type Tab = 'overview' | 'checkins' | 'calendar' | 'logs';
 
 type CheckinSession = {
   id: number;
@@ -145,20 +90,39 @@ type CheckinSession = {
   created_at: string;
 };
 
-export default function MemberLogsScreen() {
+export default function MemberHealthScreen() {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
+  const accountId = useAuthStore((state) => state.profile?.id);
+  return <MemberLogsScreen key={`${accountId}:${id}`} id={id} name={name} accountId={accountId} />;
+}
+
+function MemberLogsScreen({ id, name, accountId }: { id: string; name?: string; accountId?: string }) {
   const router = useRouter();
   const { t, i18n } = useTranslation('careCircle');
   const { t: tl } = useTranslation('logs');
+  const { t: tp } = useTranslation('profile');
+  const { t: tc } = useTranslation('common');
   const insets = useSafeAreaInsets();
+  const { width, fontScale } = useWindowDimensions();
   const scaledTypography = useScaledTypography();
-  const styles = useMemo(() => createStyles(scaledTypography), [scaledTypography]);
+  const { colors } = useThemeColors();
+  const styles = useMemo(() => createStyles(scaledTypography, colors), [scaledTypography, colors]);
 
-  const [activeTab, setActiveTab] = useState<Tab>('calendar');
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [logFilter, setLogFilter] = useState<LogFilter>(null);
   const [patientName, setPatientName] = useState(name || '');
-  const accountId = useAuthStore((state) => state.profile?.id);
   const [focused, setFocused] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const overview = useMemberOverview(id, focused, true, refreshKey);
+  const displayName = overview.data?.name || patientName || t('thisPerson');
+  const locale = getDisplayLocale(i18n.language);
+  const height = Number(overview.data?.heightCm);
+  const latestGlucose = Number(overview.data?.glucose);
+  const glucoseCaption = latestGlucose > 0 && Number.isFinite(latestGlucose)
+    ? [latestGlucose.toLocaleString(locale), overview.data?.glucoseUnit].filter(Boolean).join(' ')
+    : undefined;
+  const actionLabelSize = useScaledFontSize(15);
+  const singleColumn = width < 360 || actionLabelSize * fontScale > 20;
   const loadCalendar = useCallback((month: string) => careCircleApi.getMemberHealthCalendar(id, month), [id]);
 
   useEffect(() => { setPatientName(name || ''); }, [id, name]);
@@ -168,19 +132,13 @@ export default function MemberLogsScreen() {
     setRefreshKey((value) => value + 1);
     return () => {
       setFocused(false);
-      setSummary(null);
       setLogs([]);
       setCheckins([]);
     };
   }, [id, accountId]));
 
-  // Shared dashboard state
-  const [summary, setSummary] = useState<MemberHealthSummary | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(true);
-  const [summaryError, setSummaryError] = useState('');
-
   // Logs state
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<MemberHealthLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
   const [logsError, setLogsError] = useState('');
 
@@ -190,28 +148,10 @@ export default function MemberLogsScreen() {
   const [checkinsError, setCheckinsError] = useState('');
 
   useEffect(() => {
-    if (!id || !focused || activeTab === 'calendar') return;
+    if (!id || !focused || (activeTab !== 'logs' && activeTab !== 'checkins')) return;
     let active = true;
     const errorMessage = (error: unknown) => error instanceof ApiError && error.statusCode === 403
       ? t('healthAccessRequired') : getApiErrorMessage(error, t, 'cannotLoadLogs');
-    if (activeTab === 'overview') {
-      setSummary(null);
-      setSummaryError('');
-      setSummaryLoading(true);
-      careCircleApi.getMemberHealthSummary(Number(id))
-      .then(res => {
-        if (!active) return;
-        if (res.ok) {
-          setSummary(res);
-          if (res.patientName) setPatientName(res.patientName);
-        } else {
-          setSummaryError(t('noPermissionViewLogs'));
-        }
-      })
-      .catch(error => { if (active) setSummaryError(errorMessage(error)); })
-      .finally(() => { if (active) setSummaryLoading(false); });
-    }
-
     // Load logs
     if (activeTab === 'logs') {
       setLogs([]);
@@ -256,6 +196,7 @@ export default function MemberLogsScreen() {
   const groupedLogs = useMemo(() => {
     const map: Record<string, typeof logs> = {};
     for (const log of logs) {
+      if (logFilter && getLogCategory(log.log_type) !== logFilter) continue;
       const date = formatDate(log.occurred_at, i18n.language);
       if (!map[date]) map[date] = [];
       map[date].push(log);
@@ -263,11 +204,13 @@ export default function MemberLogsScreen() {
     return Object.entries(map).sort((a, b) =>
       new Date(b[1][0].occurred_at).getTime() - new Date(a[1][0].occurred_at).getTime()
     );
-  }, [i18n.language, logs]);
+  }, [i18n.language, logFilter, logs]);
 
-  const isLoading = activeTab === 'calendar' ? false : activeTab === 'overview' ? summaryLoading : activeTab === 'logs' ? logsLoading : checkinsLoading;
-  const report = useMemo(() => normalizeMemberReport(summary?.report), [summary?.report]);
-  const treeSummary = useMemo(() => normalizeMemberTreeSummary(summary?.treeSummary), [summary?.treeSummary]);
+  const logFilters: LogFilter[] = [null, ...MAIN_LOG_FILTERS, ...EXTRA_LOG_FILTERS.filter(
+    type => logFilter === type || logs.some(log => log.log_type === type)
+  )];
+  const isLoading = (activeTab === 'logs' && logsLoading) ||
+    (activeTab === 'checkins' && checkinsLoading);
 
   return (
     <>
@@ -277,28 +220,20 @@ export default function MemberLogsScreen() {
         }}
       />
 
-      {/* Flat in-app header: no native back-button bubble, shadow, or divider. */}
+      {/* In-app header with the shared circular back control. */}
       <View style={[styles.topHeader, { paddingTop: insets.top + spacing.xs }]}>
-        <ScreenBackButton style={styles.flatBackButton} onPress={() => router.back()} />
-        <Text style={styles.topHeaderTitle}>
-          {patientName ? t('memberHealthProfileTitle', { name: patientName }) : t('viewHealthProfile')}
-        </Text>
+        <ScreenBackButton onPress={() => router.back()} />
+        <Text accessibilityRole="header" style={styles.topHeaderTitle}>{t('familyHealthTitle')}</Text>
+        <View style={styles.topHeaderSide} />
       </View>
 
       {/* Tab bar */}
       <View style={styles.tabBar}>
         <Pressable
-          style={[styles.tab, activeTab === 'calendar' && styles.tabActive]}
-          onPress={() => setActiveTab('calendar')}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === 'calendar' }}
-        >
-          <Ionicons name="calendar-outline" size={18} color={activeTab === 'calendar' ? colors.primary : colors.textSecondary} />
-          <Text style={[styles.tabText, activeTab === 'calendar' && styles.tabTextActive]}>{t('tabHealthCalendar')}</Text>
-        </Pressable>
-        <Pressable
           style={[styles.tab, activeTab === 'overview' && styles.tabActive]}
           onPress={() => setActiveTab('overview')}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === 'overview' }}
         >
           <MaterialCommunityIcons
             name="view-dashboard-outline"
@@ -310,21 +245,10 @@ export default function MemberLogsScreen() {
           </Text>
         </Pressable>
         <Pressable
-          style={[styles.tab, activeTab === 'logs' && styles.tabActive]}
-          onPress={() => setActiveTab('logs')}
-        >
-          <MaterialCommunityIcons
-            name="clipboard-list-outline"
-            size={16}
-            color={activeTab === 'logs' ? colors.primary : colors.textSecondary}
-          />
-          <Text style={[styles.tabText, activeTab === 'logs' && styles.tabTextActive]}>
-            {t('tabLogs')}
-          </Text>
-        </Pressable>
-        <Pressable
           style={[styles.tab, activeTab === 'checkins' && styles.tabActive]}
           onPress={() => setActiveTab('checkins')}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === 'checkins' }}
         >
           <MaterialCommunityIcons
             name="emoticon-outline"
@@ -335,50 +259,100 @@ export default function MemberLogsScreen() {
             {t('tabCheckins')}
           </Text>
         </Pressable>
+        <Pressable
+          style={[styles.tab, activeTab === 'calendar' && styles.tabActive]}
+          onPress={() => setActiveTab('calendar')}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === 'calendar' }}
+        >
+          <Ionicons name="calendar-outline" size={18} color={activeTab === 'calendar' ? colors.primary : colors.textSecondary} />
+          <Text style={[styles.tabText, activeTab === 'calendar' && styles.tabTextActive]}>{t('tabHealthCalendar')}</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.tab, activeTab === 'logs' && styles.tabActive]}
+          onPress={() => { setLogFilter(null); setActiveTab('logs'); }}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === 'logs' }}
+        >
+          <MaterialCommunityIcons
+            name="clipboard-list-outline"
+            size={16}
+            color={activeTab === 'logs' ? colors.primary : colors.textSecondary}
+          />
+          <Text style={[styles.tabText, activeTab === 'logs' && styles.tabTextActive]}>
+            {t('tabLogs')}
+          </Text>
+        </Pressable>
       </View>
 
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        {activeTab === 'calendar' && focused && (
+      {activeTab === 'logs' && focused && !logsError && (
+        <View accessibilityRole="tablist" style={styles.logFilters}>
+          {logFilters.map(filter => {
+            const selected = logFilter === filter;
+            const label = filter ? tl(getLogConfig(filter).labelKey) : tc('filterAll');
+            return (
+              <Pressable
+                key={filter ?? 'all'}
+                accessibilityRole="tab"
+                accessibilityLabel={label}
+                accessibilityState={{ selected }}
+                onPress={() => setLogFilter(filter)}
+                style={[styles.logFilter, selected && styles.logFilterSelected]}
+              >
+                <Text style={[styles.logFilterText, selected && styles.logFilterTextSelected]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
+      <ScrollView
+        key={activeTab === 'logs' ? logFilter ?? 'allLogs' : 'memberContent'}
+        style={styles.container}
+        contentContainerStyle={styles.content}
+      >
+        {activeTab === 'overview' && focused && (
           <>
-            <Text style={styles.emptyText}>{t('healthCalendarHint')}</Text>
-            <HealthJournalCalendar
-              key={`${accountId}:${id}:${refreshKey}`}
-              loadReport={loadCalendar}
-              subjectName={patientName || t('thisPerson')}
-            />
+            <Text accessibilityRole="header" style={styles.familySectionTitle}>{t('familyHealthOverview')}</Text>
+            <MemberHealthMetrics data={overview.data} status={overview.status} onRetry={() => setRefreshKey(value => value + 1)} />
+            {overview.status !== 'denied' && (
+              <>
+                <Text accessibilityRole="header" style={styles.familySectionTitle}>{t('familyHealthTopics')}</Text>
+                <View style={[styles.topicRow, singleColumn && styles.topicStack]}>
+                  <FamilyActionCard title={tl('bloodPressure')} icon="heart-pulse" tone="bloodPressure" tile
+                    onPress={() => { setLogFilter('bp'); setActiveTab('logs'); }} />
+                  <FamilyActionCard title={tl('medication')} icon="pill" tone="medication" tile
+                    description={!overview.canManageMedication ? t('familyMedicationUnavailable') : undefined}
+                    onPress={overview.canManageMedication ? () => router.push({ pathname: '/medication', params: { patientId: id } }) : undefined} />
+                </View>
+                <View style={[styles.topicRow, singleColumn && styles.topicStack]}>
+                  <FamilyActionCard title={tl('glucose')} icon="water-outline" tone="glucose" tile
+                    description={glucoseCaption}
+                    onPress={() => { setLogFilter('glucose'); setActiveTab('logs'); }} />
+                  <FamilyActionCard title={t('tabCheckins')} icon="clipboard-pulse-outline" tone="primary" tile
+                    onPress={() => setActiveTab('checkins')} />
+                </View>
+                <View style={[styles.topicRow, singleColumn && styles.topicStack]}>
+                  <FamilyActionCard title={tl('meal')} icon="food-apple-outline" tone="meal" tile
+                    onPress={() => { setLogFilter('meal'); setActiveTab('logs'); }} />
+                  <FamilyActionCard title={tp('height')} icon="ruler" tone="weight" tile
+                    description={height > 0 && Number.isFinite(height) ? tp('heightValue', { value: height.toLocaleString(locale) }) : tl('noData')} />
+                </View>
+              </>
+            )}
           </>
+        )}
+        {activeTab === 'calendar' && focused && (
+          <HealthJournalCalendar
+            key={`${accountId}:${id}:${refreshKey}`}
+            loadReport={loadCalendar}
+            subjectName={displayName}
+          />
         )}
         {isLoading && (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
-        )}
-
-        {/* ── OVERVIEW TAB ── */}
-        {activeTab === 'overview' && !summaryLoading && (
-          <>
-            {summaryError !== '' && (
-              <View style={styles.center}>
-                <MaterialCommunityIcons name="lock-outline" size={48} color={colors.textSecondary} />
-                <Text style={styles.emptyText}>{summaryError}</Text>
-              </View>
-            )}
-            {summaryError === '' && !summary && (
-              <View style={styles.center}>
-                <MaterialCommunityIcons name="view-dashboard-outline" size={48} color={colors.textSecondary} />
-                <Text style={styles.emptyText}>{t('noOverviewData')}</Text>
-              </View>
-            )}
-            {summaryError === '' && summary && (
-              <HealthReportPanel
-                embedded
-                hideHeader
-                showEmptyReport
-                reportOverride={report}
-                treeSummaryOverride={treeSummary}
-              />
-            )}
-          </>
         )}
 
         {/* ── LOGS TAB ── */}
@@ -390,7 +364,7 @@ export default function MemberLogsScreen() {
                 <Text style={styles.emptyText}>{logsError}</Text>
               </View>
             )}
-            {logsError === '' && logs.length === 0 && (
+            {logsError === '' && groupedLogs.length === 0 && (
               <View style={styles.center}>
                 <MaterialCommunityIcons name="clipboard-text-outline" size={48} color={colors.textSecondary} />
                 <Text style={styles.emptyText}>{t('noLogsYet')}</Text>
@@ -399,9 +373,10 @@ export default function MemberLogsScreen() {
             {groupedLogs.map(([date, dateLogs]) => (
               <View key={date} style={styles.dateGroup}>
                 <Text style={styles.dateLabel}>{date}</Text>
-                {dateLogs.map((log: any) => {
-                  const cfg = getLogConfig(log.log_type);
-                  const value = getLogValue(log);
+                {dateLogs.map(log => {
+                  const logType = getLogCategory(log.log_type);
+                  const cfg = getLogConfig(logType);
+                  const value = getLogValue({ ...log, log_type: logType });
                   return (
                     <View key={log.id} style={styles.logCard}>
                       <MaterialCommunityIcons name={cfg.icon as any} size={20} color={cfg.color} />
@@ -528,7 +503,7 @@ export default function MemberLogsScreen() {
   );
 }
 
-function createStyles(typography: ReturnType<typeof useScaledTypography>) {
+function createStyles(typography: ReturnType<typeof useScaledTypography>, colors: ReturnType<typeof useThemeColors>['colors']) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     topHeader: {
@@ -539,20 +514,18 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
       paddingBottom: spacing.sm,
       backgroundColor: 'transparent',
     },
-    flatBackButton: {
-      backgroundColor: 'transparent',
-      borderWidth: 0,
-      shadowColor: 'transparent',
-      shadowOpacity: 0,
-      elevation: 0,
-    },
     topHeaderTitle: {
       flex: 1,
       color: colors.textPrimary,
-      fontSize: typography.size.md,
+      fontSize: typography.size.lg,
       fontWeight: '700',
+      textAlign: 'center',
     },
+    topHeaderSide: { width: 44 },
     content: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.md },
+    familySectionTitle: { fontSize: 19, fontWeight: '700', color: colors.textPrimary, marginTop: spacing.xs },
+    topicRow: { flexDirection: 'row', gap: spacing.sm },
+    topicStack: { flexDirection: 'column' },
     center: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: spacing.md },
     emptyText: { fontSize: typography.size.sm, color: colors.textSecondary, textAlign: 'center' },
 
@@ -849,6 +822,39 @@ function createStyles(typography: ReturnType<typeof useScaledTypography>) {
     },
 
     // ── Logs ──
+    logFilters: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+      backgroundColor: colors.background,
+    },
+    logFilter: {
+      minHeight: 44,
+      maxWidth: '100%',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    logFilterSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primaryLight,
+    },
+    logFilterText: {
+      fontSize: typography.size.xs,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+    logFilterTextSelected: {
+      fontWeight: '700',
+      color: colors.primaryText,
+    },
     dateGroup: { gap: spacing.sm },
     dateLabel: {
       fontSize: typography.size.xs,

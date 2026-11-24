@@ -56,7 +56,6 @@
   "journalSummaryFine": "You reported feeling well on {{fine}} days this month.",
   "journalLatestStatus": "Latest status: {{status}}",
   "journalNoCheckin": "No check-ins this month",
-  "journalNoCheckinHint": "Each check-in will appear on the calendar so you can track changes over time.",
   "journalLoadError": "Unable to load your health journal.",
   "journalLoading": "Loading your check-in calendar…",
   "journalUpdating": "Updating your check-in calendar…",
@@ -106,7 +105,6 @@
   "earlyDisclaimer": "This is general guidance, not a diagnosis.",
   "earlyEvaluate": "View my Early Signals",
   "earlyRedFlagTitle": "Signs may require emergency help",
-  "earlyCall115": "Call 115 now",
   "earlyFamilySent": "✓ Family notified",
   "earlyFamilyUnavailable": "No authorized family contact is available",
   "earlyFound": "Asinu noticed",
@@ -118,5 +116,13 @@
   "earlyConsult": "Consult specialist",
   "earlyRetry": "Try again",
   "earlyOpen": "View your recent health",
-  "journalFutureDayAccessibility": "Day {{day}}, upcoming date."
+  "journalFutureDayAccessibility": "Day {{day}}, upcoming date.",
+  "earlyLoading": "Loading early signals…",
+  "earlyNoAssessment": "No assessment yet",
+  "earlyLevelHeading": "Current concern level",
+  "earlyRecordedSignals": "Recorded signals",
+  "earlyUrgentSignals": "Priority signals",
+  "earlyNextStep": "Suggested follow-up",
+  "earlyUpdatedAt": "Updated: {{time}}",
+  "earlyRefreshError": "Could not refresh the data. The previous assessment is still shown."
 }

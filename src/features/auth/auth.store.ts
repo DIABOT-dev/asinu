@@ -19,6 +19,7 @@ export type Profile = {
   name: string;
   email?: string;
   phone?: string;
+  address?: { province: string; ward: string; street: string; provinceCode?: string; wardCode?: string } | null;
   // Kept locally so flows that need provider-specific UX can distinguish
   // Apple from password and other social sign-ins after profile hydration.
   authProvider?: 'email' | 'phone' | SocialProvider;
@@ -248,7 +249,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       async deleteAccount() {
         set({ loading: true, error: undefined });
         try {
-          await authApi.deleteAccount();
+          await authApi.deleteAccount(get().profile?.id);
           useNotificationStore.getState().reset();
           await clearIvrVoiceQueue().catch(() => {});
           await tokenStore.clearToken();

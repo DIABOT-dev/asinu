@@ -21,12 +21,14 @@ import { ScaledText as Text } from "../../components/ScaledText";
 import { ScreenBackButton } from "../../components/ScreenHeaderButton";
 import { useGuardedRouter } from "../../hooks/useGuardedRouter";
 import { useThemeColors } from "../../hooks/useThemeColors";
+import { Audio } from "../../lib/audio";
 import { radius, spacing } from "../../styles/theme";
 import {
   CheckinCallAudio,
   type CallAudioPrompt,
 } from "../checkin-call/checkin-call.audio";
-import type { IvrSession, IvrOption } from "./ivr.api";
+import { answerAudioKey, type IvrSession, type IvrOption } from "./ivr.api";
+import { ivrAnswerAudio, loadIvrAnswerAudio } from "./ivr-answer-audio";
 import { DoctorIvrBackdrop } from "./DoctorIvrBackdrop";
 
 export const DOCTOR_IVR_PREVIEW_SCENARIOS = [
@@ -39,6 +41,17 @@ export const DOCTOR_IVR_PREVIEW_SCENARIOS = [
   "error",
 ] as const;
 type Scenario = (typeof DOCTOR_IVR_PREVIEW_SCENARIOS)[number];
+const previewAnswers = {
+  q1_a: "often",
+  q1_b: "sometimes",
+  q1_c: "no",
+  q2_a: "normal",
+  q2_b: "rest",
+  q2_c: "stopped",
+  q3_a: "yes",
+  q3_b: "no",
+  qf_no: "no",
+} as const;
 
 // This controller only changes in-memory examples. The production native view
 // is shared verbatim; there is no auth bypass, API call, upload or microphone use.
@@ -136,10 +149,10 @@ function PreviewSession({
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation("home");
-  const makeOption = (id: string, key: number, label: string): IvrOption => ({
+  const makeOption = (id: keyof typeof previewAnswers, key: number): IvrOption => ({
     id,
     key,
-    label,
+    label: t(`ivr.preview.${previewAnswers[id]}`),
     type: "option",
   });
   const voice = (id: string, key: number, max_record_s: number): IvrOption => ({
@@ -155,9 +168,9 @@ function PreviewSession({
         id: "q1",
         text: t("ivr.preview.sleepQuestion"),
         options: [
-          makeOption("q1_a", 1, t("ivr.preview.often")),
-          makeOption("q1_b", 2, t("ivr.preview.sometimes")),
-          makeOption("q1_c", 3, t("ivr.preview.no")),
+          makeOption("q1_a", 1),
+          makeOption("q1_b", 2),
+          makeOption("q1_c", 3),
           voice("q1_x", 4, 30),
         ],
       },
@@ -165,9 +178,9 @@ function PreviewSession({
         id: "q2",
         text: t("ivr.preview.impactQuestion"),
         options: [
-          makeOption("q2_a", 1, t("ivr.preview.normal")),
-          makeOption("q2_b", 2, t("ivr.preview.rest")),
-          makeOption("q2_c", 3, t("ivr.preview.stopped")),
+          makeOption("q2_a", 1),
+          makeOption("q2_b", 2),
+          makeOption("q2_c", 3),
           voice("q2_x", 4, 30),
         ],
       },
@@ -175,8 +188,8 @@ function PreviewSession({
         id: "q3",
         text: t("ivr.preview.habitQuestion"),
         options: [
-          makeOption("q3_a", 1, t("ivr.preview.yes")),
-          makeOption("q3_b", 2, t("ivr.preview.no")),
+          makeOption("q3_a", 1),
+          makeOption("q3_b", 2),
           voice("q3_x", 3, 30),
         ],
       },
@@ -185,7 +198,7 @@ function PreviewSession({
         fixed: true,
         text: t("ivr.preview.finalQuestion"),
         options: [
-          makeOption("qf_no", 1, t("ivr.preview.no")),
+          makeOption("qf_no", 1),
           { ...voice("qf_yes", 2, 60), label: t("ivr.preview.askDoctor") },
         ],
       },
@@ -236,7 +249,7 @@ function PreviewSession({
       remindersOpen: false,
       consentVisible: false,
       aiConsent: false,
-      audioState: { phase: "idle", prompt: null, fallback: true },
+      audioState: { phase: "idle", prompt: null, fallback: false },
       selectedOption: null,
       speechRate: 0.9,
     };
@@ -246,19 +259,56 @@ function PreviewSession({
   currentState.current = state;
   const selecting = useRef(false),
     epoch = useRef(0);
-  const speechFinished = useRef<(() => void) | null>(null);
-  const active = useRef(false),
-    speechVersion = useRef(0);
+  const promptWaiter = useRef<{ key: string; finish: () => void } | null>(null);
+  const audio = useRef<CheckinCallAudio | null>(null);
+  const active = useRef(false);
   const scroll = useRef<ScrollView | null>(null);
+  const language = i18n.resolvedLanguage?.startsWith("en") ? "en" : "vi";
+  useEffect(() => {
+    const player = new CheckinCallAudio({
+      load: async (prompt) => {
+        const [, , optionId] = prompt.key.split(":");
+        const clip = previewAnswers[optionId as keyof typeof previewAnswers];
+        if (!clip) throw new Error("No preview recording");
+        return loadIvrAnswerAudio(ivrAnswerAudio[language][clip]);
+      },
+      prepare: () => Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+      }),
+      create: async (uri) => {
+        const { sound } = await Audio.Sound.createAsync({ uri });
+        await sound.setRateAsync(currentState.current.speechRate || 0.9);
+        return sound;
+      },
+      stopSpeech: () => Speech.stop(),
+      allowDeviceSpeech: (prompt) => !prompt.key.startsWith("selected:"),
+      speak: (prompt, callbacks) => Speech.speak(prompt.text, {
+        language: language === "en" ? "en-US" : "vi-VN",
+        rate: currentState.current.speechRate || 0.9,
+        onStart: callbacks.onStart,
+        onDone: callbacks.onDone,
+        onError: callbacks.onError,
+        onStopped: callbacks.onDone,
+      }),
+      onState: (audioState) => {
+        if (active.current) setState((s) => ({ ...s, audioState }));
+        if (audioState.prompt?.key === promptWaiter.current?.key &&
+            ["finished", "error", "idle"].includes(audioState.phase))
+          promptWaiter.current?.finish();
+      },
+    });
+    audio.current = player;
+    return () => {
+      audio.current = null;
+      promptWaiter.current?.finish();
+      player.dispose();
+    };
+  }, [language]);
   const stopAudio = useCallback(async () => {
-    speechVersion.current++;
-    speechFinished.current?.();
-    await Speech.stop().catch(() => {});
-    if (active.current)
-      setState((s) => ({
-        ...s,
-        audioState: { phase: "idle", prompt: null, fallback: true },
-      }));
+    promptWaiter.current?.finish();
+    await audio.current?.stop(true);
   }, []);
   useFocusEffect(
     useCallback(() => {
@@ -283,56 +333,27 @@ function PreviewSession({
           setState((s) => ({ ...s, busy: false, selectedOption: null }));
       }
     });
-    const unregister = CheckinCallAudio.registerExternalStop(stopAudio);
-    return () => {
-      subscription.remove();
-      unregister();
-    };
+    return () => subscription.remove();
   }, [stopAudio]);
   const play = async (prompt: CallAudioPrompt) => {
-    const version = ++speechVersion.current;
-    speechFinished.current?.();
-    try {
-      await CheckinCallAudio.stopAll();
-      await Speech.stop();
-    } catch {
-      return;
-    }
-    if (!active.current || version !== speechVersion.current) return;
-    setState((s) => ({
-      ...s,
-      audioState: { phase: "playing", prompt, fallback: true },
-    }));
+    const player = audio.current;
+    if (!active.current || !player) return;
+    promptWaiter.current?.finish();
     await new Promise<void>((resolve) => {
-      const done = () => {
+      const finish = () => {
         clearTimeout(timer);
-        if (speechFinished.current === done) speechFinished.current = null;
-        if (active.current && version === speechVersion.current)
-          setState((s) => ({
-            ...s,
-            audioState: { phase: "finished", prompt: null, fallback: true },
-          }));
+        if (promptWaiter.current?.finish === finish) promptWaiter.current = null;
         resolve();
       };
       const timer = setTimeout(
         () => {
           void stopAudio();
-          done();
+          finish();
         },
         prompt.key.startsWith("selected:") ? 10000 : 60000
       );
-      speechFinished.current = done;
-      try {
-        Speech.speak(prompt.text, {
-          language: i18n.resolvedLanguage?.startsWith("en") ? "en-US" : "vi-VN",
-          rate: currentState.current.speechRate || 0.9,
-          onDone: done,
-          onError: done,
-          onStopped: done,
-        });
-      } catch {
-        done();
-      }
+      promptWaiter.current = { key: prompt.key, finish };
+      void player.play(prompt).catch(finish);
     });
   };
   const advance = (
@@ -475,7 +496,7 @@ function PreviewSession({
         setState((s) => ({ ...s, busy: true, selectedOption: option.id }));
         try {
           await play({
-            key: `selected:${question.id}`,
+            key: answerAudioKey(question.id, option.id),
             text: t("ivr.selected", { answer: option.label }),
             language: "vi",
           });

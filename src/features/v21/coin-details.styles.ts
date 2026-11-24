@@ -41,8 +41,6 @@ export const coinDetailsStyles = StyleSheet.create({
   },
   noteIcon: { paddingTop: 2 },
   noticeText: { flex: 1, minWidth: 0, fontSize: 14, lineHeight: 21 },
-  notes: { gap: 12 },
-  noteRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   button: {
     minHeight: 52,
     borderRadius: 16,
@@ -54,8 +52,6 @@ export const coinDetailsStyles = StyleSheet.create({
     paddingVertical: 12,
   },
   buttonText: { fontSize: 16, fontWeight: "700", textAlign: "center" },
-  reward: { gap: 12, paddingVertical: 10 },
-  rewardHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
   empty: {
     alignItems: "center",
     gap: 12,
@@ -63,13 +59,8 @@ export const coinDetailsStyles = StyleSheet.create({
     paddingVertical: 32,
   },
   emptyText: { fontSize: 15, lineHeight: 23, textAlign: "center" },
+  selectionContent: { gap: 24 },
   selectionHeading: { flexDirection: "row", alignItems: "center", gap: 8 },
-  back: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   option: {
     flexDirection: "row",
     alignItems: "center",
@@ -77,14 +68,6 @@ export const coinDetailsStyles = StyleSheet.create({
     minHeight: 56,
     paddingVertical: 12,
   },
-  avatar: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 18,
-  },
-  avatarText: { fontSize: 15, fontWeight: "600" },
   section: { gap: 12 },
   review: { gap: 16 },
   reviewRow: { gap: 4 },

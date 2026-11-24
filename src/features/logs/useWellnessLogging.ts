@@ -35,17 +35,6 @@ export function useWellnessLogging() {
   }, [recordActivity]);
 
   /**
-   * Log cân nặng
-   */
-  const logWeight = useCallback(async (value: number) => {
-    try {
-      await recordActivity('HEALTH_MEASUREMENT', { type: 'weight', value });
-    } catch (e) {
-
-    }
-  }, [recordActivity]);
-
-  /**
    * Log uống nước
    */
   const logWater = useCallback(async (volumeMl: number) => {
@@ -114,7 +103,6 @@ export function useWellnessLogging() {
   return {
     logGlucose,
     logBloodPressure,
-    logWeight,
     logWater,
     logMedication,
     logInsulin,

@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { ScaledText as Text } from "./ScaledText";
 import { AppAlertModal, useAppAlert } from "./AppAlertModal";
+import { EarlySignalDetails } from "../features/early-signal/EarlySignalDetails";
 import {
   earlySignalApi,
   type EarlySignalAssessment,
@@ -26,6 +27,7 @@ type Props = {
   plain?: boolean;
   modalOnly?: boolean;
   onClose?: () => void;
+  details?: boolean;
 };
 
 const presentation = {
@@ -52,7 +54,7 @@ const attentionPresentation = {
   icon: "alert-circle-outline" as const,
 };
 
-export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = false, plain = false, modalOnly = false, onClose }: Props) {
+export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = false, plain = false, modalOnly = false, onClose, details = false }: Props) {
   const { t } = useTranslation("tree");
   const { alertState, showAlert, dismissAlert } = useAppAlert();
   const [assessment, setAssessment] = useState<EarlySignalAssessment | null>(
@@ -60,6 +62,7 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
   );
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
+  const evaluationInFlight = useRef(false);
   const [open, setOpen] = useState(modalOnly);
   const [loadFailed, setLoadFailed] = useState(false);
   const close = () => { setOpen(false); onClose?.(); };
@@ -84,6 +87,8 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
   );
 
   const evaluate = useCallback(async () => {
+    if (evaluationInFlight.current) return;
+    evaluationInFlight.current = true;
     setEvaluating(true);
     try {
       const result = await earlySignalApi.evaluate();
@@ -92,6 +97,7 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
     } catch {
       showAlert(t("earlyErrorTitle"), t("earlyErrorBody"));
     } finally {
+      evaluationInFlight.current = false;
       setEvaluating(false);
     }
   }, [showAlert, t]);
@@ -150,6 +156,16 @@ export function EarlySignalCard({ refreshKey = 0, healthScore = null, compact = 
     [assessment?.signals, currentSignalLabels, showsCurrentAttention]
   );
   const canOpenDetails = Boolean(assessment || showsCurrentAttention);
+
+  if (details) {
+    const urgent = !!assessment?.is_red_flag || (healthScore?.factors ?? []).some(factor => ['emergency_triggered','triage_severity_emergency'].includes(factor));
+    return <>
+      <EarlySignalDetails assessment={assessment} level={urgent ? 'urgent' : showsCurrentAttention ? 'attention' : assessment?.severity ?? null} redFlag={urgent}
+        summary={summary} signals={visibleSignals} loading={loading} evaluating={evaluating} loadFailed={loadFailed}
+        onRetry={load} onEvaluate={evaluate}/>
+      <AppAlertModal queued {...alertState} onDismiss={dismissAlert}/>
+    </>;
+  }
 
   if (assessment?.is_red_flag && !modalOnly) {
     return (

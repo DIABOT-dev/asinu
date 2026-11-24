@@ -23,7 +23,7 @@
     "test:care-circle-health": "node scripts/check-care-circle-health.mjs",
     "test:care-circle-qr": "node scripts/check-care-circle-qr.mjs && node scripts/check-care-circle-qr-media.mjs",
     "test:edit-save-state": "node scripts/check-edit-save-state.mjs",
-    "test:profile-edit": "node scripts/check-profile-edit.mjs && node scripts/check-delete-account-modal.mjs && node scripts/check-specialist-sharing.cjs",
+    "test:profile-edit": "node scripts/check-profile-edit.mjs && node scripts/check-personal-field-sheet.mjs && node scripts/check-measurement-ruler.mjs && node scripts/check-onboarding-personal-fields.mjs && node scripts/check-delete-account-modal.mjs && node scripts/check-specialist-sharing.cjs",
     "test:subscription-comparison": "node scripts/check-subscription-comparison.mjs",
     "test:checkin-settings": "node scripts/check-checkin-call-settings.mjs",
     "test:checkin-personalization": "node scripts/check-checkin-call-personalization.mjs",
@@ -51,6 +51,7 @@
     "test:guidance": "node scripts/check-guided-onboarding.mjs",
     "test:auth": "node scripts/check-auth-flows.mjs",
     "test:checkin-question-loading": "node --test scripts/check-checkin-question-loading.mjs",
+    "test:checkin-ai-wait": "node --test scripts/check-checkin-ai-wait.mjs scripts/check-checkin-question-loading.mjs",
     "test:checkin-viewport": "node --test scripts/check-checkin-viewport.mjs",
     "test:checkin-progress": "node --test scripts/check-checkin-progress.mjs && node scripts/check-checkin-cancel-home.mjs",
     "test:checkin-practice": "node scripts/check-checkin-practice.mjs",
@@ -66,7 +67,10 @@
     "test:app-update": "node scripts/check-app-update.mjs",
     "test:telemetry": "node --test scripts/test-telemetry.cjs",
     "test:checkin-conclusion": "node scripts/check-checkin-conclusion.mjs",
-    "test:checkin-presentation": "node scripts/check-checkin-presentation.mjs"
+    "test:checkin-presentation": "node scripts/check-checkin-presentation.mjs",
+    "test:doctor-care": "node scripts/check-doctor-care.mjs",
+    "test:assistant-read-cache": "node --test scripts/check-assistant-read-cache.cjs",
+    "test:assistant-ui": "node --test scripts/check-assistant-chat-ui.cjs scripts/check-assistant-message-format.cjs"
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^15.0.2",
@@ -95,6 +99,7 @@
     "expo-constants": "~57.0.18",
     "expo-crypto": "~57.0.3",
     "expo-dev-client": "~57.0.19",
+    "expo-document-picker": "~57.0.3",
     "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.4",
     "expo-haptics": "~57.0.3",

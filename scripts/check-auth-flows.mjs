@@ -150,7 +150,7 @@ function onboardingGate(state) {
 }
 const session = { hydrated: true, loading: false, token: 'session-fixture', profile: { id: 'new-user', onboardingCompleted: false } };
 await test('every main tab redirects an incomplete new account to onboarding', () => {
-  for (const path of ['/home', '/care-circle', '/tree', '/profile', '/missions']) {
+  for (const path of ['/home', '/care-circle', '/tree', '/profile', '/missions', '/operations', '/account']) {
     assert.deepEqual(onboardingGate({ ...session, path }), { allowed: false, routes: ['/onboarding'] });
   }
 });

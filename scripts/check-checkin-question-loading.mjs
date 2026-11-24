@@ -248,7 +248,7 @@ for (const language of ['vi', 'en'])
         );
         tree = h.advance(13000);
         assert.match(text(tree), language === 'vi' ? /ước tính/ : /Estimated/);
-        assert.match(text(tree), language === 'vi' ? /chờ chút/ : /please wait/);
+        assert.match(text(tree), language === 'vi' ? /chờ (?:một )?chút/ : /please wait/);
         assert.ok(
           nodes(tree).find((node) => node.props?.accessibilityRole === 'progressbar').props
             .accessibilityValue.now < 100,
@@ -268,7 +268,7 @@ test('Reduce Motion is honored before its query resolves and changing it stops m
     assert.equal(h.repeats.length, 0);
     h.queries[0](false);
     h.settle();
-    assert.equal(h.repeats.length, 1);
+    assert.equal(h.repeats.length, 2);
     h.motion(true);
     const previous = h.repeats.length;
     h.queries[0](false);
@@ -279,6 +279,23 @@ test('Reduce Motion is honored before its query resolves and changing it stops m
   } finally {
     h.cleanup();
   }
+});
+
+test('a long AI wait keeps the mascot and ring moving without claiming completion', () => {
+  const h = harness();
+  try {
+    h.settle();
+    h.queries[0](false);
+    h.settle();
+    const tree = h.advance(240000);
+    assert.ok(nodes(tree).some(node => node.props?.testID === 'checkin-waiting-ring'));
+    assert.equal(h.repeats.length, 2);
+    assert.ok(h.repeats.every(([, count]) => count === -1));
+    const progress = nodes(tree).find(node => node.props?.accessibilityRole === 'progressbar');
+    assert.equal(progress.props.accessibilityState.busy, true);
+    assert.ok(progress.props.accessibilityValue.now < 100);
+    assert.match(text(tree), /vẫn đang xử lý/);
+  } finally { h.cleanup(); }
 });
 
 test('background and unfocused screens pause all timers and do not consume simulated progress', () => {

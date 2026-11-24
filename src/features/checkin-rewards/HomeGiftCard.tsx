@@ -165,25 +165,12 @@ function AccountCard({ account, headless }: { account: string; headless: boolean
     <View style={styles.outerStack}>
       {/* Lộc mỗi ngày */}
       <View style={styles.dailySection}>
-        {/* Floating 3D Gift Box Hero Art ở góc trên bên phải */}
         <Image
           source={heroArt}
           style={styles.heroArt}
           contentFit="contain"
           accessible={false}
         />
-
-        {/* Daily message beside the gift illustration. The page owns its title. */}
-        <View style={styles.headerArea}>
-          <Text
-            style={[
-              styles.subtitleText,
-              { color: colors.textSecondary },
-            ]}
-          >
-            {t('checkinGift.dailySubtitle')}
-          </Text>
-        </View>
 
         {/* Thanh tiến trình 7 ngày và Chuỗi điểm danh */}
         <View style={[styles.timelineContainer, { backgroundColor: containerBg }]}>
@@ -320,39 +307,21 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   dailySection: {
-    paddingTop: 18,
     paddingBottom: 18,
-    position: 'relative',
   },
   heroArt: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
+    alignSelf: 'center',
     width: 165,
-    height: 134,
-    zIndex: 0,
-  },
-  headerArea: {
-    zIndex: 1,
-    maxWidth: '66%',
-    minHeight: 96,
-    justifyContent: 'center',
-  },
-  subtitleText: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
-    marginTop: 6,
+    height: 112,
   },
   timelineContainer: {
-    marginTop: 16,
+    marginTop: 8,
     borderRadius: 22,
     paddingHorizontal: 10,
     paddingVertical: 9,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    zIndex: 1,
   },
   weekDotsRow: {
     flexDirection: 'row',

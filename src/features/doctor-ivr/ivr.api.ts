@@ -1,5 +1,9 @@
+import { File as NativeFile } from "expo-file-system";
+import { Platform } from "react-native";
 import { apiClient } from "../../lib/apiClient";
 import { tokenStore } from "../../lib/tokenStore";
+export const answerAudioKey = (questionId: string, optionId: string) =>
+  `selected:${questionId}:${optionId}`;
 export type IvrOption = {
   id: string;
   key: number;
@@ -70,14 +74,30 @@ export const ivrApi = {
     request<{ base64: string; mimeType: string }>(
       `sessions/${encodeURIComponent(id)}/audio/${encodeURIComponent(question)}`
     ),
-  voice: (id: string, fields: Record<string, string>, uri: string) => {
+  answerAudio: (id: string, question: string, option: string) =>
+    request<{ base64: string; mimeType: string }>(
+      `sessions/${encodeURIComponent(id)}/audio/${encodeURIComponent(question)}/answers/${encodeURIComponent(option)}`
+    ),
+  closingAudio: (id: string) =>
+    request<{ base64: string; mimeType: string }>(
+      `sessions/${encodeURIComponent(id)}/closing-audio`
+    ),
+  voice: async (id: string, fields: Record<string, string>, uri: string) => {
     const form = new FormData();
     for (const [key, value] of Object.entries(fields)) form.append(key, value);
-    form.append("file", {
-      uri,
-      type: uri.endsWith(".webm") ? "audio/webm" : "audio/mp4",
-      name: uri.endsWith(".webm") ? "answer.webm" : "answer.m4a",
-    } as unknown as Blob);
+    if (Platform.OS === "web") {
+      const response = await fetch(uri);
+      if (!response.ok) throw new Error("Cannot read saved recording");
+      const webm = uri.endsWith(".webm");
+      form.append("file", new globalThis.File(
+        [await response.blob()],
+        webm ? "answer.webm" : "answer.m4a",
+        { type: webm ? "audio/webm" : "audio/mp4" },
+      ));
+    } else {
+      // Expo Fetch reads the file bytes through File, including on a retry.
+      form.append("file", new NativeFile(uri));
+    }
     return request<IvrSession>(
       `sessions/${encodeURIComponent(id)}/voice`,
       form

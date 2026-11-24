@@ -78,6 +78,7 @@ export async function deleteAllNotifications(): Promise<{ ok: boolean; error?: s
 
 export interface NotificationPreferences {
   ok: boolean;
+  reminder_assistant_enabled?: boolean;
   // Legacy hour-only (kept for backward compat)
   morning_hour: number | null;
   evening_hour: number | null;
@@ -102,6 +103,33 @@ export interface NotificationPreferences {
   reminders_enabled: boolean;
   health_feed_enabled: boolean;
   error?: string;
+}
+
+export type ReminderSlot = 'morning' | 'afternoon' | 'evening';
+export type ReminderAssistantPlan = {
+  ok: boolean;
+  status: 'ready' | 'clarify' | 'unsupported' | 'unchanged';
+  question?: string;
+  planToken?: string;
+  changes?: Array<{ slot: ReminderSlot; before: string; time: string }>;
+};
+export type ReminderAssistantResult = {
+  ok: boolean;
+  status: 'applied';
+  preferences: NotificationPreferences;
+};
+
+export const planReminderTimes = (text: string, signal?: AbortSignal) =>
+  apiClient<ReminderAssistantPlan>('/api/notifications/reminder-assistant/plan', {
+    method: 'POST', body: { text }, timeoutMs: 45000, signal,
+  });
+export async function applyReminderTimes(token: string, signal?: AbortSignal) {
+  preferenceRead = null;
+  try {
+    return await apiClient<ReminderAssistantResult>('/api/notifications/reminder-assistant/apply', {
+      method: 'POST', body: { token }, signal,
+    });
+  } finally { preferenceRead = null; }
 }
 
 let preferenceRead: { token: string | null; request: Promise<NotificationPreferences> } | null = null;

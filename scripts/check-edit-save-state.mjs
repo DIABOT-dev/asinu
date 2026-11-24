@@ -88,7 +88,7 @@ function invitationHarness(language, qr = false) {
   };
   const deps = {
     useState: h.react.useState, useRef: h.react.useRef, useMemo: h.react.useMemo, useEffect: h.react.useEffect,
-    ...native, ...icons, Text: 'Text', TextInput: 'TextInput', Dropdown: 'Dropdown', AppAlertModal: 'AlertModal',
+    ...native, ...icons, Keyboard: { dismiss() {} }, Text: 'Text', TextInput: 'TextInput', Dropdown: 'Dropdown', AppAlertModal: 'AlertModal',
     Stack: { Screen: 'StackScreen' }, Animated: { View: 'AnimatedView' },
     GuideScrollScope: 'GuideScrollScope', GuideTarget: 'GuideTarget',
     FadeIn: { duration() { return this; } },
@@ -116,13 +116,16 @@ function invitationHarness(language, qr = false) {
   `, { react: h.react });
   const component = makeScreen(deps); const render = () => h.render(component);
   const flush = async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); };
-  const control = label => nodes(render()).find(node => node.type === 'Button' && node.props.accessibilityLabel === t(label));
+  const button = label => nodes(render()).find(node => node.type === 'Button' && node.props.accessibilityLabel === label);
+  const control = label => button(t(label));
   return { calls, render, t,
     async selectRecipient() {
       render(); h.effects(); await flush();
       if (!qr) {
         nodes(render()).find(node => node.type === 'TextInput').props.onChangeText('0900000001');
-        await control('search').props.onPress(); control('selectThisUser').props.onPress();
+        await button(tc('continue')).props.onPress();
+        assert.equal(nodes(render()).filter(node => node.type === 'Switch').length, 0);
+        control('selectThisUser').props.onPress();
       }
     },
     choose: id => {
@@ -130,6 +133,8 @@ function invitationHarness(language, qr = false) {
       field.props.onChange(field.props.options.find(option => option.id === id));
     },
     send: () => control('sendInvite').props.onPress(),
+    shareNotifications: value => nodes(render()).find(node => node.type === 'Switch' &&
+      node.props.accessibilityLabel === t('familyShareMyNotifications')).props.onValueChange(value),
   };
 }
 for (const language of ['vi', 'en']) for (const qr of [false, true]) {
@@ -137,10 +142,14 @@ for (const language of ['vi', 'en']) for (const qr of [false, true]) {
     const h = invitationHarness(language, qr);
     const initial = nodes(h.render());
     assert.ok(!initial.some(node => node.type === 'Text' && node.props.children === h.t('role')));
-    const fields = initial.filter(node => node.type === 'Dropdown');
+    assert.ok(!initial.some(node => node.type === 'Dropdown' || node.type === 'Switch'));
+    await h.selectRecipient();
+    const details = nodes(h.render());
+    const fields = details.filter(node => node.type === 'Dropdown');
     assert.equal(fields.length, 1); assert.equal(fields[0].props.searchable, true);
     assert.equal(fields[0].props.options.length, 54);
-    await h.selectRecipient();
+    assert.deepEqual(details.filter(node => node.type === 'Switch').map(node => node.props.accessibilityLabel),
+      ['permViewLogs', 'permReceiveAlerts', 'permAckEscalation', 'familyShareMyNotifications'].map(key => h.t(key)));
     for (const option of familyRelationships.FAMILY_RELATIONSHIPS) {
       h.choose(option.id); await h.send();
       const write = h.calls.writes.at(-1);
@@ -148,8 +157,11 @@ for (const language of ['vi', 'en']) for (const qr of [false, true]) {
       assert.equal(write.payload.relationship_type, option.id);
       assert.equal(write.payload.role, 'than-nhan');
       assert.deepEqual(write.payload.permissions, { can_view_logs: true, can_receive_alerts: true, can_ack_escalation: true });
+      assert.equal(write.payload.share_notifications, undefined);
     }
     assert.equal(h.calls.writes.length, 54);
+    h.shareNotifications(true); await h.send();
+    assert.equal(h.calls.writes.at(-1).payload.share_notifications, true);
   });
 }
 for (const language of ['vi', 'en']) {
@@ -191,16 +203,22 @@ await test('family dropdown searches accents and unaccented text using the actua
   assert.equal(filterOptions(options, '').length, 54);
 });
 
-function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan', relationship = 'bo', permissions, update, canViewTheirs = false } = {}) {
+function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan', relationship = 'bo', permissions, update, canViewTheirs = false, canManageMedication = false, coins = false, isRequester = true, sharesNotifications, peerSharesNotifications } = {}) {
   theme.applyTheme(isDark ? 'dark' : 'light');
   const h = hooks();
   const t = translate(language, 'careCircle');
   const tc = translate(language, 'common');
-  const calls = { alerts: [], writes: [], toasts: [], routes: [], scrolls: [] };
+  const calls = { alerts: [], writes: [], toasts: [], routes: [], calendars: [] };
+  const auth = { profile: { id: 'me' }, token: 'access-token' };
+  let apiToken = auth.token;
+  const useAuthStore = Object.assign(select => select(auth), { getState: () => auth });
   const connection = {
-    id: 'connection', requester_id: 'me', addressee_id: 'relative', status: 'accepted',
+    id: 'connection', requester_id: isRequester ? 'me' : 'relative', addressee_id: isRequester ? 'relative' : 'me', status: 'accepted',
+    requester_name: 'Requester Display',
     addressee_name: 'Family Display', addressee_full_name: 'Family Member', addressee_avatar_url: 'https://example.invalid/avatar.jpg',
     addressee_email: 'relative@example.invalid', addressee_phone: '0900000000', addressee_can_view_logs: canViewTheirs,
+    requester_shares_notifications: isRequester ? sharesNotifications : peerSharesNotifications,
+    addressee_shares_notifications: isRequester ? peerSharesNotifications : sharesNotifications,
     relationship_type: relationship, role,
     permissions: permissions ?? { can_view_logs: true, can_receive_alerts: true, can_ack_escalation: true },
   };
@@ -211,12 +229,22 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     return { ...connection };
   };
   const care = { connections: [connection], invitations: [], loading: false, refreshing: false,
+    fetchInvitations: async () => {}, fetchConnections: async () => {}, refresh: async () => {},
     updateConnection: (id, values) => write('metadata', id, values),
     updatePermissions: (id, values) => write('permissions', id, values),
+    updateHealthAccess: (id, share) => write('healthAccess', id, { addressee_can_view_logs: share }),
+    updateNotificationAccess: async (id, share) => {
+      calls.writes.push({ kind: 'notificationAccess', id, share });
+      const token = auth.token;
+      if (update) await update('notificationAccess', share);
+      if (auth.token !== token) return;
+      const permission = isRequester ? 'requester_shares_notifications' : 'addressee_shares_notifications';
+      connection[permission] = share;
+    },
   };
   const { default: Screen } = evaluate(read('app/care-circle/index.tsx'), {
     react: h.react, 'react-native': native, '@expo/vector-icons': icons,
-    'expo-linear-gradient': { LinearGradient: 'Gradient' }, 'expo-router': { Stack: { Screen: 'StackScreen' }, useFocusEffect() {} },
+    'expo-linear-gradient': { LinearGradient: 'Gradient' }, 'expo-router': { Stack: { Screen: 'StackScreen' }, useFocusEffect: work => h.react.useEffect(work, []) },
     'react-i18next': { useTranslation: namespace => ({ t: namespace === 'common' ? tc : t }) },
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView', useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
     'react-native-svg': { __esModule: true, default: 'Svg', Path: 'Path' },
@@ -224,46 +252,52 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
     '../../src/components/RippleRefresh': { RippleRefreshScrollView: 'ScrollView' },
     '../../src/components/Button': { Button: 'Button' }, '../../src/components/Dropdown': { Dropdown: 'Dropdown' },
     '../../src/components/AppAlertModal': { AppAlertModal: 'AlertModal', useAppAlert: () => ({ alertState: {}, dismissAlert() {}, showAlert: (...args) => calls.alerts.push(args) }) },
+    '../../src/components/GlobalToastHost': { ModalToastHost: 'ModalToastHost' },
     '../../src/components/Avatar': { Avatar: 'Avatar' },
     '../../src/components/ScaledText': { ScaledText: 'Text' }, '../../src/components/Screen': { Screen: 'Screen' },
     '../../src/components/state/MainScreenSkeletons': { CareCircleTabSkeleton: 'Skeleton' },
     '../../src/hooks/useInitialLoadingGate': { useInitialLoadingGate: () => false },
-    '../../src/features/auth/auth.store': { useAuthStore: select => select({ profile: { id: 'me' } }) },
+    '../../src/features/auth/auth.store': { useAuthStore },
     '../../src/stores/language.store': { useLanguageStore: () => ({ language }) },
     '../../src/stores/toast.store': { showToast: (...args) => calls.toasts.push(args) },
-    '../../src/features/care-circle': { useCareCircle: () => care },
+    '../../src/features/care-circle': { useCareCircle: () => care, careCircleApi: { getMemberHealthCalendar: async (id, month) => { calls.calendars.push({ id, month }); return {}; } } },
     '../../src/hooks/useScaledTypography': { useScaledTypography: () => theme.typography },
-    '../../src/styles': theme, '../../src/hooks/useThemeColors': { useThemeColors: () => ({ isDark }) },
-    '../../src/lib/apiClient': { getApiErrorMessage: error => error.message },
+    '../../src/styles': theme, '../../src/hooks/useThemeColors': {
+      useThemeColors: () => ({ isDark, colors: isDark ? theme.darkColors : theme.lightColors }),
+    },
+    '../../src/lib/apiClient': { getApiErrorMessage: (_error, t, fallback) => t(fallback) },
+    '../../src/lib/tokenStore': { tokenStore: { getToken: () => apiToken } },
     '../../src/features/care-circle/health-access': healthAccess,
     '../../src/features/care-circle/family-roles': familyRoles,
     '../../src/features/care-circle/family-relationships': familyRelationships,
     '../../src/features/care-circle/connection-edit': connectionEdit,
     '../../src/features/care-circle/components/CareCircleQrActions': { CareCircleQrActions: 'QrActions' },
     '../../src/features/care-circle/components/CareCircleScanSpeech': { CareCircleScanSpeech: 'ScanSpeech' },
-    '../../src/features/care-circle/components/CareCircleQuickActions': { CareCircleQuickActions: 'QuickActions' },
+    '../../src/features/care-circle/components/CareCircleMemberStrip': { CareCircleMemberStrip: 'MemberStrip' },
+    '../../src/components/HomeProfileAvatar': { HomeProfileAvatar: 'HomeProfileAvatar' },
+    '../../src/features/care-circle/useMemberOverview': {
+      useFamilyFeatures: active => active ? {
+        medication: canManageMedication, coins,
+        patients: care.connections.map(member => ({ id: member.addressee_id })),
+      } : undefined,
+    },
+    '../../src/components/HealthJournalCalendar': { HealthJournalCalendar: 'HealthJournalCalendar' },
     '../../src/features/care-circle/components/CareCircleInviteBanner': { CareCircleInviteBanner: 'InviteBanner' },
     '../../src/features/care-circle/components/CareCircleHeroBanner': { CareCircleHeroBanner: 'HeroBanner' },
     '../../src/features/care-circle/components/CareCircleEmptyState': { CareCircleEmptyState: 'EmptyState' },
     '../../src/features/guidance/GuidanceProvider': { GuideScrollScope: 'GuideScrollScope', GuideTarget: 'GuideTarget' },
   });
-  const render = () => {
-    const tree = h.render(Screen);
-    const scroll = nodes(tree).find(node => node.props?.nativeScrollRef);
-    if (scroll) scroll.props.nativeScrollRef.current = { scrollTo: options => calls.scrolls.push(options) };
-    return tree;
-  };
+  const render = () => h.render(Screen);
   const modal = () => nodes(render()).find(node => node.type === 'Modal' && node.props.visible);
-  const membersToggle = () => nodes(render()).find(node => node.type === 'QuickActions');
-  const menu = () => {
-    if (!membersToggle().props.expanded) membersToggle().props.onToggleMembers();
-    nodes(render()).find(node => node.type === 'Button' && node.props.accessibilityLabel === tc('notificationMoreActions')).props.onPress();
+  const avatarMenu = () => {
+    nodes(render()).find(node => node.type === 'MemberStrip').props.onSelect(connection.id);
     return calls.alerts.at(-1)[2];
   };
-  return { calls, connection, modal, render, menu,
-    toggleMembers: () => membersToggle().props.onToggleMembers(),
-    membersExpanded: () => membersToggle().props.expanded,
-    membersLayout: y => nodes(render()).find(node => node.props?.testID === 'care-circle-member-list').props.onLayout({ nativeEvent: { layout: { y } } }),
+  const menu = () => {
+    avatarMenu().find(action => action.text === t('connectionActionsTitle')).onPress();
+    return calls.alerts.at(-1)[2];
+  };
+  return { calls, connection, care, modal, render, menu, avatarMenu, focus: () => { render(); h.effects(); return render(); },
     open: () => {
       menu().find(button => button.text === t('editConnection')).onPress();
     },
@@ -273,49 +307,183 @@ function connectionHarness({ language = 'vi', isDark = false, role = 'than-nhan'
       dropdown.props.onChange(dropdown.props.options.find(option => option.id === id));
     },
     permission: (index, value) => nodes(modal()).filter(node => node.type === 'Switch')[index].props.onValueChange(value),
+    notificationSwitch: () => nodes(modal()).find(node => node.type === 'Switch' &&
+      node.props.accessibilityLabel === t('familyShareMyNotifications')),
+    switchAccount: () => { auth.profile = { id: 'other-account' }; auth.token = apiToken = 'other-token'; },
+    switchCredentials: () => { apiToken = 'other-token'; },
   };
 }
+await test('top avatars open the chosen relative’s actions without showing a health report on Connections', () => {
+  const t = translate('vi', 'careCircle');
+  const h = connectionHarness({ canViewTheirs: true }); h.focus();
+  const list = () => nodes(h.render()).find(node => node.type === 'MemberStrip');
+  const calendar = () => nodes(h.render()).find(node => node.type === 'HealthJournalCalendar');
+  const all = nodes(h.render());
+  assert.ok(all.findIndex(node => node.type === 'MemberStrip') < all.findIndex(node => node.type === 'QrActions'));
+  assert.equal(h.calls.alerts.length, 0);
+  assert.ok(!all.some(node => node.type === 'Text' &&
+    ['familyHealthTitle', 'familyNotifications', 'familyTaskSetup', 'familyHealthReport'].some(key => node.props.children === t(key))));
+  assert.equal(list().props.selectedId, h.connection.id);
+  assert.equal(calendar(), undefined);
+  h.care.connections.push({ ...h.connection, id: 'second', addressee_id: 'second-relative', addressee_name: 'Another relative', addressee_can_view_logs: false });
+  list().props.onSelect('second'); assert.equal(list().props.selectedId, 'second'); assert.equal(calendar(), undefined);
+  assert.equal(h.calls.alerts.at(-1)[0], 'Another relative');
+  assert.equal(h.calls.alerts.at(-1)[2].find(action => action.text === t('familyHealthTitle')).disabled, true);
+  assert.deepEqual(h.calls.routes, []);
+  list().props.onSelect(h.connection.id);
+  const choices = h.calls.alerts.at(-1)[2];
+  assert.deepEqual(choices.slice(0, 3).map(action => action.text),
+    ['familyHealthTitle', 'familyNotifications', 'familyTaskSetup'].map(key => t(key)));
+  choices[2].onPress();
+  assert.equal(h.calls.alerts.at(-1)[1], t('familyMedicationUnavailable'));
+  const open = choices[0];
+  h.connection.addressee_can_view_logs = false; h.render();
+  open.onPress(); assert.deepEqual(h.calls.routes, []); assert.equal(calendar(), undefined);
+  h.care.connections = []; assert.equal(list().props.members.length, 0); assert.equal(calendar(), undefined);
+  list().props.onAdd(); assert.deepEqual(h.calls.routes, ['/care-circle/invite']);
+  assert.deepEqual(h.calls.calendars, []);
+  assert.deepEqual(h.calls.writes, []);
+});
+await test('avatar choices open health, notifications and medication through the selected relative', () => {
+  const t = translate('vi', 'careCircle');
+  const h = connectionHarness({ canViewTheirs: true, canManageMedication: true, coins: true });
+  h.focus();
+  h.care.connections.push({ ...h.connection, id: 'second', addressee_id: 'second-relative', addressee_name: 'Another relative' });
+  const tapAvatar = () => nodes(h.render()).find(node => node.type === 'MemberStrip').props.onSelect('second');
+  const press = key => h.calls.alerts.at(-1)[2].find(action => action.text === t(key)).onPress();
+  tapAvatar(); press('familyHealthTitle');
+  tapAvatar();
+  const menuCount = h.calls.alerts.length;
+  press('familyNotifications');
+  assert.equal(h.calls.alerts.length, menuCount);
+  tapAvatar(); press('familyTaskSetup'); press('familyMedicationSetup');
+  assert.deepEqual(h.calls.routes, [
+    { pathname: '/care-circle/member/[id]', params: { id: 'second-relative', name: 'Another relative' } },
+    { pathname: '/care-circle/notifications/[id]', params: { id: 'second-relative' } },
+    { pathname: '/medication', params: { patientId: 'second-relative' } },
+  ]);
+  tapAvatar(); press('familyTaskSetup');
+  h.care.connections.pop(); h.render();
+  press('familyMedicationSetup');
+  assert.equal(h.calls.routes.length, 3);
+});
+await test('the notifications option opens the member’s inbox without a submenu', () => {
+  const h = connectionHarness();
+  const t = translate('vi', 'careCircle');
+  h.avatarMenu().find(action => action.text === t('familyNotifications')).onPress();
+  assert.equal(h.calls.alerts.length, 1);
+  assert.deepEqual(h.calls.routes, [{ pathname: '/care-circle/notifications/[id]', params: { id: 'relative' } }]);
+});
+await test('the edit permission defaults off, only writes on Save, and restores the saved value', async () => {
+  const h = connectionHarness({ peerSharesNotifications: true });
+  const t = translate('vi', 'careCircle');
+  h.open();
+  assert.equal(h.notificationSwitch().props.value, false);
+  assert.equal(h.save().props.disabled, true);
+  h.notificationSwitch().props.onValueChange(true);
+  assert.equal(h.save().props.disabled, false);
+  h.notificationSwitch().props.onValueChange(false);
+  assert.equal(h.save().props.disabled, true);
+  h.notificationSwitch().props.onValueChange(true);
+  assert.deepEqual(h.calls.writes, []);
+  await h.save().props.onPress();
+  assert.equal(h.modal(), undefined);
+  h.open();
+  assert.equal(h.notificationSwitch().props.value, true);
+  h.notificationSwitch().props.onValueChange(false);
+  await h.save().props.onPress();
+  assert.deepEqual(h.calls.writes, [
+    { kind: 'notificationAccess', id: h.connection.id, share: true },
+    { kind: 'notificationAccess', id: h.connection.id, share: false },
+  ]);
+  assert.deepEqual(h.calls.toasts, [[t('familyNotificationsShared'), 'success'], [t('familyNotificationsUnshared'), 'success']]);
+  assert.equal(h.connection.addressee_shares_notifications, true);
+});
+await test('the member inbox shows only that member and clears visible entries when a later page loses access', async () => {
+  const h = hooks();
+  const state = { token: 'viewer-token' };
+  const auth = Object.assign(select => select(state), { getState: () => state });
+  const calls = [];
+  class ApiError extends Error {
+    statusCode = 403;
+  }
+  const entry = { id: 31, type: 'general', title: 'Shared message', message: 'Member text', created_at: '2026-11-18T02:00:00Z' };
+  const { default: Screen } = evaluate("import React from 'react';\n" + read('app/care-circle/notifications/[id].tsx'), {
+    react: h.react,
+    'expo-router': { Stack: { Screen: 'StackScreen' }, useLocalSearchParams: () => ({ id: '7' }),
+      useFocusEffect: work => h.react.useEffect(work, []) },
+    'react-native': { ...native, FlatList: 'FlatList' },
+    'react-i18next': { useTranslation: namespace => ({ t: translate('vi', namespace), i18n: { language: 'vi' } }) },
+    'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 59, bottom: 34 }) },
+    '../../../src/components/NotificationIcon': { NotificationIcon: 'NotificationIcon' },
+    '../../../src/components/ScaledText': { ScaledText: 'Text' },
+    '../../../src/components/Screen': { Screen: 'Screen' },
+    '../../../src/components/ScreenHeaderButton': { ScreenBackButton: 'BackButton' },
+    '../../../src/features/auth/auth.store': { useAuthStore: auth },
+    '../../../src/features/care-circle/care-circle.api': { careCircleApi: {
+      getMemberNotifications: async (id, before) => {
+        calls.push([id, before]);
+        if (before !== null) throw new ApiError();
+        return { memberName: 'Minh Anh', notifications: [entry], nextBefore: 31 };
+      },
+    } },
+    '../../../src/hooks/useGuardedRouter': { useGuardedRouter: () => ({ back() {} }) },
+    '../../../src/hooks/useThemeColors': { useThemeColors: () => ({ colors: theme.lightColors }) },
+    '../../../src/lib/apiClient': { ApiError },
+    '../../../src/styles': theme,
+  });
+  h.render(Screen); h.effects();
+  await Promise.resolve();
+  const render = () => nodes(h.render(Screen));
+  const list = () => render().find(node => node.type === 'FlatList');
+  assert.ok(render().some(node => node.props.children === 'Thông báo của Minh Anh'));
+  assert.deepEqual(list().props.data, [entry]);
+  list().props.ListFooterComponent.props.onPress();
+  await Promise.resolve();
+  assert.deepEqual(calls, [['7', null], ['7', 31]]);
+  assert.deepEqual(list().props.data, []);
+  const message = translate('vi', 'careCircle')('familyNotificationsAccessRequired');
+  assert.ok(nodes(list().props.ListEmptyComponent).some(node => node.props.children === message));
+});
 for (const language of ['vi', 'en']) {
-  await test(`${language}: connected members expand inline and collapse without changing saved connections`, () => {
+  await test(`${language}: the header opens QR scanning and the lower actions are absent`, () => {
     const h = connectionHarness({ language });
+    const t = translate(language, 'careCircle');
     const initial = nodes(h.render());
     const qrIndex = initial.findIndex(node => node.type === 'QrActions');
-    assert.ok(qrIndex >= 0 && qrIndex < initial.findIndex(node => node.type === 'QuickActions'));
+    assert.ok(qrIndex > initial.findIndex(node => node.type === 'MemberStrip'));
     assert.ok(flatten(initial.find(node => node.type === 'Screen').props.style).paddingTop >= 59);
-    assert.ok(initial.some(node => node.type === 'Text' && node.props.children === translate(language, 'careCircle')('actions')));
-    assert.ok(!initial.some(node => node.type === 'ScanSpeech' || node.type === 'Image' && String(node.props.source).includes('asinu-pointing-both-sides')));
-    const more = () => nodes(h.render()).some(node => node.props?.accessibilityLabel === translate(language, 'common')('notificationMoreActions'));
-    assert.equal(h.membersExpanded(), false); assert.equal(more(), false);
-    h.toggleMembers(); assert.equal(h.membersExpanded(), true); assert.equal(more(), true);
-    h.membersLayout(480); assert.deepEqual(h.calls.scrolls, [{ y: 468, animated: true }]);
-    h.membersLayout(500); assert.equal(h.calls.scrolls.length, 1, 'A layout refresh cannot repeatedly move the member list');
-    h.toggleMembers(); assert.equal(h.membersExpanded(), false); assert.equal(more(), false);
+    assert.ok(!initial.some(node => ['care-circle-actions-section', 'care-circle-member-list'].includes(node.props?.testID)));
+    const scan = initial.find(node => node.type === 'Button' && node.props.accessibilityLabel === t('scanQr'));
+    assert.ok(initial.indexOf(scan) < qrIndex);
+    scan.props.onPress();
+    assert.deepEqual(h.calls.routes, ['/care-circle/scan']);
     assert.deepEqual(h.calls.writes, []); assert.deepEqual(h.calls.toasts, []);
   });
 }
 for (const language of ['vi', 'en']) {
-  await test(`${language}: member rows show only the display name and avatar while information is opened from the menu`, () => {
-    const h = connectionHarness({ language }); h.toggleMembers();
-    const row = nodes(h.render()).find(node => node.props?.accessibilityLabel === h.connection.addressee_name);
-    const labels = nodes(row).filter(node => node.type === 'Text');
-    assert.deepEqual(labels.map(node => node.props.children), [h.connection.addressee_name]);
-    assert.equal(labels[0].props.numberOfLines, undefined);
-    assert.equal(nodes(row).find(node => node.type === 'Avatar').props.imageUrl, h.connection.addressee_avatar_url);
-    h.menu().find(action => action.text === translate(language, 'careCircle')('viewConnectionInfo')).onPress();
-    const info = nodes(h.modal());
-    assert.ok(info.some(node => node.props.children === h.connection.addressee_email));
-    assert.ok(info.some(node => node.props.children === h.connection.addressee_phone));
-    assert.equal(info.find(node => node.type === 'Avatar').props.name, h.connection.addressee_name);
+  await test(`${language}: connection options offer editing and removal only`, () => {
+    const h = connectionHarness({ language });
+    const t = translate(language, 'careCircle');
+    const { members } = nodes(h.render()).find(node => node.type === 'MemberStrip').props;
+    assert.equal(members[0].name, h.connection.addressee_name);
+    assert.equal(members[0].avatarUrl, h.connection.addressee_avatar_url);
+    const options = h.menu();
+    assert.deepEqual(options.map(action => action.text), [t('editConnection'), t('deleteConnection'), translate(language, 'common')('cancel')]);
+    options[0].onPress();
+    const editor = nodes(h.modal());
+    assert.ok(editor.some(node => node.props.children === h.connection.addressee_name));
+    assert.ok(editor.some(node => node.props.children === t('familyShareNotificationsDescription')));
     assert.deepEqual(h.calls.routes, []);
   });
   await test(`${language}: health profile stays locked without consent and opens only while the current consent permits it`, () => {
-    const label = translate(language, 'careCircle')('viewHealthProfile');
+    const label = translate(language, 'careCircle')('familyHealthTitle');
     const locked = connectionHarness({ language });
-    const lockedAction = locked.menu().find(action => action.text === label);
+    const lockedAction = locked.avatarMenu().find(action => action.text === label);
     assert.equal(lockedAction.disabled, true); assert.equal(lockedAction.icon, 'lock-outline');
     lockedAction.onPress(); assert.deepEqual(locked.calls.routes, []);
     const allowed = connectionHarness({ language, canViewTheirs: true });
-    const allowedAction = allowed.menu().find(action => action.text === label);
+    const allowedAction = allowed.avatarMenu().find(action => action.text === label);
     assert.equal(allowedAction.disabled, false); allowedAction.onPress();
     assert.deepEqual(allowed.calls.routes, [{ pathname: '/care-circle/member/[id]', params: { id: 'relative', name: allowed.connection.addressee_name } }]);
     allowed.connection.addressee_can_view_logs = false; allowed.render();
@@ -396,6 +564,80 @@ await test('a failed permission write remains retryable without resending succes
   assert.deepEqual(h.calls.writes.map(call => call.kind), ['metadata', 'permissions', 'permissions']);
   h.open(); assert.equal(h.save().props.disabled, true);
 });
+await test('the addressee edits their own inbox permission from its saved state', async () => {
+  const h = connectionHarness({ isRequester: false, sharesNotifications: true, peerSharesNotifications: true });
+  h.open();
+  assert.ok(!nodes(h.modal()).some(node => node.type === 'Dropdown'));
+  assert.equal(nodes(h.modal()).filter(node => node.type === 'Switch').length, 2);
+  assert.ok(h.notificationSwitch());
+  assert.equal(h.notificationSwitch().props.value, true);
+  h.notificationSwitch().props.onValueChange(false);
+  await h.save().props.onPress();
+  assert.deepEqual(h.calls.writes, [{ kind: 'notificationAccess', id: h.connection.id, share: false }]);
+  assert.equal(h.connection.requester_shares_notifications, true);
+  assert.equal(h.connection.addressee_shares_notifications, false);
+  h.open();
+  assert.equal(h.notificationSwitch().props.value, false);
+});
+await test('the addressee grants and revokes their own profile access without changing the requester grant', async () => {
+  const h = connectionHarness({ isRequester: false });
+  const t = translate('vi', 'careCircle');
+  for (const share of [true, false]) {
+    h.open();
+    const toggle = nodes(h.modal()).find(node => node.type === 'Switch' &&
+      node.props.accessibilityLabel === t('shareMyHealthProfile', { name: 'Requester Display' }));
+    assert.equal(toggle.props.value, !share);
+    assert.equal(h.save().props.disabled, true);
+    toggle.props.onValueChange(share);
+    await h.save().props.onPress();
+    assert.equal(h.modal(), undefined);
+    assert.equal(h.connection.permissions.can_view_logs, true);
+    assert.equal(h.connection.addressee_can_view_logs, share);
+    assert.deepEqual(h.calls.toasts.at(-1), [t(share ? 'healthAccessGranted' : 'healthAccessRevoked'), 'success']);
+  }
+  assert.deepEqual(h.calls.writes.map(call => call.kind), ['healthAccess', 'healthAccess']);
+});
+await test('an inbox permission failure leaves the edit open and retries only the unsaved change', async () => {
+  let writes = 0;
+  const h = connectionHarness({ update: kind => {
+    if (kind === 'notificationAccess' && ++writes === 1) throw new Error('offline');
+  } });
+  const t = translate('vi', 'careCircle');
+  h.open(); h.choose('relationship', 'me'); h.permission(1, false);
+  h.notificationSwitch().props.onValueChange(true);
+  await h.save().props.onPress();
+  assert.ok(h.modal()); assert.equal(h.save().props.disabled, false);
+  assert.ok(nodes(h.modal()).some(node => node.type === 'ModalToastHost'));
+  assert.deepEqual(h.calls.toasts, [[t('familyNotificationShareError'), 'error']]);
+  await h.save().props.onPress();
+  assert.equal(h.modal(), undefined);
+  assert.deepEqual(h.calls.writes.map(call => call.kind), ['metadata', 'permissions', 'notificationAccess', 'notificationAccess']);
+  assert.deepEqual(h.calls.toasts.at(-1), [t('familyNotificationsShared'), 'success']);
+});
+await test('switching accounts closes a pending edit and stops further writes or feedback', async () => {
+  let resolve;
+  const pause = new Promise(done => { resolve = done; });
+  const h = connectionHarness({ update: kind => kind === 'metadata' ? pause : undefined });
+  h.open(); h.choose('relationship', 'me'); h.notificationSwitch().props.onValueChange(true);
+  const save = h.save().props.onPress;
+  const pending = save();
+  assert.deepEqual(h.calls.writes.map(call => call.kind), ['metadata']);
+  h.switchAccount();
+  assert.equal(h.modal(), undefined);
+  resolve(); await pending; await save();
+  assert.deepEqual(h.calls.writes.map(call => call.kind), ['metadata']);
+  assert.deepEqual(h.calls.toasts, []);
+});
+await test('rotated API credentials cannot submit an edit drafted by a previous login', async () => {
+  const h = connectionHarness();
+  h.open();
+  h.notificationSwitch().props.onValueChange(true);
+  const save = h.save().props.onPress;
+  h.switchCredentials();
+  await save();
+  assert.deepEqual(h.calls.writes, []);
+  assert.deepEqual(h.calls.toasts, []);
+});
 
 for (const language of ['vi', 'en']) {
   await test(`${language}: reminder time confirms only changes and cannot reset an already automatic schedule`, () => {
@@ -408,6 +650,7 @@ for (const language of ['vi', 'en']) {
       'react-native-safe-area-context': {}, '../../src/components/ScaledText': { ScaledText: 'Text' },
       '../../src/components/state/MainScreenSkeletons': {}, '../../src/features/auth/auth.api': {},
       '../../src/features/profile/useReminderConfigPreferences': {},
+      '../../src/features/profile/ReminderAssistant': { ReminderAssistant: 'ReminderAssistant' },
       '../../src/stores/toast.store': {}, '../../src/features/notifications/notifications.api': {},
       '../../src/lib/notifications': {}, '../../src/hooks/useScaledTypography': { useScaledTypography: () => theme.typography },
       '../../src/styles': theme, '../../src/hooks/useThemeColors': {},

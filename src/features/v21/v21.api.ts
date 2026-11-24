@@ -52,7 +52,7 @@ export type Reward = {
 export type RewardCatalog = {
   items: Reward[];
   templates: GreetingTemplate[];
-  recipients: Patient[];
+  recipients: Array<Patient & { avatarUrl?: string | null }>;
   drawPeriodId?: string | null;
 };
 export type GreetingTemplate = {
@@ -82,6 +82,7 @@ export type CoinEntry = {
   reward_status?: string;
   catalog_code?: string;
 };
+export type CoinHistoryScope = "usage" | "earned";
 export type MedKind = "MEDICINE" | "SUPPLEMENT";
 export type MedPurposeCode =
   | "fever_reduction"
@@ -157,7 +158,6 @@ export type MedOverview = {
   self: boolean;
   flags: V21Flags;
   remindersEnabled?: boolean;
-  problemsOnly?: boolean;
 };
 export type ScanItem = {
   printed_name: string;
@@ -221,10 +221,14 @@ export const v21Api = {
     }),
   flags: () => apiClient<V21Flags>("/api/mobile/v21/config"),
   coins: () => apiClient<CoinToday>("/api/mobile/coins/today"),
-  history: (before?: string) =>
-    apiClient<{ items: CoinEntry[] }>(
-      `/api/mobile/coins/history?before=${encodeURIComponent(before || "")}`,
-    ),
+  history: (before?: string, limit?: number, scope?: CoinHistoryScope) => {
+    const query = new URLSearchParams({ before: before ?? "" });
+    if (limit !== undefined) query.set("limit", String(limit));
+    if (scope) query.set("scope", scope);
+    return apiClient<{ items: CoinEntry[]; nextBefore?: string | null }>(
+      `/api/mobile/coins/history?${query}`,
+    );
+  },
   rewards: () => apiClient<RewardCatalog>("/api/mobile/rewards"),
   openCard: (id: string) => apiClient<{ card: FamilyGreetingCard; received: boolean }>(
     `/api/mobile/rewards/cards/${encodeURIComponent(id)}/open`, { method: "POST", body: {} },
@@ -292,11 +296,6 @@ export const v21Api = {
     apiClient(
       "/api/mobile/med-schedules/" + encodeURIComponent(id) + "/consent",
       { method: "POST", body: { accept } },
-    ),
-  preferences: (patient: number, problems_only: boolean) =>
-    apiClient(
-      `/api/mobile/medication/family-preferences?patientId=${patient || ""}`,
-      { method: "PUT", body: { problems_only } },
     ),
   doses: (patient?: number) =>
     apiClient<{ items: MedDose[]; serverTime?: string }>(

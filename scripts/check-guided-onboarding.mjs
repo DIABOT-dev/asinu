@@ -7,6 +7,7 @@ import { progressHarness } from './helpers/checkin-progress-harness.mjs';
 const triageSelection = progressHarness().selection;
 const read = file => fs.readFileSync(file, 'utf8');
 function evaluateSource(source, imports = {}, globals = {}) {
+  globals = { useCallback: work => work, ...globals };
   const module = { exports: {} };
   const output = ts.transpileModule(source, { compilerOptions: {
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
@@ -447,7 +448,13 @@ await test('real symptom guides cover single, multiple, grouped, empty-group and
     if (other) assert.equal(other.props.withoutChoices, !expectedChoices, name);
     if (expectedChoices && !overrides.multiSelect) {
       nodes(choices[0]).find(node => node.type === 'Pressable').props.onPress();
-      assert.deepEqual(answers, ['first'], `${name}: guidance must preserve the actual answer action`);
+      assert.deepEqual(answers, [], `${name}: a guide selection is only a preview`);
+      nodes(tree).find(node => node.props?.testID === 'checkin-practice-next').props.onPress();
+      assert.deepEqual(answers, ['__practice_next__'], `${name}: only Next advances the example`);
+      const liveAnswers = [];
+      const live = TriageScreen({ ...defaults, ...overrides, practice: false, onAnswer: answer => liveAnswers.push(answer) });
+      nodes(live).find(node => node.type === 'Pressable' && node.props?.accessibilityRole === 'radio').props.onPress();
+      assert.deepEqual(liveAnswers, ['first'], `${name}: real check-in still submits the selected answer`);
     }
   }
 });
@@ -508,7 +515,7 @@ await test('real status, location and symptom-question screens register differen
   const file = ts.createSourceFile('checkin.tsx', read('app/checkin/index.tsx'),
     ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const expected = { StatusScreen: ['checkin.status'], LocationScreen: ['checkin.location', 'checkin.location_other', 'checkin.location_confirm'],
-    TriageScreen: ['checkin.choices', 'checkin.other', 'checkin.confirm'] };
+    TriageScreen: ['checkin.choices', 'checkin.multiple', 'checkin.single', 'checkin.other', 'checkin.confirm'] };
   for (const [name, ids] of Object.entries(expected)) {
     const owner = name === 'LocationScreen'
       ? ts.createSourceFile('location.tsx', read('src/features/checkin/CheckinLocationFlow.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX) : file;
@@ -516,8 +523,15 @@ await test('real status, location and symptom-question screens register differen
     assert.ok(component);
     const registered = new Set();
     const visit = node => {
-      if (ts.isJsxAttribute(node) && node.name.getText(owner) === 'step' && ts.isStringLiteral(node.initializer)) {
-        registered.add(node.initializer.text);
+      if (ts.isJsxAttribute(node) && node.name.getText(owner) === 'step') {
+        const collect = value => {
+          if (value && ts.isStringLiteral(value)) registered.add(value.text);
+          else if (value && ts.isJsxExpression(value)) collect(value.expression);
+          else if (value && ts.isConditionalExpression(value)) {
+            collect(value.whenTrue); collect(value.whenFalse);
+          }
+        };
+        collect(node.initializer);
       }
       ts.forEachChild(node, visit);
     };
@@ -631,7 +645,7 @@ await test('all fixed Vietnamese coach sentences are short, everyday, and non-cl
 await test('check-in guidance uses friendly, contextual copy without internal practice or storage warnings', () => {
   for (const language of ['vi', 'en']) {
     const { guidance } = JSON.parse(read(`src/i18n/locales/${language}/onboarding.json`));
-    const visible = [...Object.entries(guidance).filter(([key]) => key.startsWith('practice')).map(([, value]) => value),
+    const visible = [...Object.entries(guidance).filter(([key, value]) => key.startsWith('practice') && typeof value === 'string').map(([, value]) => value),
       ...Object.values(guidance.steps)];
     for (const text of visible) {
       assert.doesNotMatch(text, /thực hành|không (?:được )?lưu|\bpractice\b|not saved|câu giống với bạn|best describes you/i);
@@ -922,6 +936,10 @@ await test('practice Speak and Done use example text, never recording, permissio
   assert.deepEqual(texts, []); button.props.onPress(); await tick();
   button = h.render('VoiceAnswerButton', props); assert.equal(button.props.accessibilityLabel, 'guidance.speak');
   assert.deepEqual(texts, ['guidance.practiceVoiceExample']); assert.deepEqual(notices, ['guidance.practiceVoiceNotice']);
+  props.practiceExample = 'A sample answer matching this question';
+  button.props.onPress(); await tick();
+  button = h.render('VoiceAnswerButton', props); button.props.onPress(); await tick();
+  assert.deepEqual(texts, ['guidance.practiceVoiceExample', 'A sample answer matching this question']);
 });
 await test('guide replay is a neutral settings row with no read-aloud switch and preserves its loading behavior', async () => {
   for (const colors of [theme.lightColors, theme.darkColors]) {
@@ -1309,7 +1327,7 @@ await test('all bundled clips match their fixed translations, voice identity and
 });
 
 await test('the profile System section has no guide replay or read-aloud setting', () => {
-  const profileSource = read('app/(tabs)/profile/index.tsx');
+  const profileSource = read('src/features/profile/ProfileScreen.tsx');
   const source = ts.createSourceFile('profile.tsx', profileSource,
     ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const settings = [], sections = [];
@@ -1336,7 +1354,7 @@ await test('onboarding uses inline touch-through scrims, native text scaling and
   assert.match(source, /minHeight: 60/);
   assert.match(source, /useQueuedModalBusy/); assert.match(source, /!foreground \|\| keyboard \|\| backgroundCall/);
   assert.match(source, /onTouchEnd=.*acknowledge/);
-  for (const file of ['app/(tabs)/home/index.tsx', 'app/checkin/index.tsx', 'app/(tabs)/profile/index.tsx'])
+  for (const file of ['app/(tabs)/home/index.tsx', 'app/checkin/index.tsx', 'src/features/profile/ProfileScreen.tsx'])
     assert.doesNotMatch(read(file), /<CheckinGuideCarousel/);
   assert.match(source, /assets\/asinu_chat_sticker\.png/);
 });

@@ -22,18 +22,23 @@ export function V21Layout({
   title,
   children,
   onBack,
+  headerAction,
   refreshControl,
+  solidBackground = false,
 }: {
   title: string;
   children: ReactNode;
   onBack?: () => void;
+  headerAction?: ReactNode;
   refreshControl?: ScrollViewProps["refreshControl"];
+  solidBackground?: boolean;
 }) {
   const router = useRouter();
   const { colors } = useThemeColors();
   const { t } = useTranslation("v21");
+  const Surface = solidBackground ? View : Screen;
   return (
-    <Screen>
+    <Surface style={solidBackground ? { flex: 1, backgroundColor: colors.background } : undefined}>
       <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
         <View style={v21Styles.header}>
           <Pressable
@@ -44,10 +49,13 @@ export function V21Layout({
           >
             <Ionicons name="arrow-back" size={28} color={colors.textPrimary} />
           </Pressable>
-          <Text style={[v21Styles.title, { color: colors.textPrimary }]}>
+          <Text
+            accessibilityRole="header"
+            style={[v21Styles.title, { color: colors.textPrimary }]}
+          >
             {title}
           </Text>
-          <View style={v21Styles.back} />
+          <View style={v21Styles.back}>{headerAction}</View>
         </View>
         <ScrollView
           keyboardShouldPersistTaps="handled"
@@ -57,7 +65,7 @@ export function V21Layout({
           {children}
         </ScrollView>
       </SafeAreaView>
-    </Screen>
+    </Surface>
   );
 }
 export function Action({
