@@ -4,7 +4,6 @@ import { Image, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RippleRefreshScrollView } from '../../components/RippleRefresh';
 import { ScaledText as Text } from '../../components/ScaledText';
-import { Screen } from '../../components/Screen';
 import { HealthJournalCalendar } from '../../components/HealthJournalCalendar';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { getBottomTabBarHeight, spacing } from '../../styles';
@@ -19,11 +18,11 @@ export function HealthTreeOverview() {
 function HealthTreeOverviewContent() {
   const { t } = useTranslation('tree');
   const { refreshing, refreshKey, refresh } = useHealthTreeOverview({ includeHealthScore: false });
-  const { colors, isDark } = useThemeColors();
+  const { colors } = useThemeColors();
   const insets = useSafeAreaInsets();
 
   return (
-    <Screen style={{ backgroundColor: isDark ? colors.background : '#E7F2ED' }}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <RippleRefreshScrollView
         refreshing={refreshing}
         onRefresh={refresh}
@@ -49,11 +48,12 @@ function HealthTreeOverviewContent() {
           <HealthJournalCalendar refreshKey={refreshKey} showAttention={false} />
         </View>
       </RippleRefreshScrollView>
-    </Screen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
   content: { flexGrow: 1, alignItems: 'center', paddingHorizontal: spacing.lg, gap: 24 },
   section: { width: '100%', maxWidth: 680 },
   pageHeader: { width: '100%', maxWidth: 680, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 4 },

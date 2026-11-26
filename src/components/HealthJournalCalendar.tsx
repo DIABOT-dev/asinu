@@ -57,7 +57,6 @@ const DARK_STATUS_COLORS: Record<JournalStatus, { background: string; foreground
   specific_concern: { background: '#3D3058', foreground: '#E3CEFA', border: '#6E578E' },
 };
 
-const HEADER_INK = '#F2FFFB';
 const WEEKDAY_KEYS = ['dayMon', 'dayTue', 'dayWed', 'dayThu', 'dayFri', 'daySat', 'daySun'];
 const CALENDAR_SLOT_COUNT = WEEKDAY_KEYS.length * 6;
 const STATUS_ICONS = { fine: 'checkmark', tired: 'remove', very_tired: 'alert', specific_concern: 'ellipsis-horizontal' } as const;
@@ -272,9 +271,9 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
           <View style={styles.monthHeading}>
             <View style={styles.monthIcon}>
               {loading && report
-                ? <ActivityIndicator size="small" color={HEADER_INK}
+                ? <ActivityIndicator size="small" color={colors.textSecondary}
                   accessibilityLabel={t('journalUpdating')} />
-                : <Ionicons name="pulse-outline" size={23} color={HEADER_INK} accessible={false} />}
+                : <Ionicons name="pulse-outline" size={23} color={colors.textSecondary} accessible={false} />}
             </View>
             <Text allowFontScaling accessibilityRole="header" style={styles.monthTitle}>
               {t('journalMonthLabel', {
@@ -287,7 +286,7 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
             <Pressable onPress={() => setMonth((value) => shiftMonth(value, -1))}
               style={({ pressed }) => [styles.monthButton, pressed && styles.pressed]}
               accessibilityRole="button" accessibilityLabel={t('journalPreviousMonth')}>
-              <Ionicons name="chevron-back" size={22} color={HEADER_INK} />
+              <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
             </Pressable>
             <Pressable onPress={() => canMoveNext && setMonth((value) => shiftMonth(value, 1))}
               disabled={!canMoveNext}
@@ -295,7 +294,7 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
                 pressed && canMoveNext && styles.pressed]}
               accessibilityRole="button" accessibilityLabel={t('journalNextMonth')}
               accessibilityState={{ disabled: !canMoveNext }}>
-              <Ionicons name="chevron-forward" size={22} color={HEADER_INK} />
+              <Ionicons name="chevron-forward" size={22} color={colors.textPrimary} />
             </Pressable>
           </View>
         </View>
@@ -641,25 +640,23 @@ function createStyles(
   palette: ReturnType<typeof useThemeColors>['colors'],
   isDark: boolean,
 ) {
-  const calendarSurface = isDark ? palette.surface : '#FAFDFB';
+  const calendarSurface = palette.surface;
   const emptyDaySurface = isDark ? '#222D31' : '#EEF5F2';
   return StyleSheet.create({
     section: { gap: 20 },
     plain: { backgroundColor: 'transparent', borderWidth: 0, borderRadius: 0, paddingHorizontal: 0 },
     card: {
       backgroundColor: calendarSurface,
-      borderRadius: 24, borderWidth: 1, borderColor: isDark ? palette.border : '#CBDED5',
+      borderRadius: 24, borderWidth: 1, borderColor: palette.border,
       padding: 12,
     },
     monthHeader: {
-      flexDirection: 'row', alignItems: 'center', borderRadius: 16,
-      backgroundColor: isDark ? '#154540' : '#0D554D',
+      flexDirection: 'row', alignItems: 'center',
       paddingVertical: 8, paddingLeft: 10, paddingRight: 4, marginBottom: 12,
     },
     monthHeading: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 },
-    monthIcon: { width: 32, height: 34, borderRadius: 10, backgroundColor: 'rgba(229,255,247,0.16)',
-      alignItems: 'center', justifyContent: 'center' },
-    monthTitle: { color: HEADER_INK, fontSize: 18, fontWeight: '700', flex: 1 },
+    monthIcon: { width: 32, height: 34, alignItems: 'center', justifyContent: 'center' },
+    monthTitle: { color: palette.textPrimary, fontSize: 18, fontWeight: '700', flex: 1 },
     monthNavigation: { flexDirection: 'row', alignItems: 'center' },
     monthButton: { width: 44, height: 44, borderRadius: 14, alignItems: 'center',
       justifyContent: 'center', backgroundColor: 'transparent' },
