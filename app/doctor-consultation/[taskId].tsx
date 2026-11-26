@@ -2,6 +2,13 @@ import {
   DoctorIvrEntry,
   DoctorIvrInvitation,
 } from "../../src/features/doctor-ivr/DoctorIvrEntry";
+import { ConsultationCallScreen } from "../../src/features/doctor-consultation/ConsultationCallScreen";
+import {
+  consultationBrowserUrl,
+  parseConsultationRoom,
+  type ConsultationCall,
+  type ConsultationCallMode,
+} from "../../src/features/doctor-consultation/consultation-call";
 import { runNativePermission } from "../../src/lib/native-permissions";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -41,7 +48,7 @@ import { tokenStore } from "../../src/lib/tokenStore";
 import { showToast } from "../../src/stores/toast.store";
 import { radius, spacing } from "../../src/styles";
 
-const messageReactions = ["👍", "❤️", "😊", "😮", "😢", "🙏"] as const;
+const messageReactions = ["👍", "❤️", "😊", "😂", "😆", "😍", "😮", "😕", "😢", "😡", "🙏", "👏"] as const;
 type ReactionEmoji = (typeof messageReactions)[number];
 type MessageQuote = {
   id: string;
@@ -88,19 +95,6 @@ type InitialRequest = {
   answers: Array<{ step: string; question: string; answer: string }>;
   risk_label: string;
 };
-type CallMode = "voice" | "video";
-
-const browserRoomUrl = (href: string, mode?: CallMode) => {
-  const [base, hash] = href.split("#", 2);
-  const options = new URLSearchParams(hash);
-  options.set("config.disableDeepLinking", "true");
-  if (mode === "voice") {
-    options.set("config.startAudioOnly", "true");
-    options.set("config.startWithVideoMuted", "true");
-  }
-  return `${base}#${options.toString()}`;
-};
-
 const isSystemMessage = (message: TaskMessage) =>
   message.sender_type === "system" ||
   (message.sender_type === "doctor" &&
@@ -307,7 +301,8 @@ export default function DoctorConsultationThreadScreen() {
   const [statusClock, setStatusClock] = useState(() => Date.now());
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [busyModalVisible, setBusyModalVisible] = useState(false);
-  const [callingMode, setCallingMode] = useState<CallMode | null>(null);
+  const [callingMode, setCallingMode] = useState<ConsultationCallMode | null>(null);
+  const [consultationCall, setConsultationCall] = useState<ConsultationCall | null>(null);
   const callRequestRef = useRef<symbol | null>(null);
   const [actionMessage, setActionMessage] = useState<TaskMessage | null>(null);
   const busyModalShownRef = useRef(false);
@@ -460,6 +455,8 @@ export default function DoctorConsultationThreadScreen() {
     followLatest.current = true;
     messageOffsets.current.clear();
     setReplyToId(null);
+    setCallingMode(null);
+    setConsultationCall(null);
   }, [taskId, activeTenantId]);
 
   useEffect(() => {
@@ -590,6 +587,7 @@ export default function DoctorConsultationThreadScreen() {
     };
     const unsubscribeSession = tokenStore.subscribeSession(() => {
       resetConnection();
+      setConsultationCall(null);
       if (appState === "active" && tokenStore.getToken()) void connect();
     });
     const appStateSubscription = AppState.addEventListener("change", (nextState) => {
@@ -993,6 +991,9 @@ export default function DoctorConsultationThreadScreen() {
   const statusIsTerminal = Boolean(
     currentStatus && ["completed", ...terminalStatuses].includes(currentStatus)
   );
+  useEffect(() => {
+    if (statusIsTerminal) setConsultationCall(null);
+  }, [statusIsTerminal]);
 
   const assignedDoctor = taskStatus?.doctor;
   const showDoctorPresence = conversationOpen && (Boolean(assignedDoctor) || currentStatus === "waiting_user");
@@ -1124,17 +1125,45 @@ export default function DoctorConsultationThreadScreen() {
             accessibilityLabel={`${t("doctorConsultationReact")} ${emoji} ${count}`}
             accessibilityState={{ selected: reacted_by_me, disabled: !conversationOpen || messageActionBusy }}
             disabled={!conversationOpen || messageActionBusy}
+            hitSlop={4}
             onPress={() => changeReaction(message, emoji)}
             style={[styles.messageReactionChip, {
               backgroundColor: colors.surface,
               borderColor: reacted_by_me ? colors.primary : colors.border,
             }]}
           >
-            <Text style={[styles.quoteText, { color: colors.textPrimary }]}>
+            <Text style={[styles.messageReactionText, { color: colors.textPrimary }]}>
               {emoji}{count > 1 ? ` ${count}` : ""}
             </Text>
           </Pressable>
         ))}
+      </View>
+    );
+  };
+
+  const renderMessageBubble = (message: TaskMessage, content: ReactNode) => {
+    const fromPatient = message.sender_type === "patient";
+    return (
+      <View style={fromPatient ? styles.patientBubbleStack : styles.doctorBubbleStack}>
+        <Pressable
+          delayLongPress={350}
+          onLongPress={() => showMessageActions(message)}
+          style={[
+            styles.messageBubble,
+            fromPatient
+              ? {
+                  backgroundColor: isDark ? "rgba(224, 248, 244, 0.18)" : "#E0F7F4",
+                  borderColor: isDark ? colors.border : "#B2DFDB",
+                }
+              : {
+                  backgroundColor: isDark ? colors.surface : "#FFFFFF",
+                  borderColor: isDark ? colors.border : "#EAEAEA",
+                },
+          ]}
+        >
+          {content}
+        </Pressable>
+        {renderMessageReactions(message)}
       </View>
     );
   };
@@ -1156,8 +1185,8 @@ export default function DoctorConsultationThreadScreen() {
 
   const canCall = taskStatus?.call_available === true && !statusIsTerminal;
 
-  const startCall = async (mode: CallMode) => {
-    if (!taskId || !canCall || callRequestRef.current) return;
+  const startCall = async (mode: ConsultationCallMode, invitation?: string) => {
+    if (!taskId || statusIsTerminal || (!canCall && !invitation) || consultationCall || callRequestRef.current) return;
     const token = tokenStore.getToken();
     const request = Symbol();
     callRequestRef.current = request;
@@ -1176,11 +1205,25 @@ export default function DoctorConsultationThreadScreen() {
         return;
       }
       if (liveStatus.video_room?.provider === "jitsi") {
-        const roomUrl = new URL(liveStatus.video_room.join_url);
-        if (roomUrl.protocol !== "https:" || !roomUrl.hostname || roomUrl.username || roomUrl.password) {
-          throw new Error("Invalid consultation room");
+        const room = parseConsultationRoom(liveStatus.video_room.join_url);
+        if (!room) throw new Error("Invalid consultation room");
+        if (invitation) {
+          const invitedRoom = parseConsultationRoom(invitation);
+          if (!invitedRoom || invitedRoom.url.origin !== room.url.origin || invitedRoom.roomName !== room.roomName) {
+            showToast(t("doctorConsultationCallUnavailable"), "error");
+            return;
+          }
         }
-        await Linking.openURL(browserRoomUrl(roomUrl.href, mode));
+        const call = { ...room, mode };
+        if (Platform.OS === "web") await Linking.openURL(consultationBrowserUrl(call));
+        else {
+          composerInputRef.current?.blur();
+          setConsultationCall(call);
+        }
+        return;
+      }
+      if (invitation) {
+        showToast(t("doctorConsultationCallUnavailable"), "error");
         return;
       }
       await apiClient(messageEndpoint, {
@@ -1630,14 +1673,13 @@ export default function DoctorConsultationThreadScreen() {
               const content = removed ? "" : message.content ?? "";
               const attachment = parseAttachment(content);
               const voice = parseVoice(content);
-              const originalLink = !attachment && !voice && !removed
+              const messageLink = !attachment && !voice && !removed
                 ? content.match(/https:\/\/[^\s<>"']+/)?.[0] ?? null
                 : null;
-              const isCallInvitation = message.sender_type === "doctor" && originalLink !== null &&
-                /\/asinu-doctor-[\da-f]{24}\/?$/i.test(originalLink.split(/[?#]/, 1)[0]);
-              const messageLink = isCallInvitation ? browserRoomUrl(originalLink) : originalLink;
+              const isCallInvitation = message.sender_type === "doctor" && messageLink !== null &&
+                /\/asinu-doctor-[\da-f]{24}\/?$/i.test(messageLink.split(/[?#]/, 1)[0]);
               const messageText = isCallInvitation
-                ? content.replace(originalLink, "").trimEnd()
+                ? content.replace(messageLink, "").trimEnd()
                 : content;
               const isVoiceCallLink =
                 isCallInvitation &&
@@ -1662,19 +1704,7 @@ export default function DoctorConsultationThreadScreen() {
                   <View
                     style={[styles.bubbleWrapper, styles.patientWrapper]}
                   >
-                    <Pressable
-                      delayLongPress={350}
-                      onLongPress={() => showMessageActions(message)}
-                      style={[
-                        styles.patientBubble,
-                        {
-                          backgroundColor: isDark
-                            ? "rgba(224, 248, 244, 0.18)"
-                            : "#E0F7F4",
-                          borderColor: isDark ? colors.border : "#B2DFDB",
-                        },
-                      ]}
-                    >
+                    {renderMessageBubble(message, <>
                       {renderMessageQuote(message)}
                       {editingMessageId === message.id ? (
                         <View style={styles.editMessageBox}>
@@ -1896,8 +1926,7 @@ export default function DoctorConsultationThreadScreen() {
                         </>
                       )}
                       {renderEditedLabel(message)}
-                      {renderMessageReactions(message)}
-                    </Pressable>
+                    </>)}
                   </View>
                 );
               }
@@ -1908,17 +1937,7 @@ export default function DoctorConsultationThreadScreen() {
                   style={[styles.bubbleWrapper, styles.doctorWrapper]}
                 >
                   {renderDoctorAvatar(messageDoctor, true)}
-                  <Pressable
-                    delayLongPress={350}
-                    onLongPress={() => showMessageActions(message)}
-                    style={[
-                      styles.doctorBubble,
-                      {
-                        backgroundColor: isDark ? colors.surface : "#FFFFFF",
-                        borderColor: isDark ? colors.border : "#EAEAEA",
-                      },
-                    ]}
-                  >
+                  {renderMessageBubble(message, <>
                     <Text
                       style={[
                         styles.doctorHeaderName,
@@ -2039,7 +2058,13 @@ export default function DoctorConsultationThreadScreen() {
                     {messageLink ? (
                       <Pressable
                         accessibilityRole="link"
-                        onPress={() => void Linking.openURL(messageLink)}
+                        onPress={() => {
+                          if (isCallInvitation) {
+                            void startCall(isVoiceCallLink ? "voice" : "video", messageLink);
+                          } else {
+                            void Linking.openURL(messageLink);
+                          }
+                        }}
                         style={[
                           styles.videoLink,
                           {
@@ -2088,8 +2113,7 @@ export default function DoctorConsultationThreadScreen() {
                       </View>
                     ) : null}
                     {renderEditedLabel(message)}
-                    {renderMessageReactions(message)}
-                  </Pressable>
+                  </>)}
                 </View>
               );
             })}
@@ -2410,6 +2434,13 @@ export default function DoctorConsultationThreadScreen() {
               ]
         }
       />
+      {consultationCall && !statusIsTerminal ? (
+        <ConsultationCallScreen
+          call={consultationCall}
+          doctorName={assignedDoctor?.name}
+          onClose={() => setConsultationCall(null)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -2647,18 +2678,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
-  patientBubble: {
-    borderRadius: 16,
-    borderWidth: 1,
+  patientBubbleStack: {
     minWidth: 0,
     maxWidth: "85%",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
   },
-  doctorBubble: {
+  doctorBubbleStack: {
+    flex: 1,
+    minWidth: 0,
+  },
+  messageBubble: {
     borderRadius: 16,
     borderWidth: 1,
-    flex: 1,
     minWidth: 0,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -2851,33 +2881,44 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   messageReactionRow: {
+    alignSelf: "flex-end",
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 4,
-    marginTop: spacing.xs,
+    justifyContent: "flex-end",
+    marginEnd: 6,
+    marginStart: 6,
+    marginTop: -8,
+    zIndex: 1,
   },
   messageReactionChip: {
     alignItems: "center",
     borderRadius: radius.full,
     borderWidth: 1,
     justifyContent: "center",
-    minHeight: 28,
-    paddingHorizontal: 8,
+    minHeight: 24,
+    minWidth: 24,
+    paddingHorizontal: 5,
+  },
+  messageReactionText: {
+    fontSize: 14,
   },
   reactionChoices: {
+    alignSelf: "center",
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 6,
     justifyContent: "center",
     marginBottom: spacing.sm,
+    maxWidth: 294,
   },
   reactionChoice: {
     alignItems: "center",
     borderRadius: radius.full,
     borderWidth: 1,
-    height: 42,
+    height: 44,
     justifyContent: "center",
-    width: 42,
+    width: 44,
   },
   reactionEmoji: {
     fontSize: 20,

@@ -1,9 +1,9 @@
 {
   "ios": {
     "NSSpeechRecognitionUsageDescription": "Asinu turns your speech into text while you enter a health answer. Depending on your device, Apple or Google may process the audio.",
-    "NSMicrophoneUsageDescription": "Asinu uses the microphone only when you choose voice input, such as turning a spoken health reading into a health log or chat message. The app does not record in the background.",
+    "NSMicrophoneUsageDescription": "Asinu uses the microphone when you choose voice input or speak with a specialist during a consultation.",
     "NSLocationWhenInUseUsageDescription": "Asinu uses your location to send an emergency SOS alert.",
-    "NSCameraUsageDescription": "Asinu uses the camera only when you scan a QR code to connect with a family member.",
+    "NSCameraUsageDescription": "Asinu uses the camera when you scan a QR code to connect with a family member or turn on video during a consultation.",
     "NSMotionUsageDescription": "Asinu may use motion sensors to determine the camera orientation when you scan a QR code to connect with a family member. The app does not track physical activity.",
     "NSPhotoLibraryUsageDescription": "Asinu uses your selected photo to update your profile picture or scan a family connection QR code.",
     "Localizable.strings": {

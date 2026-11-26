@@ -26,6 +26,7 @@ function evaluate(file, imports = {}, globals = {}) {
   return module.exports;
 }
 const theme = evaluate("src/styles/theme.ts");
+const consultationCall = evaluate("src/features/doctor-consultation/consultation-call.ts");
 const nodes = (tree) =>
   !tree || typeof tree !== "object"
     ? []
@@ -172,6 +173,8 @@ function harness(language = "vi", initialStatus = null) {
       "../../src/lib/native-permissions": {
         runNativePermission: (run) => run(),
       },
+      "../../src/features/doctor-consultation/ConsultationCallScreen": { ConsultationCallScreen: "ConsultationCall" },
+      "../../src/features/doctor-consultation/consultation-call": consultationCall,
       "@expo/vector-icons": { Ionicons: "Icon" },
       "expo-image-picker": {},
       "expo-router": {
@@ -877,30 +880,45 @@ await test("header call actions use the current room or request a call from the 
 
   const join = "https://meet.fixture.invalid/asinu-room";
   h.status({ ...active, video_room: { provider: "jitsi", join_url: join } });
+  const draft = "Tôi có câu hỏi sau cuộc gọi";
+  h.composer(tree).props.onChangeText(draft);
+  tree = await h.settle();
   callButton(tree, h.t("doctorConsultationVideoCall")).props.onPress();
   tree = await h.settle();
+  let call = nodes(tree).find((node) => node.type === "ConsultationCall");
+  assert.equal(call.props.call.url.href, join);
+  assert.equal(call.props.call.mode, "video");
+  call.props.onClose();
+  tree = await h.settle();
+  assert.equal(h.composer(tree).props.value, draft);
   callButton(tree, h.t("doctorConsultationVoiceCall")).props.onPress();
   tree = await h.settle();
-  assert.deepEqual(h.openedUrls, [
-    join + "#config.disableDeepLinking=true",
-    join + "#config.disableDeepLinking=true&config.startAudioOnly=true&config.startWithVideoMuted=true",
-  ]);
+  call = nodes(tree).find((node) => node.type === "ConsultationCall");
+  assert.equal(call.props.call.url.href, join);
+  assert.equal(call.props.call.mode, "voice");
+  assert.deepEqual(h.openedUrls, []);
 
   h.status({ status: "completed", call_available: false });
-  callButton(tree, h.t("doctorConsultationVideoCall")).props.onPress();
-  tree = await h.settle();
+  tree = await h.lifecycle();
   assert.equal(callButton(tree, h.t("doctorConsultationVideoCall")).props.disabled, true);
-  assert.equal(h.openedUrls.length, 2);
+  assert.equal(h.openedUrls.length, 0);
+  assert.equal(nodes(tree).some((node) => node.type === "ConsultationCall"), false);
   assert.equal(h.calls.filter(({ url, input }) => url.endsWith("/messages") && input?.method === "POST").length, 1);
   h.cleanup();
 });
 
-await test("voice and video invitations label and open their respective join links", async () => {
-  const h = harness("vi", { status: "in_progress", doctor: assignedDoctor });
+await test("current invitations open an in-app call, stale invitations cannot reopen a room, and resource links still open externally", async () => {
   const videoUrl = "https://meet.fixture.invalid/asinu-doctor-0123456789abcdef01234567";
   const voiceUrl = `${videoUrl}#config.startAudioOnly=true&config.startWithVideoMuted=true`;
+  const staleUrl = "https://meet.fixture.invalid/asinu-doctor-1123456789abcdef01234567";
   const resourceUrl = "https://health.fixture.invalid/resource";
-  h.messages([voiceUrl, videoUrl, resourceUrl].map((content, index) => ({
+  const h = harness("vi", {
+    status: "in_progress",
+    doctor: assignedDoctor,
+    call_available: true,
+    video_room: { provider: "jitsi", join_url: videoUrl },
+  });
+  h.messages([voiceUrl, videoUrl, staleUrl, resourceUrl].map((content, index) => ({
     id: `call-invitation-${index}`,
     sender_type: "doctor",
     sender_ref: assignedDoctor.id,
@@ -908,25 +926,72 @@ await test("voice and video invitations label and open their respective join lin
     content,
   })));
 
-  const tree = await h.settle();
+  let tree = await h.settle();
   const joinLinks = nodes(tree).filter(
     (node) => node.props?.accessibilityRole === "link"
   );
   assert.deepEqual(joinLinks.map((link) => h.texts(link).at(-1)), [
     h.t("doctorConsultationJoinVoice"),
     h.t("doctorConsultationJoinVideo"),
+    h.t("doctorConsultationJoinVideo"),
     h.t("doctorConsultationOpenLink"),
   ]);
-  for (const link of joinLinks) link.props.onPress();
-  assert.equal(h.openedUrls.length, 3);
-  assert.equal(h.openedUrls[2], resourceUrl);
-  h.openedUrls.slice(0, 2).forEach((opened, index) => {
-    const [base, hash] = opened.split("#");
-    assert.equal(base, videoUrl);
-    const config = new URLSearchParams(hash);
-    assert.equal(config.get("config.disableDeepLinking"), "true");
-    assert.equal(config.get("config.startAudioOnly"), index === 0 ? "true" : null);
+  for (const [index, mode] of ["voice", "video"].entries()) {
+    joinLinks[index].props.onPress();
+    tree = await h.settle();
+    const call = nodes(tree).find((node) => node.type === "ConsultationCall");
+    assert.equal(call.props.call.mode, mode);
+    assert.equal(call.props.call.url.href, videoUrl);
+    assert.equal(call.props.doctorName, assignedDoctor.name);
+    call.props.onClose();
+    tree = await h.settle();
+    assert.equal(nodes(tree).some((node) => node.type === "ConsultationCall"), false);
+  }
+  joinLinks[2].props.onPress();
+  tree = await h.settle();
+  assert.equal(nodes(tree).some((node) => node.type === "ConsultationCall"), false);
+  assert.equal(h.toasts.at(-1).message, h.t("doctorConsultationCallUnavailable"));
+  joinLinks[3].props.onPress();
+  assert.deepEqual(h.openedUrls, [resourceUrl]);
+  h.cleanup();
+});
+
+await test("an older development client can open a consultation call in the browser without loading WebView", async () => {
+  const runtime = hooks();
+  const opened = [];
+  const h = harness("vi");
+  let closed = false;
+  const { ConsultationCallScreen } = evaluate("src/features/doctor-consultation/ConsultationCallScreen.tsx", {
+    "@expo/vector-icons": { Ionicons: "Icon" },
+    "react": { ...runtime, useMemo: (make) => make() },
+    "react-i18next": { useTranslation: () => ({ t: h.t, i18n: { language: "vi" } }) },
+    "react-native": {
+      Linking: { openURL: async (url) => opened.push(url) },
+      Modal: "Modal",
+      Pressable: "Button",
+      StyleSheet: { create: (styles) => styles },
+      TurboModuleRegistry: { get: () => null },
+      View: "View",
+    },
+    "react-native-safe-area-context": { useSafeAreaInsets: () => ({ top: 20, bottom: 20 }) },
+    "../../components/ScaledText": { ScaledText: "Text" },
+    "../../hooks/useThemeColors": { useThemeColors: () => ({ colors: theme.lightColors }) },
+    "../../stores/toast.store": { showToast: () => assert.fail("Opening the browser should succeed") },
+    "./consultation-call": consultationCall,
   });
+  const call = {
+    ...consultationCall.parseConsultationRoom("https://meet.fixture.invalid/asinu-room"),
+    mode: "voice",
+  };
+  const tree = runtime.render(() => ConsultationCallScreen({ call, onClose: () => { closed = true; } }));
+  assert.ok(h.texts(tree).includes(h.t("doctorConsultationCallUpdateRequired")));
+  const fallback = nodes(tree).find((node) => node.type === "Button" &&
+    h.texts(node).includes(h.t("doctorConsultationCallOpenBrowser")));
+  fallback.props.onPress();
+  await tick();
+  assert.deepEqual(opened, [consultationCall.consultationBrowserUrl(call)]);
+  assert.equal(closed, true);
+  runtime.unmount();
   h.cleanup();
 });
 
@@ -999,20 +1064,29 @@ await test("consultation reacts and replies to a specialist message and displays
       return nodes(tree).find((node) => node.type === "Actions" && node.props.visible);
     };
     let sheet = await openActions();
+    assert.equal(nodes(sheet.props.headerContent).filter((node) =>
+      node.props?.accessibilityLabel?.startsWith(h.t("doctorConsultationReact"))
+    ).length, 12);
     nodes(sheet.props.headerContent).find((node) =>
-      node.props?.accessibilityLabel === `${h.t("doctorConsultationReact")} 👍`
+      node.props?.accessibilityLabel === `${h.t("doctorConsultationReact")} 😆`
     ).props.onPress();
     tree = await h.settle();
     assert.ok(h.calls.some(({ input }) =>
-      input?.body?.action === "react" && input.body.message_id === incoming.id && input.body.reaction === "👍"
+      input?.body?.action === "react" && input.body.message_id === incoming.id && input.body.reaction === "😆"
     ));
 
-    h.messages([{ ...incoming, reactions: [{ emoji: "👍", count: 1, reacted_by_me: true }] }]);
+    h.messages([{ ...incoming, reactions: [{ emoji: "😆", count: 1, reacted_by_me: true }] }]);
     tree = await h.poll();
     const chip = nodes(tree).find((node) =>
-      node.props?.accessibilityLabel === `${h.t("doctorConsultationReact")} 👍 1`
+      node.props?.accessibilityLabel === `${h.t("doctorConsultationReact")} 😆 1`
     );
     assert.equal(chip?.props.accessibilityState?.selected, true);
+    const bubbleStack = nodes(tree).find((node) => Array.isArray(node.props?.children) &&
+      node.props.children[0]?.props?.onLongPress &&
+      nodes(node.props.children[1]).includes(chip)
+    );
+    assert.equal(bubbleStack?.props.children[1].props.style.alignSelf, "flex-end");
+    assert.ok(bubbleStack.props.children[1].props.style.marginTop < 0);
     chip.props.onPress();
     tree = await h.settle();
     assert.ok(h.calls.some(({ input }) => input?.body?.action === "react" && input.body.reaction === null));
