@@ -57,7 +57,7 @@
   "journalLatestStatus": "Latest status: {{status}}",
   "journalNoCheckin": "No check-ins this month",
   "journalLoadError": "Unable to load your health journal.",
-  "journalLoading": "Loading your check-in calendar…",
+  "journalLoading": "Loading health calendar…",
   "journalUpdating": "Updating your check-in calendar…",
   "journalRefreshError": "Unable to update the calendar. Your previously loaded entries are still shown.",
   "journalRetry": "Try again",

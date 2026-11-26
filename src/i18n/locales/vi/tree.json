@@ -57,7 +57,7 @@
   "journalLatestStatus": "Lần gần nhất: {{status}}",
   "journalNoCheckin": "Chưa có check-in trong tháng này",
   "journalLoadError": "Chưa thể tải nhật ký sức khỏe.",
-  "journalLoading": "Đang tải lịch check-in…",
+  "journalLoading": "Đang tải lịch sức khỏe…",
   "journalUpdating": "Đang cập nhật lịch check-in…",
   "journalRefreshError": "Chưa cập nhật được lịch. Các ghi nhận đã tải vẫn được giữ lại.",
   "journalRetry": "Thử lại",

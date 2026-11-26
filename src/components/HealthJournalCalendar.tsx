@@ -59,6 +59,7 @@ const DARK_STATUS_COLORS: Record<JournalStatus, { background: string; foreground
 
 const HEADER_INK = '#F2FFFB';
 const WEEKDAY_KEYS = ['dayMon', 'dayTue', 'dayWed', 'dayThu', 'dayFri', 'daySat', 'daySun'];
+const CALENDAR_SLOT_COUNT = WEEKDAY_KEYS.length * 6;
 const STATUS_ICONS = { fine: 'checkmark', tired: 'remove', very_tired: 'alert', specific_concern: 'ellipsis-horizontal' } as const;
 
 function startOfMonth(date: Date): Date {
@@ -136,6 +137,7 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
   const sameSource = loadState?.monthKey === monthKey && loadState.loader === loadReport;
   const report = sameSource ? loadState.report : null;
   const loading = !sameSource || loadState.loading;
+  const loadingMonth = loading && !report;
   const error = sameSource && loadState.error;
   const accessDenied = sameSource && loadState.accessDenied;
   const selectedSession = selectedEntry && report
@@ -194,9 +196,10 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
   );
   const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const leadingBlanks = (month.getDay() + 6) % 7;
-  const calendarSlots = Array.from({ length: leadingBlanks + daysInMonth }, (_, index) =>
-    index < leadingBlanks ? null : index - leadingBlanks + 1,
-  );
+  const calendarSlots = Array.from({ length: CALENDAR_SLOT_COUNT }, (_, index) => {
+    const day = index - leadingBlanks + 1;
+    return day >= 1 && day <= daysInMonth ? day : null;
+  });
   const today = new Date();
   const todayKey = toDateKey(today.getFullYear(), today.getMonth(), today.getDate());
   const locale = i18n.language.startsWith('vi') ? 'vi-VN' : 'en-US';
@@ -268,9 +271,9 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
         <View style={styles.monthHeader}>
           <View style={styles.monthHeading}>
             <View style={styles.monthIcon}>
-              {loading
+              {loading && report
                 ? <ActivityIndicator size="small" color={HEADER_INK}
-                  accessibilityLabel={t(report ? 'journalUpdating' : 'journalLoading')} />
+                  accessibilityLabel={t('journalUpdating')} />
                 : <Ionicons name="pulse-outline" size={23} color={HEADER_INK} accessible={false} />}
             </View>
             <Text allowFontScaling accessibilityRole="header" style={styles.monthTitle}>
@@ -317,72 +320,83 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
               ))}
             </View>
 
-            {/* Calendar Grid */}
-            <View style={styles.calendarGrid} accessibilityState={{ busy: loading }}>
-              {calendarSlots.map((day, index) => {
-                if (day === null) {
-                  return (
-                    <View key={`blank-${index}`} style={styles.daySlot}>
-                      <View style={styles.dayCellBlank} />
-                    </View>
-                  );
-                }
-                const dateKey = toDateKey(month.getFullYear(), month.getMonth(), day);
-                if (loading && !report) {
-                  return <View key={dateKey} style={styles.daySlot}>
-                    <View testID="journal-day-loading" style={[styles.dayCell, styles.loadingDay]} accessible={false} />
-                  </View>;
-                }
-                const session = sessionsByDate.get(dateKey);
-                const status = session ? normalizeStatus(session.status) : null;
-                const statusColors = status ? statusPalette[status] : null;
-                const isToday = dateKey === todayKey;
-                const isFuture = dateKey > todayKey && !session;
-                const isSelected = selectedSession?.date.slice(0, 10) === dateKey;
-                const dayLabel = status
-                  ? t('journalDayAccessibility', { day, status: statusLabel(status) })
-                  : t(isFuture ? 'journalFutureDayAccessibility' : 'journalMissingDayAccessibility', { day });
+            <View>
+              <View
+                testID="journal-calendar-grid"
+                style={styles.calendarGrid}
+                accessibilityState={{ busy: loading }}
+                accessibilityElementsHidden={loadingMonth}
+                importantForAccessibility={loadingMonth ? 'no-hide-descendants' : 'auto'}
+              >
+                {calendarSlots.map((day, index) => {
+                  if (day === null) {
+                    return (
+                      <View key={`blank-${index}`} style={styles.daySlot}>
+                        <View style={styles.dayCellBlank} />
+                      </View>
+                    );
+                  }
+                  const dateKey = toDateKey(month.getFullYear(), month.getMonth(), day);
+                  const session = sessionsByDate.get(dateKey);
+                  const status = session ? normalizeStatus(session.status) : null;
+                  const statusColors = status ? statusPalette[status] : null;
+                  const isToday = dateKey === todayKey;
+                  const isFuture = dateKey > todayKey && !session;
+                  const isSelected = selectedSession?.date.slice(0, 10) === dateKey;
+                  const dayLabel = loadingMonth ? undefined : status
+                    ? t('journalDayAccessibility', { day, status: statusLabel(status) })
+                    : t(isFuture ? 'journalFutureDayAccessibility' : 'journalMissingDayAccessibility', { day });
 
-                return (
-                  <View key={dateKey} style={styles.daySlot}>
-                    <Pressable
-                      onPress={() => session && setSelectedSession(session)}
-                      disabled={!session}
-                      testID={`journal-day-${dateKey}`}
-                      accessibilityState={{ selected: isSelected, disabled: !session }}
-                      accessibilityRole={session ? 'button' : undefined}
-                      accessibilityLabel={isToday ? `${t('todayLabel')}. ${dayLabel}` : dayLabel}
-                      style={({ pressed }) => [
-                        styles.dayCell,
-                        !statusColors && !isToday && !isFuture && styles.dayCellEmpty,
-                        statusColors && {
-                          backgroundColor: statusColors.background,
-                        },
-                        isToday && (statusColors ? styles.dayCellTodayChecked : styles.dayCellToday),
-                        isSelected && styles.dayCellSelected,
-                        pressed && session && styles.pressed,
-                      ]}
-                    >
-                      <Text allowFontScaling maxFontSizeMultiplier={1.2}
-                        style={[
-                          styles.dayText,
-                          statusColors && { color: statusColors.foreground },
-                          !statusColors && styles.dayTextEmpty,
-                          isToday && !statusColors && styles.dayTextToday,
+                  return (
+                    <View key={dateKey} style={styles.daySlot}>
+                      <Pressable
+                        onPress={() => session && setSelectedSession(session)}
+                        disabled={!session}
+                        testID={`journal-day-${dateKey}`}
+                        accessibilityState={{ selected: isSelected, disabled: !session }}
+                        accessibilityRole={session ? 'button' : undefined}
+                        accessibilityLabel={isToday && dayLabel ? `${t('todayLabel')}. ${dayLabel}` : dayLabel}
+                        style={({ pressed }) => [
+                          styles.dayCell,
+                          !statusColors && !isToday && !isFuture && styles.dayCellEmpty,
+                          statusColors && {
+                            backgroundColor: statusColors.background,
+                          },
+                          isToday && (statusColors ? styles.dayCellTodayChecked : styles.dayCellToday),
+                          isSelected && styles.dayCellSelected,
+                          pressed && session && styles.pressed,
                         ]}
                       >
-                        {day}
-                      </Text>
-                      <View style={[styles.dayMarker, statusColors && { backgroundColor: statusColors.foreground }]} accessible={false}>
-                        {status && statusColors ? <Ionicons name={STATUS_ICONS[status]} size={12}
-                          color={statusColors.background} accessible={false} /> : !isFuture ? (
-                          <View style={styles.missingDot} />
-                        ) : null}
-                      </View>
-                    </Pressable>
+                        <Text allowFontScaling maxFontSizeMultiplier={1.2}
+                          style={[
+                            styles.dayText,
+                            statusColors && { color: statusColors.foreground },
+                            !statusColors && styles.dayTextEmpty,
+                            isToday && !statusColors && styles.dayTextToday,
+                          ]}
+                        >
+                          {day}
+                        </Text>
+                        <View style={[styles.dayMarker, statusColors && { backgroundColor: statusColors.foreground }]} accessible={false}>
+                          {status && statusColors ? <Ionicons name={STATUS_ICONS[status]} size={12}
+                            color={statusColors.background} accessible={false} /> : !isFuture && !loadingMonth ? (
+                            <View style={styles.missingDot} />
+                          ) : null}
+                        </View>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </View>
+              {loadingMonth && (
+                <View style={[StyleSheet.absoluteFill, styles.calendarLoading]} pointerEvents="none">
+                  <View testID="journal-month-loading" style={styles.calendarLoadingIndicator}
+                    accessible accessibilityRole="progressbar" accessibilityLabel={t('journalLoading')}>
+                    <ActivityIndicator size="small" color={colors.primaryText} accessible={false} />
+                    <Text style={styles.calendarLoadingText}>{t('journalLoading')}</Text>
                   </View>
-                );
-              })}
+                </View>
+              )}
             </View>
 
             {/* Legend */}
@@ -422,7 +436,7 @@ export function HealthJournalCalendar({ refreshKey = 0, loadReport, subjectName,
             <View style={styles.summaryIcon} accessible={false}>
               <Ionicons name="clipboard-outline" size={20} color={colors.primaryText} accessible={false} />
             </View>
-            {loading && !report ? (
+            {loadingMonth ? (
               <View style={styles.loadingLines} accessible={false}>
                 <View style={styles.loadingLine} />
                 <View style={[styles.loadingLine, { width: '65%' }]} />
@@ -666,6 +680,11 @@ function createStyles(
     weekday: { width: '14.2857%', textAlign: 'center', fontSize: 12,
       fontWeight: '700', color: palette.primaryText },
     calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 6 },
+    calendarLoading: { alignItems: 'center', justifyContent: 'center' },
+    calendarLoadingIndicator: { flexDirection: 'row', alignItems: 'center', gap: 8,
+      maxWidth: '90%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
+      backgroundColor: calendarSurface, borderColor: palette.border, borderWidth: 1 },
+    calendarLoadingText: { flexShrink: 1, color: palette.textPrimary, fontSize: 14, fontWeight: '600' },
     daySlot: { width: '14.2857%', paddingHorizontal: 2 },
     dayCellBlank: { width: '100%', minHeight: 52 },
     dayCell: { width: '100%', minHeight: 52, borderRadius: 12,

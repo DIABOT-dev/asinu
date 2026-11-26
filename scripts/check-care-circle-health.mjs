@@ -145,13 +145,18 @@ function harness({ language = 'vi', loadReport, subjectName = 'Parent', multipli
   };
 }
 const text = nodes => nodes.filter(node => node.type === 'Text').map(node => node.props.children).join(' ');
+const calendarGrid = nodes => nodes.find(node => node.props?.testID === 'journal-calendar-grid');
+const monthLoader = nodes => nodes.find(node => node.props?.testID === 'journal-month-loading');
 const checkinDay = (nodes, h) => nodes.find(node => node.type === 'Pressable' && node.props.accessibilityLabel === h.t('journalDayAccessibility', { day: 2, status: h.t('journalStatusFine') }));
 for (const language of ['vi', 'en']) {
   await test(`${language}: initial loading reserves the calendar grid without calling days missing or showing empty summaries`, async () => {
     let finish;
     const h = harness({ language, loadReport: () => new Promise(resolve => { finish = resolve; }) });
     const first = h.render();
-    assert.equal(first.filter(node => node.props?.testID === 'journal-day-loading').length, 31);
+    assert.equal(calendarGrid(first).props.children.length, 42);
+    assert.equal(calendarGrid(first).props.accessibilityElementsHidden, true);
+    assert.equal(monthLoader(first).props.accessibilityLabel, h.t('journalLoading'));
+    assert.equal(text(flattenElements(first.find(node => node.props?.testID === 'journal-day-2026-10-31'))), '31');
     assert.equal(first.some(node => node.type === 'Pressable' && node.props.accessibilityLabel?.includes(h.t('journalStatusMissing'))), false);
     assert.equal(text(first).includes(h.t('journalNoCheckin')), false);
     assert.equal(text(first).includes(h.t('journalNoEntries')), false);
@@ -169,7 +174,7 @@ await test('background calendar refresh preserves the loaded days and the open d
   let nodes = h.render();
   assert.ok(checkinDay(nodes, h));
   assert.equal(nodes.find(node => node.type === 'Modal').props.visible, true);
-  assert.equal(nodes.filter(node => node.props?.testID === 'journal-day-loading').length, 0);
+  assert.equal(monthLoader(nodes), undefined);
   finish({ ...report, sessions: [{ ...report.sessions[0], summary: 'Fresh fixture detail' }] });
   await flush(); nodes = h.render();
   assert.ok(text(nodes).includes('Fresh fixture detail'));
@@ -210,7 +215,7 @@ await test('changing the calendar patient hides previous data before effects and
   h.props.loadReport = () => Promise.resolve({ ...report, checkinDays: 0, sessions: [], statusDistribution: {} });
   let nodes = h.render();
   assert.equal(checkinDay(nodes, h), undefined);
-  assert.equal(nodes.filter(node => node.props?.testID === 'journal-day-loading').length, 31);
+  assert.ok(monthLoader(nodes));
   h.effects(); await flush(); finish(report); await flush(); nodes = h.render();
   assert.equal(checkinDay(nodes, h), undefined);
   assert.ok(text(nodes).includes(h.t('journalNoEntries'))); h.unmount();
@@ -241,6 +246,33 @@ for (const language of ['vi', 'en']) {
     assert.deepEqual(calls, ['2026-10', '2026-09']); h.unmount();
   });
 }
+await test('switching from a five-week month to a six-week month keeps the grid stable while loading', async () => {
+  let finish;
+  const h = harness({ loadReport: month => month === '2026-08'
+    ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(report) });
+  h.render(); h.effects(); await flush();
+  const previous = nodes => nodes.find(node => node.props?.accessibilityLabel === h.t('journalPreviousMonth'));
+  previous(h.render()).props.onPress();
+  h.render(); h.effects(); await flush();
+  const september = h.render();
+  assert.equal(calendarGrid(september).props.children.length, 42);
+  assert.equal(monthLoader(september), undefined);
+  previous(september).props.onPress();
+  const loading = h.render();
+  assert.equal(calendarGrid(loading).props.children.length, 42);
+  assert.ok(monthLoader(loading));
+  const lastDay = loading.find(node => node.props?.testID === 'journal-day-2026-08-31');
+  assert.equal(text(flattenElements(lastDay)), '31');
+  assert.equal(lastDay.props.accessibilityLabel, undefined);
+  assert.equal(lastDay.props.disabled, true);
+  h.effects(); finish({ ...report, sessions: [{ ...report.sessions[0], date: '2026-08-31' }] });
+  await flush();
+  const august = h.render();
+  assert.equal(calendarGrid(august).props.children.length, 42);
+  assert.equal(monthLoader(august), undefined);
+  assert.equal(august.find(node => node.props?.testID === lastDay.props.testID).props.disabled, false);
+  h.unmount();
+});
 await test('revoked consent clears old data and shows a permission explanation', async () => {
   let denied = false;
   const h = harness({ loadReport: () => denied ? Promise.reject(new ApiError(403)) : Promise.resolve(report) });
