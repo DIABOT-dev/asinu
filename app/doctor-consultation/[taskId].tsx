@@ -63,6 +63,7 @@ type TaskMessage = {
   sender_type: "patient" | "doctor" | "system";
   sender_ref?: string | null;
   ivr_session_id?: string | null;
+  ivr_session_status?: string | null;
   message_type: "question" | "consultation" | "reply" | "follow_up" | "voice";
   content: string | null;
   created_at: string;
@@ -189,6 +190,27 @@ type TaskStatusResponse = NonNullable<
   NonNullable<ThreadResponse["data"]>["task_status"]
 >;
 
+type CallRequestResponse = {
+  request_id: string;
+  mode: ConsultationCallMode;
+  status: "ringing" | "accepted" | "declined" | "cancelled" | "expired" | "unavailable";
+  expires_at: string;
+  video_room?: { provider: "jitsi"; join_url: string } | null;
+};
+
+const requestConsultationCall = async (
+  taskId: string,
+  tenantId: string,
+  requestId: string,
+  action: { action: "request"; mode: ConsultationCallMode } | { action: "status" | "cancel" },
+) => {
+  const response = await apiClient<{ ok: boolean; data: CallRequestResponse }>(
+    `/api/doctor/tasks/${encodeURIComponent(taskId)}/call-requests`,
+    { method: "POST", body: { tenant_id: tenantId, request_id: requestId, ...action } },
+  );
+  return response.data;
+};
+
 const createClientMessageId = () => {
   const template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
   return template.replace(/[xy]/g, (character) => {
@@ -304,6 +326,8 @@ export default function DoctorConsultationThreadScreen() {
   const [busyModalVisible, setBusyModalVisible] = useState(false);
   const [callingMode, setCallingMode] = useState<ConsultationCallMode | null>(null);
   const [consultationCall, setConsultationCall] = useState<ConsultationCall | null>(null);
+  const [pendingCall, setPendingCall] = useState<CallRequestResponse | null>(null);
+  const [cancellingCall, setCancellingCall] = useState(false);
   const callRequestRef = useRef<symbol | null>(null);
   const [actionMessage, setActionMessage] = useState<TaskMessage | null>(null);
   const busyModalShownRef = useRef(false);
@@ -458,6 +482,8 @@ export default function DoctorConsultationThreadScreen() {
     setReplyToId(null);
     setCallingMode(null);
     setConsultationCall(null);
+    setPendingCall(null);
+    setCancellingCall(false);
   }, [taskId, activeTenantId]);
 
   useEffect(() => {
@@ -469,6 +495,7 @@ export default function DoctorConsultationThreadScreen() {
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let appState = AppState.currentState;
     setCallingMode(null);
+    setCancellingCall(false);
     const fallbackTimer = setInterval(() => {
       // A live chat socket does not mean the newly enqueued task is ready yet.
       if (
@@ -525,7 +552,10 @@ export default function DoctorConsultationThreadScreen() {
                 is_typing?: boolean;
               };
             };
-            if (envelope.type === "chat.message.changed") {
+            if (
+              envelope.type === "chat.message.changed" ||
+              envelope.type === "chat.ivr.invitation.changed"
+            ) {
               void loadMessageUpdates();
             } else if (envelope.type === "chat.task.status.changed") {
               void loadThread(false, true);
@@ -588,7 +618,11 @@ export default function DoctorConsultationThreadScreen() {
     };
     const unsubscribeSession = tokenStore.subscribeSession(() => {
       resetConnection();
+      callRequestRef.current = null;
+      setCallingMode(null);
+      setCancellingCall(false);
       setConsultationCall(null);
+      setPendingCall(null);
       if (appState === "active" && tokenStore.getToken()) void connect();
     });
     const appStateSubscription = AppState.addEventListener("change", (nextState) => {
@@ -993,7 +1027,10 @@ export default function DoctorConsultationThreadScreen() {
     currentStatus && ["completed", ...terminalStatuses].includes(currentStatus)
   );
   useEffect(() => {
-    if (statusIsTerminal) setConsultationCall(null);
+    if (statusIsTerminal) {
+      setConsultationCall(null);
+      setPendingCall(null);
+    }
   }, [statusIsTerminal]);
 
   const assignedDoctor = taskStatus?.doctor;
@@ -1186,66 +1223,132 @@ export default function DoctorConsultationThreadScreen() {
 
   const canCall = taskStatus?.call_available === true && !statusIsTerminal;
 
+  const openCall = async (
+    videoRoom: CallRequestResponse["video_room"],
+    mode: ConsultationCallMode,
+    invitation?: string,
+  ) => {
+    const room = videoRoom?.provider === "jitsi" && parseConsultationRoom(videoRoom.join_url);
+    if (!room) {
+      showToast(t("doctorConsultationCallUnavailable"), "error");
+      return;
+    }
+    if (invitation) {
+      const invitedRoom = parseConsultationRoom(invitation);
+      if (!invitedRoom || invitedRoom.url.origin !== room.url.origin || invitedRoom.roomName !== room.roomName) {
+        showToast(t("doctorConsultationCallUnavailable"), "error");
+        return;
+      }
+    }
+    const call = { ...room, mode };
+    if (Platform.OS === "web") await Linking.openURL(consultationBrowserUrl(call));
+    else {
+      composerInputRef.current?.blur();
+      setConsultationCall(call);
+    }
+  };
+
+  const showCallOutcome = (status: CallRequestResponse["status"]) => {
+    if (status === "declined") showToast(t("doctorConsultationCallDeclined"), "info");
+    else if (status === "expired") showToast(t("doctorConsultationCallMissed"), "info");
+    else if (status === "unavailable") showToast(t("doctorConsultationCallUnavailable"), "error");
+  };
+
+  useEffect(() => {
+    if (!taskId || !pendingCall || !focused || statusIsTerminal || cancellingCall) return;
+    const token = tokenStore.getToken();
+    const deadline = Date.parse(pendingCall.expires_at);
+    let disposed = false;
+    let polling = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let appState = AppState.currentState;
+    const current = () => !disposed && token === tokenStore.getToken() && appState === "active";
+    const poll = async () => {
+      if (!current() || polling) return;
+      polling = true;
+      let waiting = true;
+      try {
+        const result = await requestConsultationCall(taskId, activeTenantId, pendingCall.request_id, { action: "status" });
+        if (!current() || callRequestRef.current || result.status === "ringing") return;
+        waiting = false;
+        setPendingCall(null);
+        if (result.status === "accepted") await openCall(result.video_room, result.mode);
+        else showCallOutcome(result.status);
+      } catch (error) {
+        if (!current() || callRequestRef.current) return;
+        const unavailable = (error as { code?: string } | null)?.code === "CONSULTATION_CALL_UNAVAILABLE";
+        if (unavailable || !waiting || Date.now() > deadline + 5000) {
+          waiting = false;
+          setPendingCall(null);
+          showToast(t(unavailable ? "doctorConsultationCallUnavailable" : "doctorConsultationCallError"), "error");
+        }
+      } finally {
+        polling = false;
+        if (waiting && current()) timer = setTimeout(poll, 1500);
+      }
+    };
+    timer = setTimeout(poll, 1000);
+    const subscription = AppState.addEventListener("change", (state) => {
+      appState = state;
+      clearTimeout(timer);
+      if (state === "active") void poll();
+    });
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      subscription.remove();
+    };
+  }, [taskId, activeTenantId, pendingCall, focused, statusIsTerminal, cancellingCall]);
+
   const startCall = async (mode: ConsultationCallMode, invitation?: string) => {
-    if (!taskId || statusIsTerminal || (!canCall && !invitation) || consultationCall || callRequestRef.current) return;
+    if (!taskId || statusIsTerminal || (!canCall && !invitation) || consultationCall || pendingCall || callRequestRef.current) return;
     const token = tokenStore.getToken();
     const request = Symbol();
     callRequestRef.current = request;
     setCallingMode(mode);
     const current = () => callRequestRef.current === request && tokenStore.getToken() === token;
     try {
-      const messageEndpoint = `/api/doctor/tasks/${encodeURIComponent(taskId)}/messages`;
-      const response = await apiClient<ThreadResponse>(
-        `${messageEndpoint}?tenant_id=${encodeURIComponent(activeTenantId)}`
-      );
-      if (!current()) return;
-      const liveStatus = response.data?.task_status;
-      if (!liveStatus?.call_available) {
-        if (liveStatus) setTaskStatus(liveStatus);
-        showToast(t("doctorConsultationCallUnavailable"), "error");
-        return;
-      }
-      if (liveStatus.video_room?.provider === "jitsi") {
-        const room = parseConsultationRoom(liveStatus.video_room.join_url);
-        if (!room) throw new Error("Invalid consultation room");
-        if (invitation) {
-          const invitedRoom = parseConsultationRoom(invitation);
-          if (!invitedRoom || invitedRoom.url.origin !== room.url.origin || invitedRoom.roomName !== room.roomName) {
-            showToast(t("doctorConsultationCallUnavailable"), "error");
-            return;
-          }
-        }
-        const call = { ...room, mode };
-        if (Platform.OS === "web") await Linking.openURL(consultationBrowserUrl(call));
-        else {
-          composerInputRef.current?.blur();
-          setConsultationCall(call);
-        }
-        return;
-      }
       if (invitation) {
-        showToast(t("doctorConsultationCallUnavailable"), "error");
+        const response = await apiClient<ThreadResponse>(`${messagesEndpoint}?${tenantQuery}`);
+        if (!current()) return;
+        const liveStatus = response.data?.task_status;
+        if (liveStatus) setTaskStatus(liveStatus);
+        await openCall(liveStatus?.call_available ? liveStatus.video_room : null, mode, invitation);
         return;
       }
-      await apiClient(messageEndpoint, {
-        method: "POST",
-        body: {
-          tenant_id: activeTenantId,
-          content: t(mode === "voice" ? "doctorConsultationRequestVoiceCall" : "doctorConsultationRequestVideoCall"),
-          message_type: "reply",
-          client_message_id: createClientMessageId(),
-        },
-      });
+      const result = await requestConsultationCall(taskId, activeTenantId, createClientMessageId(), { action: "request", mode });
       if (!current()) return;
-      showToast(t(mode === "voice" ? "doctorConsultationVoiceCallRequested" : "doctorConsultationVideoCallRequested"), "success");
-      followLatest.current = true;
-      await loadThread(false, true);
-    } catch {
-      if (current()) showToast(t("doctorConsultationCallError"), "error");
+      if (result.status === "ringing") setPendingCall(result);
+      else if (result.status === "accepted") await openCall(result.video_room, result.mode);
+      else showCallOutcome(result.status);
+    } catch (error) {
+      if (!current()) return;
+      const unavailable = (error as { code?: string } | null)?.code === "CONSULTATION_CALL_UNAVAILABLE";
+      showToast(t(unavailable ? "doctorConsultationCallUnavailable" : "doctorConsultationCallError"), "error");
     } finally {
       if (callRequestRef.current === request) {
         callRequestRef.current = null;
         setCallingMode(null);
+      }
+    }
+  };
+
+  const cancelCall = async () => {
+    if (!taskId || !pendingCall || callRequestRef.current) return;
+    const request = Symbol();
+    const token = tokenStore.getToken();
+    callRequestRef.current = request;
+    setCancellingCall(true);
+    const current = () => callRequestRef.current === request && token === tokenStore.getToken();
+    try {
+      await requestConsultationCall(taskId, activeTenantId, pendingCall.request_id, { action: "cancel" });
+      if (current()) setPendingCall(null);
+    } catch {
+      if (current()) showToast(t("doctorConsultationCallCancelFailed"), "error");
+    } finally {
+      if (callRequestRef.current === request) {
+        callRequestRef.current = null;
+        setCancellingCall(false);
       }
     }
   };
@@ -1420,8 +1523,8 @@ export default function DoctorConsultationThreadScreen() {
               key={mode}
               accessibilityRole="button"
               accessibilityLabel={label}
-              accessibilityState={{ disabled: !canCall || callingMode !== null, busy: callingMode === mode }}
-              disabled={!canCall || callingMode !== null}
+              accessibilityState={{ disabled: !canCall || callingMode !== null || !!pendingCall, busy: callingMode === mode }}
+              disabled={!canCall || callingMode !== null || !!pendingCall}
               onPress={() => void startCall(mode)}
               style={({ pressed }) => [
                 styles.headerCallButton,
@@ -1435,6 +1538,24 @@ export default function DoctorConsultationThreadScreen() {
           ))}
         </View>
       </View>
+
+      {pendingCall && !statusIsTerminal ? (
+        <View style={[styles.pendingCall, { backgroundColor: colors.surfaceMuted }]}>
+          <ActivityIndicator size="small" color={colors.primaryText} />
+          <Text style={[styles.pendingCallLabel, { color: colors.textPrimary }]} accessibilityLiveRegion="polite">
+            {t(pendingCall.mode === "voice" ? "doctorConsultationRingingVoice" : "doctorConsultationRingingVideo")}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: cancellingCall, busy: cancellingCall }}
+            disabled={cancellingCall}
+            onPress={() => void cancelCall()}
+            style={styles.pendingCallCancel}
+          >
+            <Text style={{ color: colors.danger }}>{t("common:cancel")}</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {currentStatus === "completed" && (
         <Pressable
@@ -1668,7 +1789,12 @@ export default function DoctorConsultationThreadScreen() {
                 </Fragment>
               );
               if (message.ivr_session_id && !removed) {
-                return row(<DoctorIvrInvitation sessionId={message.ivr_session_id} />);
+                return row(
+                  <DoctorIvrInvitation
+                    sessionId={message.ivr_session_id}
+                    status={message.ivr_session_status}
+                  />
+                );
               }
               const fromPatient = message.sender_type === "patient";
               const content = removed ? "" : message.content ?? "";
@@ -2450,6 +2576,9 @@ export default function DoctorConsultationThreadScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  pendingCall: { alignItems: "center", flexDirection: "row", gap: 10, paddingHorizontal: 16 },
+  pendingCallLabel: { flex: 1 },
+  pendingCallCancel: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
   headerBar: {
     alignItems: "center",
     borderBottomWidth: StyleSheet.hairlineWidth,

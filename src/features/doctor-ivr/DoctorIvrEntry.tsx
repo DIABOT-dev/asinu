@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { Image, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -6,7 +6,9 @@ import { useTranslation } from "react-i18next";
 import { ScaledText as Text } from "../../components/ScaledText";
 import { useGuardedRouter } from "../../hooks/useGuardedRouter";
 import { useThemeColors } from "../../hooks/useThemeColors";
-import { ivrApi, type IvrSession } from "./ivr.api";
+import { hasDoctorIvrReply, ivrApi, type IvrSession } from "./ivr.api";
+import { ivrInvitationUnavailable } from "./ivr-state";
+import { showToast } from "../../stores/toast.store";
 import { radius, spacing } from "../../styles/theme";
 import { isExpertConsultationEnabled } from "../../lib/appEnv";
 export function DoctorIvrEntry({
@@ -32,6 +34,7 @@ export function DoctorIvrEntry({
             setSession(
               value.sessions.find(
                 (s) =>
+                  hasDoctorIvrReply(s) ||
                   !["draft", "cancelled", "unreachable", "expired", "closed"].includes(s.status)
               ) || null
             );
@@ -48,39 +51,81 @@ export function DoctorIvrEntry({
   if (
     !isExpertConsultationEnabled ||
     !session ||
-    (linkedSessionIds.includes(session.id) && !session.doctor_reply)
+    (linkedSessionIds.includes(session.id) && !hasDoctorIvrReply(session))
   )
     return null;
   return (
     <DoctorIvrInvitation
       sessionId={session.id}
-      hasReply={!!session.doctor_reply}
+      status={session.status}
+      hasReply={hasDoctorIvrReply(session)}
     />
   );
 }
 
 export function DoctorIvrInvitation({
   sessionId,
+  status,
   hasReply = false,
 }: {
   sessionId: string;
+  status?: string | null;
   hasReply?: boolean;
 }) {
   const { t } = useTranslation("home");
   const { colors } = useThemeColors();
   const router = useGuardedRouter();
+  const mounted = useRef(false);
+  const opening = useRef(false);
+  const [checked, setChecked] = useState<{
+    id: string;
+    reason: NonNullable<ReturnType<typeof ivrInvitationUnavailable>>;
+  } | null>(null);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   if (!isExpertConsultationEnabled) return null;
-  const title = t(hasReply ? "ivr.result" : "ivr.invitation");
+  const unavailable = hasReply
+    ? null
+    : (checked?.id === sessionId ? checked.reason : ivrInvitationUnavailable(status));
+  const title = unavailable
+    ? t(`ivr.invitationStatus.${unavailable}`)
+    : t(hasReply ? "ivr.result" : "ivr.invitation");
+  const open = async () => {
+    if (unavailable || opening.current) return;
+    opening.current = true;
+    try {
+      if (!hasReply) {
+        const session = await ivrApi.get(sessionId);
+        if (!mounted.current) return;
+        const expired = session.expires_at && Date.parse(session.expires_at) <= Date.now();
+        const reason = ivrInvitationUnavailable(session.status) || (expired ? "expired" : null);
+        if (reason) {
+          if (reason === "preparing") showToast(t("ivr.preparing"), "info");
+          else setChecked({ id: sessionId, reason });
+          return;
+        }
+      }
+      router.push({
+        pathname: "/doctor-interview/[sessionId]",
+        params: { sessionId, ...(hasReply ? {} : { start: "1" }) },
+      });
+    } catch {
+      if (mounted.current) showToast(t("ivr.error"), "error");
+    } finally {
+      opening.current = false;
+    }
+  };
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={title}
-      onPress={() =>
-        router.push({
-          pathname: "/doctor-interview/[sessionId]",
-          params: { sessionId, ...(hasReply ? {} : { start: "1" }) },
-        })
-      }
+      accessibilityState={{ disabled: !!unavailable }}
+      disabled={!!unavailable}
+      onPress={unavailable ? undefined : () => void open()}
       style={({ pressed }) => [
         styles.card,
         {
@@ -94,14 +139,21 @@ export function DoctorIvrInvitation({
         accessibilityIgnoresInvertColors
       />
       <View style={styles.content}>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>
+        <Text
+          style={[
+            styles.title,
+            { color: unavailable ? colors.textSecondary : colors.textPrimary },
+          ]}
+        >
           {title}
         </Text>
-        <Text style={[styles.hint, { color: colors.textSecondary }]}>
-          {t(hasReply ? "ivr.openResult" : "ivr.answerQuestions")}
-        </Text>
+        {!unavailable && (
+          <Text style={[styles.hint, { color: colors.textSecondary }]}>
+            {t(hasReply ? "ivr.openResult" : "ivr.answerQuestions")}
+          </Text>
+        )}
       </View>
-      <Ionicons name="chevron-forward" size={24} color={colors.primary} />
+      {!unavailable && <Ionicons name="chevron-forward" size={24} color={colors.primary} />}
     </Pressable>
   );
 }

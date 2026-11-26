@@ -33,6 +33,7 @@ export type IvrSession = {
   response_timeout_seconds?: number;
   channel?: "app" | "call" | "both";
   doctor_reply: string | null;
+  doctor_reply_video?: { url: string | null };
   content: { greeting: string; closing: string; questions: IvrQuestion[] };
   answers: Array<{
     question_id: string;
@@ -40,6 +41,8 @@ export type IvrSession = {
     stt_status: string;
   }>;
 };
+export const hasDoctorIvrReply = (session: IvrSession) =>
+  Boolean(session.doctor_reply || session.doctor_reply_video);
 async function request<T>(path: string, body?: unknown) {
   const token = tokenStore.getToken() || (await tokenStore.loadToken());
   if (!token) throw new Error("Authentication required");

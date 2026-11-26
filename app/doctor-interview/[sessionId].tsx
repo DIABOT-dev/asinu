@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   AppState,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -41,6 +42,7 @@ import { useThemeColors } from "../../src/hooks/useThemeColors";
 import { useAuthStore } from "../../src/features/auth/auth.store";
 import {
   answerAudioKey,
+  hasDoctorIvrReply,
   ivrApi,
   type IvrSession,
   type IvrOption,
@@ -57,7 +59,10 @@ import {
   CheckinCallAudio,
   type CallAudioState,
 } from "../../src/features/checkin-call/checkin-call.audio";
-import { canAcceptIvrSnapshot } from "../../src/features/doctor-ivr/ivr-state";
+import {
+  canAcceptIvrSnapshot,
+  splitReplyForSpeech,
+} from "../../src/features/doctor-ivr/ivr-state";
 import { Audio } from "../../src/lib/audio";
 import { ApiError, getApiErrorMessage } from "../../src/lib/apiClient";
 import { DoctorIvrQuestion } from "../../src/features/doctor-ivr/DoctorIvrQuestion";
@@ -304,6 +309,7 @@ function AuthenticatedDoctorInterview() {
       return pending;
     };
     loadAudio.current = loadPromptAudio;
+    let speechVersion = 0;
     const player = new CheckinCallAudio({
       load: (prompt) => {
         if (prompt.key === "reply") return Promise.reject(new Error("Device speech"));
@@ -331,17 +337,38 @@ function AuthenticatedDoctorInterview() {
         await sound.setRateAsync(speechRateRef.current);
         return sound;
       },
-      stopSpeech: () => Speech.stop(),
+      stopSpeech: () => {
+        speechVersion++;
+        return Speech.stop();
+      },
       allowDeviceSpeech: (prompt) => prompt.key === "reply",
-      speak: (prompt, callbacks) =>
-        Speech.speak(prompt.text, {
-          language: "vi-VN",
-          rate: speechRateRef.current,
-          onStart: callbacks.onStart,
-          onDone: callbacks.onDone,
-          onError: callbacks.onError,
-          onStopped: callbacks.onDone,
-        }),
+      speak: (prompt, callbacks) => {
+        const version = ++speechVersion;
+        const sections = splitReplyForSpeech(
+          prompt.text,
+          Math.min(Speech.maxSpeechInputLength, 900)
+        );
+        const speakSection = (index: number) => {
+          if (version !== speechVersion) return;
+          if (index === sections.length) {
+            callbacks.onDone();
+            return;
+          }
+          try {
+            Speech.speak(sections[index], {
+              language: "vi-VN",
+              rate: speechRateRef.current,
+              onStart: callbacks.onStart,
+              onDone: () => speakSection(index + 1),
+              onError: callbacks.onError,
+              onStopped: callbacks.onDone,
+            });
+          } catch {
+            callbacks.onError();
+          }
+        };
+        speakSection(0);
+      },
       onState: (value) => {
         if (focused.current) setAudioState(value);
         if (
@@ -1003,6 +1030,22 @@ export function DoctorInterviewView({
   const { t } = useTranslation("home"),
     insets = useSafeAreaInsets(),
     { colors, isDark } = useThemeColors();
+  const [openingVideo, setOpeningVideo] = useState(false);
+  const hasReply = !!session && hasDoctorIvrReply(session);
+  const openReplyVideo = async (sessionId: string) => {
+    setOpeningVideo(true);
+    setError(null);
+    try {
+      const current = await ivrApi.get(sessionId);
+      const url = current.doctor_reply_video?.url;
+      if (!url || !url.startsWith("https://")) throw new Error("Missing video URL");
+      await Linking.openURL(url);
+    } catch {
+      setError(t("ivr.replyVideoUnavailable"));
+    } finally {
+      setOpeningVideo(false);
+    }
+  };
   const q = session?.content.questions.find(
     (question) => question.id === session.current_question_id
   );
@@ -1441,27 +1484,29 @@ export function DoctorInterviewView({
             )}
             <Text style={[styles.question, styles.centerText, textColor]}>
               {t(
-                session.doctor_reply
+                hasReply
                   ? "ivr.result"
                   : ["completed", "reported"].includes(session.status)
                   ? "ivr.finished"
                   : "ivr.ended"
               )}
             </Text>
-            <Text
-              style={[
-                styles.body,
-                !session.doctor_reply && styles.centerText,
-                textColor,
-              ]}
-            >
-              {session.doctor_reply ||
-                t(
-                  ["completed", "reported"].includes(session.status)
-                    ? "ivr.waitDoctor"
-                    : "ivr.contactDoctor"
-                )}
-            </Text>
+            {!session.doctor_reply_video && (
+              <Text
+                style={[
+                  styles.body,
+                  !session.doctor_reply && styles.centerText,
+                  textColor,
+                ]}
+              >
+                {session.doctor_reply ||
+                  t(
+                    ["completed", "reported"].includes(session.status)
+                      ? "ivr.waitDoctor"
+                      : "ivr.contactDoctor"
+                  )}
+              </Text>
+            )}
             {!!session.safety_notice && (
               <Text style={[styles.body, { color: colors.danger }]}>
                 {session.safety_notice}
@@ -1477,6 +1522,13 @@ export function DoctorInterviewView({
                     language: "vi",
                   }),
                 true
+              )}
+            {session.doctor_reply_video &&
+              button(
+                t(openingVideo ? "ivr.openingReplyVideo" : "ivr.watchReplyVideo"),
+                () => void openReplyVideo(session.id),
+                true,
+                openingVideo
               )}
             {session.status === "replied" &&
               button(t("ivr.understood"), () => void act({ action: "ack" }))}

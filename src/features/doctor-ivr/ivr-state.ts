@@ -4,6 +4,14 @@ type Snapshot = {
   status: string;
   updated_at?: string;
 };
+
+export function ivrInvitationUnavailable(status?: string | null) {
+  if (!status || ["sent", "in_progress"].includes(status)) return null;
+  if (status === "draft") return "preparing";
+  if (status === "cancelled") return "cancelled";
+  if (status === "expired") return "expired";
+  return "ended";
+}
 const order: Record<string, number> = {
   draft: 0,
   sent: 1,
@@ -33,4 +41,23 @@ export function canAcceptIvrSnapshot(
     new Date(incoming.updated_at).getTime() >=
       new Date(current.updated_at).getTime()
   );
+}
+
+export function splitReplyForSpeech(text: string, maxLength: number) {
+  const sections: string[] = [];
+  const limit = Math.max(2, maxLength);
+  let remaining = text.trim();
+  while (remaining.length > limit) {
+    const candidate = remaining.slice(0, limit);
+    const whitespace = Math.max(
+      candidate.lastIndexOf(" "),
+      candidate.lastIndexOf("\n")
+    );
+    const safeLimit = /^[\uDC00-\uDFFF]$/.test(remaining[limit]) ? limit - 1 : limit;
+    const end = whitespace > 0 ? whitespace : safeLimit;
+    sections.push(remaining.slice(0, end));
+    remaining = remaining.slice(end).trimStart();
+  }
+  if (remaining) sections.push(remaining);
+  return sections;
 }

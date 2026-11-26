@@ -100,6 +100,7 @@ function harness(language = "vi", initialStatus = null) {
     fallbackStatus = null,
     failMessages = false,
     failList = false,
+    callStatus = "ringing",
     held,
     heldFull;
   let now = Date.now();
@@ -126,6 +127,19 @@ function harness(language = "vi", initialStatus = null) {
   };
   const apiClient = async (url, input) => {
     calls.push({ url, input });
+    if (url.endsWith("/call-requests")) {
+      const { action, mode, request_id } = input.body;
+      return {
+        ok: true,
+        data: {
+          request_id,
+          mode: mode ?? "voice",
+          status: action === "cancel" ? "cancelled" : (status?.video_room ? "accepted" : callStatus),
+          expires_at: new Date(now + 45_000).toISOString(),
+          video_room: status?.video_room ?? null,
+        },
+      };
+    }
     if (url.includes("/messages?")) {
       const response = {
         data: {
@@ -320,6 +334,9 @@ function harness(language = "vi", initialStatus = null) {
     status(value) {
       status = value;
     },
+    callStatus(value) {
+      callStatus = value;
+    },
     doctorPresence(value) {
       doctorPresence = value;
     },
@@ -365,9 +382,9 @@ function harness(language = "vi", initialStatus = null) {
       });
       return settle();
     },
-    chatChange: async (data) => {
+    chatChange: async (data, type = "chat.message.changed") => {
       sockets[0].onmessage({
-        data: JSON.stringify({ type: "chat.message.changed", data }),
+        data: JSON.stringify({ type, data }),
       });
       return settle();
     },
@@ -736,19 +753,26 @@ await test("the initial request renders the original description and screening q
   h.cleanup();
 });
 
-await test("approved question sets render an invitation to the matching session in the chat", async () => {
+await test("questionnaire invitations refresh their status in the patient thread", async () => {
   const h = harness("vi", { status: "in_progress" });
   const sessionId = "11111111-1111-4111-8111-111111111111";
-  h.messages([{
+  const invitation = {
     id: "question-invitation",
     sender_type: "system",
     content: "Bác sĩ đã gửi câu hỏi",
     created_at: "2026-11-19T01:00:00.000Z",
     ivr_session_id: sessionId,
-  }]);
-  const tree = await h.settle();
-  assert.equal(nodes(tree).find((node) => node.type === "IvrInvitation").props.sessionId, sessionId);
+    ivr_session_status: "sent",
+  };
+  h.messages([invitation]);
+  let tree = await h.settle();
+  const invitationProps = () => nodes(tree).find((node) => node.type === "IvrInvitation").props;
+  assert.equal(invitationProps().sessionId, sessionId);
+  assert.equal(invitationProps().status, "sent");
   assert.deepEqual(nodes(tree).find((node) => node.type === "IvrEntry").props.linkedSessionIds, [sessionId]);
+  h.messages([{ ...invitation, ivr_session_status: "cancelled" }]);
+  tree = await h.chatChange({ session_id: sessionId }, "chat.ivr.invitation.changed");
+  assert.equal(invitationProps().status, "cancelled");
   h.cleanup();
 });
 
@@ -867,36 +891,38 @@ await test("a new message appears while the consultation status request is still
   }
 });
 
-await test("header call actions use the current room or request a call from the assigned specialist", async () => {
+await test("header calls wait for an answer, open accepted rooms, and preserve the draft", async () => {
   const active = { status: "in_progress", call_available: true, doctor: assignedDoctor };
   const h = harness("vi", active);
   let tree = await h.settle();
   callButton(tree, h.t("doctorConsultationVoiceCall")).props.onPress();
   tree = await h.settle();
-  const posted = h.calls.filter(({ url, input }) => url.endsWith("/messages") && input?.method === "POST");
+  const posted = h.calls.filter(({ url }) => url.endsWith("/call-requests"));
   assert.equal(posted.length, 1);
   assert.equal(posted[0].input.body.tenant_id, "clinic-demo");
-  assert.equal(posted[0].input.body.content, h.t("doctorConsultationRequestVoiceCall"));
-  assert.equal(h.toasts.at(-1).message, h.t("doctorConsultationVoiceCallRequested"));
+  assert.equal(posted[0].input.body.action, "request");
+  assert.equal(posted[0].input.body.mode, "voice");
+  assert.ok(h.texts(tree).includes(h.t("doctorConsultationRingingVoice")));
+  assert.equal(callButton(tree, h.t("doctorConsultationVideoCall")).props.disabled, true);
+  assert.equal(nodes(tree).some((node) => node.type === "ConsultationCall"), false);
 
   const join = "https://meet.fixture.invalid/asinu-room";
   h.status({ ...active, video_room: { provider: "jitsi", join_url: join } });
   const draft = "Tôi có câu hỏi sau cuộc gọi";
   h.composer(tree).props.onChangeText(draft);
   tree = await h.settle();
-  callButton(tree, h.t("doctorConsultationVideoCall")).props.onPress();
-  tree = await h.settle();
+  tree = await h.advanceTime(1000);
   let call = nodes(tree).find((node) => node.type === "ConsultationCall");
   assert.equal(call.props.call.url.href, join);
-  assert.equal(call.props.call.mode, "video");
+  assert.equal(call.props.call.mode, "voice");
   call.props.onClose();
   tree = await h.settle();
   assert.equal(h.composer(tree).props.value, draft);
-  callButton(tree, h.t("doctorConsultationVoiceCall")).props.onPress();
+  callButton(tree, h.t("doctorConsultationVideoCall")).props.onPress();
   tree = await h.settle();
   call = nodes(tree).find((node) => node.type === "ConsultationCall");
   assert.equal(call.props.call.url.href, join);
-  assert.equal(call.props.call.mode, "voice");
+  assert.equal(call.props.call.mode, "video");
   assert.deepEqual(h.openedUrls, []);
 
   h.status({ status: "completed", call_available: false });
@@ -904,7 +930,30 @@ await test("header call actions use the current room or request a call from the 
   assert.equal(callButton(tree, h.t("doctorConsultationVideoCall")).props.disabled, true);
   assert.equal(h.openedUrls.length, 0);
   assert.equal(nodes(tree).some((node) => node.type === "ConsultationCall"), false);
-  assert.equal(h.calls.filter(({ url, input }) => url.endsWith("/messages") && input?.method === "POST").length, 1);
+  assert.equal(h.calls.filter(({ url, input }) => url.endsWith("/messages") && input?.method === "POST").length, 0);
+  h.cleanup();
+});
+
+await test("declined and cancelled calls return the patient to chat without opening a room", async () => {
+  const h = harness("vi", { status: "in_progress", call_available: true, doctor: assignedDoctor });
+  let tree = await h.settle();
+  callButton(tree, h.t("doctorConsultationVideoCall")).props.onPress();
+  tree = await h.settle();
+  assert.ok(h.texts(tree).includes(h.t("doctorConsultationRingingVideo")));
+  h.callStatus("declined");
+  tree = await h.advanceTime(1000);
+  assert.equal(h.toasts.at(-1).message, h.t("doctorConsultationCallDeclined"));
+  assert.equal(nodes(tree).some((node) => node.type === "ConsultationCall"), false);
+  assert.equal(callButton(tree, h.t("doctorConsultationVideoCall")).props.disabled, false);
+
+  h.callStatus("ringing");
+  callButton(tree, h.t("doctorConsultationVoiceCall")).props.onPress();
+  tree = await h.settle();
+  nodes(tree).find((node) => node.type === "Button" && h.texts(node).includes(h.t("common:cancel"))).props.onPress();
+  tree = await h.settle();
+  assert.equal(h.calls.at(-1).input.body.action, "cancel");
+  assert.equal(nodes(tree).some((node) => node.type === "ConsultationCall"), false);
+  assert.equal(callButton(tree, h.t("doctorConsultationVoiceCall")).props.disabled, false);
   h.cleanup();
 });
 

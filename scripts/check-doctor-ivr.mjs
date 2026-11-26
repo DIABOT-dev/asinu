@@ -116,7 +116,7 @@ let token = "token-a",
   resolveRequest;
 const calls = [];
 const fixtureRecording = Buffer.from("synthetic recording bytes");
-const { ivrApi: api, answerAudioKey } = evaluate("src/features/doctor-ivr/ivr.api.ts", {
+const { ivrApi: api, answerAudioKey, hasDoctorIvrReply } = evaluate("src/features/doctor-ivr/ivr.api.ts", {
   "expo-file-system": {
     File: class extends NodeFile {
       constructor(uri) {
@@ -140,6 +140,9 @@ const { ivrApi: api, answerAudioKey } = evaluate("src/features/doctor-ivr/ivr.ap
     },
   },
 });
+assert.equal(hasDoctorIvrReply({ doctor_reply: null }), false);
+assert.equal(hasDoctorIvrReply({ doctor_reply: "Fixture text" }), true);
+assert.equal(hasDoctorIvrReply({ doctor_reply: null, doctor_reply_video: { url: null } }), true);
 assert.equal((await api.get("session-a")).id, "session-a");
 assert.equal(calls[0].options.headers.Authorization, "Bearer token-a");
 await api.list("clinic / a", "task / a");
@@ -166,10 +169,21 @@ console.log(
   "PASS the API preserves authorization and rejects responses after the active account changes"
 );
 
-const { canAcceptIvrSnapshot } = evaluate(
+const { canAcceptIvrSnapshot, ivrInvitationUnavailable, splitReplyForSpeech } = evaluate(
   "src/features/doctor-ivr/ivr-state.ts",
   {}
 );
+assert.equal(ivrInvitationUnavailable("sent"), null);
+assert.equal(ivrInvitationUnavailable("in_progress"), null);
+assert.equal(ivrInvitationUnavailable("draft"), "preparing");
+assert.equal(ivrInvitationUnavailable("cancelled"), "cancelled");
+assert.equal(ivrInvitationUnavailable("expired"), "expired");
+assert.equal(ivrInvitationUnavailable("reported"), "ended");
+console.log("PASS the invitation can only start or resume a live questionnaire");
+const completeReply = "Một đoạn trong lời giải thích cho bệnh nhân. ".repeat(180).trim();
+const sections = splitReplyForSpeech(completeReply, 900);
+assert.ok(sections.every((section) => section.length <= 900));
+assert.equal(sections.join(" "), completeReply);
 const snapshot = { id: "session-a", status: "in_progress", revision: 3 };
 assert.equal(
   canAcceptIvrSnapshot(snapshot, { ...snapshot, revision: 2 }),
