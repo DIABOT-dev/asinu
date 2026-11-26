@@ -421,7 +421,7 @@
   "doctorConsultationStopVoice": "Stop recording",
   "doctorConsultationVoiceError": "Could not send the voice message. Please try again.",
   "doctorConsultationMicrophonePermission": "Please allow microphone access.",
-  "doctorConsultationDoctorTyping": "The specialist is typing…",
+  "doctorConsultationDoctorTyping": "The specialist is typing",
   "doctorConsultationSave": "Save",
   "doctorConsultationCancel": "Cancel",
   "doctorConsultationStatus_new": "Request received",

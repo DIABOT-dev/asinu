@@ -2,9 +2,11 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
   FadeInUp,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withDelay,
   withRepeat,
@@ -20,7 +22,9 @@ type Props = {
   avatar?: string;
 };
 
-const Dot = ({ delay }: { delay: number }) => {
+const dotDelays = [0, 140, 280];
+
+const Dot = ({ delay, color }: { delay: number; color: string }) => {
   const offset = useSharedValue(0);
   const opacity = useSharedValue(0.35);
 
@@ -47,6 +51,10 @@ const Dot = ({ delay }: { delay: number }) => {
         -1,
       ),
     );
+    return () => {
+      cancelAnimation(offset);
+      cancelAnimation(opacity);
+    };
   }, [delay, offset, opacity]);
 
   const animStyle = useAnimatedStyle(() => ({
@@ -54,7 +62,19 @@ const Dot = ({ delay }: { delay: number }) => {
     opacity: opacity.value,
   }));
 
-  return <Animated.View style={[styles.dot, animStyle]} />;
+  return <Animated.View style={[styles.dot, { backgroundColor: color }, animStyle]} />;
+};
+
+export const TypingDots = ({ color = colors.primary }: { color?: string }) => {
+  const reducedMotion = useReducedMotion();
+  return (
+    <View style={styles.dotsRow} accessible={false}>
+      {dotDelays.map((delay) => reducedMotion
+        ? <View key={delay} style={[styles.dot, { backgroundColor: color }]} />
+        : <Dot key={delay} delay={delay} color={color} />
+      )}
+    </View>
+  );
 };
 
 export const TypingIndicator = ({ avatar }: Props) => {
@@ -96,11 +116,7 @@ export const TypingIndicator = ({ avatar }: Props) => {
         >
           {t('typing')}
         </Text>
-        <View style={styles.dotsRow}>
-          <Dot delay={0} />
-          <Dot delay={140} />
-          <Dot delay={280} />
-        </View>
+        <TypingDots />
       </Animated.View>
     </Animated.View>
   );
@@ -150,6 +166,5 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.primary,
   },
 });

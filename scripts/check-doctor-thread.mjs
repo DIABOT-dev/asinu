@@ -210,6 +210,7 @@ function harness(language = "vi", initialStatus = null) {
       },
       "../../src/components/ScaledText": { ScaledText: "Text" },
       "../../src/components/ScaledTextInput": { ScaledTextInput: "Input" },
+      "../../src/components/TypingIndicator": { TypingDots: "TypingDots" },
       "../../src/components/AppAlertModal": { AppAlertModal: "Alert" },
       "../../src/components/AppActionSheetModal": {
         AppActionSheetModal: "Actions",
@@ -954,6 +955,32 @@ await test("current invitations open an in-app call, stale invitations cannot re
   joinLinks[3].props.onPress();
   assert.deepEqual(h.openedUrls, [resourceUrl]);
   h.cleanup();
+});
+
+await test("specialist typing shows the assigned avatar before the label and stops on the specialist stop signal", async () => {
+  const doctor = { ...assignedDoctor, avatar_url: "https://fixture.invalid/doctor-avatar.png" };
+  const h = harness("vi", { status: "in_progress", doctor });
+  const title = h.t("doctorConsultationDoctorTyping");
+  const indicator = (tree) => nodes(tree).find((node) => node.props?.accessibilityLabel === title);
+  const typingEvent = (actor_type, is_typing) => {
+    h.sockets[0].onmessage({ data: JSON.stringify({
+      type: "chat.typing.changed",
+      data: { actor_type, is_typing },
+    }) });
+    return h.settle();
+  };
+  try {
+    await h.settle();
+    assert.equal(indicator(await h.socketOpen()), undefined);
+    const [avatar, label, dots] = indicator(await typingEvent("doctor", true)).props.children;
+    assert.equal(nodes(avatar).find((node) => node.type === "Image").props.source.uri, doctor.avatar_url);
+    assert.equal(label.props.children, title);
+    assert.equal(dots.type, "TypingDots");
+    assert.ok(indicator(await typingEvent("patient", true)));
+    assert.equal(indicator(await typingEvent("doctor", false)), undefined);
+  } finally {
+    h.cleanup();
+  }
 });
 
 await test("an older development client can open a consultation call in the browser without loading WebView", async () => {

@@ -421,7 +421,7 @@
   "doctorConsultationStopVoice": "Dừng ghi âm",
   "doctorConsultationVoiceError": "Không thể gửi tin nhắn thoại. Vui lòng thử lại.",
   "doctorConsultationMicrophonePermission": "Vui lòng cấp quyền sử dụng micro.",
-  "doctorConsultationDoctorTyping": "Chuyên gia đang nhập…",
+  "doctorConsultationDoctorTyping": "Chuyên gia đang nhập",
   "doctorConsultationSave": "Lưu",
   "doctorConsultationCancel": "Hủy",
   "doctorConsultationStatus_new": "Đã tiếp nhận yêu cầu",

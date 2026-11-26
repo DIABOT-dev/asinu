@@ -34,6 +34,7 @@ import Svg, { Path, Circle } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScaledText as Text } from "../../src/components/ScaledText";
 import { ScaledTextInput as TextInput } from "../../src/components/ScaledTextInput";
+import { TypingDots } from "../../src/components/TypingIndicator";
 import { AppAlertModal } from "../../src/components/AppAlertModal";
 import {
   AppActionSheetModal,
@@ -528,11 +529,11 @@ export default function DoctorConsultationThreadScreen() {
               void loadMessageUpdates();
             } else if (envelope.type === "chat.task.status.changed") {
               void loadThread(false, true);
-            } else if (envelope.type === "chat.typing.changed") {
-              setDoctorTyping(
-                envelope.data?.actor_type === "doctor" &&
-                  envelope.data?.is_typing === true
-              );
+            } else if (
+              envelope.type === "chat.typing.changed" &&
+              envelope.data?.actor_type === "doctor"
+            ) {
+              setDoctorTyping(envelope.data.is_typing === true);
             } else if (envelope.type === "chat.doctor.presence.changed") {
               const pulse = envelope.data;
               const doctorId = taskStatusRef.current?.doctor?.id;
@@ -2117,18 +2118,20 @@ export default function DoctorConsultationThreadScreen() {
                 </View>
               );
             })}
-            {doctorTyping ? (
-              <View style={styles.typingIndicator}>
-                <View style={styles.typingDots}>
-                  <View style={styles.typingDot} />
-                  <View style={styles.typingDot} />
-                  <View style={styles.typingDot} />
-                </View>
+            {focused && doctorTyping ? (
+              <View
+                style={styles.typingIndicator}
+                accessible
+                accessibilityRole="text"
+                accessibilityLabel={t("doctorConsultationDoctorTyping")}
+              >
+                {renderDoctorAvatar(assignedDoctor, true)}
                 <Text
                   style={[styles.typingText, { color: colors.textSecondary }]}
                 >
                   {t("doctorConsultationDoctorTyping")}
                 </Text>
+                <TypingDots color={colors.primaryText} />
               </View>
             ) : null}
 
@@ -2826,25 +2829,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     marginBottom: spacing.sm,
-    marginLeft: 42,
-  },
-  typingDots: {
-    alignItems: "center",
-    backgroundColor: "#E8F5F3",
-    borderRadius: 14,
-    flexDirection: "row",
-    gap: 3,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  typingDot: {
-    backgroundColor: "#00A88F",
-    borderRadius: 3,
-    height: 5,
-    width: 5,
   },
   typingText: {
-    fontSize: 11,
+    flexShrink: 1,
+    fontSize: 12,
     fontWeight: "600",
   },
   recordingButton: {
