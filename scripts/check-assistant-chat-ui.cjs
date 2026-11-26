@@ -620,7 +620,7 @@ test("a failed early-signal read retries the read instead of generating an asses
 });
 test("Home hides Asinu by default, keeps both connections, and supports re-enabling its card", () => {
   const routes = [];
-  const featureFlags = evaluate("src/lib/appEnv.ts");
+  const featureFlags = evaluate("src/lib/appEnv.ts", {}, { process: { env: {} } });
   const { HomeConnections } = evaluate("src/components/HomeConnections.tsx", {
     "react-native": {
       Image: "Image",
@@ -661,7 +661,12 @@ test("Home hides Asinu by default, keeps both connections, and supports re-enabl
     button.props.onPress();
   }
   assert.deepEqual(routes, ["/care-circle", "/doctor-consultation"]);
-  featureFlags.isAsinuAssistantEnabled = true;
+  Object.assign(
+    featureFlags,
+    evaluate("src/lib/appEnv.ts", {}, {
+      process: { env: { EXPO_PUBLIC_ASINU_ASSISTANT_ENABLED: "true" } },
+    })
+  );
   assert.equal(
     nodes(HomeConnections()).find((node) => node.type === "AssistantEntry")?.props.variant,
     "card"

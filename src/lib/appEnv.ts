@@ -12,7 +12,8 @@ export const isDoctorFeaturesEnabled: boolean =
   typeof __DEV__ !== "undefined" && __DEV__ && isDevBuild;
 // Expert consultations and their in-app questionnaires are available in every build.
 export const isExpertConsultationEnabled: boolean = true;
-export const isAsinuAssistantEnabled: boolean = false;
+export const isAsinuAssistantEnabled: boolean =
+  process.env.EXPO_PUBLIC_ASINU_ASSISTANT_ENABLED === "true";
 // Temporarily hide the UI catalogue in every build, including development.
 export const isCheckinUiGalleryEnabled: boolean = false;
 // Hide test-only gift reopening in every build, even with an old local opt-in.
