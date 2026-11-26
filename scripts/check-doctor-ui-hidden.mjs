@@ -703,6 +703,10 @@ await test("an IVR invitation cannot appear from cached state or start polling w
       "../../components/ScaledText": {},
       "../../hooks/useGuardedRouter": { useGuardedRouter: () => ({}) },
       "../../hooks/useThemeColors": { useThemeColors: () => ({ colors: {} }) },
+      "./ivr-state": evaluate(read("src/features/doctor-ivr/ivr-state.ts"), {}),
+      "../../stores/toast.store": {
+        showToast: () => assert.fail("A hidden invitation must not show a toast"),
+      },
       "./ivr.api": {
         ivrApi: {
           enabled: () => {
