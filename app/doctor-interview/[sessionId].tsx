@@ -158,7 +158,11 @@ function AuthenticatedDoctorInterview() {
   const files = useRef(new Set<string>()),
     closingPlayed = useRef(false);
   state.current = session;
-  const promptWaiter = useRef<{ key: string; finish: () => void } | null>(null);
+  const promptWaiter = useRef<{
+    key: string;
+    finish: () => void;
+    onPlaying: () => void;
+  } | null>(null);
   const cue = useRef<
     Awaited<ReturnType<typeof Audio.Sound.createAsync>>["sound"] | null
   >(null);
@@ -168,14 +172,20 @@ function AuthenticatedDoctorInterview() {
         promptWaiter.current?.finish();
         const finish = () => {
           clearTimeout(timer);
-          if (promptWaiter.current?.key === key) promptWaiter.current = null;
+          if (promptWaiter.current?.finish === finish) promptWaiter.current = null;
           resolve();
         };
         const timer = setTimeout(() => {
           void audio.current?.stop();
           finish();
         }, limit);
-        promptWaiter.current = { key, finish };
+        promptWaiter.current = {
+          key,
+          finish,
+          onPlaying: () => {
+            if (key.startsWith("selected:")) clearTimeout(timer);
+          },
+        };
         if (!audio.current) {
           finish();
           return;
@@ -371,11 +381,12 @@ function AuthenticatedDoctorInterview() {
       },
       onState: (value) => {
         if (focused.current) setAudioState(value);
-        if (
-          value.prompt?.key === promptWaiter.current?.key &&
-          ["finished", "error", "idle"].includes(value.phase)
-        )
-          promptWaiter.current?.finish();
+        const waiter = promptWaiter.current;
+        if (waiter && value.prompt?.key === waiter.key) {
+          if (value.phase === "playing") waiter.onPlaying();
+          else if (["finished", "error", "idle"].includes(value.phase))
+            waiter.finish();
+        }
       },
     });
     audio.current = player;
@@ -449,8 +460,8 @@ function AuthenticatedDoctorInterview() {
     setError(null);
     const epoch = screenEpoch.current;
     try {
-      // Save immediately, including red flags. Hold only the visual transition
-      // until the short readback ends; use the same serialized audio owner.
+      // Save immediately and keep the current question visible through readback.
+      // The deadline bounds startup. Once a selected answer plays, wait for its end.
       void audio.current?.stop();
       const value = await ivrApi.act(id, input);
       if (focused.current && epoch === screenEpoch.current) {

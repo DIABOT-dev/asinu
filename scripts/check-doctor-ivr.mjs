@@ -438,7 +438,9 @@ for (const outcome of ["done", "error", "unavailableAudio", "timeout", "cancel",
       assert.equal(uri, "file:///vieneu-confirmation.wav");
       return {
         setOnPlaybackStatusUpdate: (listener) => { playback = listener; },
-        play: () => playback({ playing: true }),
+        play: () => {
+          if (outcome !== "timeout") playback({ playing: true });
+        },
         pauseAsync: async () => {},
         unloadAsync: async () => {},
       };
@@ -458,7 +460,10 @@ for (const outcome of ["done", "error", "unavailableAudio", "timeout", "cancel",
     assert.equal(states.at(-1).phase, "error");
   } else if (outcome !== "unavailable") {
     assert.equal(settled, false, "Starting speech cannot advance the question");
-    assert.equal(states.at(-1).phase, "playing");
+    if (outcome !== "timeout") {
+      assert.equal(states.at(-1).phase, "playing");
+      assert.equal(timers.size, 0, "Active readback cannot be cut off by the startup timeout");
+    }
     if (outcome === "done") playback({ didJustFinish: true });
     if (outcome === "error") playback({ error: "Cannot decode audio" });
     if (outcome === "cancel") await player.stop();

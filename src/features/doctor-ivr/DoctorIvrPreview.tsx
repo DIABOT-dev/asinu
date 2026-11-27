@@ -259,7 +259,11 @@ function PreviewSession({
   currentState.current = state;
   const selecting = useRef(false),
     epoch = useRef(0);
-  const promptWaiter = useRef<{ key: string; finish: () => void } | null>(null);
+  const promptWaiter = useRef<{
+    key: string;
+    finish: () => void;
+    onPlaying: () => void;
+  } | null>(null);
   const audio = useRef<CheckinCallAudio | null>(null);
   const active = useRef(false);
   const scroll = useRef<ScrollView | null>(null);
@@ -294,9 +298,12 @@ function PreviewSession({
       }),
       onState: (audioState) => {
         if (active.current) setState((s) => ({ ...s, audioState }));
-        if (audioState.prompt?.key === promptWaiter.current?.key &&
-            ["finished", "error", "idle"].includes(audioState.phase))
-          promptWaiter.current?.finish();
+        const waiter = promptWaiter.current;
+        if (waiter && audioState.prompt?.key === waiter.key) {
+          if (audioState.phase === "playing") waiter.onPlaying();
+          else if (["finished", "error", "idle"].includes(audioState.phase))
+            waiter.finish();
+        }
       },
     });
     audio.current = player;
@@ -352,7 +359,13 @@ function PreviewSession({
         },
         prompt.key.startsWith("selected:") ? 10000 : 60000
       );
-      promptWaiter.current = { key: prompt.key, finish };
+      promptWaiter.current = {
+        key: prompt.key,
+        finish,
+        onPlaying: () => {
+          if (prompt.key.startsWith("selected:")) clearTimeout(timer);
+        },
+      };
       void player.play(prompt).catch(finish);
     });
   };
